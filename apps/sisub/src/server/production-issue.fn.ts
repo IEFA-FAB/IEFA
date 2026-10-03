@@ -26,6 +26,7 @@ import { z } from "zod"
 import { hiddenByBlindCount } from "@/lib/blind-count.server"
 import { maskBlindCountIssueLines } from "@/lib/blind-count-mask"
 import { publicDbMessage } from "@/lib/db-error-message"
+import { readAllPages, readAllPagesIn } from "@/lib/read-all-pages"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient, rpcWithNulls } from "@/lib/supabase.server"
 
@@ -59,11 +60,21 @@ async function lotBalancesForIngredients(kitchenId: number, ingredientIds: strin
 	const byIngredient = new Map<string, LotBalance[]>()
 	if (ingredientIds.length === 0) return byIngredient
 	const inv = inventory()
-	const { data: rows } = await inv
-		.from("v_stock_balance")
-		.select("ingredient_id, lot_id, expiry_date, balance")
-		.eq("kitchen_id", kitchenId)
-		.in("ingredient_id", ingredientIds)
+	// Só lote com saldo, já no banco: a view guarda todo lote que a cozinha já teve, e com o tempo
+	// a leitura inteira passava do teto de 1000 linhas e cortava lote calada. Ordem pela chave da view.
+	const rows = await readAllPagesIn("o saldo dos insumos", ingredientIds, (chunk, from, to) =>
+		inv
+			.from("v_stock_balance")
+			.select("ingredient_id, frozen_preparation_id, lot_id, expiry_date, balance")
+			.eq("kitchen_id", kitchenId)
+			.in("ingredient_id", chunk)
+			.gt("balance", 0)
+			.not("lot_id", "is", null)
+			.order("ingredient_id")
+			.order("frozen_preparation_id")
+			.order("lot_id")
+			.range(from, to)
+	)
 
 	// A view é a soma do ledger e não conhece o lote: nem quarentena, nem
 	// entrada, nem "usar primeiro". Os três campos decidem a alocação no banco,
@@ -78,18 +89,17 @@ async function lotBalancesForIngredients(kitchenId: number, ingredientIds: strin
 	// Só lote COM saldo. A view traz todo lote que a cozinha já teve, inclusive os
 	// vazios; em alguns meses seriam centenas de ids num `.in(...)` via GET, a URL
 	// estoura, e a leitura — que agora lança erro — derrubaria a tela inteira.
-	const lotIds = [...new Set((rows ?? []).flatMap((row) => (row.lot_id != null && Number(row.balance) > 0 ? [row.lot_id] : [])))]
+	const lotIds = [...new Set(rows.flatMap((row) => (row.lot_id != null && Number(row.balance) > 0 ? [row.lot_id] : [])))]
 	const lotMeta = new Map<string, { quarantined_at: string | null; received_at: string | null; use_first: boolean | null }>()
-	if (lotIds.length > 0) {
-		const { data: lots, error: lotError } = await inv.from("stock_lot").select("id, quarantined_at, received_at, use_first").in("id", lotIds)
-		// Sem esta leitura o lote em quarentena volta a contar como disponível, e a
-		// tela diz que há saldo que o banco vai pular — o defeito que esta consulta
-		// existe para fechar, de volta e calado.
-		if (lotError) throw new Error(`Erro ao carregar os lotes: ${publicDbMessage(lotError)}`)
-		for (const lot of lots ?? []) lotMeta.set(lot.id, lot)
-	}
+	// Sem esta leitura o lote em quarentena volta a contar como disponível, e a
+	// tela diz que há saldo que o banco vai pular — o defeito que esta consulta
+	// existe para fechar, de volta e calado. Fatiada: centenas de ids estouram a URL.
+	const lots = await readAllPagesIn("os lotes", lotIds, (chunk, from, to) =>
+		inv.from("stock_lot").select("id, quarantined_at, received_at, use_first").in("id", chunk).order("id").range(from, to)
+	)
+	for (const lot of lots) lotMeta.set(lot.id, lot)
 
-	for (const row of rows ?? []) {
+	for (const row of rows) {
 		// `ingredient_id` da view vem declarado anulável, mas a leitura filtra por ele.
 		if (row.lot_id == null || row.ingredient_id == null || Number(row.balance) <= 0) continue
 		const meta = lotMeta.get(row.lot_id)
@@ -184,13 +194,14 @@ export const fetchPendingIssuesFn = createServerFn({ method: "GET" })
 		const pending = taskList.filter((t) => !issuedIds.has(t.id))
 		if (pending.length === 0) return []
 
-		const { data: menuItems } = await kit
+		const { data: menuItems, error: menuItemsError } = await kit
 			.from("menu_items")
 			.select("id, recipe, planned_portion_quantity")
 			.in(
 				"id",
 				pending.map((t) => t.menu_item_id)
 			)
+		if (menuItemsError) throw new Error(`Erro ao carregar as preparações do cardápio: ${publicDbMessage(menuItemsError)}`)
 		const menuById = new Map((menuItems ?? []).map((m) => [m.id, m]))
 
 		const results = []
@@ -342,7 +353,8 @@ export const registerLeftoverFn = createServerFn({ method: "POST" })
 		// O `refine` do validador garante a congelada quando não há provisória nova.
 		const frozenPreparationId = data.frozenPreparationId
 		if (!frozenPreparationId) throw new Error("Preparação congelada não encontrada")
-		const { data: prep } = await kit.from("frozen_preparation").select("id, shelf_life_days").eq("id", frozenPreparationId).single()
+		const { data: prep, error: prepError } = await kit.from("frozen_preparation").select("id, shelf_life_days").eq("id", frozenPreparationId).maybeSingle()
+		if (prepError) throw new Error(`Erro ao carregar a preparação congelada: ${publicDbMessage(prepError)}`)
 		if (!prep) throw new Error("Preparação congelada não encontrada")
 
 		// lote + movimentos numa função SQL (review: falha parcial deixava lote
@@ -401,24 +413,26 @@ export const fetchVarianceFn = createServerFn({ method: "GET" })
 		const kit = kitchen()
 		const inv = inventory()
 
-		const { data: tasks } = await kit
+		const { data: tasks, error: tasksError } = await kit
 			.from("production_task")
 			.select("id, menu_item_id")
 			.eq("kitchen_id", data.kitchenId)
 			.eq("status", "DONE")
 			.gte("production_date", data.from)
 			.lte("production_date", data.to)
+		if (tasksError) throw new Error(`Erro ao carregar as tarefas de produção: ${publicDbMessage(tasksError)}`)
 		const taskList = tasks ?? []
 
 		const theoretical = new Map<string, number>()
 		if (taskList.length > 0) {
-			const { data: menuItems } = await kit
+			const { data: menuItems, error: menuItemsError } = await kit
 				.from("menu_items")
 				.select("id, recipe, planned_portion_quantity")
 				.in(
 					"id",
 					taskList.map((t) => t.menu_item_id)
 				)
+			if (menuItemsError) throw new Error(`Erro ao carregar as preparações do cardápio: ${publicDbMessage(menuItemsError)}`)
 			const menuById = new Map((menuItems ?? []).map((m) => [m.id, m]))
 			// por TAREFA, não por menu_item deduplicado — a mesma preparação
 			// produzida N vezes conta N vezes (review: variância superestimada)
@@ -435,16 +449,21 @@ export const fetchVarianceFn = createServerFn({ method: "GET" })
 		}
 
 		const real = new Map<string, number>()
-		const { data: moves } = await inv
-			.from("stock_movement")
-			.select("ingredient_id, quantity")
-			.eq("kitchen_id", data.kitchenId)
-			.eq("type", "production_issue")
-			// o período é civil (Brasília): sem o offset, saída das 22:30 do
-			// último dia do mês caía no mês seguinte
-			.gte("occurred_at", `${data.from}T00:00:00-03:00`)
-			.lte("occurred_at", `${data.to}T23:59:59.999-03:00`)
-		for (const move of moves ?? []) {
+		// A soma do período passa de 1000 saídas cedo: paginada, para o realizado não sair cortado.
+		const moves = await readAllPages("as saídas para produção", (from, to) =>
+			inv
+				.from("stock_movement")
+				.select("id, ingredient_id, quantity")
+				.eq("kitchen_id", data.kitchenId)
+				.eq("type", "production_issue")
+				// o período é civil (Brasília): sem o offset, saída das 22:30 do
+				// último dia do mês caía no mês seguinte
+				.gte("occurred_at", `${data.from}T00:00:00-03:00`)
+				.lte("occurred_at", `${data.to}T23:59:59.999-03:00`)
+				.order("id")
+				.range(from, to)
+		)
+		for (const move of moves) {
 			if (move.ingredient_id == null) continue
 			real.set(move.ingredient_id, (real.get(move.ingredient_id) ?? 0) + Number(move.quantity))
 		}
@@ -452,7 +471,8 @@ export const fetchVarianceFn = createServerFn({ method: "GET" })
 		const ingredientIds = [...new Set([...theoretical.keys(), ...real.keys()])]
 		const names = new Map<string, { description: string | null; measure_unit: string | null }>()
 		if (ingredientIds.length > 0) {
-			const { data: ings } = await kit.from("ingredient").select("id, description, measure_unit").in("id", ingredientIds)
+			const { data: ings, error: ingsError } = await kit.from("ingredient").select("id, description, measure_unit").in("id", ingredientIds)
+			if (ingsError) throw new Error(`Erro ao carregar os insumos: ${publicDbMessage(ingsError)}`)
 			for (const ing of ings ?? []) names.set(ing.id, ing)
 		}
 

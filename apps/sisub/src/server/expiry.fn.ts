@@ -22,6 +22,7 @@ import { requireAuth } from "@/lib/auth.server"
 import { hiddenByBlindCount } from "@/lib/blind-count.server"
 import { maskBlindCountQuantities, withoutBlindCountLots } from "@/lib/blind-count-mask"
 import { publicDbMessage } from "@/lib/db-error-message"
+import { itemDescription } from "@/lib/item-description"
 import { readAllPages, readAllPagesIn } from "@/lib/read-all-pages"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
@@ -67,7 +68,7 @@ async function describeItems(
 		kit.from("ingredient").select("id, description, measure_unit").in("id", chunk).order("id").range(from, to)
 	)
 	// `description` é nulável no insumo; vazia aqui quebraria o `localeCompare` da ordenação.
-	for (const row of ingredients) describe.set(row.id, { description: row.description?.trim() || "(item sem descrição)", measureUnit: row.measure_unit })
+	for (const row of ingredients) describe.set(row.id, { description: itemDescription(row.description), measureUnit: row.measure_unit })
 	const frozen = await readAllPagesIn("as preparações", frozenIds, (chunk, from, to) =>
 		kit.from("frozen_preparation").select("id, description").in("id", chunk).order("id").range(from, to)
 	)

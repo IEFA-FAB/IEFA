@@ -68,11 +68,13 @@ async function describeItems(ingredientIds: string[], frozenIds: string[]) {
 	const kit = kitchen()
 	const names = new Map<string, { description: string; measureUnit: string | null }>()
 	if (ingredientIds.length > 0) {
-		const { data } = await kit.from("ingredient").select("id, description, measure_unit").in("id", ingredientIds)
+		const { data, error } = await kit.from("ingredient").select("id, description, measure_unit").in("id", ingredientIds)
+		if (error) throw new Error(`Erro ao carregar os insumos: ${publicDbMessage(error)}`)
 		for (const row of data ?? []) names.set(`i:${row.id}`, { description: itemDescription(row.description), measureUnit: row.measure_unit })
 	}
 	if (frozenIds.length > 0) {
-		const { data } = await kit.from("frozen_preparation").select("id, description, measure_unit").in("id", frozenIds)
+		const { data, error } = await kit.from("frozen_preparation").select("id, description, measure_unit").in("id", frozenIds)
+		if (error) throw new Error(`Erro ao carregar as preparações: ${publicDbMessage(error)}`)
 		for (const row of data ?? []) names.set(`f:${row.id}`, { description: itemDescription(row.description), measureUnit: row.measure_unit })
 	}
 	return names
@@ -232,7 +234,8 @@ export const createTransferFn = createServerFn({ method: "POST" })
 	.validator(z.object({ lotId: z.uuid(), toKitchenId: z.number().int().positive(), quantity: z.number().positive() }))
 	.handler(async ({ data }) => {
 		// escopo pela cozinha de ORIGEM do lote (quem cede precisa da permissão)
-		const { data: lotRow } = await inventory().from("stock_lot").select("kitchen_id").eq("id", data.lotId).maybeSingle()
+		const { data: lotRow, error: lotRowError } = await inventory().from("stock_lot").select("kitchen_id").eq("id", data.lotId).maybeSingle()
+		if (lotRowError) throw new Error(`Erro ao carregar o lote: ${publicDbMessage(lotRowError)}`)
 		if (!lotRow) throw new Error("Lote não encontrado")
 		const ctx = await requireStorageForKitchen(2, Number(lotRow.kitchen_id))
 		const { userId } = ctx
