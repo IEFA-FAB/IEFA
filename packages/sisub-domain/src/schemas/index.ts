@@ -632,6 +632,34 @@ export {
 } from "./recipes.ts"
 export type { GetReviewMetrics } from "./review-metrics.ts"
 export { GetReviewMetricsSchema } from "./review-metrics.ts"
+export type {
+	AccountKind,
+	ConfirmSaramCandidate,
+	DecideSaramRequest,
+	LinkUserSaram,
+	RequestSaramLink,
+	SetOwnAccountKind,
+	SetUserAccountKind,
+	UnlinkUserSaram,
+	VerifySaramByCpf,
+	WithdrawSaramRequest,
+} from "./saram-link.ts"
+export {
+	ACCOUNT_KINDS,
+	AccountKindSchema,
+	ConfirmSaramCandidateSchema,
+	DecideSaramRequestSchema,
+	LinkUserSaramSchema,
+	RequestSaramLinkSchema,
+	SARAM_JUSTIFICATION_MAX_LENGTH,
+	SARAM_JUSTIFICATION_MIN_LENGTH,
+	SaramSchema,
+	SetOwnAccountKindSchema,
+	SetUserAccountKindSchema,
+	UnlinkUserSaramSchema,
+	VerifySaramByCpfSchema,
+	WithdrawSaramRequestSchema,
+} from "./saram-link.ts"
 export type { AuthorizeExternalSignup, RevokeExternalSignup } from "./signup-allowlist.ts"
 export {
 	AuthorizeExternalSignupSchema,

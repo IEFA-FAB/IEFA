@@ -11,6 +11,7 @@ export const queryKeys = {
 		data: (userId: string | null | undefined) => ["user_data", userId] as const,
 		military: (saram: string | null | undefined) => ["military", saram] as const,
 		saram: (userId: string | null | undefined) => ["user", userId, "saram"] as const,
+		saramStatus: (userId: string | null | undefined) => ["user", userId, "saram", "status"] as const,
 		kitchens: () => ["user", "kitchens"] as const,
 	},
 

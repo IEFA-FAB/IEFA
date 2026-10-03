@@ -154,20 +154,25 @@ describe("access_control.signup_allowlist", () => {
 	})
 })
 
-describe("core.link_own_saram (sucont) espelha syncUserSaram (sisub)", () => {
+/**
+ * Desde 20261003100000 nem o sisub nem o sucont chamam `core.link_own_saram`: os dois passam por
+ * `core.claim_saram` (`saram-link.sql-contract.test.ts`). A função fica até o deploy do sucont
+ * (a versão em produção a chama) e sai num PR seguinte; enquanto existir, segue com as travas.
+ */
+describe("core.link_own_saram (legado do sucont, até o deploy de saram-verified-link)", () => {
 	const fn = latestBody("core.link_own_saram")
 	const domain = readFileSync(join(import.meta.dir, "..", "..", "sisub-domain", "src", "operations", "user.ts"), "utf8")
 
-	test("mesma chave de advisory lock: sisub e sucont se serializam no mesmo SARAM", () => {
-		// A interpolação do drizzle, como texto: `${`saram:${requested}`}`.
-		const placeholder = ["$", "{`saram:", "$", "{requested}`}"].join("")
-		expect(domain).toContain(`select pg_advisory_xact_lock(hashtext(${placeholder}))`)
+	test("mesma chave de advisory lock das funções de vínculo verificado", () => {
 		expect(fn?.body).toContain("perform pg_advisory_xact_lock(hashtext('saram:' || v_requested))")
+		expect(read("20261003100000_saram_verified_link.sql")).toContain("perform pg_advisory_xact_lock(hashtext('saram:' || v_saram))")
+		// o sisub não grava SARAM por conta própria: entrega ao banco
+		expect(domain).toContain("claimSaram(db,")
+		expect(domain).not.toContain("pg_advisory_xact_lock")
 	})
 
-	test("as duas travas e os mesmos códigos", () => {
+	test("as duas travas", () => {
 		for (const token of ["SARAM_LOCKED", "SARAM_TAKEN"]) {
-			expect(domain).toContain(`"${token}"`)
 			expect(fn?.body).toContain(`'${token}'`)
 		}
 		// write-once: só trava quando o SARAM ATUAL localiza cadastro militar

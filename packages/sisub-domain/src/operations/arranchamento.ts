@@ -13,6 +13,7 @@ import { and, asc, eq, gte, lte } from "drizzle-orm"
 import type { DeleteArranchamento, GetUserDefaultMessHall, ListArranchamentos, PersistDefaultMessHall, UpsertArranchamento } from "../schemas/meal-ops.ts"
 import type { UserContext } from "../types/context.ts"
 import { runQuery } from "../utils/index.ts"
+import { assertAccountCanEat, toSaramDomainError } from "./saram-link.ts"
 
 type ArranchamentoListItem = { date: string; meal: string; will_eat: boolean; mess_halls: { code: string | null } | null }
 
@@ -54,6 +55,10 @@ export async function persistDefaultMessHall(db: SisubDb, ctx: UserContext, inpu
 }
 
 export async function upsertArranchamento(db: SisubDb, ctx: UserContext, input: UpsertArranchamento) {
+	// Conta institucional (conta de seção) não se arrancha; desmarcar continua livre. O trigger
+	// `refuse_institutional_account_meal` (20261003100000) é a garantia; aqui a recusa sai com
+	// a mensagem certa.
+	if (input.willEat) await assertAccountCanEat(db, ctx.userId)
 	const row = { date: input.date, userId: ctx.userId, meal: input.meal, willEat: input.willEat, messHallId: input.messHallId }
 
 	try {
@@ -64,7 +69,10 @@ export async function upsertArranchamento(db: SisubDb, ctx: UserContext, input: 
 				target: [arranchamentoInKitchen.userId, arranchamentoInKitchen.date, arranchamentoInKitchen.meal],
 				set: { willEat: input.willEat, messHallId: input.messHallId },
 			})
-	} catch {
+	} catch (error) {
+		// A recusa do banco à conta institucional não é caso de borda: o fallback a repetiria.
+		const refusal = toSaramDomainError(error)
+		if (refusal.code === "ACCOUNT_INSTITUTIONAL") throw refusal
 		// Fallback: delete + insert — cobre casos de borda que o onConflict não resolve.
 		// Em transação: se o insert falhar, o delete reverte (senão a linha sumiria de vez).
 		await runQuery("UPSERT_FAILED", () =>

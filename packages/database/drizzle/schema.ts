@@ -578,29 +578,6 @@ export const supplyOrderItemInProcurement = procurement.table("supply_order_item
 	check("supply_order_item_ordered_qty_check", sql`ordered_qty > (0)::numeric`),
 ]);
 
-export const userDataInCore = core.table("user_data", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	email: text().notNull(),
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	defaultMessHallId: bigint("default_mess_hall_id", { mode: "number" }),
-	saram: text(),
-}, (table) => [
-	index("user_data_default_mess_hall_id_fk_idx").using("btree", table.defaultMessHallId.asc().nullsLast()),
-	index("user_data_saram_idx").using("btree", table.saram.asc().nullsLast()),
-	foreignKey({
-			columns: [table.defaultMessHallId],
-			foreignColumns: [messHallsInKitchen.id],
-			name: "user_data_default_mess_hall_id_fkey"
-		}),
-	foreignKey({
-			columns: [table.id],
-			foreignColumns: [usersInAuth.id],
-			name: "user_data_id_fkey"
-		}),
-	unique("user_data_email_key").on(table.email),
-]);
-
 export const nfeItemInInventory = inventory.table("nfe_item", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	nfeDocumentId: uuid("nfe_document_id").notNull(),
@@ -4549,6 +4526,37 @@ export const stockIssueRequestInInventory = inventory.table("stock_issue_request
 	check("stock_issue_request_status_check", sql`status = ANY (ARRAY['open'::text, 'closed'::text, 'closed_unexplained'::text])`),
 ]);
 
+export const userDataInCore = core.table("user_data", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	email: text().notNull(),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	defaultMessHallId: bigint("default_mess_hall_id", { mode: "number" }),
+	saram: text(),
+	accountKind: text("account_kind").default('pessoal').notNull(),
+	saramVerifiedBy: text("saram_verified_by"),
+	saramVerifiedAt: timestamp("saram_verified_at", { withTimezone: true, mode: 'string' }),
+}, (table) => [
+	index("user_data_default_mess_hall_id_fk_idx").using("btree", table.defaultMessHallId.asc().nullsLast()),
+	index("user_data_saram_idx").using("btree", table.saram.asc().nullsLast()),
+	uniqueIndex("user_data_saram_verified_uniq").using("btree", table.saram.asc().nullsLast()).where(sql`(saram_verified_by = ANY (ARRAY['email'::text, 'cpf'::text, 'admin'::text]))`),
+	foreignKey({
+			columns: [table.defaultMessHallId],
+			foreignColumns: [messHallsInKitchen.id],
+			name: "user_data_default_mess_hall_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.id],
+			foreignColumns: [usersInAuth.id],
+			name: "user_data_id_fkey"
+		}),
+	unique("user_data_email_key").on(table.email),
+	check("user_data_account_kind_check", sql`account_kind = ANY (ARRAY['pessoal'::text, 'institucional'::text])`),
+	check("user_data_institutional_without_saram", sql`(account_kind = 'pessoal'::text) OR (saram IS NULL)`),
+	check("user_data_saram_verification_needs_saram", sql`(saram_verified_by IS NULL) OR (saram IS NOT NULL)`),
+	check("user_data_saram_verified_by_check", sql`saram_verified_by = ANY (ARRAY['email'::text, 'cpf'::text, 'admin'::text, 'legacy'::text])`),
+]);
+
 export const trainingResetLogInKitchen = kitchen.table("training_reset_log", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	actorId: uuid("actor_id").notNull(),
@@ -4570,6 +4578,68 @@ export const superAdminControllerInKitchen = kitchen.table("super_admin_controll
 	active: boolean(),
 	value: text(),
 });
+
+export const saramLinkRequestInCore = core.table("saram_link_request", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	userId: uuid("user_id").notNull(),
+	kind: text().notNull(),
+	saram: text().notNull(),
+	justification: text().notNull(),
+	holderUserId: uuid("holder_user_id"),
+	claimVerifiedBy: text("claim_verified_by"),
+	status: text().default('pending').notNull(),
+	decidedBy: uuid("decided_by"),
+	decidedAt: timestamp("decided_at", { withTimezone: true, mode: 'string' }),
+	decisionNote: text("decision_note"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("saram_link_request_decided_by_idx").using("btree", table.decidedBy.asc().nullsLast()),
+	index("saram_link_request_holder_user_idx").using("btree", table.holderUserId.asc().nullsLast()),
+	uniqueIndex("saram_link_request_one_pending_uniq").using("btree", table.userId.asc().nullsLast()).where(sql`(status = 'pending'::text)`),
+	index("saram_link_request_saram_idx").using("btree", table.saram.asc().nullsLast()),
+	index("saram_link_request_user_created_idx").using("btree", table.userId.asc().nullsLast(), table.createdAt.desc().nullsFirst()),
+	foreignKey({
+			columns: [table.decidedBy],
+			foreignColumns: [usersInAuth.id],
+			name: "saram_link_request_decided_by_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.holderUserId],
+			foreignColumns: [usersInAuth.id],
+			name: "saram_link_request_holder_user_id_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.userId],
+			foreignColumns: [usersInAuth.id],
+			name: "saram_link_request_user_id_fkey"
+		}).onDelete("cascade"),
+	check("saram_link_request_claim_check", sql`claim_verified_by = ANY (ARRAY['email'::text, 'cpf'::text])`),
+	check("saram_link_request_decided_check", sql`(status = 'pending'::text) = (decided_at IS NULL)`),
+	check("saram_link_request_justification_check", sql`(char_length(btrim(justification)) >= 10) AND (char_length(btrim(justification)) <= 1000)`),
+	check("saram_link_request_kind_check", sql`kind = ANY (ARRAY['link'::text, 'dispute'::text])`),
+	check("saram_link_request_saram_check", sql`saram ~ '^[0-9]{6,7}$'::text`),
+	check("saram_link_request_status_check", sql`status = ANY (ARRAY['pending'::text, 'approved'::text, 'rejected'::text, 'withdrawn'::text])`),
+]);
+
+export const saramVerificationAttemptInCore = core.table("saram_verification_attempt", {
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	id: bigint({ mode: "number" }).primaryKey().generatedAlwaysAsIdentity({ name: "core.saram_verification_attempt_id_seq", startWith: 1, increment: 1, minValue: 1, maxValue: 9223372036854775807, cache: 1 }),
+	userId: uuid("user_id").notNull(),
+	saram: text().notNull(),
+	method: text().notNull(),
+	succeeded: boolean().notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("saram_verification_attempt_saram_idx").using("btree", table.saram.asc().nullsLast(), table.createdAt.desc().nullsFirst()),
+	index("saram_verification_attempt_user_idx").using("btree", table.userId.asc().nullsLast(), table.createdAt.desc().nullsFirst()),
+	foreignKey({
+			columns: [table.userId],
+			foreignColumns: [usersInAuth.id],
+			name: "saram_verification_attempt_user_id_fkey"
+		}).onDelete("cascade"),
+	check("saram_verification_attempt_method_check", sql`method = ANY (ARRAY['cpf'::text, 'cpf_suffix'::text])`),
+]);
 
 export const userPermissionsInAccessControl = accessControl.table("user_permissions", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
@@ -4652,6 +4722,7 @@ export const userMilitaryDataInCore = core.table("user_military_data", {
 	id: bigint({ mode: "number" }).primaryKey().generatedByDefaultAsIdentity({ name: "core.user_military_data_id_seq", startWith: 1, increment: 1, minValue: 1, maxValue: 9223372036854775807, cache: 1 }),
 }, (table) => [
 	index("user_military_data_dataAtualizacao_idx").using("btree", table.dataAtualizacao.asc().nullsLast()),
+	index("user_military_data_name_key_idx").using("btree", sql`core.military_name_key("nmGuerra", "nmPessoa")`),
 	index("user_military_data_nrOrdem_idx").using("btree", table.nrOrdem.asc().nullsLast()),
 	unique("user_military_data_nrCpf_key").on(table.nrCpf),
 ]);
@@ -5703,7 +5774,7 @@ export const vStockBalanceInInventory = inventory.view("v_stock_balance", {	// Y
 
 export const vUserIdentityInCore = core.view("v_user_identity", {	id: uuid(),
 	displayName: text("display_name"),
-}).with({"securityInvoker":true}).as(sql`SELECT ud.id, CASE WHEN NULLIF(btrim((COALESCE(mi.posto, ''::text) || ' '::text) || COALESCE(mi.nome_guerra, ''::text)), ''::text) IS NOT NULL THEN btrim((COALESCE(mi.posto, ''::text) || ' '::text) || initcap(COALESCE(mi.nome_guerra, ''::text))) ELSE ud.email END AS display_name FROM core.user_data ud LEFT JOIN core.military_identity mi ON mi.saram = ud.saram`);
+}).with({"securityInvoker":true}).as(sql`SELECT ud.id, CASE WHEN NULLIF(btrim((COALESCE(mi.posto, ''::text) || ' '::text) || COALESCE(mi.nome_guerra, ''::text)), ''::text) IS NOT NULL THEN btrim((COALESCE(mi.posto, ''::text) || ' '::text) || initcap(COALESCE(mi.nome_guerra, ''::text))) ELSE ud.email END AS display_name FROM core.user_data ud LEFT JOIN core.military_identity mi ON mi.saram = ud.saram AND ud.account_kind = 'pessoal'::text AND ((ud.saram_verified_by = ANY (ARRAY['email'::text, 'cpf'::text, 'admin'::text])) OR ud.saram_verified_by = 'legacy'::text AND NOT (EXISTS ( SELECT 1 FROM core.user_data o WHERE o.saram = ud.saram AND o.id <> ud.id AND (o.saram_verified_by = ANY (ARRAY['email'::text, 'cpf'::text, 'admin'::text])))))`);
 
 export const vLotExpiryInInventory = inventory.view("v_lot_expiry", {	lotId: uuid("lot_id"),
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations

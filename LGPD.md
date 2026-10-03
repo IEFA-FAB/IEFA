@@ -144,8 +144,20 @@ esperar o `id`); o upsert é pelo CPF, que segue `UNIQUE`
 (`on conflict ("nrCpf") do update set …` ou `do nothing`). A view se atualiza
 com a tabela; nada a recriar depois do patch. `"nrOrdem"` é o nome da origem e
 fica no espelho mesmo depois de o glossário chamar o SARAM de `saram` nos
-objetos nossos. SARAM ausente do espelho continua gravável na conta (sem FK
-para o espelho, de propósito): aparece sem posto até o patch seguinte.
+objetos nossos.
+
+**Vínculo do SARAM à conta (`20261003100000`, change `saram-verified-link`).** O
+SARAM só vale verificado: pela chave do e-mail institucional (nome de guerra +
+iniciais do nome completo), por SARAM + CPF completo, ou por decisão do
+administrador. A chave e a conferência rodam em funções do banco (`core.*`):
+nome completo e CPF continuam sem sair dele, e nenhum candidato é mostrado com
+SARAM, CPF ou nome completo. As tentativas de conferência ficam em
+`core.saram_verification_attempt` (conta, SARAM tentado, método, resultado e
+hora; **nunca o CPF digitado**), registro de segurança que limita 5 falhas por
+hora por conta (e 20 de outras contas por SARAM); como o resto, sem expurgo por idade. Pedidos e
+contestações ficam em `core.saram_link_request`. SARAM ausente do espelho (quem
+chegou depois do último patch) vira pedido para o administrador, que pode
+aprovar sem o espelho (sem FK, de propósito).
 
 ## Ao mexer
 

@@ -12,7 +12,7 @@
 
 import { type AssuranceRequirement, NO_ASSURANCE } from "@iefa/pbac"
 import { createRequestAuth } from "@iefa/pbac/start"
-import { requireAssurance, requirePermission } from "@iefa/sisub-domain"
+import { requireAssurance, requirePermission, type SaramSession } from "@iefa/sisub-domain"
 import type { AppModule, PermissionScope, UserContext } from "@iefa/sisub-domain/types"
 import { handleDomainError } from "@/lib/domain-errors"
 import type { SessionIdentity } from "@/lib/session-identity"
@@ -47,6 +47,18 @@ export const requireUser = auth.requireUser
 export async function requireSessionIdentity(): Promise<SessionIdentity> {
 	const user = await requireUser()
 	return { userId: user.id, email: user.email ?? "" }
+}
+
+/**
+ * Identidade para o vínculo de SARAM (`@iefa/sisub-domain`, `saram-link.ts`): conta, e-mail e se o
+ * e-mail está confirmado — tudo do usuário que o GoTrue validou, nunca do payload. A sugestão por
+ * e-mail só vale para e-mail confirmado (20261003100000).
+ *
+ * @throws {Error} "UNAUTHORIZED" se o JWT estiver ausente ou inválido.
+ */
+export async function requireSaramSession(): Promise<SaramSession> {
+	const user = await requireUser()
+	return { userId: user.id, email: user.email?.trim() || null, emailConfirmed: Boolean(user.email_confirmed_at) }
 }
 
 /**

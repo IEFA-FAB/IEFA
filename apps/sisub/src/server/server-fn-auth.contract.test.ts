@@ -260,6 +260,11 @@ describe("server function auth contract", () => {
 			"audit.fn — registro de operações sensíveis filtrado por ator ou por alvo; a fn exige `admin` nível 3, e a operation repete o guard",
 		getUserMfaStatusFn: "mfa-admin.fn — o administrador consulta o segundo fator de terceiro antes de removê-lo; exige `admin` nível 3",
 		resetUserMfaFn: "mfa-admin.fn — remoção de MFA de terceiro (último recurso, MFA-RECOVERY.md); exige `admin` nível 3 e garantia `fresh`",
+		linkUserSaramFn:
+			"saram-admin.fn — o administrador vincula o SARAM de terceiro (ou confirma um legacy); exige `admin` nível 2 e garantia `fresh`, auditada pela função SQL",
+		unlinkUserSaramFn: "saram-admin.fn — o administrador desvincula o SARAM de terceiro; exige `admin` nível 2 e garantia `fresh`, auditada pela função SQL",
+		setUserAccountKindFn:
+			"saram-admin.fn — o administrador marca a conta de terceiro como pessoal ou institucional; exige `admin` nível 2 e garantia `fresh`, auditada pela função SQL",
 		authorizeExternalSignupFn:
 			"signup-allowlist.fn — o administrador autoriza o e-mail de um parceiro fora da FAB a criar conta e o convida; exige `admin` nível 2 e garantia `fresh`",
 	}
@@ -271,7 +276,14 @@ describe("server function auth contract", () => {
 	 */
 	const OWN_INPUT_FIELDS: Record<string, Record<string, string>> = {
 		syncUserSaramFn: {
-			saram: "vem do formulário de perfil e é gravado NA LINHA DA SESSÃO (`user.id`) — não seleciona a linha a escrever",
+			saram:
+				"vem do formulário de perfil e só é conferido para a conta DA SESSÃO (`core.claim_saram`, 20261003100000): vincula se for o candidato da chave do e-mail da sessão, senão vira pedido — não seleciona a linha a escrever",
+		},
+		verifySaramByCpfFn: {
+			saram: "o SARAM que a pessoa diz ser o seu, conferido com o CPF no banco para a conta DA SESSÃO — não seleciona a linha a escrever",
+		},
+		requestSaramLinkFn: {
+			saram: "o SARAM que a pessoa pede para a conta DA SESSÃO; fica pendente até o administrador decidir — não seleciona a linha a escrever",
 		},
 	}
 

@@ -68,7 +68,7 @@ queryClient.setQueryData(
 // SARAM já vinculado: sem isto o diálogo de primeiro acesso (montado pelo
 // HubLayout) abriria sobre TODA tela do harness, e o que está sob exame é a
 // casca. Para inspecionar o diálogo, apague esta semente.
-queryClient.setQueryData(["sucont", "myIdentity"], { saram: "7379749", posto: "1T", nomeGuerra: "NANNI" })
+queryClient.setQueryData(["sucont", "myIdentity"], { saram: "7379749", posto: "1T", nomeGuerra: "NANNI", registered: true, status: "verified", outcome: null })
 
 const Catalogo = IndexRoute.options.component as () => React.ReactNode
 // A área de trabalho entra no harness porque é a tela cujo estado é o mais difícil

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { SARAM_LINK_FALLBACK_MESSAGE, saramLinkErrorMessage } from "#/lib/saram-link"
+import { identityFromSaramStatus, isSaramClaimPending, SARAM_LINK_FALLBACK_MESSAGE, saramLinkErrorMessage, saramStatusNeedsAction } from "#/lib/saram-link"
 
 describe("saramLinkErrorMessage", () => {
 	test.each([
@@ -33,12 +33,57 @@ describe("saveMySaramFn", () => {
 		expect(gate).toBeLessThan(body.indexOf("getCoreClient()"))
 	})
 
-	test("grava pela função com as travas, nunca direto em user_data", () => {
-		expect(body).toContain('rpc("link_own_saram", { p_user: user.id,')
+	test("grava pela função verificada, com a sessão, nunca direto em user_data", () => {
+		expect(body).toContain('rpc("claim_saram", { ...sessionArgs(user), p_saram: data.saram })')
 		expect(body).not.toMatch(/\.from\("user_data"\)\.(upsert|update|insert)/)
+		expect(body).not.toContain("link_own_saram")
 	})
 
 	test("identidade da sessão, não do payload: o validator só aceita o número", () => {
 		expect(body).toContain('.validator(z.object({ saram: z.string().regex(/^\\d{6,7}$/, "O SARAM tem 6 ou 7 dígitos.") }))')
+	})
+})
+
+/**
+ * A identidade do sucont sai de `core.saram_link_status` (a mesma função do sisub): posto e nome
+ * de guerra só quando a conta pode vê-los.
+ */
+describe("identityFromSaramStatus", () => {
+	test("verificado: SARAM e identificação", () => {
+		expect(
+			identityFromSaramStatus({ status: "verified", saram: "1234567", visible: true, identity: { posto: "1T", nome_guerra: "NANNI", sg_org: "IEFA" } })
+		).toEqual({ saram: "1234567", posto: "1T", nomeGuerra: "NANNI", registered: true, status: "verified" })
+	})
+
+	test("legacy em conflito: o vínculo fecha o diálogo, mas o cadastro não aparece", () => {
+		expect(identityFromSaramStatus({ status: "legacy", saram: "1234567", visible: false, identity: { posto: "1T", nome_guerra: "OUTRO" } })).toEqual({
+			saram: "1234567",
+			posto: null,
+			nomeGuerra: null,
+			registered: false,
+			status: "legacy",
+		})
+	})
+
+	test("pedido pendente e resposta vazia", () => {
+		expect(identityFromSaramStatus({ status: "pending_request", saram: null, visible: false })).toMatchObject({ saram: null, status: "pending_request" })
+		expect(identityFromSaramStatus(null)).toEqual({ saram: null, posto: null, nomeGuerra: null, registered: false, status: null })
+	})
+
+	test("o diálogo só insiste com ação possível; pedido aberto não tem o que confirmar", () => {
+		expect(saramStatusNeedsAction("suggestion")).toBe(true)
+		expect(saramStatusNeedsAction("no_match")).toBe(true)
+		for (const status of ["institutional", "pending_request", "contested", "locked_out", "verified", null] as const) {
+			expect(saramStatusNeedsAction(status)).toBe(false)
+		}
+		expect(isSaramClaimPending("requested")).toBe(true)
+		expect(isSaramClaimPending("disputed")).toBe(true)
+		expect(isSaramClaimPending("linked")).toBe(false)
+	})
+
+	test("os tokens novos do banco viram frase", () => {
+		for (const token of ["ACCOUNT_INSTITUTIONAL", "REQUEST_PENDING", "REQUEST_LIMIT"]) {
+			expect(saramLinkErrorMessage(token)).not.toBe(SARAM_LINK_FALLBACK_MESSAGE)
+		}
 	})
 })
