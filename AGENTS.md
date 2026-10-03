@@ -37,6 +37,7 @@ IA) · `supabase-kit` (clients service-role/browser/SSR com deadlines de fetch) 
 
 ```bash
 bun install                            # obrigatório em worktree nova: instala os hooks de commit
+bun run doctor                         # o que falta nesta worktree (hooks, .env, opengrep, gitleaks…)
 bun run dev / bun run sisub:dev        # todos os apps / só um (`<app>:dev` no package.json)
 bun run check                          # biome + typecheck (monorepo)
 bun run lint --concurrency=2           # o mesmo lint do CI
