@@ -53,6 +53,7 @@ import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAuthWithPermission } from "@/lib/auth.server"
 import { publicDbMessage } from "@/lib/db-error-message"
+import { itemDescription } from "@/lib/item-description"
 import { withDeferralRollback } from "@/lib/deferral-mark"
 import { invoiceSituationProblem } from "@/lib/invoice-gate"
 import { purchaseUnitIdOfKitchen } from "@/lib/kitchen-purchase-unit.server"
@@ -60,12 +61,12 @@ import { nfeOwnershipProblem } from "@/lib/nfe-ownership"
 import { readAllPages } from "@/lib/read-all-pages"
 import { decideReceiptInvoice, isInvoiceCancelled } from "@/lib/receipt-invoice-gate"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
-import { getLooseServerClient, getServerClient } from "@/lib/supabase.server"
+import { getServerClient, rpcWithNulls } from "@/lib/supabase.server"
 
-const inventory = () => getLooseServerClient("inventory")
-const procurement = () => getLooseServerClient("procurement")
-const kitchen = () => getLooseServerClient("kitchen")
-const finance = () => getLooseServerClient("finance")
+const inventory = () => getServerClient("inventory")
+const procurement = () => getServerClient("procurement")
+const kitchen = () => getServerClient("kitchen")
+const finance = () => getServerClient("finance")
 
 const IsoDate = z
 	.string()
@@ -75,28 +76,31 @@ const IsoDate = z
 /** Recebimento já efetivado não aceita mais escrita — nem de lote. */
 async function requireOpenReceipt(receiptId: string, level: 2 | 3) {
 	const inv = inventory()
-	const { data: receipt } = await inv.from("goods_receipt").select("id, status, kitchen_id, created_at").eq("id", receiptId).maybeSingle()
+	const { data: receipt, error: receiptError } = await inv.from("goods_receipt").select("id, status, kitchen_id, created_at").eq("id", receiptId).maybeSingle()
+	if (receiptError) throw new Error(`Erro ao carregar o recebimento: ${publicDbMessage(receiptError)}`)
 	if (!receipt) throw new Error("Recebimento não encontrado")
 	const auth = await requireStorageForKitchen(level, Number(receipt.kitchen_id))
 	// `divergent` e `rejected` JÁ passaram pela efetivação (o ledger foi gravado
 	// ou o recebimento foi recusado): aceitar escrita neles mudava o termo e o
 	// valor sugerido de liquidação depois do fato. A UI já bloqueava; a API não.
-	if (!isReceiptEditable(receipt.status as string)) throw new Error("Recebimento já efetivado — não pode ser alterado")
+	if (!isReceiptEditable(receipt.status)) throw new Error("Recebimento já efetivado — não pode ser alterado")
 	return { receipt, ...auth }
 }
 
-/** Sobe da linha do item até o recebimento (o guard é por cozinha). */
-async function receiptIdForItem(receiptItemId: string): Promise<string> {
-	const { data: item } = await inventory().from("goods_receipt_item").select("receipt_id").eq("id", receiptItemId).maybeSingle()
+/** A linha do recebimento, com o que a conferência dela precisa; sobe até o recebimento (o guard é por cozinha). */
+async function receiptItemOf(receiptItemId: string) {
+	const { data: item, error: itemError } = await inventory()
+		.from("goods_receipt_item")
+		.select("receipt_id, purchase_item_id, ingredient_id")
+		.eq("id", receiptItemId)
+		.maybeSingle()
+	if (itemError) throw new Error(`Erro ao carregar o item do recebimento: ${publicDbMessage(itemError)}`)
 	if (!item) throw new Error("Linha do recebimento não encontrada")
-	return item.receipt_id as string
+	return item
 }
 
-/** Sobe da linha do lote até o recebimento, para autorizar por cozinha. */
-async function receiptIdForLotItem(receiptItemId: string): Promise<string> {
-	const { data: item } = await inventory().from("goods_receipt_item").select("receipt_id").eq("id", receiptItemId).maybeSingle()
-	if (!item) throw new Error("Item do recebimento não encontrado")
-	return item.receipt_id as string
+async function receiptIdForItem(receiptItemId: string): Promise<string> {
+	return (await receiptItemOf(receiptItemId)).receipt_id
 }
 
 /**
@@ -116,17 +120,20 @@ async function requiredRangeFor(
 
 	let lineSpec: Record<string, unknown> | null = null
 	if (purchaseItemId) {
-		const { data } = await proc.from("purchase_item").select(columns).eq("id", purchaseItemId).maybeSingle()
+		// Falha aqui não é "sem especificação": a faixa de temperatura sumiria e o item fora dela entraria.
+		const { data, error } = await proc.from("purchase_item").select(columns).eq("id", purchaseItemId).maybeSingle()
+		if (error) throw new Error(`Erro ao carregar a especificação do item de compra: ${publicDbMessage(error)}`)
 		lineSpec = data ?? null
 	}
 	let defaultSpec: Record<string, unknown> | null = null
 	if ((!lineSpec || lineSpec.conservation_class == null) && ingredientId) {
-		const { data } = await proc
+		const { data, error } = await proc
 			.from("purchase_item_ingredient")
 			.select(`purchase_item:purchase_item_id (${columns})`)
 			.eq("ingredient_id", ingredientId)
 			.eq("is_default", true)
 			.maybeSingle()
+		if (error) throw new Error(`Erro ao carregar a especificação padrão do insumo: ${publicDbMessage(error)}`)
 		const candidate = (data as { purchase_item?: Record<string, unknown> | null } | null)?.purchase_item ?? null
 		defaultSpec = candidate && candidate.deleted_at == null ? candidate : null
 	}
@@ -208,7 +215,7 @@ export const createReceiptFromNfeFn = createServerFn({ method: "POST" })
 			.eq("nfe_document_id", data.nfeDocumentId)
 		if (itemsError) throw new Error(`Erro ao carregar itens da NF-e: ${publicDbMessage(itemsError)}`)
 
-		const resolvable = (items ?? []).filter((item: { ingredient_id: string | null }) => item.ingredient_id != null)
+		const resolvable = (items ?? []).filter((item) => item.ingredient_id != null)
 		if (resolvable.length === 0) {
 			throw new Error("Nenhum item da NF-e está vinculado a um insumo — resolva o matching antes de receber")
 		}
@@ -217,13 +224,13 @@ export const createReceiptFromNfeFn = createServerFn({ method: "POST" })
 		// sexta existia. Enquanto a linha não casada não tem onde morar no
 		// recebimento (goods_receipt_item exige ingrediente XOR preparação), o
 		// caminho honesto é recusar apontando quais faltam.
-		const unresolved = (items ?? []).filter((item: { ingredient_id: string | null }) => item.ingredient_id == null)
+		const unresolved = (items ?? []).filter((item) => item.ingredient_id == null)
 		if (unresolved.length > 0) {
 			// Nº do item na nota + descrição: é o que o conferente acha no DANFE. O id interno
 			// que ia aqui não dizia nada a ninguém.
 			const descriptions = unresolved
 				.slice(0, 5)
-				.map((item: { n_item: number | null; description: string | null; id: string }) => `#${item.n_item ?? "?"} ${item.description ?? item.id}`)
+				.map((item) => `#${item.n_item ?? "?"} ${item.description ?? item.id}`)
 				.join("; ")
 			throw new Error(
 				`${unresolved.length} item(ns) da NF-e ainda sem insumo vinculado — resolva o matching antes de receber (itens: ${descriptions}${unresolved.length > 5 ? "…" : ""})`
@@ -295,11 +302,14 @@ export const createReceiptFromNfeFn = createServerFn({ method: "POST" })
 		// justamente o que o conferente ainda vai preencher.
 		const byNfeItem = new Map(prepared.map((entry) => [entry.row.nfe_item_id, entry]))
 		const today = arrivalDate(null)
+		// A especificação é lida aqui, depois de os itens existirem: falha nela apaga o recebimento,
+		// como as falhas de inserção abaixo. Sem isso ficava um rascunho sem lote preso à nota, e a
+		// nova tentativa esbarrava em "esta NF-e já tem um recebimento em andamento".
 		const lotRows = await Promise.all(
-			(inserted as Array<{ id: string; nfe_item_id: string; received_qty_base: number; unit_cost: number | null }>)
+			inserted
 				.filter((item) => Number(item.received_qty_base) > 0)
 				.map(async (item, index) => {
-					const source = byNfeItem.get(item.nfe_item_id)
+					const source = item.nfe_item_id ? byNfeItem.get(item.nfe_item_id) : undefined
 					const expiryDate = source?.expiryDate ?? null
 					// A validade que veio na nota também é julgada contra o mínimo da especificação:
 					// lote que ninguém edita antes de efetivar não pode escapar do critério (EST-REC-05).
@@ -315,7 +325,10 @@ export const createReceiptFromNfeFn = createServerFn({ method: "POST" })
 						divergence_reason: shelfLifeDivergence(expiryDate, today, minShelfLifeDays),
 					}
 				})
-		)
+		).catch(async (specError: unknown) => {
+			await inv.from("goods_receipt").delete().eq("id", receipt.id)
+			throw specError
+		})
 
 		if (lotRows.length > 0) {
 			const { error: lotError } = await inv.from("goods_receipt_item_lot").insert(lotRows)
@@ -327,7 +340,7 @@ export const createReceiptFromNfeFn = createServerFn({ method: "POST" })
 
 		// `skipped` fica em zero por construção: nota com linha não casada não
 		// chega a criar recebimento.
-		return { receiptId: receipt.id as string, itemsCount: prepared.length, skipped: 0 }
+		return { receiptId: receipt.id, itemsCount: prepared.length, skipped: 0 }
 	})
 
 /** Conferência da LINHA: quantidade física + motivo de divergência. Lote é escrita à parte. */
@@ -356,7 +369,7 @@ export const updateReceiptItemFn = createServerFn({ method: "POST" })
 			.maybeSingle()
 		if (itemError) throw new Error(`Erro ao carregar o item: ${publicDbMessage(itemError)}`)
 		if (!item) throw new Error("Item do recebimento não encontrado")
-		const { userId } = await requireOpenReceipt(item.receipt_id as string, 2)
+		const { userId } = await requireOpenReceipt(item.receipt_id, 2)
 
 		const invoiced = item.invoiced_qty_base != null ? Number(item.invoiced_qty_base) : null
 		const diverges = divergesFromInvoice(invoiced, data.receivedQtyBase)
@@ -381,7 +394,7 @@ export const updateReceiptItemFn = createServerFn({ method: "POST" })
 			// total e motivo numa transação só; linha que volta a bater com a nota
 			// perde o motivo no próprio recálculo
 			await recordReceiptEvent({
-				receiptId: item.receipt_id as string,
+				receiptId: item.receipt_id,
 				receiptItemId: data.receiptItemId,
 				clientEventId: crypto.randomUUID(),
 				method: "typed",
@@ -436,12 +449,9 @@ export const upsertReceiptLotFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }) => {
-		const receiptId = await receiptIdForLotItem(data.receiptItemId)
-		const { userId, receipt } = await requireOpenReceipt(receiptId, 2)
+		const item = await receiptItemOf(data.receiptItemId)
+		const { userId, receipt } = await requireOpenReceipt(item.receipt_id, 2)
 		const inv = inventory()
-
-		const { data: item } = await inv.from("goods_receipt_item").select("id, purchase_item_id, ingredient_id").eq("id", data.receiptItemId).single()
-		if (!item) throw new Error("Item do recebimento não encontrado")
 
 		const spec = await requiredRangeFor(item.purchase_item_id ?? null, item.ingredient_id ?? null)
 		const received = data.conservationClass ?? null
@@ -462,7 +472,7 @@ export const upsertReceiptLotFn = createServerFn({ method: "POST" })
 				classReason,
 				outOfRange ? temperatureDivergenceReason(measured as number, range) : null,
 				// Contra o dia em que a carga CHEGOU: editar o lote dias depois não pode torná-lo divergente.
-				shelfLifeDivergence(data.expiryDate ?? null, arrivalDate(receipt.created_at as string | null), spec.minShelfLifeDays),
+				shelfLifeDivergence(data.expiryDate ?? null, arrivalDate(receipt.created_at), spec.minShelfLifeDays),
 			],
 			data.divergenceNote
 		)
@@ -510,7 +520,7 @@ export const upsertReceiptLotFn = createServerFn({ method: "POST" })
 export const deleteReceiptLotFn = createServerFn({ method: "POST" })
 	.validator(z.object({ lotId: z.uuid(), receiptItemId: z.uuid() }))
 	.handler(async ({ data }) => {
-		const receiptId = await receiptIdForLotItem(data.receiptItemId)
+		const receiptId = await receiptIdForItem(data.receiptItemId)
 		await requireOpenReceipt(receiptId, 2)
 		const { error } = await inventory().from("goods_receipt_item_lot").delete().eq("id", data.lotId).eq("receipt_item_id", data.receiptItemId)
 		if (error) throw new Error(`Erro ao remover lote: ${publicDbMessage(error)}`)
@@ -533,12 +543,13 @@ async function designationScopeOf(receiptId: string): Promise<DesignationScope> 
 	const { data: receipt, error } = await inventory().from("goods_receipt").select("kitchen_id, empenho_id").eq("id", receiptId).maybeSingle()
 	if (error) throw new Error(`Erro ao carregar o recebimento: ${publicDbMessage(error)}`)
 	if (!receipt) throw new Error("Recebimento não encontrado")
-	return { unitId: await purchaseUnitOfKitchen(Number(receipt.kitchen_id)), empenhoId: (receipt.empenho_id as string | null) ?? null }
+	return { unitId: await purchaseUnitOfKitchen(Number(receipt.kitchen_id)), empenhoId: receipt.empenho_id ?? null }
 }
 
 /** A designação vigente da pessoa para o recebimento, ou `null`. */
 async function findDesignation(scope: DesignationScope, userId: string, stage: ReceiptStage): Promise<string | null> {
-	const { data: designationId, error } = await inventory().rpc("find_designation", {
+	// `p_empenho_id` não tem default no SQL e é nulo no recebimento sem empenho.
+	const { data: designationId, error } = await rpcWithNulls("inventory", "find_designation", {
 		p_person: userId,
 		p_unit_id: scope.unitId,
 		p_empenho_id: scope.empenhoId,
@@ -546,7 +557,7 @@ async function findDesignation(scope: DesignationScope, userId: string, stage: R
 	})
 	// Falha de leitura não pode virar "sem designação": a recusa mandaria designar quem já está.
 	if (error) throw new Error(`Erro ao conferir a designação: ${publicDbMessage(error)}`)
-	return (designationId as string | null) ?? null
+	return designationId ?? null
 }
 
 /**
@@ -585,7 +596,7 @@ async function readReceiptInvoice(receiptId: string): Promise<{ status: string; 
 	// nota" — e a nota nunca confirmada seria efetivada.
 	if (receiptError) throw new Error(`Erro ao conferir a nota do recebimento: ${publicDbMessage(receiptError)}`)
 	if (!receipt) throw new Error("Recebimento não encontrado")
-	return readInvoiceSituation((receipt.nfe_document_id as string | null) ?? null)
+	return readInvoiceSituation(receipt.nfe_document_id ?? null)
 }
 
 /** Situação da NF-e pelo id; `null` = recebimento sem nota (guia, avulso). */
@@ -667,7 +678,8 @@ async function fillCostFromInvoiceLine(receiptId: string) {
 export const setReceiptProvisionalFn = createServerFn({ method: "POST" })
 	.validator(z.object({ receiptId: z.uuid() }))
 	.handler(async ({ data }) => {
-		const { data: receipt } = await inventory().from("goods_receipt").select("kitchen_id").eq("id", data.receiptId).maybeSingle()
+		const { data: receipt, error: receiptError } = await inventory().from("goods_receipt").select("kitchen_id").eq("id", data.receiptId).maybeSingle()
+		if (receiptError) throw new Error(`Erro ao carregar o recebimento: ${publicDbMessage(receiptError)}`)
 		if (!receipt) throw new Error("Recebimento não encontrado")
 		const ctx = await requireStorageForKitchen(2, Number(receipt.kitchen_id))
 		const { userId } = ctx
@@ -695,7 +707,8 @@ export const setReceiptProvisionalFn = createServerFn({ method: "POST" })
 export const finalizeReceiptFn = createServerFn({ method: "POST" })
 	.validator(z.object({ receiptId: z.uuid(), invoiceCheckDeferral: z.object({ reason: z.string().trim().max(300) }).optional() }))
 	.handler(async ({ data }) => {
-		const { data: receipt } = await inventory().from("goods_receipt").select("kitchen_id").eq("id", data.receiptId).maybeSingle()
+		const { data: receipt, error: receiptError } = await inventory().from("goods_receipt").select("kitchen_id").eq("id", data.receiptId).maybeSingle()
+		if (receiptError) throw new Error(`Erro ao carregar o recebimento: ${publicDbMessage(receiptError)}`)
 		if (!receipt) throw new Error("Recebimento não encontrado")
 		const ctx = await requireStorageForKitchen(3, Number(receipt.kitchen_id))
 		const { userId } = ctx
@@ -848,7 +861,14 @@ export const fetchReceiptFn = createServerFn({ method: "GET" })
 		const specById = new Map((specsResult.data ?? []).map((spec) => [spec.id, narrowSpec(spec)]))
 		const needsDefault = (item: (typeof itemRows)[number]) =>
 			!!item.ingredient_id && (!item.purchase_item_id || specById.get(item.purchase_item_id)?.conservation_class == null)
-		const fallbackIngredientIds = [...new Set(itemRows.filter(needsDefault).map((item) => item.ingredient_id as string))]
+		const fallbackIngredientIds = [
+			...new Set(
+				itemRows
+					.filter(needsDefault)
+					.map((item) => item.ingredient_id)
+					.filter((id) => id != null)
+			),
+		]
 		const { data: links, error: linksError } =
 			fallbackIngredientIds.length > 0
 				? await proc
@@ -899,17 +919,11 @@ async function scanLinesFor(receiptId: string) {
 		.select("id, nfe_item_id, ingredient_item_id, invoiced_qty_base, received_qty_base")
 		.eq("receipt_id", receiptId)
 	if (itemsError) throw new Error(`Erro ao carregar as linhas do recebimento: ${publicDbMessage(itemsError)}`)
-	const rows = (items ?? []) as Array<{
-		id: string
-		nfe_item_id: string | null
-		ingredient_item_id: string | null
-		invoiced_qty_base: number | null
-		received_qty_base: number
-	}>
+	const rows = items ?? []
 	if (rows.length === 0) return []
 
 	// o que a NOTA declara (cEAN, cEANTrib, qCom, qTrib)
-	const nfeItemIds = rows.map((row) => row.nfe_item_id).filter((id): id is string => Boolean(id))
+	const nfeItemIds = rows.map((row) => row.nfe_item_id).filter((id) => id != null)
 	const nfeById = new Map<string, { gtin: string | null; gtin_trib: string | null; commercial_qty: number | null; taxable_qty: number | null }>()
 	if (nfeItemIds.length > 0) {
 		const { data: nfeItems, error: nfeError } = await inv.from("nfe_item").select("id, gtin, gtin_trib, commercial_qty, taxable_qty").in("id", nfeItemIds)
@@ -918,7 +932,7 @@ async function scanLinesFor(receiptId: string) {
 	}
 
 	// o que o CATÁLOGO conhece: GTIN do SKU + aliases aprendidos na operação
-	const skuIds = rows.map((row) => row.ingredient_item_id).filter((id): id is string => Boolean(id))
+	const skuIds = rows.map((row) => row.ingredient_item_id).filter((id) => id != null)
 	const catalogByItem = new Map<string, string[]>()
 	const hierarchyByItem = new Map<string, string[]>()
 	if (skuIds.length > 0) {
@@ -927,7 +941,7 @@ async function scanLinesFor(receiptId: string) {
 		for (const sku of skus ?? []) {
 			if (sku.gtin) catalogByItem.set(sku.id, [sku.gtin])
 		}
-		const gs1 = getLooseServerClient("gs1_integration")
+		const gs1 = getServerClient("gs1_integration")
 		const { data: aliases, error: aliasError } = await gs1
 			.from("gtin_alias")
 			.select("gtin, ingredient_item_id, status")
@@ -945,7 +959,7 @@ async function scanLinesFor(receiptId: string) {
 				.select("gtin, parent_gtin")
 				.or(`gtin.in.(${knownGtins.join(",")}),parent_gtin.in.(${knownGtins.join(",")})`)
 			if (hierarchyError) throw new Error(`Erro ao carregar a hierarquia de embalagens: ${publicDbMessage(hierarchyError)}`)
-			const nodes = (hierarchy ?? []) as Array<{ gtin: string; parent_gtin: string | null }>
+			const nodes = hierarchy ?? []
 			for (const [itemId, gtins] of catalogByItem) {
 				const related: string[] = []
 				for (const node of nodes) {
@@ -973,22 +987,6 @@ async function scanLinesFor(receiptId: string) {
 			confirmedQtyBase: Number(row.received_qty_base),
 		} satisfies ReceiptLineForScan
 	})
-}
-
-type ScanEventRow = {
-	id: string
-	seq: number
-	receipt_item_id: string | null
-	method: string
-	raw_code: string | null
-	gtin: string | null
-	lot_code: string | null
-	expiry_date: string | null
-	package_factor: number | null
-	quantity_base: number
-	reversed_event_id: string | null
-	created_by: string | null
-	created_at: string
 }
 
 /**
@@ -1022,17 +1020,17 @@ async function recordReceiptEvent(event: {
 		p_method: event.method,
 		p_quantity: event.quantityBase,
 		p_user: event.userId,
-		p_raw_code: event.rawCode ?? null,
-		p_gtin: event.gtin ?? null,
-		p_lot_code: event.lotCode ?? null,
-		p_expiry_date: event.expiryDate ?? null,
-		p_package_factor: event.packageFactor ?? null,
-		p_reversed_event_id: event.reversedEventId ?? null,
-		p_divergence_reason: event.divergenceReason ?? null,
-		p_expected_total: event.expectedTotal ?? null,
+		p_raw_code: event.rawCode ?? undefined,
+		p_gtin: event.gtin ?? undefined,
+		p_lot_code: event.lotCode ?? undefined,
+		p_expiry_date: event.expiryDate ?? undefined,
+		p_package_factor: event.packageFactor ?? undefined,
+		p_reversed_event_id: event.reversedEventId ?? undefined,
+		p_divergence_reason: event.divergenceReason ?? undefined,
+		p_expected_total: event.expectedTotal ?? undefined,
 	})
 	if (error) throw new Error(`Erro ao registrar a conferência: ${publicDbMessage(error)}`)
-	const row = (data ?? [])[0] as { duplicate: boolean; total: number } | undefined
+	const row = data?.[0]
 	return { duplicate: Boolean(row?.duplicate), total: Number(row?.total ?? 0) }
 }
 
@@ -1068,7 +1066,7 @@ export const recordScanEventFn = createServerFn({ method: "POST" })
 		if (!match) {
 			// o sistema NÃO adiciona linha que a nota não tem: quem decide é o
 			// operador (associar, registrar troca ou ignorar)
-			return { matched: false as const, receiptId: receipt.id as string, gtin: data.gtin }
+			return { matched: false as const, receiptId: receipt.id, gtin: data.gtin }
 		}
 
 		const quantity = (match.quantityBase ?? 0) * data.multiplier
@@ -1180,17 +1178,20 @@ export const associateGtinToLineFn = createServerFn({ method: "POST" })
 		const { receipt, userId } = await requireOpenReceipt(receiptId, 2)
 		const inv = inventory()
 
-		const { data: item } = await inv.from("goods_receipt_item").select("ingredient_item_id").eq("id", data.receiptItemId).maybeSingle()
+		const { data: item, error: itemError } = await inv.from("goods_receipt_item").select("ingredient_item_id").eq("id", data.receiptItemId).maybeSingle()
+		if (itemError) throw new Error(`Erro ao carregar o item do recebimento: ${publicDbMessage(itemError)}`)
 		if (!item?.ingredient_item_id) throw new Error("Linha sem SKU vinculado — resolva o casamento do item antes de associar o código")
 
-		const { data: doc } = await inv.from("goods_receipt").select("nfe_document_id").eq("id", receiptId).maybeSingle()
+		const { data: doc, error: docError } = await inv.from("goods_receipt").select("nfe_document_id").eq("id", receiptId).maybeSingle()
+		if (docError) throw new Error(`Erro ao carregar o recebimento: ${publicDbMessage(docError)}`)
 		let supplierCnpj: string | null = null
 		if (doc?.nfe_document_id) {
-			const { data: nfe } = await inv.from("nfe_document").select("supplier_cnpj").eq("id", doc.nfe_document_id).maybeSingle()
+			const { data: nfe, error: nfeError } = await inv.from("nfe_document").select("supplier_cnpj").eq("id", doc.nfe_document_id).maybeSingle()
+			if (nfeError) throw new Error(`Erro ao carregar a NF-e: ${publicDbMessage(nfeError)}`)
 			supplierCnpj = nfe?.supplier_cnpj ?? null
 		}
 
-		const gs1 = getLooseServerClient("gs1_integration")
+		const gs1 = getServerClient("gs1_integration")
 		const { error } = await gs1.from("gtin_alias").upsert(
 			{
 				gtin: data.gtin,
@@ -1253,11 +1254,16 @@ export const refuseReceiptFn = createServerFn({ method: "POST" })
 	.validator(z.object({ receiptId: z.uuid(), reason: z.string().min(5).max(500) }))
 	.handler(async ({ data }) => {
 		const inv = inventory()
-		const { data: receipt } = await inv.from("goods_receipt").select("kitchen_id, status, nfe_document_id, source").eq("id", data.receiptId).maybeSingle()
+		const { data: receipt, error: receiptError } = await inv
+			.from("goods_receipt")
+			.select("kitchen_id, status, nfe_document_id, source")
+			.eq("id", data.receiptId)
+			.maybeSingle()
+		if (receiptError) throw new Error(`Erro ao carregar o recebimento: ${publicDbMessage(receiptError)}`)
 		if (!receipt) throw new Error("Recebimento não encontrado")
 		const ctx = await requireStorageForKitchen(3, Number(receipt.kitchen_id))
 		const { userId } = ctx
-		if (!isReceiptEditable(receipt.status as string)) throw new Error("Recebimento já efetivado")
+		if (!isReceiptEditable(receipt.status)) throw new Error("Recebimento já efetivado")
 		// Recusar o todo é decisão de quem recebe definitivamente (art. 140, II, b; § 1º).
 		await requireDesignation(data.receiptId, ctx, "definitive")
 
@@ -1288,7 +1294,8 @@ export const resolveFiscalPendingFn = createServerFn({ method: "POST" })
 	)
 	.handler(async ({ data }) => {
 		const inv = inventory()
-		const { data: receipt } = await inv.from("goods_receipt").select("kitchen_id, fiscal_pending").eq("id", data.receiptId).maybeSingle()
+		const { data: receipt, error: receiptError } = await inv.from("goods_receipt").select("kitchen_id, fiscal_pending").eq("id", data.receiptId).maybeSingle()
+		if (receiptError) throw new Error(`Erro ao carregar o recebimento: ${publicDbMessage(receiptError)}`)
 		if (!receipt) throw new Error("Recebimento não encontrado")
 		const { userId } = await requireStorageForKitchen(3, Number(receipt.kitchen_id))
 		if (!receipt.fiscal_pending) throw new Error("Este recebimento não tem pendência fiscal")
@@ -1323,12 +1330,13 @@ export const listScanEventsFn = createServerFn({ method: "GET" })
 	.validator(z.object({ receiptId: z.uuid() }))
 	.handler(async ({ data }) => {
 		const inv = inventory()
-		const { data: receipt } = await inv.from("goods_receipt").select("kitchen_id").eq("id", data.receiptId).maybeSingle()
+		const { data: receipt, error: receiptError } = await inv.from("goods_receipt").select("kitchen_id").eq("id", data.receiptId).maybeSingle()
+		if (receiptError) throw new Error(`Erro ao carregar o recebimento: ${publicDbMessage(receiptError)}`)
 		if (!receipt) throw new Error("Recebimento não encontrado")
 		await requireStorageForKitchen(1, Number(receipt.kitchen_id))
 		// TODAS as páginas: com o corte em 200, linha de nota grande cujos eventos
 		// eram mais antigos aparecia "não conferida" e a leitura dela não se desfazia
-		return await readAllPages<ScanEventRow>("a conferência", (from, to) =>
+		return await readAllPages("a conferência", (from, to) =>
 			inv
 				.from("receipt_scan_event")
 				.select(
@@ -1358,7 +1366,7 @@ export const searchReceivableIngredientsFn = createServerFn({ method: "GET" })
 			.order("description")
 			.limit(20)
 		if (error) throw new Error(`Erro ao buscar insumos: ${publicDbMessage(error)}`)
-		return (rows ?? []) as Array<{ id: string; description: string; measure_unit: string | null }>
+		return rows ?? []
 	})
 
 /** OF da cozinha e empenho da unidade compradora, conferidos como na criação pela NF-e. */
@@ -1371,7 +1379,7 @@ async function resolveOrderAndEmpenho(kitchenId: number, unitId: number | null, 
 		if (order.status === "draft" || order.status === "cancelled") throw new Error("Só OF enviada sustenta a entrega — envie a OF ou registre sem ela")
 		if (order.empenho_id) {
 			if (resolvedEmpenhoId && resolvedEmpenhoId !== order.empenho_id) throw new Error("A OF é de outro empenho — escolha o empenho da OF, ou registre sem OF")
-			resolvedEmpenhoId = order.empenho_id as string
+			resolvedEmpenhoId = order.empenho_id
 		} else if (resolvedEmpenhoId) {
 			// a mesma regra de `link_receipt_documents`: a NE da OF aguardando empenho entra NA OF (SICAF)
 			throw new Error("A OF está aguardando empenho: vincule a NE na própria OF, que confere o SICAF — ou registre a entrega com a OF e sem NE")
@@ -1445,8 +1453,8 @@ export const createReceiptWithoutInvoiceFn = createServerFn({ method: "POST" })
 		const { data: ingredients, error: ingredientError } = await kitchen().from("ingredient").select("id, description, deleted_at").in("id", ingredientIds)
 		if (ingredientError) throw new Error(`Erro ao carregar os insumos: ${publicDbMessage(ingredientError)}`)
 		const known = new Map<string, string>()
-		for (const row of (ingredients ?? []) as Array<{ id: string; description: string; deleted_at: string | null }>) {
-			if (row.deleted_at == null) known.set(row.id, row.description)
+		for (const row of ingredients ?? []) {
+			if (row.deleted_at == null) known.set(row.id, itemDescription(row.description))
 		}
 		if (ingredientIds.some((id) => !known.has(id))) throw new Error("Insumo não encontrado ou excluído — escolha outro no catálogo")
 
@@ -1458,8 +1466,7 @@ export const createReceiptWithoutInvoiceFn = createServerFn({ method: "POST" })
 			.eq("is_default", true)
 		if (defaultsError) throw new Error(`Erro ao carregar as especificações de compra: ${publicDbMessage(defaultsError)}`)
 		const purchaseItemBy = new Map<string, string>()
-		for (const row of (defaults ?? []) as Array<{ ingredient_id: string; purchase_item_id: string }>)
-			purchaseItemBy.set(row.ingredient_id, row.purchase_item_id)
+		for (const row of defaults ?? []) purchaseItemBy.set(row.ingredient_id, row.purchase_item_id)
 
 		const inv = inventory()
 		const { data: receipt, error } = await inv
@@ -1506,9 +1513,9 @@ export const createReceiptWithoutInvoiceFn = createServerFn({ method: "POST" })
 		// Daqui em diante há eventos (append-only): uma falha deixa o recebimento em rascunho
 		// com a linha a conferir, e diz qual — nunca apaga o que já foi registrado.
 		const itemByIngredient = new Map<string, { id: string; ingredient_id: string; purchase_item_id: string | null }>()
-		for (const item of items as Array<{ id: string; ingredient_id: string; purchase_item_id: string | null }>) itemByIngredient.set(item.ingredient_id, item)
+		for (const item of items) if (item.ingredient_id) itemByIngredient.set(item.ingredient_id, { ...item, ingredient_id: item.ingredient_id })
 		const warnings: string[] = []
-		const arrival = arrivalDate(receipt.created_at as string)
+		const arrival = arrivalDate(receipt.created_at)
 		for (const line of data.lines) {
 			const item = itemByIngredient.get(line.ingredientId)
 			if (!item) continue
@@ -1527,7 +1534,19 @@ export const createReceiptWithoutInvoiceFn = createServerFn({ method: "POST" })
 				continue
 			}
 			if (!line.lotCode?.trim() && !line.expiryDate) continue
-			const spec = line.expiryDate ? await requiredRangeFor(item.purchase_item_id, item.ingredient_id) : null
+			// Especificação que não se lê vira aviso desta linha, como as outras falhas daqui: o lote vai
+			// para a conferência, que julga a validade ao gravar.
+			let spec: Awaited<ReturnType<typeof requiredRangeFor>> | null = null
+			if (line.expiryDate) {
+				try {
+					spec = await requiredRangeFor(item.purchase_item_id, item.ingredient_id)
+				} catch (specError) {
+					warnings.push(
+						`${label}: validade mínima não conferida (${specError instanceof Error ? specError.message : "erro"}) — informe lote e validade na conferência`
+					)
+					continue
+				}
+			}
 			const { error: lotError } = await inv
 				.from("goods_receipt_item_lot")
 				.update({
@@ -1540,7 +1559,7 @@ export const createReceiptWithoutInvoiceFn = createServerFn({ method: "POST" })
 			if (lotError) warnings.push(`${label}: lote e validade não gravados (${publicDbMessage(lotError)}) — informe na conferência`)
 		}
 
-		return { receiptId: receipt.id as string, itemsCount: items.length, warnings }
+		return { receiptId: receipt.id, itemsCount: items.length, warnings }
 	})
 
 /** NF-e, OF e empenho que podem ser ligados ao recebimento, com a sugestão pelo fornecedor. */
@@ -1589,17 +1608,7 @@ export const listReceiptLinkCandidatesFn = createServerFn({ method: "GET" })
 			if (result.error) throw new Error(`Erro ao carregar os documentos: ${publicDbMessage(result.error)}`)
 		}
 
-		type Note = {
-			id: string
-			access_key: string
-			supplier_name: string | null
-			supplier_cnpj: string | null
-			supplier_cpf: string | null
-			issued_at: string | null
-			total_value: number | null
-			situation_result: string | null
-		}
-		const noteList = (notes.data ?? []) as Note[]
+		const noteList = notes.data ?? []
 		// Nota com recebimento PRÓPRIO não fecha outra entrega (o estoque seria contado duas vezes).
 		const taken = new Set<string>()
 		if (noteList.length > 0) {
@@ -1613,7 +1622,7 @@ export const listReceiptLinkCandidatesFn = createServerFn({ method: "GET" })
 					noteList.map((note) => note.id)
 				)
 			if (ownError) throw new Error(`Erro ao conferir as notas já recebidas: ${publicDbMessage(ownError)}`)
-			for (const row of (own ?? []) as Array<{ nfe_document_id: string }>) taken.add(row.nfe_document_id)
+			for (const row of own ?? []) if (row.nfe_document_id) taken.add(row.nfe_document_id)
 		}
 		const matchesSupplier = (document: string | null | undefined) => supplier != null && normalizeSupplierDocument(document) === supplier
 
@@ -1628,16 +1637,14 @@ export const listReceiptLinkCandidatesFn = createServerFn({ method: "GET" })
 				cancelled: note.situation_result === "cancelled",
 			}))
 			.sort((a, b) => Number(b.suggested) - Number(a.suggested))
-		type Empenho = { id: string; numero_empenho: string; favorecido_nome: string | null; favorecido_cnpj: string | null }
-		const empenhoRows = ((empenhos.data ?? []) as Empenho[])
+		const empenhoRows = (empenhos.data ?? [])
 			.map((row) => ({
 				id: row.id,
 				label: `${row.numero_empenho}${row.favorecido_nome ? ` · ${row.favorecido_nome}` : ""}`,
 				suggested: matchesSupplier(row.favorecido_cnpj),
 			}))
 			.sort((a, b) => Number(b.suggested) - Number(a.suggested))
-		type Order = { id: string; number: string | null; sent_at: string | null; empenho_id: string | null }
-		const orderRows = ((orders.data ?? []) as Order[]).map((row) => ({
+		const orderRows = (orders.data ?? []).map((row) => ({
 			id: row.id,
 			label: `${row.number ? `OF ${row.number}` : "OF sem número"}${row.sent_at ? ` · enviada em ${new Date(`${row.sent_at}T12:00:00Z`).toLocaleDateString("pt-BR")}` : ""}`,
 			empenhoId: row.empenho_id,
@@ -1677,7 +1684,7 @@ export const linkReceiptDocumentsFn = createServerFn({ method: "POST" })
 		if (!receipt) throw new Error("Recebimento não encontrado")
 		const { userId } = await requireStorageForKitchen(2, Number(receipt.kitchen_id))
 
-		const nfeDocumentId = data.nfeDocumentId ?? (receipt.nfe_document_id as string | null)
+		const nfeDocumentId = data.nfeDocumentId ?? receipt.nfe_document_id
 		let links: Array<{ receipt_item_id: string; nfe_item_id: string }> = []
 		let costs: Array<{ receipt_item_id: string; unit_cost: number }> = []
 		let unmatchedLines: string[] = []
@@ -1697,24 +1704,24 @@ export const linkReceiptDocumentsFn = createServerFn({ method: "POST" })
 			}
 			if (!doc.data) throw new Error("NF-e não encontrada")
 			const toNumber = (value: unknown) => (value == null ? null : Number(value))
-			const lineRows = (lines.data ?? []) as Array<Record<string, unknown>>
+			const lineRows = lines.data ?? []
 			// Trocando de nota: o custo que veio da nota antiga sai no banco e a nova o repõe onde
 			// casar — então, para o casamento, ele não existe. O item da nota antiga também não.
 			const switchingNfe = data.nfeDocumentId != null && receipt.nfe_document_id != null && data.nfeDocumentId !== receipt.nfe_document_id
 			const match = matchReceiptLinesToInvoice(
 				lineRows.map((line) => ({
 					id: String(line.id),
-					ingredientId: (line.ingredient_id as string | null) ?? null,
-					purchaseItemId: (line.purchase_item_id as string | null) ?? null,
-					nfeItemId: switchingNfe ? null : ((line.nfe_item_id as string | null) ?? null),
+					ingredientId: line.ingredient_id ?? null,
+					purchaseItemId: line.purchase_item_id ?? null,
+					nfeItemId: switchingNfe ? null : (line.nfe_item_id ?? null),
 					unitCost: switchingNfe && line.unit_cost_source === "invoice_link" ? null : toNumber(line.unit_cost),
 				})),
-				((nfeItems.data ?? []) as Array<Record<string, unknown>>).map((item) => ({
+				(nfeItems.data ?? []).map((item) => ({
 					id: String(item.id),
 					nItem: toNumber(item.n_item),
-					description: (item.description as string | null) ?? null,
-					ingredientId: (item.ingredient_id as string | null) ?? null,
-					purchaseItemId: (item.purchase_item_id as string | null) ?? null,
+					description: item.description ?? null,
+					ingredientId: item.ingredient_id ?? null,
+					purchaseItemId: item.purchase_item_id ?? null,
 					matchedQtyBase: toNumber(item.matched_qty_base),
 					unitPrice: toNumber(item.unit_price),
 					commercialQty: toNumber(item.commercial_qty),
@@ -1729,20 +1736,20 @@ export const linkReceiptDocumentsFn = createServerFn({ method: "POST" })
 			if (unmatchedIngredients.length > 0) {
 				const { data: names, error: namesError } = await kitchen().from("ingredient").select("description").in("id", unmatchedIngredients)
 				if (namesError) throw new Error(`Erro ao carregar os insumos: ${publicDbMessage(namesError)}`)
-				unmatchedLines = ((names ?? []) as Array<{ description: string }>).map((row) => row.description)
+				unmatchedLines = (names ?? []).map((row) => itemDescription(row.description))
 			}
 
-			const empenhoId = data.empenhoId ?? (receipt.empenho_id as string | null)
+			const empenhoId = data.empenhoId ?? receipt.empenho_id
 			let empenhoSupplierCnpj: string | null = null
 			if (empenhoId) {
 				const { data: empenho, error: empenhoError } = await finance().from("empenho").select("favorecido_cnpj").eq("id", empenhoId).maybeSingle()
 				if (empenhoError) throw new Error(`Erro ao carregar o empenho: ${publicDbMessage(empenhoError)}`)
-				empenhoSupplierCnpj = (empenho?.favorecido_cnpj as string | null) ?? null
+				empenhoSupplierCnpj = empenho?.favorecido_cnpj ?? null
 			}
 			warnings = receiptLinkWarnings({
-				receiptSupplierDocument: (receipt.supplier_document as string | null) ?? null,
+				receiptSupplierDocument: receipt.supplier_document ?? null,
 				empenhoSupplierCnpj,
-				invoiceSupplierDocument: (doc.data.supplier_cnpj as string | null) ?? (doc.data.supplier_cpf as string | null) ?? null,
+				invoiceSupplierDocument: doc.data.supplier_cnpj ?? doc.data.supplier_cpf ?? null,
 				invoiceHasItems: (nfeItems.data ?? []).length > 0,
 				attested: receipt.definitive_at != null,
 			})
@@ -1751,15 +1758,15 @@ export const linkReceiptDocumentsFn = createServerFn({ method: "POST" })
 		const { data: result, error } = await inv.rpc("link_receipt_documents", {
 			p_receipt_id: data.receiptId,
 			p_user: userId,
-			p_nfe_document_id: data.nfeDocumentId ?? null,
-			p_supply_order_id: data.supplyOrderId ?? null,
-			p_empenho_id: data.empenhoId ?? null,
+			p_nfe_document_id: data.nfeDocumentId ?? undefined,
+			p_supply_order_id: data.supplyOrderId ?? undefined,
+			p_empenho_id: data.empenhoId ?? undefined,
 			p_item_links: links,
 			p_line_costs: costs,
 		})
 		// As recusas da função já dizem o que fazer ("A OF é de outro empenho — …").
 		if (error) throw new Error(publicDbMessage(error))
-		const row = ((result ?? []) as Array<{ linked_items: number; costed_items: number }>)[0]
+		const row = (result ?? [])[0]
 		return {
 			linkedItems: Number(row?.linked_items ?? 0),
 			costedItems: Number(row?.costed_items ?? 0),
@@ -1788,7 +1795,7 @@ export const fetchReceiptContextFn = createServerFn({ method: "GET" })
 		const ctx = await requireStorageForKitchen(1, Number(receipt.kitchen_id))
 		const scope: DesignationScope = {
 			unitId: await purchaseUnitOfKitchen(Number(receipt.kitchen_id)),
-			empenhoId: (receipt.empenho_id as string | null) ?? null,
+			empenhoId: receipt.empenho_id ?? null,
 		}
 
 		const [provisional, definitive, note, order, empenho, liquidacoes] = await Promise.all([

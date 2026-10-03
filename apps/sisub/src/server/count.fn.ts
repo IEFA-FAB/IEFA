@@ -21,18 +21,20 @@
  * @migration 20260920120000_inventory_count_operable
  */
 
+import type { Json } from "@iefa/database"
 import { hasPermission } from "@iefa/pbac"
 import { evaluateCountLine, INVENTORY_COUNT_TYPES } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { PENDING_PRODUCTION_SQLSTATE, parsePendingProductionDays } from "@/lib/count-waiver"
 import { publicDbMessage } from "@/lib/db-error-message"
+import { itemDescription } from "@/lib/item-description"
 import { readAllPages, readAllPagesIn } from "@/lib/read-all-pages"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
-import { getLooseServerClient } from "@/lib/supabase.server"
+import { getServerClient, rpcWithNulls } from "@/lib/supabase.server"
 
-const inventory = () => getLooseServerClient("inventory")
-const kitchen = () => getLooseServerClient("kitchen")
+const inventory = () => getServerClient("inventory")
+const kitchen = () => getServerClient("kitchen")
 
 export const COUNT_SCOPES = ["full", "conservation_class", "location", "item_list", "menu_cycle"] as const
 
@@ -72,18 +74,22 @@ export const openInventoryCountFn = createServerFn({ method: "POST" })
 		// abrir inventário é decisão de nível 3: ele trava o escopo contra
 		// qualquer outra contagem da cozinha
 		const { userId } = await requireStorageForKitchen(3, data.kitchenId)
-		const { data: result, error } = await inventory().rpc("open_inventory_count", {
+		// `p_blind_waiver_reason` não tem default no SQL e é nulo na contagem não cega.
+		const { data: result, error } = await rpcWithNulls("inventory", "open_inventory_count", {
 			p_kitchen_id: data.kitchenId,
 			p_type: data.type,
 			p_scope: data.scope,
-			p_scope_params: data.scopeParams,
+			p_scope_params: data.scopeParams as Json,
 			p_blind: data.blind,
 			p_blind_waiver_reason: data.blindWaiverReason?.trim() || null,
 			p_user: userId,
 		})
 		if (error) throw new Error(`Erro ao abrir a contagem: ${publicDbMessage(error)}`)
 		const row = result?.[0]
-		return { countId: row?.count_id as string, scopeItems: Number(row?.scope_items ?? 0) }
+		// A função já gravou e travou o escopo quando chega aqui: dizer só "falhou" mandaria abrir
+		// de novo, e o escopo travado recusaria.
+		if (!row) throw new Error("A contagem pode ter sido aberta sem devolver o número: confira a lista de contagens antes de abrir outra")
+		return { countId: row.count_id, scopeItems: Number(row.scope_items ?? 0) }
 	})
 
 interface CountSheetLine {
@@ -113,6 +119,11 @@ interface CountSheetLine {
 	ownRound: boolean
 }
 
+/**
+ * Linha de `inventory.count_lines`. Escrita à mão de propósito: o tipo gerado de função
+ * `RETURNS TABLE` declara toda coluna não nula, e aqui `lot_id` é nulo na linha sem lote e
+ * `counted_qty`/`counted_at`, no item que ninguém contou.
+ */
 type CountLineRow = {
 	lot_id: string | null
 	ingredient_id: string | null
@@ -174,44 +185,35 @@ export const fetchCountSheetFn = createServerFn({ method: "GET" })
 				.range(from, to)
 		)
 
-		const scope = await readAllPages<{ ingredient_id: string | null; frozen_preparation_id: string | null; found: boolean; not_counted_accepted: boolean }>(
-			"o escopo da contagem",
-			(from, to) =>
-				inv
-					.from("count_scope_item")
-					.select("id, ingredient_id, frozen_preparation_id, found, not_counted_accepted")
-					.eq("count_id", data.countId)
-					.order("id")
-					.range(from, to)
+		const scope = await readAllPages("o escopo da contagem", (from, to) =>
+			inv
+				.from("count_scope_item")
+				.select("id, ingredient_id, frozen_preparation_id, found, not_counted_accepted")
+				.eq("count_id", data.countId)
+				.order("id")
+				.range(from, to)
 		)
 		const scopeByItem = new Map(scope.map((item) => [item.ingredient_id ?? item.frozen_preparation_id ?? "", item]))
 
-		const lotIds = rows.map((row) => row.lot_id).filter(Boolean) as string[]
-		const lots = await readAllPagesIn<{
-			id: string
-			short_code: string | null
-			lot_code: string | null
-			expiry_date: string | null
-			location: string | null
-			unit_cost: number | string | null
-		}>("os lotes da contagem", lotIds, (chunk, from, to) =>
+		const lotIds = rows.map((row) => row.lot_id).filter((id) => id != null)
+		const lots = await readAllPagesIn("os lotes da contagem", lotIds, (chunk, from, to) =>
 			inv.from("stock_lot").select("id, short_code, lot_code, expiry_date, location, unit_cost").in("id", chunk).order("id").range(from, to)
 		)
 		const lotById = new Map(lots.map((lot) => [lot.id, lot]))
 
-		const ingredientIds = [...new Set(rows.map((row) => row.ingredient_id).filter(Boolean))] as string[]
-		const frozenIds = [...new Set(rows.map((row) => row.frozen_preparation_id).filter(Boolean))] as string[]
+		const ingredientIds = [...new Set(rows.map((row) => row.ingredient_id).filter((id) => id != null))]
+		const frozenIds = [...new Set(rows.map((row) => row.frozen_preparation_id).filter((id) => id != null))]
 		const kit = kitchen()
 		const describe = new Map<string, { description: string; measureUnit: string | null }>()
-		for (const row of await readAllPagesIn<{ id: string; description: string; measure_unit: string | null }>("os insumos", ingredientIds, (chunk, from, to) =>
+		for (const row of await readAllPagesIn("os insumos", ingredientIds, (chunk, from, to) =>
 			kit.from("ingredient").select("id, description, measure_unit").in("id", chunk).order("id").range(from, to)
 		)) {
-			describe.set(row.id, { description: row.description, measureUnit: row.measure_unit })
+			describe.set(row.id, { description: itemDescription(row.description), measureUnit: row.measure_unit })
 		}
-		for (const row of await readAllPagesIn<{ id: string; description: string }>("as preparações", frozenIds, (chunk, from, to) =>
+		for (const row of await readAllPagesIn("as preparações", frozenIds, (chunk, from, to) =>
 			kit.from("frozen_preparation").select("id, description").in("id", chunk).order("id").range(from, to)
 		)) {
-			describe.set(row.id, { description: row.description, measureUnit: null })
+			describe.set(row.id, { description: itemDescription(row.description), measureUnit: null })
 		}
 
 		// Custo, para medir a divergência em DINHEIRO. Sem ele o valor da diferença
@@ -219,18 +221,15 @@ export const fetchCountSheetFn = createServerFn({ method: "GET" })
 		// nunca aparecia. Lote: o custo do lote; item: o custo médio da cozinha.
 		const avgCost = new Map<string, number>()
 		if (reveal) {
-			for (const row of await readAllPagesIn<{ ingredient_id: string | null; frozen_preparation_id: string | null; avg_unit_cost: number | string | null }>(
-				"os custos médios",
-				[...ingredientIds, ...frozenIds],
-				(chunk, from, to) =>
-					inv
-						.from("stock_cost")
-						.select("ingredient_id, frozen_preparation_id, avg_unit_cost")
-						.eq("kitchen_id", kitchenId)
-						.or(`ingredient_id.in.(${chunk.join(",")}),frozen_preparation_id.in.(${chunk.join(",")})`)
-						.order("ingredient_id", { ascending: true, nullsFirst: false })
-						.order("frozen_preparation_id", { ascending: true, nullsFirst: false })
-						.range(from, to)
+			for (const row of await readAllPagesIn("os custos médios", [...ingredientIds, ...frozenIds], (chunk, from, to) =>
+				inv
+					.from("stock_cost")
+					.select("ingredient_id, frozen_preparation_id, avg_unit_cost")
+					.eq("kitchen_id", kitchenId)
+					.or(`ingredient_id.in.(${chunk.join(",")}),frozen_preparation_id.in.(${chunk.join(",")})`)
+					.order("ingredient_id", { ascending: true, nullsFirst: false })
+					.order("frozen_preparation_id", { ascending: true, nullsFirst: false })
+					.range(from, to)
 			)) {
 				const key = row.ingredient_id ?? row.frozen_preparation_id
 				if (key && row.avg_unit_cost != null) avgCost.set(key, Number(row.avg_unit_cost))
@@ -412,7 +411,8 @@ export const addFoundItemFn = createServerFn({ method: "POST" })
 		if (!count) throw new Error("Inventário não encontrado")
 		await requireStorageForKitchen(2, Number(count.kitchen_id))
 
-		const { data: added, error } = await inv.rpc("add_found_item", {
+		// Insumo OU preparação: o outro vai nulo, e os dois parâmetros não têm default no SQL.
+		const { data: added, error } = await rpcWithNulls("inventory", "add_found_item", {
 			p_count_id: data.countId,
 			p_ingredient_id: data.ingredientId ?? null,
 			p_frozen_preparation_id: data.frozenPreparationId ?? null,
@@ -441,7 +441,7 @@ export const acceptNotCountedFn = createServerFn({ method: "POST" })
 		// pela função do banco: ela trava a CONTAGEM antes da linha do escopo, a
 		// ordem de todo o resto; o UPDATE direto invertia e dava deadlock com a
 		// aprovação
-		const { error } = await inv.rpc("set_not_counted_accepted", {
+		const { error } = await rpcWithNulls("inventory", "set_not_counted_accepted", {
 			p_count_id: data.countId,
 			p_ingredient_id: data.ingredientId ?? null,
 			p_frozen_preparation_id: data.frozenPreparationId ?? null,
@@ -503,7 +503,7 @@ export const openRecountFn = createServerFn({ method: "POST" })
 			p_user: userId,
 		})
 		if (error) throw new Error(`Erro ao abrir a recontagem: ${publicDbMessage(error)}`)
-		return { countId: created as string, round: Number(count.round) + 1 }
+		return { countId: created, round: Number(count.round) + 1 }
 	})
 
 /**
@@ -531,7 +531,8 @@ export const approveInventoryCountFn = createServerFn({ method: "POST" })
 
 		// `approve_inventory_count_with_waiver`: migration 20260926217000.
 		const { data: result, error } = data.pendingProductionWaiver
-			? await inv.rpc("approve_inventory_count_with_waiver", {
+			? // `p_exception_reason` sem default no SQL nesta assinatura
+				await rpcWithNulls("inventory", "approve_inventory_count_with_waiver", {
 					p_count_id: data.countId,
 					p_actor: userId,
 					p_exception_reason: data.exceptionReason?.trim() || null,
@@ -540,7 +541,7 @@ export const approveInventoryCountFn = createServerFn({ method: "POST" })
 			: await inv.rpc("approve_inventory_count", {
 					p_count_id: data.countId,
 					p_actor: userId,
-					p_exception_reason: data.exceptionReason?.trim() || null,
+					p_exception_reason: data.exceptionReason?.trim() || undefined,
 				})
 		// Produção sem saída lançada (SQLSTATE próprio, dias no HINT): não é erro para a tela, é a
 		// pergunta da ressalva. Decidida pelo CÓDIGO — o texto da mensagem pode mudar.
@@ -551,7 +552,7 @@ export const approveInventoryCountFn = createServerFn({ method: "POST" })
 		const row = result?.[0]
 		return {
 			status: "approved" as const,
-			adjustmentId: (row?.adjustment_id as string | null) ?? null,
+			adjustmentId: row?.adjustment_id ?? null,
 			lines: Number(row?.lines ?? 0),
 			differenceValue: Number(row?.difference_value ?? 0),
 		}

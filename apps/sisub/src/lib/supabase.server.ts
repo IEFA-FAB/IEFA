@@ -1,4 +1,5 @@
 import type { Database } from "@iefa/database"
+import type { PostgrestError } from "@supabase/supabase-js"
 import { createServiceRoleClient, createStatelessAuthClient } from "@iefa/supabase-kit"
 import { createSsrAuthClient } from "@iefa/supabase-kit/start"
 
@@ -44,17 +45,27 @@ export function getLooseServerClient(schema: DbSchema): LooseClient {
 	return getServerClient(schema) as unknown as LooseClient
 }
 
-// biome-ignore lint/suspicious/noExplicitAny: retorno das RPCs chamadas pela porta frouxa; ver `toLooseRpcClient`
-type LooseRpcClient = { rpc: (fn: string, args?: Record<string, unknown>) => any }
+type DbFunctions<S extends DbSchema> = Database[S]["Functions"]
+type RpcName<S extends DbSchema> = keyof DbFunctions<S> & string
+type RpcArgs<S extends DbSchema, F extends RpcName<S>> = DbFunctions<S>[F] extends { Args: infer A } ? A : never
+type RpcReturns<S extends DbSchema, F extends RpcName<S>> = DbFunctions<S>[F] extends { Returns: infer R } ? R : never
 
 /**
- * Porta frouxa para RPC que precisa de `null` explícito em parâmetro SEM default no SQL: o tipo
- * gerado declara todo parâmetro sem default como não nulo, e a função aceita nulo ali de propósito
- * (ex.: `inventory.register_leftover(p_reason)` sem descarte). Parâmetro com `DEFAULT NULL` não
- * precisa disto: omita a chave (`?? undefined`) e chame pelo cliente tipado.
+ * RPC tipada que aceita `null` explícito em parâmetro SEM default no SQL: o tipo gerado declara
+ * todo parâmetro sem default como não nulo, e a função aceita nulo ali de propósito (ex.:
+ * `inventory.register_leftover(p_reason)` sem descarte). Só os argumentos se alargam; o retorno
+ * continua o do tipo gerado. Parâmetro com `DEFAULT NULL` não precisa disto: omita a chave
+ * (`?? undefined`) e chame pelo cliente tipado.
  */
-export function toLooseRpcClient(client: ReturnType<typeof getServerClient>): LooseRpcClient {
-	return client as unknown as LooseRpcClient
+export function rpcWithNulls<S extends DbSchema, F extends RpcName<S>>(
+	schema: S,
+	fn: F,
+	args: { [K in keyof RpcArgs<S, F>]: RpcArgs<S, F>[K] | null }
+): PromiseLike<{ data: RpcReturns<S, F> | null; error: PostgrestError | null }> {
+	const client = getServerClient(schema) as unknown as {
+		rpc: (name: string, params: object) => PromiseLike<{ data: RpcReturns<S, F> | null; error: PostgrestError | null }>
+	}
+	return client.rpc(fn, args)
 }
 
 /** Helpers por domínio. */

@@ -17,6 +17,7 @@ import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { hiddenByBlindCount } from "@/lib/blind-count.server"
 import { publicDbMessage } from "@/lib/db-error-message"
+import { itemDescription } from "@/lib/item-description"
 import { readAllPages, readAllPagesIn } from "@/lib/read-all-pages"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
@@ -68,11 +69,11 @@ async function describeItems(ingredientIds: string[], frozenIds: string[]) {
 	const names = new Map<string, { description: string; measureUnit: string | null }>()
 	if (ingredientIds.length > 0) {
 		const { data } = await kit.from("ingredient").select("id, description, measure_unit").in("id", ingredientIds)
-		for (const row of data ?? []) names.set(`i:${row.id}`, { description: row.description ?? "(sem descrição)", measureUnit: row.measure_unit })
+		for (const row of data ?? []) names.set(`i:${row.id}`, { description: itemDescription(row.description), measureUnit: row.measure_unit })
 	}
 	if (frozenIds.length > 0) {
 		const { data } = await kit.from("frozen_preparation").select("id, description, measure_unit").in("id", frozenIds)
-		for (const row of data ?? []) names.set(`f:${row.id}`, { description: row.description ?? "(sem descrição)", measureUnit: row.measure_unit })
+		for (const row of data ?? []) names.set(`f:${row.id}`, { description: itemDescription(row.description), measureUnit: row.measure_unit })
 	}
 	return names
 }

@@ -27,7 +27,7 @@ import { hiddenByBlindCount } from "@/lib/blind-count.server"
 import { maskBlindCountIssueLines } from "@/lib/blind-count-mask"
 import { publicDbMessage } from "@/lib/db-error-message"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
-import { getServerClient, toLooseRpcClient } from "@/lib/supabase.server"
+import { getServerClient, rpcWithNulls } from "@/lib/supabase.server"
 
 const inventory = () => getServerClient("inventory")
 const kitchen = () => getServerClient("kitchen")
@@ -312,7 +312,6 @@ export const registerLeftoverFn = createServerFn({ method: "POST" })
 			})
 	)
 	.handler(async ({ data }) => {
-		const inv = inventory()
 		const kit = kitchen()
 		const { task, kitchenId } = await fetchTask(data.taskId)
 		const { userId } = await requireStorageForKitchen(2, kitchenId)
@@ -323,7 +322,7 @@ export const registerLeftoverFn = createServerFn({ method: "POST" })
 			// Cria (ou reaproveita pelo nome) e registra numa transação: sem congelada órfã no retry.
 			// `p_measure_unit`, `p_shelf_life_days` e `p_reason` não têm default no SQL e aceitam nulo:
 			// o tipo gerado os declara não nulos, então esta RPC vai pela porta frouxa.
-			const { data: result, error } = await toLooseRpcClient(inv).rpc("register_leftover_provisional", {
+			const { data: result, error } = await rpcWithNulls("inventory", "register_leftover_provisional", {
 				p_kitchen_id: kitchenId,
 				p_description: data.newFrozenPreparation.description,
 				p_measure_unit: data.newFrozenPreparation.measureUnit ?? null,
@@ -348,8 +347,8 @@ export const registerLeftoverFn = createServerFn({ method: "POST" })
 
 		// lote + movimentos numa função SQL (review: falha parcial deixava lote
 		// órfão e retry duplicava o retorno)
-		// `p_reason` não tem default no SQL e é nulo sem descarte: ver `toLooseRpcClient`.
-		const { data: result, error } = await toLooseRpcClient(inv).rpc("register_leftover", {
+		// `p_reason` não tem default no SQL e é nulo sem descarte: ver `rpcWithNulls`.
+		const { data: result, error } = await rpcWithNulls("inventory", "register_leftover", {
 			p_kitchen_id: kitchenId,
 			p_frozen_preparation_id: frozenPreparationId,
 			p_lot_code: `SOBRA-${task.production_date}`,
