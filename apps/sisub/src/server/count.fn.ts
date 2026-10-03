@@ -21,15 +21,17 @@
  * @migration 20260920120000_inventory_count_operable
  */
 
+import type { Json } from "@iefa/database"
 import { hasPermission } from "@iefa/pbac"
 import { evaluateCountLine, INVENTORY_COUNT_TYPES } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { PENDING_PRODUCTION_SQLSTATE, parsePendingProductionDays } from "@/lib/count-waiver"
 import { publicDbMessage } from "@/lib/db-error-message"
+import { itemDescription } from "@/lib/item-description"
 import { readAllPages, readAllPagesIn } from "@/lib/read-all-pages"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
-import { getServerClient, toLooseRpcClient } from "@/lib/supabase.server"
+import { getServerClient, rpcWithNulls } from "@/lib/supabase.server"
 
 const inventory = () => getServerClient("inventory")
 const kitchen = () => getServerClient("kitchen")
@@ -73,19 +75,21 @@ export const openInventoryCountFn = createServerFn({ method: "POST" })
 		// qualquer outra contagem da cozinha
 		const { userId } = await requireStorageForKitchen(3, data.kitchenId)
 		// `p_blind_waiver_reason` não tem default no SQL e é nulo na contagem não cega.
-		const { data: result, error } = await toLooseRpcClient(inventory()).rpc("open_inventory_count", {
+		const { data: result, error } = await rpcWithNulls("inventory", "open_inventory_count", {
 			p_kitchen_id: data.kitchenId,
 			p_type: data.type,
 			p_scope: data.scope,
-			p_scope_params: data.scopeParams,
+			p_scope_params: data.scopeParams as Json,
 			p_blind: data.blind,
 			p_blind_waiver_reason: data.blindWaiverReason?.trim() || null,
 			p_user: userId,
 		})
 		if (error) throw new Error(`Erro ao abrir a contagem: ${publicDbMessage(error)}`)
 		const row = result?.[0]
-		if (!row?.count_id) throw new Error("A abertura da contagem não devolveu o inventário criado")
-		return { countId: String(row.count_id), scopeItems: Number(row.scope_items ?? 0) }
+		// A função já gravou e travou o escopo quando chega aqui: dizer só "falhou" mandaria abrir
+		// de novo, e o escopo travado recusaria.
+		if (!row) throw new Error("A contagem pode ter sido aberta sem devolver o número: confira a lista de contagens antes de abrir outra")
+		return { countId: row.count_id, scopeItems: Number(row.scope_items ?? 0) }
 	})
 
 interface CountSheetLine {
@@ -113,6 +117,23 @@ interface CountSheetLine {
 	 * mas elas não aceitam lançamento, marcação nem recontagem daqui.
 	 */
 	ownRound: boolean
+}
+
+/**
+ * Linha de `inventory.count_lines`. Escrita à mão de propósito: o tipo gerado de função
+ * `RETURNS TABLE` declara toda coluna não nula, e aqui `lot_id` é nulo na linha sem lote e
+ * `counted_qty`/`counted_at`, no item que ninguém contou.
+ */
+type CountLineRow = {
+	lot_id: string | null
+	ingredient_id: string | null
+	frozen_preparation_id: string | null
+	owner_count_id: string
+	counted_qty: number | string | null
+	entries: number
+	counted_at: string | null
+	ledger_qty: number | string
+	accepted_not_counted: boolean
 }
 
 /**
@@ -154,7 +175,7 @@ export const fetchCountSheetFn = createServerFn({ method: "GET" })
 		}
 		const reveal = !count.blind || finished || isManager
 
-		const rows = await readAllPages("as linhas da contagem", (from, to) =>
+		const rows = await readAllPages<CountLineRow>("as linhas da contagem", (from, to) =>
 			inv
 				.rpc("count_lines", { p_count_id: data.countId })
 				.order("ingredient_id", { ascending: true, nullsFirst: false })
@@ -187,12 +208,12 @@ export const fetchCountSheetFn = createServerFn({ method: "GET" })
 		for (const row of await readAllPagesIn("os insumos", ingredientIds, (chunk, from, to) =>
 			kit.from("ingredient").select("id, description, measure_unit").in("id", chunk).order("id").range(from, to)
 		)) {
-			describe.set(row.id, { description: row.description?.trim() || "(item sem descrição)", measureUnit: row.measure_unit })
+			describe.set(row.id, { description: itemDescription(row.description), measureUnit: row.measure_unit })
 		}
 		for (const row of await readAllPagesIn("as preparações", frozenIds, (chunk, from, to) =>
 			kit.from("frozen_preparation").select("id, description").in("id", chunk).order("id").range(from, to)
 		)) {
-			describe.set(row.id, { description: row.description, measureUnit: null })
+			describe.set(row.id, { description: itemDescription(row.description), measureUnit: null })
 		}
 
 		// Custo, para medir a divergência em DINHEIRO. Sem ele o valor da diferença
@@ -391,7 +412,7 @@ export const addFoundItemFn = createServerFn({ method: "POST" })
 		await requireStorageForKitchen(2, Number(count.kitchen_id))
 
 		// Insumo OU preparação: o outro vai nulo, e os dois parâmetros não têm default no SQL.
-		const { data: added, error } = await toLooseRpcClient(inv).rpc("add_found_item", {
+		const { data: added, error } = await rpcWithNulls("inventory", "add_found_item", {
 			p_count_id: data.countId,
 			p_ingredient_id: data.ingredientId ?? null,
 			p_frozen_preparation_id: data.frozenPreparationId ?? null,
@@ -420,7 +441,7 @@ export const acceptNotCountedFn = createServerFn({ method: "POST" })
 		// pela função do banco: ela trava a CONTAGEM antes da linha do escopo, a
 		// ordem de todo o resto; o UPDATE direto invertia e dava deadlock com a
 		// aprovação
-		const { error } = await toLooseRpcClient(inv).rpc("set_not_counted_accepted", {
+		const { error } = await rpcWithNulls("inventory", "set_not_counted_accepted", {
 			p_count_id: data.countId,
 			p_ingredient_id: data.ingredientId ?? null,
 			p_frozen_preparation_id: data.frozenPreparationId ?? null,
@@ -511,7 +532,7 @@ export const approveInventoryCountFn = createServerFn({ method: "POST" })
 		// `approve_inventory_count_with_waiver`: migration 20260926217000.
 		const { data: result, error } = data.pendingProductionWaiver
 			? // `p_exception_reason` sem default no SQL nesta assinatura
-				await toLooseRpcClient(inv).rpc("approve_inventory_count_with_waiver", {
+				await rpcWithNulls("inventory", "approve_inventory_count_with_waiver", {
 					p_count_id: data.countId,
 					p_actor: userId,
 					p_exception_reason: data.exceptionReason?.trim() || null,

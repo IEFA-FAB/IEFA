@@ -53,6 +53,7 @@ import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAuthWithPermission } from "@/lib/auth.server"
 import { publicDbMessage } from "@/lib/db-error-message"
+import { itemDescription } from "@/lib/item-description"
 import { withDeferralRollback } from "@/lib/deferral-mark"
 import { invoiceSituationProblem } from "@/lib/invoice-gate"
 import { purchaseUnitIdOfKitchen } from "@/lib/kitchen-purchase-unit.server"
@@ -60,7 +61,7 @@ import { nfeOwnershipProblem } from "@/lib/nfe-ownership"
 import { readAllPages } from "@/lib/read-all-pages"
 import { decideReceiptInvoice, isInvoiceCancelled } from "@/lib/receipt-invoice-gate"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
-import { getServerClient, toLooseRpcClient } from "@/lib/supabase.server"
+import { getServerClient, rpcWithNulls } from "@/lib/supabase.server"
 
 const inventory = () => getServerClient("inventory")
 const procurement = () => getServerClient("procurement")
@@ -86,20 +87,20 @@ async function requireOpenReceipt(receiptId: string, level: 2 | 3) {
 	return { receipt, ...auth }
 }
 
-/** Sobe da linha do item até o recebimento (o guard é por cozinha). */
-async function receiptIdForItem(receiptItemId: string): Promise<string> {
-	const { data: item, error: itemError } = await inventory().from("goods_receipt_item").select("receipt_id").eq("id", receiptItemId).maybeSingle()
+/** A linha do recebimento, com o que a conferência dela precisa; sobe até o recebimento (o guard é por cozinha). */
+async function receiptItemOf(receiptItemId: string) {
+	const { data: item, error: itemError } = await inventory()
+		.from("goods_receipt_item")
+		.select("receipt_id, purchase_item_id, ingredient_id")
+		.eq("id", receiptItemId)
+		.maybeSingle()
 	if (itemError) throw new Error(`Erro ao carregar o item do recebimento: ${publicDbMessage(itemError)}`)
 	if (!item) throw new Error("Linha do recebimento não encontrada")
-	return item.receipt_id
+	return item
 }
 
-/** Sobe da linha do lote até o recebimento, para autorizar por cozinha. */
-async function receiptIdForLotItem(receiptItemId: string): Promise<string> {
-	const { data: item, error: itemError } = await inventory().from("goods_receipt_item").select("receipt_id").eq("id", receiptItemId).maybeSingle()
-	if (itemError) throw new Error(`Erro ao carregar o item do recebimento: ${publicDbMessage(itemError)}`)
-	if (!item) throw new Error("Item do recebimento não encontrado")
-	return item.receipt_id
+async function receiptIdForItem(receiptItemId: string): Promise<string> {
+	return (await receiptItemOf(receiptItemId)).receipt_id
 }
 
 /**
@@ -301,11 +302,14 @@ export const createReceiptFromNfeFn = createServerFn({ method: "POST" })
 		// justamente o que o conferente ainda vai preencher.
 		const byNfeItem = new Map(prepared.map((entry) => [entry.row.nfe_item_id, entry]))
 		const today = arrivalDate(null)
+		// A especificação é lida aqui, depois de os itens existirem: falha nela apaga o recebimento,
+		// como as falhas de inserção abaixo. Sem isso ficava um rascunho sem lote preso à nota, e a
+		// nova tentativa esbarrava em "esta NF-e já tem um recebimento em andamento".
 		const lotRows = await Promise.all(
-			(inserted as Array<{ id: string; nfe_item_id: string; received_qty_base: number; unit_cost: number | null }>)
+			inserted
 				.filter((item) => Number(item.received_qty_base) > 0)
 				.map(async (item, index) => {
-					const source = byNfeItem.get(item.nfe_item_id)
+					const source = item.nfe_item_id ? byNfeItem.get(item.nfe_item_id) : undefined
 					const expiryDate = source?.expiryDate ?? null
 					// A validade que veio na nota também é julgada contra o mínimo da especificação:
 					// lote que ninguém edita antes de efetivar não pode escapar do critério (EST-REC-05).
@@ -321,7 +325,10 @@ export const createReceiptFromNfeFn = createServerFn({ method: "POST" })
 						divergence_reason: shelfLifeDivergence(expiryDate, today, minShelfLifeDays),
 					}
 				})
-		)
+		).catch(async (specError: unknown) => {
+			await inv.from("goods_receipt").delete().eq("id", receipt.id)
+			throw specError
+		})
 
 		if (lotRows.length > 0) {
 			const { error: lotError } = await inv.from("goods_receipt_item_lot").insert(lotRows)
@@ -442,17 +449,9 @@ export const upsertReceiptLotFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }) => {
-		const receiptId = await receiptIdForLotItem(data.receiptItemId)
-		const { userId, receipt } = await requireOpenReceipt(receiptId, 2)
+		const item = await receiptItemOf(data.receiptItemId)
+		const { userId, receipt } = await requireOpenReceipt(item.receipt_id, 2)
 		const inv = inventory()
-
-		const { data: item, error: itemError } = await inv
-			.from("goods_receipt_item")
-			.select("id, purchase_item_id, ingredient_id")
-			.eq("id", data.receiptItemId)
-			.maybeSingle()
-		if (itemError) throw new Error(`Erro ao carregar o item do recebimento: ${publicDbMessage(itemError)}`)
-		if (!item) throw new Error("Item do recebimento não encontrado")
 
 		const spec = await requiredRangeFor(item.purchase_item_id ?? null, item.ingredient_id ?? null)
 		const received = data.conservationClass ?? null
@@ -521,7 +520,7 @@ export const upsertReceiptLotFn = createServerFn({ method: "POST" })
 export const deleteReceiptLotFn = createServerFn({ method: "POST" })
 	.validator(z.object({ lotId: z.uuid(), receiptItemId: z.uuid() }))
 	.handler(async ({ data }) => {
-		const receiptId = await receiptIdForLotItem(data.receiptItemId)
+		const receiptId = await receiptIdForItem(data.receiptItemId)
 		await requireOpenReceipt(receiptId, 2)
 		const { error } = await inventory().from("goods_receipt_item_lot").delete().eq("id", data.lotId).eq("receipt_item_id", data.receiptItemId)
 		if (error) throw new Error(`Erro ao remover lote: ${publicDbMessage(error)}`)
@@ -550,7 +549,7 @@ async function designationScopeOf(receiptId: string): Promise<DesignationScope> 
 /** A designação vigente da pessoa para o recebimento, ou `null`. */
 async function findDesignation(scope: DesignationScope, userId: string, stage: ReceiptStage): Promise<string | null> {
 	// `p_empenho_id` não tem default no SQL e é nulo no recebimento sem empenho.
-	const { data: designationId, error } = await toLooseRpcClient(inventory()).rpc("find_designation", {
+	const { data: designationId, error } = await rpcWithNulls("inventory", "find_designation", {
 		p_person: userId,
 		p_unit_id: scope.unitId,
 		p_empenho_id: scope.empenhoId,
@@ -1031,7 +1030,7 @@ async function recordReceiptEvent(event: {
 		p_expected_total: event.expectedTotal ?? undefined,
 	})
 	if (error) throw new Error(`Erro ao registrar a conferência: ${publicDbMessage(error)}`)
-	const row = (data ?? [])[0] as { duplicate: boolean; total: number } | undefined
+	const row = data?.[0]
 	return { duplicate: Boolean(row?.duplicate), total: Number(row?.total ?? 0) }
 }
 
@@ -1455,7 +1454,7 @@ export const createReceiptWithoutInvoiceFn = createServerFn({ method: "POST" })
 		if (ingredientError) throw new Error(`Erro ao carregar os insumos: ${publicDbMessage(ingredientError)}`)
 		const known = new Map<string, string>()
 		for (const row of ingredients ?? []) {
-			if (row.deleted_at == null) known.set(row.id, row.description ?? "(item sem descrição)")
+			if (row.deleted_at == null) known.set(row.id, itemDescription(row.description))
 		}
 		if (ingredientIds.some((id) => !known.has(id))) throw new Error("Insumo não encontrado ou excluído — escolha outro no catálogo")
 
@@ -1514,7 +1513,7 @@ export const createReceiptWithoutInvoiceFn = createServerFn({ method: "POST" })
 		// Daqui em diante há eventos (append-only): uma falha deixa o recebimento em rascunho
 		// com a linha a conferir, e diz qual — nunca apaga o que já foi registrado.
 		const itemByIngredient = new Map<string, { id: string; ingredient_id: string; purchase_item_id: string | null }>()
-		for (const item of items as Array<{ id: string; ingredient_id: string; purchase_item_id: string | null }>) itemByIngredient.set(item.ingredient_id, item)
+		for (const item of items) if (item.ingredient_id) itemByIngredient.set(item.ingredient_id, { ...item, ingredient_id: item.ingredient_id })
 		const warnings: string[] = []
 		const arrival = arrivalDate(receipt.created_at)
 		for (const line of data.lines) {
@@ -1535,7 +1534,19 @@ export const createReceiptWithoutInvoiceFn = createServerFn({ method: "POST" })
 				continue
 			}
 			if (!line.lotCode?.trim() && !line.expiryDate) continue
-			const spec = line.expiryDate ? await requiredRangeFor(item.purchase_item_id, item.ingredient_id) : null
+			// Especificação que não se lê vira aviso desta linha, como as outras falhas daqui: o lote vai
+			// para a conferência, que julga a validade ao gravar.
+			let spec: Awaited<ReturnType<typeof requiredRangeFor>> | null = null
+			if (line.expiryDate) {
+				try {
+					spec = await requiredRangeFor(item.purchase_item_id, item.ingredient_id)
+				} catch (specError) {
+					warnings.push(
+						`${label}: validade mínima não conferida (${specError instanceof Error ? specError.message : "erro"}) — informe lote e validade na conferência`
+					)
+					continue
+				}
+			}
 			const { error: lotError } = await inv
 				.from("goods_receipt_item_lot")
 				.update({
@@ -1725,7 +1736,7 @@ export const linkReceiptDocumentsFn = createServerFn({ method: "POST" })
 			if (unmatchedIngredients.length > 0) {
 				const { data: names, error: namesError } = await kitchen().from("ingredient").select("description").in("id", unmatchedIngredients)
 				if (namesError) throw new Error(`Erro ao carregar os insumos: ${publicDbMessage(namesError)}`)
-				unmatchedLines = (names ?? []).map((row) => row.description ?? "(item sem descrição)")
+				unmatchedLines = (names ?? []).map((row) => itemDescription(row.description))
 			}
 
 			const empenhoId = data.empenhoId ?? receipt.empenho_id
