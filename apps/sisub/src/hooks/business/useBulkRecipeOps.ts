@@ -1,8 +1,8 @@
 import { useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
+import { recipeDetailQueryOptions } from "@/hooks/data/useRecipe"
 import { queryKeys } from "@/lib/query-keys"
-import { createRecipeFn, deleteRecipeFn, fetchRecipeFn, renameRecipeFn, restoreRecipeFn, setRecipeFolderFn } from "@/server/recipes.fn"
-import type { RecipeWithIngredients } from "@/types/domain/recipes"
+import { createRecipeFn, deleteRecipeFn, renameRecipeFn, restoreRecipeFn, setRecipeFolderFn } from "@/server/recipes.fn"
 
 /**
  * Receita selecionada para edição em massa — só identificação. A ficha técnica que o fork
@@ -91,7 +91,9 @@ export function useBulkRecipeOps() {
 	const forkRecipes = (recipes: BulkSelectedRecipe[], kitchenId: number) =>
 		runBatch(recipes, async (r) => {
 			// Detalhe por receita, dentro do pool de concorrência: a seleção só guarda o id.
-			const source = (await fetchRecipeFn({ data: { recipeId: r.id } })) as RecipeWithIngredients
+			// Pelo cache da ficha (`recipes.detail`): a que o hovercard ou o editor já trouxe não é
+			// pedida de novo ao endpoint mais pesado do app.
+			const source = await queryClient.fetchQuery(recipeDetailQueryOptions(r.id))
 			return createRecipeFn({
 				data: {
 					name: source.name,

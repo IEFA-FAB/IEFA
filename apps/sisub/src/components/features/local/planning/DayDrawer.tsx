@@ -23,7 +23,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { toast } from "@/components/ui/toast"
 import { useMealTypes } from "@/hooks/data/useMealTypes"
 import { useMealTypeGroups } from "@/hooks/data/useMenuGroups"
-import { useAddMenuItem, useCreateDailyMenu, useDayDetails, useDeleteMenuItem, useUpdateDailyMenu } from "@/hooks/data/usePlanning"
+import { useAddMenuItem, useCreateDailyMenu, useDayDetails, useDeleteMenuItem, useUpdateHeadcount } from "@/hooks/data/usePlanning"
 import { useReplaceMenuItemRecipe } from "@/hooks/data/usePlanningAdjustments"
 import { useRecipes } from "@/hooks/data/useRecipes"
 import { useSnackMealType } from "@/hooks/data/useSnackRequests"
@@ -112,7 +112,7 @@ export function DayDrawer({ date, kitchenId, onClose, open }: DayDrawerProps) {
 
 	const { mutate: deleteMenuItem } = useDeleteMenuItem()
 	const { mutateAsync: addMenuItem } = useAddMenuItem({ silent: true })
-	const { mutateAsync: updateDailyMenu } = useUpdateDailyMenu({ silent: true })
+	const { mutateAsync: updateHeadcount } = useUpdateHeadcount({ silent: true })
 	const [headcountOpen, setHeadcountOpen] = useState(false)
 	// Área de transferência do cardápio do DIA, por cozinha: a do template guarda itens de
 	// rascunho; aqui cada colagem vira item gravado no dia.
@@ -214,7 +214,7 @@ export function DayDrawer({ date, kitchenId, onClose, open }: DayDrawerProps) {
 		})
 		const results = await Promise.allSettled(
 			targets.map(({ mealType, menu }) =>
-				updateDailyMenu({ id: (menu as DailyMenuWithItems).id, updates: { forecasted_headcount: plan.get(mealType.id) as number } })
+				updateHeadcount({ dailyMenuId: (menu as DailyMenuWithItems).id, forecastedHeadcount: plan.get(mealType.id) as number })
 			)
 		)
 		const failed = results.filter((r) => r.status === "rejected").length
@@ -451,7 +451,7 @@ function MealSection({
 	groups: readonly MenuGroup[]
 }) {
 	const { mutate: createMenu, isPending: isCreating } = useCreateDailyMenu()
-	const { mutate: updateDailyMenu } = useUpdateDailyMenu()
+	const { mutate: updateHeadcount } = useUpdateHeadcount()
 
 	// State for headcount editing
 	const serverHeadcount = menu?.forecasted_headcount ?? null
@@ -489,10 +489,7 @@ function MealSection({
 			return
 		}
 		if (headcount === serverHeadcount) return
-		updateDailyMenu({
-			id: menu.id,
-			updates: { forecasted_headcount: headcount },
-		})
+		updateHeadcount({ dailyMenuId: menu.id, forecastedHeadcount: headcount })
 	}
 
 	return (
