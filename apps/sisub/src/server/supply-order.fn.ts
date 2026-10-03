@@ -44,13 +44,17 @@ export const listSupplyOrdersFn = createServerFn({ method: "GET" })
 		const list = orders ?? []
 		if (list.length === 0) return []
 
-		const { data: items } = await proc
-			.from("supply_order_item")
-			.select("id, supply_order_id, arp_item_id, purchase_item_id, ordered_qty, unit_price")
-			.in(
-				"supply_order_id",
-				list.map((o) => o.id)
-			)
+		const items = await readAllPagesIn(
+			"os itens das OFs",
+			list.map((o) => o.id),
+			(chunk, from, to) =>
+				proc
+					.from("supply_order_item")
+					.select("id, supply_order_id, arp_item_id, purchase_item_id, ordered_qty, unit_price")
+					.in("supply_order_id", chunk)
+					.order("id")
+					.range(from, to)
+		)
 
 		// OF aguardando empenho tem `empenho_id` nulo: fica fora da consulta e sai com `empenho: null`.
 		const empenhoIds = [...new Set(list.map((o) => o.empenho_id).filter((id): id is string => id != null))]
@@ -68,7 +72,7 @@ export const listSupplyOrdersFn = createServerFn({ method: "GET" })
 			...order,
 			empenho: order.empenho_id ? (empenhoById.get(order.empenho_id) ?? null) : null,
 			awaitingEmpenho: order.empenho_id == null,
-			items: (items ?? []).filter((item) => item.supply_order_id === order.id),
+			items: items.filter((item) => item.supply_order_id === order.id),
 		}))
 	})
 
@@ -83,7 +87,10 @@ async function resolvePurchaseItemsByArpItem(arpItemIds: readonly string[]): Pro
 	if (ids.length === 0) return resolved
 	const proc = procurement()
 
-	const { data: arpItems } = await proc.from("arp_item").select("id, catmat_item_codigo").in("id", ids)
+	// Erro aqui não pode virar "sem vínculo": o item da OF seria gravado sem `purchase_item_id` e o MRP
+	// o contaria como zero em trânsito.
+	const { data: arpItems, error: arpError } = await proc.from("arp_item").select("id, catmat_item_codigo").in("id", ids)
+	if (arpError) throw new Error(`Erro ao ler o CATMAT dos itens da ARP: ${publicDbMessage(arpError)}`)
 	const catmatByArpItem = new Map<string, number>()
 	for (const row of arpItems ?? []) {
 		if (row.catmat_item_codigo) catmatByArpItem.set(row.id, row.catmat_item_codigo)
@@ -91,7 +98,8 @@ async function resolvePurchaseItemsByArpItem(arpItemIds: readonly string[]): Pro
 	const catmats = [...new Set(catmatByArpItem.values())]
 	if (catmats.length === 0) return resolved
 
-	const { data: purchaseItems } = await proc.from("purchase_item").select("id, catmat_item_codigo").in("catmat_item_codigo", catmats)
+	const { data: purchaseItems, error: purchaseError } = await proc.from("purchase_item").select("id, catmat_item_codigo").in("catmat_item_codigo", catmats)
+	if (purchaseError) throw new Error(`Erro ao ler os itens de compra pelo CATMAT: ${publicDbMessage(purchaseError)}`)
 	const byCatmat = new Map<number, string[]>()
 	for (const row of purchaseItems ?? []) {
 		if (row.catmat_item_codigo == null) continue
@@ -410,7 +418,8 @@ export const listEmpenhosForKitchenFn = createServerFn({ method: "GET" })
 export const cancelSupplyOrderFn = createServerFn({ method: "POST" })
 	.validator(z.object({ supplyOrderId: z.uuid() }))
 	.handler(async ({ data }) => {
-		const { data: order } = await procurement().from("supply_order").select("kitchen_id").eq("id", data.supplyOrderId).maybeSingle()
+		const { data: order, error: orderError } = await procurement().from("supply_order").select("kitchen_id").eq("id", data.supplyOrderId).maybeSingle()
+		if (orderError) throw new Error(`Erro ao carregar a OF: ${publicDbMessage(orderError)}`)
 		if (!order) throw new Error("OF não encontrada")
 		await requireStorageForKitchen(2, Number(order.kitchen_id))
 		const { error } = await procurement()

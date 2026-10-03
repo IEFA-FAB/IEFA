@@ -176,7 +176,7 @@ export async function suggestOpeningCosts(ingredientIds: readonly string[], unit
 			source: "ata",
 			unitCost,
 			reference: `ARP ${arp.numero_ata}${arp.ano_ata ? `/${arp.ano_ata}` : ""}${arpItem.numero_item != null ? `, item ${arpItem.numero_item}` : ""}`,
-			sameUnit: unitId != null && Number(arp.unit_id) === unitId,
+			sameUnit: unitId != null && arp.unit_id === unitId,
 			date: arp.data_vigencia_inicio,
 		})
 	}
@@ -186,12 +186,15 @@ export async function suggestOpeningCosts(ingredientIds: readonly string[], unit
 		const factor = item.purchase_quantity != null ? toNumber(item.conversion_factor) : 1
 		const unitCost = pricePerBaseUnit(toNumber(item.unit_price), factor)
 		if (unitCost == null) continue
+		// Sem a linha em `listById` o anexo foi descartado. A ARP acima continua valendo: a ata é
+		// preço registrado por si, e o anexo ali só dá o fator.
 		const list = listById.get(item.quantity_estimate_id)
+		if (!list) continue
 		push(item.ingredient_id, {
 			source: "price_research",
 			unitCost,
-			reference: `Pesquisa de preços — ${list?.title ?? "anexo quantitativo"}`,
-			sameUnit: unitId != null && list != null && Number(list.unit_id) === unitId,
+			reference: `Pesquisa de preços — ${list.title}`,
+			sameUnit: unitId != null && list.unit_id === unitId,
 			date: item.computed_at ? item.computed_at.slice(0, 10) : null,
 		})
 	}

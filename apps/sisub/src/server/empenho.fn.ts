@@ -17,6 +17,7 @@ import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { withSensitiveAudit } from "@/lib/audit.server"
 import { publicDbMessage } from "@/lib/db-error-message"
+import { readAllPagesIn } from "@/lib/read-all-pages"
 import { getServerClient } from "@/lib/supabase.server"
 import { requireUnitScope } from "@/lib/unit-auth.server"
 import { floorMessage, insertEmpenhoEventSerialized, toEmpenhoEventError } from "@/server/empenho-events.server"
@@ -54,8 +55,12 @@ export interface EmpenhoRow extends Partial<EmpenhoSaldo> {
 async function fetchSaldos(empenhoIds: string[]): Promise<Map<string, EmpenhoSaldo>> {
 	const map = new Map<string, EmpenhoSaldo>()
 	if (empenhoIds.length === 0) return map
-	const { data } = await finance().from("v_empenho_saldo").select("*").in("empenho_id", empenhoIds)
-	for (const row of data ?? []) {
+	// Sem saldo, a lista sai sem as colunas e a anulação pula a pré-checagem do piso: erro lança. A
+	// lista chega a 200 empenhos, e 200 UUIDs num `.in()` só beiram o teto da URL.
+	const rows = await readAllPagesIn("os saldos dos empenhos", empenhoIds, (chunk, from, to) =>
+		finance().from("v_empenho_saldo").select("*").in("empenho_id", chunk).order("empenho_id").range(from, to)
+	)
+	for (const row of rows) {
 		if (!row.empenho_id) continue
 		map.set(row.empenho_id, {
 			valor_original: Number(row.valor_original ?? 0),
@@ -104,14 +109,17 @@ export const fetchEmpenhoFn = createServerFn({ method: "GET" })
 	.validator(z.object({ empenhoId: z.uuid() }))
 	.handler(async ({ data }) => {
 		const fin = finance()
-		const { data: empenho, error } = await fin.from("empenho").select("*").eq("id", data.empenhoId).single()
-		if (error || !empenho) throw new Error("Empenho não encontrado")
+		const { data: empenho, error } = await fin.from("empenho").select("*").eq("id", data.empenhoId).maybeSingle()
+		if (error) throw new Error(`Erro ao carregar o empenho: ${publicDbMessage(error)}`)
+		if (!empenho) throw new Error("Empenho não encontrado")
 		await requireUnitScope(1, Number(empenho.unit_id))
 
-		const [{ data: events }, saldos] = await Promise.all([
+		// Histórico vazio por erro mostraria um empenho sem reforço nem anulação com saldo que os conta.
+		const [{ data: events, error: eventsError }, saldos] = await Promise.all([
 			fin.from("empenho_event").select("*").eq("empenho_id", data.empenhoId).order("data", { ascending: false }),
 			fetchSaldos([data.empenhoId]),
 		])
+		if (eventsError) throw new Error(`Erro ao carregar o histórico do empenho: ${publicDbMessage(eventsError)}`)
 		return { ...empenho, events: events ?? [], saldo: saldos.get(data.empenhoId) ?? null }
 	})
 
@@ -135,7 +143,8 @@ export const updateEmpenhoClassificationFn = createServerFn({ method: "POST" })
 	)
 	.handler(async ({ data }) => {
 		const fin = finance()
-		const { data: empenho } = await fin.from("empenho").select("unit_id").eq("id", data.empenhoId).maybeSingle()
+		const { data: empenho, error: empenhoError } = await fin.from("empenho").select("unit_id").eq("id", data.empenhoId).maybeSingle()
+		if (empenhoError) throw new Error(`Erro ao carregar o empenho: ${publicDbMessage(empenhoError)}`)
 		if (!empenho) throw new Error("Empenho não encontrado")
 		const ctx = await requireUnitScope(2, Number(empenho.unit_id))
 
@@ -190,7 +199,8 @@ export const registerEmpenhoEventFn = createServerFn({ method: "POST" })
 	)
 	.handler(async ({ data }) => {
 		const fin = finance()
-		const { data: empenho } = await fin.from("empenho").select("unit_id").eq("id", data.empenhoId).maybeSingle()
+		const { data: empenho, error: empenhoError } = await fin.from("empenho").select("unit_id").eq("id", data.empenhoId).maybeSingle()
+		if (empenhoError) throw new Error(`Erro ao carregar o empenho: ${publicDbMessage(empenhoError)}`)
 		if (!empenho) throw new Error("Empenho não encontrado")
 		const ctx = await requireUnitScope(2, Number(empenho.unit_id))
 		const { userId } = ctx

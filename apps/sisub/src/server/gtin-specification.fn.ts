@@ -93,22 +93,26 @@ export const verifyGtinAgainstPurchaseItemFn = createServerFn({ method: "POST" }
 		const fingerprint = specFingerprint(requirements)
 
 		if (!data.force) {
-			const { data: cached } = await gs1()
+			const { data: cached, error: cachedError } = await gs1()
 				.from("v_gtin_specification_latest")
 				.select("verdict, divergences, source, spec_fingerprint, checked_at")
 				.eq("gtin", gtin)
 				.eq("purchase_item_id", data.purchaseItemId)
 				.maybeSingle()
+			// Erro aqui não é cache vazio: cada chamada gravaria um veredito novo na trilha.
+			if (cachedError) throw new Error(`Erro ao carregar o último veredito: ${publicDbMessage(cachedError)}`)
 			if (cached && !isVerdictStale(cached.spec_fingerprint, fingerprint)) {
 				return { ...cached, gtin, purchase_item_id: data.purchaseItemId, cached: true }
 			}
 		}
 
 		const verifier = createLocalVerifier(async (code) => {
-			const { data: declared } = await gs1()
+			const { data: declared, error: declaredError } = await gs1()
 				.from("gtin_gpc_attribute")
 				.select("attribute_code, value_code, gpc_attribute_value:value_code (value_title)")
 				.eq("gtin", code)
+			// Falha lida como "nada declarado" viraria veredito divergente GRAVADO contra o fornecedor.
+			if (declaredError) throw new Error(`Erro ao carregar a declaração do GTIN: ${publicDbMessage(declaredError)}`)
 			return (declared ?? []).map((row) => ({
 				attributeCode: row.attribute_code,
 				valueCode: row.value_code,
