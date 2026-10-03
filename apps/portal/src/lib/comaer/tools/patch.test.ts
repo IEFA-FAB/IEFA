@@ -127,6 +127,11 @@ describe("numeração impressa no resumo", () => {
 		expect(printedOutline(doc)).toBe("1; 2 (2.1 [a), b)], 2.2)")
 	})
 
+	it("avisa a numeração nova quando a troca de espécie a muda", () => {
+		const { summary } = applyPatch({ ...base(), kind: "oficio-comaer" }, "set_form", { kind: "carta" })
+		expect(summary).toContain("Numeração impressa agora: (sem número); (sem número)")
+	})
+
 	it("diz quando a espécie não numera parágrafo", () => {
 		expect(printedOutline({ ...newDocument(), kind: "carta", paragraphs: [{ text: "A" }, { text: "B" }] })).toBe("(sem número); (sem número)")
 	})

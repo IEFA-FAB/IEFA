@@ -126,7 +126,10 @@ export function applyPatch(document: DocumentInput, name: string, args: Record<s
 				precedence: (args.precedence as DocumentInput["precedence"]) ?? document.precedence,
 				decision: (args.decision as DocumentInput["decision"]) ?? document.decision,
 			}
-			return { document: next, summary: `Forma: ${kind}, âmbito ${scope}.`, touched: ["epigrafe", "numeracao", "fecho"] }
+			// Trocar a espécie pode ligar ou desligar a numeração dos parágrafos (carta × ofício).
+			const form = `Forma: ${kind}, âmbito ${scope}.`
+			const hasText = next.paragraphs.some((p) => p.text.trim() !== "")
+			return { document: next, summary: hasText ? textSummary(next, form) : form, touched: ["epigrafe", "numeracao", "fecho"] }
 		}
 
 		case "set_parties": {
