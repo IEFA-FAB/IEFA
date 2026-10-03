@@ -21,9 +21,14 @@
 #     const { data: rows, error } = await inv.from("t").select("…").eq("id", id)
 #     if (error) throw new Error(`Erro ao …: ${publicDbMessage(error)}`)
 #
-# Quando cair no padrão é de propósito (perfil do leitor, título só de exibição), desestruture o
-# `error` mesmo assim e diga no código por que a queda é aceitável — a regra passa e o motivo
-# fica ao lado de quem lê.
+# Quando cair no padrão é de propósito (perfil do leitor, título só de exibição), leia o `error`
+# e registre a queda (`console.error` com o nome da fn, como em `fetchScannerProfileFn`). Resultado
+# que não é PostgREST (não tem `error`) ou exceção real: `// nosemgrep: postgrest-read-error-discarded`
+# com o motivo na linha anterior. `error: _algo` não é saída: é o mesmo descarte, e a regra acusa.
+#
+# Fica de fora o resultado guardado inteiro (`const res = await …; res.data`): ligar a leitura de
+# `res.error` a `res.data` exige seguir a variável. A raiz seria um `readOrThrow` que torne o
+# descarte impossível por construção — anotado como próximo passo, não feito aqui.
 #
 # Casos de teste: `__fixtures__/postgrest-silent-read.ts` (opengrep test --config
 # .opengrep/rules/postgrest-silent-read.yaml .opengrep/rules/__fixtures__/postgrest-silent-read.ts).
@@ -35,10 +40,11 @@ rules:
     # (portal 29, rumaer 7, forms 5, assignment-selection 1) ficam fora até a triagem deles.
     severity: ERROR
     message: >-
-      Resultado de consulta desestruturado sem o `error`. Se a leitura falhar, `data` vem `null`
-      e a função segue com o vazio: lista vazia com cara de "não há nada", "não encontrado" no
-      lugar do erro, ou pior, uma escrita decidida a partir do vazio. Desestruture `error` e
-      lance (`publicDbMessage`); se a queda é de propósito, desestruture `error` e diga por quê.
+      Resultado de consulta desestruturado sem ler o `error`. Se a leitura falhar, `data` vem
+      `null` e a função segue com o vazio: lista vazia com cara de "não há nada", "não encontrado"
+      no lugar do erro, ou uma escrita decidida a partir do vazio. Leia o `error` e lance
+      (`publicDbMessage`); queda de propósito lê o `error` e registra. `error: _x` é descarte.
+      Não é PostgREST: `// nosemgrep: postgrest-read-error-discarded` com o motivo.
     paths:
       include:
         - "apps/sisub/src/server/**/*.ts"
@@ -46,30 +52,33 @@ rules:
       exclude:
         - "**/*.test.ts"
     patterns:
-      # O alvo é a DESESTRUTURAÇÃO, não a query: o `await` recai sobre a cadeia inteira
-      # (`.select().eq().maybeSingle()`), e casar a chamada não funciona (ver a regra do chat).
       - pattern-either:
-          - pattern: |
-              const { data: $D } = await $EXPR
-          - pattern: |
-              const { data } = await $EXPR
-          - pattern: |
-              const { count: $C } = await $EXPR
-          - pattern: |
-              const { data: $D, count: $C } = await $EXPR
-      - pattern-not: |
-          const { error: $E } = await $ANY
-      - pattern-not: |
-          const { error } = await $ANY
-      # Auth (`auth.getSession()`, `auth.admin.*`) não é PostgREST e tem outro contrato de erro;
-      # `session-claims.server.ts` documenta a sua queda.
-      - pattern-not: |
-          const { data } = await $AUTH.auth.$METHOD(...).catch(...)
-      - pattern-not: |
-          const { data: $D } = await $AUTH.auth.$METHOD(...).catch(...)
-      - pattern-not: |
-          const { data } = await $AUTH.auth.$METHOD(...)
-      - pattern-not: |
-          const { data: $D } = await $AUTH.auth.$METHOD(...)
-      - pattern-not: |
-          const { data: $D } = await $AUTH.auth.$NS.$METHOD(...)
+          # Objeto sem `error`. Desestruturação casa por subconjunto: `{ data: $D }` também pega
+          # `{ data }` e `{ data, count }`, e os `pattern-not` tiram quem desestrutura `error`.
+          # O alvo é a DESESTRUTURAÇÃO, não a query: o `await` recai sobre a cadeia inteira.
+          - patterns:
+              - pattern-either:
+                  - pattern: 'const { data: $D } = await $EXPR'
+                  - pattern: 'const { count: $C } = await $EXPR'
+                  - pattern: 'let { data: $D } = await $EXPR'
+                  - pattern: 'let { count: $C } = await $EXPR'
+              - pattern-not: 'const { error: $E } = await $ANY'
+              - pattern-not: 'let { error: $E } = await $ANY'
+          # `error` desestruturado só para calar a regra.
+          - patterns:
+              - pattern-either:
+                  - pattern: 'const { error: $E } = await $EXPR'
+                  - pattern: 'let { error: $E } = await $EXPR'
+              - metavariable-regex:
+                  metavariable: $E
+                  regex: ^_
+          # `const [{ data: a }, { data: b, error }] = await Promise.all([...])`. Regex porque o
+          # padrão estrutural de desestruturação de array não compila nesta versão do opengrep;
+          # o elemento sem `error` dentro dos colchetes é o achado.
+          - pattern-regex: 'const \[[^\]=]*?\{(?![^}]*\berror\b)[^}]*\bdata\b[^}]*\}[^\]=]*\]\s*=\s*await\b'
+      # Auth (`auth.getSession()`, `auth.mfa.*`, `auth.admin.*`) não é PostgREST e tem outro
+      # contrato de erro; `session-claims.server.ts` documenta a sua queda.
+      - pattern-not: 'const { data: $D } = await $AUTH.auth.$METHOD(...)'
+      - pattern-not: 'const { data: $D } = await $AUTH.auth.$METHOD(...).catch(...)'
+      - pattern-not: 'const { data: $D } = await $AUTH.auth.$NS.$METHOD(...)'
+      - pattern-not: 'const { data: $D } = await $AUTH.auth.$NS.$METHOD(...).catch(...)'
