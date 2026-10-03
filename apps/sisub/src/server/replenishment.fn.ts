@@ -15,6 +15,7 @@ import {
 	applyCorrectionFactors,
 	calculateNetNeed,
 	computeDispensaSum,
+	type AcquisitionKind,
 	type DirectContractLimitRow,
 	type DispensaEntry,
 	decideChannel,
@@ -23,20 +24,30 @@ import {
 	fitsDispensaRoom,
 	type PurchaseChannel,
 	resolveDirectContractLimit,
-	resolvePurchaseUnitId,
 } from "@iefa/sisub-domain"
 import { addCivilDays, getBrasiliaToday } from "@iefa/sisub-domain/civil-date"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAuthWithPermission } from "@/lib/auth.server"
+import { type ExecutionAcquisitionRow, loadUnitExecution } from "@/lib/acquisition-execution"
 import { assertNoBlindCountHides } from "@/lib/blind-count.server"
 import { getDb } from "@/lib/db.server"
 import { publicDbMessage } from "@/lib/db-error-message"
 import { currentFiscalYear } from "@/lib/expense-execution"
+import { purchaseUnitIdOfKitchen } from "@/lib/kitchen-purchase-unit.server"
 import { readAllPages, readAllPagesIn } from "@/lib/read-all-pages"
 import { checkSupplierSicaf } from "@/lib/sicaf.server"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
+
+/** Linha de `acquisition` pela costura frouxa de `loadUnitExecution`; colunas em `loadDispensaRoomByClass`. */
+type DispensaAcquisitionRow = ExecutionAcquisitionRow & {
+	kind: AcquisitionKind
+	direct_contract_clause: string | null
+	activity_line: string | null
+	nd: string | null
+	estimated_value: number | string | null
+}
 
 /**
  * Quanto resta do limite da dispensa por valor (Lei 14.133/2021, art. 75, II) no exercício, por
@@ -49,54 +60,34 @@ async function loadDispensaRoomByClass(unitId: number | null, classCodes: readon
 	const room = new Map<string, number | null>()
 	if (unitId == null || classCodes.length === 0) return room
 	const year = currentFiscalYear()
-	const [{ data: limitRows, error: limitError }, { data: acquisitions, error: acqError }] = await Promise.all([
+	// O empenhado por contratação vem de `loadUnitExecution`, a mesma leitura (paginada, com a NE
+	// de dezembro emitida em janeiro) da prévia do somatório na tela de contratações: duas contas
+	// do mesmo limite divergiriam, e a reposição aprovaria a dispensa que a tela recusa.
+	const [{ data: limitRows, error: limitError }, execution] = await Promise.all([
 		procurement().from("direct_contract_limit").select("clause, valid_from, value, source_act"),
-		procurement()
-			.from("acquisition")
-			.select("id, kind, direct_contract_clause, fiscal_year, activity_line, nd, estimated_value, deleted_at")
-			.eq("unit_id", unitId)
-			.eq("kind", "dispensa")
-			.eq("fiscal_year", year)
-			.is("deleted_at", null),
+		loadUnitExecution<DispensaAcquisitionRow>(
+			{ procurement: procurement(), finance: getServerClient("finance") },
+			{ unitId, fiscalYear: year, acquisitionColumns: "id, kind, direct_contract_clause, fiscal_year, activity_line, nd, estimated_value" }
+		),
 	])
-	const readError = limitError ?? acqError
-	if (readError) throw new Error(`Erro ao ler o somatório da dispensa: ${publicDbMessage(readError)}`)
+	if (limitError) throw new Error(`Erro ao ler o limite da dispensa: ${publicDbMessage(limitError)}`)
 	const limits: DirectContractLimitRow[] = (limitRows ?? []).map((row) => ({
 		clause: row.clause,
 		validFrom: row.valid_from,
 		value: Number(row.value),
 		sourceAct: row.source_act,
 	}))
-	const acquisitionRows = acquisitions ?? []
-	// Valor de cada dispensa: o maior entre o empenhado vigente e o estimado.
 	const committed = new Map<string, number>()
-	if (acquisitionRows.length > 0) {
-		const fin = getServerClient("finance")
-		const { data: empenhos, error } = await fin
-			.from("empenho")
-			.select("id, acquisition_id")
-			.in(
-				"acquisition_id",
-				acquisitionRows.map((a) => a.id)
-			)
-			.eq("status", "ativo")
-		if (error) throw new Error(`Erro ao ler os empenhos das dispensas: ${publicDbMessage(error)}`)
-		const ids = (empenhos ?? []).map((e) => e.id)
-		if (ids.length > 0) {
-			const { data: vigentes, error: vigError } = await fin.from("v_empenho_vigente").select("empenho_id, valor_vigente").in("empenho_id", ids)
-			if (vigError) throw new Error(`Erro ao ler o valor vigente das dispensas: ${publicDbMessage(vigError)}`)
-			const byEmpenho = new Map<string, number>()
-			for (const v of vigentes ?? []) if (v.empenho_id) byEmpenho.set(v.empenho_id, Number(v.valor_vigente))
-			for (const e of empenhos ?? []) {
-				if (e.acquisition_id == null) continue // filtrado no `.in()`
-				committed.set(e.acquisition_id, (committed.get(e.acquisition_id) ?? 0) + (byEmpenho.get(e.id) ?? 0))
-			}
+	for (const empenho of execution.empenhos) {
+		if (empenho.acquisition_id && empenho.status === "ativo") {
+			committed.set(empenho.acquisition_id, (committed.get(empenho.acquisition_id) ?? 0) + (execution.vigenteById.get(empenho.id) ?? 0))
 		}
 	}
-	const others: DispensaEntry[] = acquisitionRows.map((row) => ({
+	// `computeDispensaSum` só soma `kind === "dispensa"`; as demais contratações do exercício passam.
+	const others: DispensaEntry[] = execution.acquisitions.map((row) => ({
 		id: row.id,
 		label: row.id,
-		kind: "dispensa",
+		kind: row.kind,
 		directContractClause: row.direct_contract_clause,
 		fiscalYear: row.fiscal_year,
 		activityLine: row.activity_line,
@@ -131,17 +122,16 @@ async function loadMaterialClassByCatmat(catmats: readonly number[]): Promise<Ma
 	const byCatmat = new Map<number, string>()
 	if (catmats.length === 0) return byCatmat
 	const compras = getServerClient("compras_gov_integration")
-	const { data: items, error } = await compras
-		.from("compras_material_item")
-		.select("codigo_item, codigo_pdm")
-		.in("codigo_item", [...new Set(catmats)])
-	if (error) throw new Error(`Erro ao ler o CATMAT: ${publicDbMessage(error)}`)
-	const pdms = [...new Set((items ?? []).map((row) => row.codigo_pdm).filter((pdm: number | null): pdm is number => pdm != null))]
-	if (pdms.length === 0) return byCatmat
-	const { data: pdmRows, error: pdmError } = await compras.from("compras_material_pdm").select("codigo_pdm, codigo_classe").in("codigo_pdm", pdms)
-	if (pdmError) throw new Error(`Erro ao ler o PDM: ${publicDbMessage(pdmError)}`)
-	const classByPdm = new Map<number, string>((pdmRows ?? []).map((row) => [row.codigo_pdm, String(row.codigo_classe)]))
-	for (const row of items ?? []) {
+	// Códigos vão como texto pelo fatiador e voltam a número no `.in()`.
+	const items = await readAllPagesIn("o CATMAT", catmats.map(String), (chunk, from, to) =>
+		compras.from("compras_material_item").select("codigo_item, codigo_pdm").in("codigo_item", chunk.map(Number)).order("codigo_item").range(from, to)
+	)
+	const pdms = items.map((row) => row.codigo_pdm).filter((pdm) => pdm != null)
+	const pdmRows = await readAllPagesIn("o PDM", pdms.map(String), (chunk, from, to) =>
+		compras.from("compras_material_pdm").select("codigo_pdm, codigo_classe").in("codigo_pdm", chunk.map(Number)).order("codigo_pdm").range(from, to)
+	)
+	const classByPdm = new Map<number, string>(pdmRows.map((row) => [row.codigo_pdm, String(row.codigo_classe)]))
+	for (const row of items) {
 		const code = row.codigo_pdm != null ? classByPdm.get(row.codigo_pdm) : undefined
 		if (code) byCatmat.set(row.codigo_item, code)
 	}
@@ -187,24 +177,58 @@ export const fetchReplenishmentSuggestionsFn = createServerFn({ method: "GET" })
 		if (needs.length === 0) return []
 		const ingredientIds = needs.map((n) => n.ingredient_id)
 
-		// (2) FC/IR do ingrediente (herança receita→ingrediente fica no anexo quantitativo; aqui é reposição)
-		// Toda leitura daqui lança e pagina: leitura que falha ou corta calada vira sugestão de
-		// compra errada (estoque ou trânsito a menos = comprar o que já tem).
-		const ingredients = await readAllPagesIn("os fatores dos insumos", ingredientIds, (chunk, from, to) =>
-			kit.from("ingredient").select("id, correction_factor, rehydration_index").in("id", chunk).order("id").range(from, to)
-		)
-		const factorsById = new Map(ingredients.map((i) => [i.id, i]))
+		const ingredientSet = new Set(ingredientIds)
 
-		// (3) estoque disponível, excluindo lotes que vencem dentro do horizonte (sinalizados)
-		const balances = await readAllPagesIn("o saldo dos insumos", ingredientIds, (chunk, from, to) =>
-			inv
-				.from("v_stock_balance")
-				.select("lot_id, ingredient_id, balance, expiry_date")
-				.eq("kitchen_id", data.kitchenId)
-				.in("ingredient_id", chunk)
-				.order("lot_id")
-				.range(from, to)
-		)
+		// Toda leitura daqui lança e pagina: leitura que falha ou corta calada vira sugestão de
+		// compra errada (estoque ou trânsito a menos = comprar o que já tem). As independentes
+		// correm juntas, em duas etapas.
+		const [ingredients, balances, transitOrders, links, policies, purchaseUnitId] = await Promise.all([
+			// (2) FC/IR do ingrediente (herança receita→ingrediente fica no anexo quantitativo; aqui é reposição)
+			readAllPagesIn("os fatores dos insumos", ingredientIds, (chunk, from, to) =>
+				kit.from("ingredient").select("id, correction_factor, rehydration_index").in("id", chunk).order("id").range(from, to)
+			),
+			// (3) estoque disponível. Só saldo positivo: lote esgotado fica na view e só pesaria a
+			// leitura. A ordem é a chave inteira da view (`stock.fn.ts` lê igual): `lot_id` sozinho
+			// empata no saldo sem lote e a paginação por offset repetiria ou pularia linha.
+			readAllPagesIn("o saldo dos insumos", ingredientIds, (chunk, from, to) =>
+				inv
+					.from("v_stock_balance")
+					.select("ingredient_id, frozen_preparation_id, lot_id, balance, expiry_date")
+					.eq("kitchen_id", data.kitchenId)
+					.in("ingredient_id", chunk)
+					.gt("balance", 0)
+					.order("ingredient_id")
+					.order("frozen_preparation_id")
+					.order("lot_id")
+					.range(from, to)
+			),
+			// (4) em trânsito: OFs enviadas/parciais → purchase_item → ingrediente
+			readAllPages("as OFs em trânsito", (from, to) =>
+				proc
+					.from("supply_order")
+					.select("id, supply_order_item (purchase_item_id, ordered_qty)")
+					.eq("kitchen_id", data.kitchenId)
+					.in("status", ["sent", "partially_received"])
+					.order("id")
+					.range(from, to)
+			),
+			readAllPagesIn("os itens de compra padrão", ingredientIds, (chunk, from, to) =>
+				proc
+					.from("purchase_item_ingredient")
+					.select("id, ingredient_id, purchase_item_id, conversion_factor, is_default, purchase_item:purchase_item_id (catmat_item_codigo, unit_price)")
+					.in("ingredient_id", chunk)
+					.eq("is_default", true)
+					.order("id")
+					.range(from, to)
+			),
+			// (6) política
+			readAllPagesIn("as políticas de estoque", ingredientIds, (chunk, from, to) =>
+				inv.from("stock_policy").select("*").eq("kitchen_id", data.kitchenId).in("ingredient_id", chunk).order("id").range(from, to)
+			),
+			purchaseUnitIdOfKitchen(data.kitchenId),
+		])
+
+		const factorsById = new Map(ingredients.map((i) => [i.id, i]))
 		const stockById = new Map<string, { available: number; expiring: number }>()
 		for (const row of balances) {
 			if (row.ingredient_id == null) continue // filtrado no `.in()`; coluna de view sai nulável
@@ -215,17 +239,6 @@ export const fetchReplenishmentSuggestionsFn = createServerFn({ method: "GET" })
 			else entry.available += qty
 			stockById.set(row.ingredient_id, entry)
 		}
-
-		// (4) em trânsito: OFs enviadas/parciais → purchase_item → ingrediente (conversão default)
-		const transitOrders = await readAllPages("as OFs em trânsito", (from, to) =>
-			proc
-				.from("supply_order")
-				.select("id, supply_order_item (purchase_item_id, ordered_qty)")
-				.eq("kitchen_id", data.kitchenId)
-				.in("status", ["sent", "partially_received"])
-				.order("id")
-				.range(from, to)
-		)
 		const purchaseQty = new Map<string, number>()
 		for (const order of transitOrders) {
 			for (const item of order.supply_order_item ?? []) {
@@ -233,55 +246,41 @@ export const fetchReplenishmentSuggestionsFn = createServerFn({ method: "GET" })
 				purchaseQty.set(item.purchase_item_id, (purchaseQty.get(item.purchase_item_id) ?? 0) + Number(item.ordered_qty))
 			}
 		}
-		// OF parcialmente recebida: o que já entrou em definitivo sai do trânsito
-		// (review: trânsito superestimado suprimia sugestões necessárias)
-		const receivedByIngredient = new Map<string, number>()
-		const receipts = await readAllPagesIn(
-			"os recebimentos das OFs em trânsito",
-			transitOrders.map((o) => o.id),
-			(chunk, from, to) => inv.from("goods_receipt").select("id").in("supply_order_id", chunk).not("definitive_at", "is", null).order("id").range(from, to)
-		)
-		const receiptItems = await readAllPagesIn(
-			"os itens recebidos das OFs em trânsito",
-			receipts.map((r) => r.id),
-			(chunk, from, to) => inv.from("goods_receipt_item").select("id, ingredient_id, received_qty_base").in("receipt_id", chunk).order("id").range(from, to)
-		)
-		for (const item of receiptItems) {
-			if (!item.ingredient_id) continue
-			receivedByIngredient.set(item.ingredient_id, (receivedByIngredient.get(item.ingredient_id) ?? 0) + Number(item.received_qty_base))
-		}
-		const transitById = new Map<string, number>()
 		const defaultPurchaseByIngredient = new Map<string, string>()
 		const priceByIngredient = new Map<string, { unitPrice: number | null; conversionFactor: number }>()
-		const purchaseItemIds = [...purchaseQty.keys()]
 		const catmatByIngredient = new Map<string, boolean>()
 		const catmatCodeByIngredient = new Map<string, number>()
-		{
-			const links = await readAllPagesIn("os itens de compra padrão", ingredientIds, (chunk, from, to) =>
-				proc
-					.from("purchase_item_ingredient")
-					.select("id, ingredient_id, purchase_item_id, conversion_factor, is_default, purchase_item:purchase_item_id (catmat_item_codigo, unit_price)")
-					.in("ingredient_id", chunk)
-					.eq("is_default", true)
-					.order("id")
-					.range(from, to)
-			)
-			for (const link of links) {
-				catmatByIngredient.set(link.ingredient_id, link.purchase_item?.catmat_item_codigo != null)
-				if (link.purchase_item?.catmat_item_codigo != null) catmatCodeByIngredient.set(link.ingredient_id, Number(link.purchase_item.catmat_item_codigo))
-				defaultPurchaseByIngredient.set(link.ingredient_id, link.purchase_item_id)
-				priceByIngredient.set(link.ingredient_id, {
-					unitPrice: link.purchase_item?.unit_price != null ? Number(link.purchase_item.unit_price) : null,
-					conversionFactor: Number(link.conversion_factor ?? 1) || 1,
-				})
-			}
+		for (const link of links) {
+			catmatByIngredient.set(link.ingredient_id, link.purchase_item?.catmat_item_codigo != null)
+			if (link.purchase_item?.catmat_item_codigo != null) catmatCodeByIngredient.set(link.ingredient_id, Number(link.purchase_item.catmat_item_codigo))
+			defaultPurchaseByIngredient.set(link.ingredient_id, link.purchase_item_id)
+			priceByIngredient.set(link.ingredient_id, {
+				unitPrice: link.purchase_item?.unit_price != null ? Number(link.purchase_item.unit_price) : null,
+				conversionFactor: Number(link.conversion_factor ?? 1) || 1,
+			})
 		}
-		// conversão do trânsito por PURCHASE_ITEM da OF — sem exigir is_default
-		// (review: OF de item não-default ficava fora do trânsito). Um link por
-		// purchase_item, preferindo o default.
-		{
-			// Todo item de compra cai numa fatia só, então a ordem "default primeiro" vale por item.
-			const transitLinks = await readAllPagesIn("a conversão do trânsito", purchaseItemIds, (chunk, from, to) =>
+		const policyById = new Map(policies.map((p) => [p.ingredient_id, p]))
+
+		const [receiptItems, transitLinks, arpItems, leadTimes, classByCatmat] = await Promise.all([
+			// OF parcialmente recebida: o que já entrou em definitivo sai do trânsito
+			// (review: trânsito superestimado suprimia sugestões necessárias)
+			(async () => {
+				const receipts = await readAllPagesIn(
+					"os recebimentos das OFs em trânsito",
+					transitOrders.map((o) => o.id),
+					(chunk, from, to) => inv.from("goods_receipt").select("id").in("supply_order_id", chunk).not("definitive_at", "is", null).order("id").range(from, to)
+				)
+				return readAllPagesIn(
+					"os itens recebidos das OFs em trânsito",
+					receipts.map((r) => r.id),
+					(chunk, from, to) => inv.from("goods_receipt_item").select("id, ingredient_id, received_qty_base").in("receipt_id", chunk).order("id").range(from, to)
+				)
+			})(),
+			// conversão do trânsito por PURCHASE_ITEM da OF — sem exigir is_default
+			// (review: OF de item não-default ficava fora do trânsito). Um link por
+			// purchase_item, preferindo o default: todo item de compra cai numa fatia só,
+			// então a ordem "default primeiro" vale por item.
+			readAllPagesIn("a conversão do trânsito", [...purchaseQty.keys()], (chunk, from, to) =>
 				proc
 					.from("purchase_item_ingredient")
 					.select("id, ingredient_id, purchase_item_id, conversion_factor, is_default")
@@ -289,60 +288,69 @@ export const fetchReplenishmentSuggestionsFn = createServerFn({ method: "GET" })
 					.order("is_default", { ascending: false })
 					.order("id")
 					.range(from, to)
-			)
-			const seen = new Set<string>()
-			for (const link of transitLinks) {
-				if (seen.has(link.purchase_item_id)) continue
-				seen.add(link.purchase_item_id)
-				if (!ingredientIds.includes(link.ingredient_id)) continue
-				const qty = (purchaseQty.get(link.purchase_item_id) ?? 0) * (Number(link.conversion_factor ?? 1) || 1)
-				transitById.set(link.ingredient_id, (transitById.get(link.ingredient_id) ?? 0) + qty)
-			}
+			),
+			// (5) saldo oficial de ARP PRÓPRIA vigente (via item do anexo → ingrediente): só as atas
+			// da unidade que compra pela cozinha. Filtrar só pelo insumo contava a ARP de outra OM
+			// como saldo desta, e o canal recomendado era empenhar uma ata que a cozinha não tem.
+			purchaseUnitId == null
+				? Promise.resolve([])
+				: readAllPagesIn("o saldo das ARPs", ingredientIds, (chunk, from, to) =>
+						proc
+							.from("arp_item")
+							.select(
+								"id, saldo_empenho, ni_fornecedor, quantity_estimate_item:quantity_estimate_item_id!inner (ingredient_id), arp:arp_id!inner (unit_id, data_vigencia_fim)"
+							)
+							.in("quantity_estimate_item.ingredient_id", chunk)
+							.eq("arp.unit_id", purchaseUnitId)
+							.order("id")
+							.range(from, to)
+					),
+			// (6) lead time observado, só dos itens de compra que a sugestão consulta: o `limit(1000)`
+			// global antigo cortava o histórico de toda a Força numa amostra arbitrária. A view não
+			// tem chave única (uma linha por recebimento × item da OF); ordenar por TODAS as colunas
+			// lidas torna indistinguível qualquer empate que a paginação troque de lugar.
+			readAllPagesIn("o lead time observado", [...defaultPurchaseByIngredient.values()], (chunk, from, to) =>
+				inv
+					.from("v_supplier_lead_time")
+					.select("supply_order_id, purchase_item_id, ni_fornecedor, lead_time_days")
+					.in("purchase_item_id", chunk)
+					.order("supply_order_id")
+					.order("purchase_item_id")
+					.order("ni_fornecedor")
+					.order("lead_time_days")
+					.range(from, to)
+			),
+			loadMaterialClassByCatmat([...catmatCodeByIngredient.values()]),
+		])
+
+		const receivedByIngredient = new Map<string, number>()
+		for (const item of receiptItems) {
+			if (!item.ingredient_id) continue
+			receivedByIngredient.set(item.ingredient_id, (receivedByIngredient.get(item.ingredient_id) ?? 0) + Number(item.received_qty_base))
+		}
+		const transitById = new Map<string, number>()
+		const seen = new Set<string>()
+		for (const link of transitLinks) {
+			if (seen.has(link.purchase_item_id)) continue
+			seen.add(link.purchase_item_id)
+			if (!ingredientSet.has(link.ingredient_id)) continue
+			const qty = (purchaseQty.get(link.purchase_item_id) ?? 0) * (Number(link.conversion_factor ?? 1) || 1)
+			transitById.set(link.ingredient_id, (transitById.get(link.ingredient_id) ?? 0) + qty)
 		}
 		for (const [ingredientId, received] of receivedByIngredient) {
 			transitById.set(ingredientId, Math.max(0, (transitById.get(ingredientId) ?? 0) - received))
 		}
 
-		// (5) saldo oficial de ARP própria vigente (via item do anexo → ingrediente)
 		const arpBalanceById = new Map<string, number>()
 		const expectedSupplierByIngredient = new Map<string, string>()
-		{
-			// Filtrado pelos insumos da demanda no banco: a leitura era de TODO item de ARP com anexo,
-			// do país inteiro, e passava do teto de 1000 linhas cortando o saldo calada.
-			const arpItems = await readAllPagesIn("o saldo das ARPs", ingredientIds, (chunk, from, to) =>
-				proc
-					.from("arp_item")
-					.select("id, saldo_empenho, ni_fornecedor, quantity_estimate_item:quantity_estimate_item_id!inner (ingredient_id), arp:arp_id (data_vigencia_fim)")
-					.in("quantity_estimate_item.ingredient_id", chunk)
-					.order("id")
-					.range(from, to)
-			)
-			for (const item of arpItems) {
-				const ingredientId = item.quantity_estimate_item?.ingredient_id
-				if (!ingredientId || !ingredientIds.includes(ingredientId)) continue
-				if (item.arp?.data_vigencia_fim != null && item.arp.data_vigencia_fim < today) continue
-				arpBalanceById.set(ingredientId, (arpBalanceById.get(ingredientId) ?? 0) + Number(item.saldo_empenho ?? 0))
-				if (item.ni_fornecedor != null) expectedSupplierByIngredient.set(ingredientId, String(item.ni_fornecedor))
-			}
+		for (const item of arpItems) {
+			const ingredientId = item.quantity_estimate_item.ingredient_id
+			if (!ingredientId) continue
+			if (item.arp.data_vigencia_fim != null && item.arp.data_vigencia_fim < today) continue
+			arpBalanceById.set(ingredientId, (arpBalanceById.get(ingredientId) ?? 0) + Number(item.saldo_empenho ?? 0))
+			if (item.ni_fornecedor != null) expectedSupplierByIngredient.set(ingredientId, String(item.ni_fornecedor))
 		}
 
-		// (6) política + lead time observado
-		const policies = await readAllPagesIn("as políticas de estoque", ingredientIds, (chunk, from, to) =>
-			inv.from("stock_policy").select("*").eq("kitchen_id", data.kitchenId).in("ingredient_id", chunk).order("id").range(from, to)
-		)
-		const policyById = new Map(policies.map((p) => [p.ingredient_id, p]))
-		// Só dos itens de compra que a sugestão consulta: o `limit(1000)` global antigo cortava o
-		// histórico de lead time de toda a Força, e a mediana saía de uma amostra arbitrária.
-		const leadTimes = await readAllPagesIn("o lead time observado", [...defaultPurchaseByIngredient.values()], (chunk, from, to) =>
-			inv
-				.from("v_supplier_lead_time")
-				.select("supply_order_id, purchase_item_id, ni_fornecedor, lead_time_days")
-				.in("purchase_item_id", chunk)
-				.order("supply_order_id")
-				.order("purchase_item_id")
-				.order("received_at")
-				.range(from, to)
-		)
 		// por item de compra — mediana global misturava fornecedores/itens sem
 		// relação (review) e contaminava a recomendação de canal
 		const observedByPurchaseItem = new Map<string, number[]>()
@@ -360,10 +368,6 @@ export const fetchReplenishmentSuggestionsFn = createServerFn({ method: "GET" })
 		}
 
 		// (7) somatório da dispensa por ramo (classe do CATMAT) na unidade gestora que compra pela cozinha
-		const { data: kitchenRow, error: kitchenError } = await kit.from("kitchen").select("unit_id, purchase_unit_id").eq("id", data.kitchenId).maybeSingle()
-		if (kitchenError) throw new Error(`Erro ao ler a cozinha: ${publicDbMessage(kitchenError)}`)
-		const purchaseUnitId = resolvePurchaseUnitId({ unitId: kitchenRow?.unit_id ?? null, purchaseUnitId: kitchenRow?.purchase_unit_id ?? null })
-		const classByCatmat = await loadMaterialClassByCatmat([...catmatCodeByIngredient.values()])
 		const dispensaRoom = await loadDispensaRoomByClass(purchaseUnitId, [...classByCatmat.values()])
 
 		return needs
