@@ -14,7 +14,6 @@ import {
 	restoreMenuItem,
 	updateHeadcount,
 	updateMenuItem,
-	updateSubstitutions,
 	upsertDailyMenu,
 } from "@iefa/sisub-domain"
 import { afterAll, afterEach, beforeAll, beforeEach, expect, test } from "vitest"
@@ -158,18 +157,5 @@ describeSupabaseIntegration("planning operations (regressão)", () => {
 
 		const updated = await updateHeadcount(db, ctx, { dailyMenuId, forecastedHeadcount: 321 })
 		expect(updated[0].forecasted_headcount).toBe(321)
-	})
-
-	test("updateSubstitutions persiste o mapa de substituições", async () => {
-		if (!reachable || !seeder || !db) return
-		const { recipeId, dailyMenuId } = await scenario()
-		const inserted = await addMenuItem(db, ctx, { dailyMenuId, recipeId })
-		const menuItemId = inserted[0].id
-
-		const substitutions = { arroz: { type: "swap", rationale: "[TEST] motivo", updated_at: "2099-01-01T00:00:00Z" } }
-		await updateSubstitutions(db, ctx, { menuItemId, substitutions })
-
-		const { data } = await client.schema("kitchen").from("menu_items").select("substitutions").eq("id", menuItemId).single()
-		expect(data?.substitutions).toMatchObject(substitutions)
 	})
 })

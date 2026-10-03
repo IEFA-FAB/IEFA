@@ -413,7 +413,6 @@ export type {
 	SubstitutionEntry,
 	UpdateHeadcount,
 	UpdateMenuItem,
-	UpdateSubstitutions,
 	UpsertDailyMenu,
 } from "./planning.ts"
 export {
@@ -434,7 +433,6 @@ export {
 	SubstitutionEntrySchema,
 	UpdateHeadcountSchema,
 	UpdateMenuItemSchema,
-	UpdateSubstitutionsSchema,
 	UpsertDailyMenuSchema,
 } from "./planning.ts"
 export type {

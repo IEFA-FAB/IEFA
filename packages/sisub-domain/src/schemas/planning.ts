@@ -72,15 +72,13 @@ export const SubstitutionEntrySchema = z.object({
 	/** Troca de preparação (`recipe_swap`): de qual preparação o item veio. */
 	from_recipe_id: UuidSchema.nullable().optional(),
 	from_recipe_name: z.string().nullable().optional(),
+	/** Quem registrou (usuário da sessão ou da chave MCP). Registros antigos não têm. */
+	recorded_by: UuidSchema.nullable().optional(),
+	/** `mcp` quando quem registrou foi um agente pelo servidor MCP; ausente na tela. */
+	source: z.literal("mcp").optional(),
 })
 
 export type SubstitutionEntry = z.infer<typeof SubstitutionEntrySchema>
-
-export const UpdateSubstitutionsSchema = z.object({
-	menuItemId: UuidSchema,
-	substitutions: z.record(z.string(), SubstitutionEntrySchema),
-})
-export type UpdateSubstitutions = z.infer<typeof UpdateSubstitutionsSchema>
 
 export const GetTrashItemsSchema = z.object({
 	kitchenId: KitchenIdSchema,
