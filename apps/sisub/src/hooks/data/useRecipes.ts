@@ -3,13 +3,7 @@ import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/r
 import { useMemo } from "react"
 import { queryKeys } from "@/lib/query-keys"
 import { normalizeForSearch } from "@/lib/text-search"
-import {
-	fetchRecipeLastReviewsFn,
-	fetchRecipeMenuUsageFn,
-	fetchRecipeSummariesFn,
-	fetchRecipeWithIngredientsFn,
-	recordRecipeReviewFn,
-} from "@/server/recipes.fn"
+import { fetchRecipeFn, fetchRecipeLastReviewsFn, fetchRecipeMenuUsageFn, fetchRecipeSummariesFn, recordRecipeReviewFn } from "@/server/recipes.fn"
 import type { RecipeWithIngredients } from "@/types/domain/recipes"
 
 /**
@@ -92,7 +86,7 @@ export function useRecipeMenuUsage() {
  * Used when creating menu_items to generate the recipe snapshot.
  */
 export async function fetchRecipeWithIngredients(recipeId: string): Promise<RecipeWithIngredients> {
-	return fetchRecipeWithIngredientsFn({ data: { recipeId } })
+	return fetchRecipeFn({ data: { recipeId } })
 }
 
 /**

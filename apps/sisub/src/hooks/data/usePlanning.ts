@@ -8,9 +8,9 @@ import {
 	fetchDailyMenusFn,
 	fetchDayDetailsFn,
 	fetchTrashItemsFn,
+	removeMenuItemFn,
 	restoreMenuItemFn,
-	softDeleteMenuItemFn,
-	updateDailyMenuFn,
+	updateHeadcountFn,
 	updateMenuItemFn,
 	upsertDailyMenuFn,
 } from "@/server/planning.fn"
@@ -140,7 +140,7 @@ export function useUpdateDailyMenu(options?: { silent?: boolean }) {
 			// com toast de sucesso.
 			updates: { forecasted_headcount: number }
 		}) =>
-			updateDailyMenuFn({
+			updateHeadcountFn({
 				data: {
 					dailyMenuId: id,
 					forecastedHeadcount: updates.forecasted_headcount,
@@ -204,7 +204,7 @@ export function useDeleteMenuItem() {
 	const queryClient = useQueryClient()
 
 	return useMutation({
-		mutationFn: (itemId: string) => softDeleteMenuItemFn({ data: { menuItemId: itemId } }),
+		mutationFn: (itemId: string) => removeMenuItemFn({ data: { menuItemId: itemId } }),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.planning.menus() })
 			queryClient.invalidateQueries({ queryKey: queryKeys.planning.day() })
