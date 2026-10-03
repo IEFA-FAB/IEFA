@@ -287,13 +287,16 @@ export const createAdjustmentFn = createServerFn({ method: "POST" })
 
 		// lote informado tem de ser da cozinha do ajuste — o guard é por cozinha,
 		// e sem esta checagem o nível 2 de uma cozinha ajustaria lote de outra
-		const lotIds = data.items.map((item) => item.lotId).filter((id): id is string => Boolean(id))
+		const lotIds = data.items.map((item) => item.lotId).filter((id) => id != null)
+		let lots: Array<{ kitchen_id: number; ingredient_id: string | null }> = []
 		if (lotIds.length > 0) {
-			const { data: lots } = await inv.from("stock_lot").select("id, kitchen_id").in("id", lotIds)
-			for (const lot of lots ?? []) {
-				if (Number(lot.kitchen_id) !== data.kitchenId) throw new Error("Lote de outra cozinha")
+			const { data: rows, error: lotsError } = await inv.from("stock_lot").select("id, kitchen_id, ingredient_id").in("id", lotIds)
+			if (lotsError) throw new Error(`Erro ao conferir os lotes do ajuste: ${publicDbMessage(lotsError)}`)
+			lots = rows ?? []
+			for (const lot of lots) {
+				if (lot.kitchen_id !== data.kitchenId) throw new Error("Lote de outra cozinha")
 			}
-			if ((lots ?? []).length !== new Set(lotIds).size) throw new Error("Lote não encontrado")
+			if (lots.length !== new Set(lotIds).size) throw new Error("Lote não encontrado")
 		}
 
 		// insumo com unidade fora do catálogo canônico não movimenta estoque: o
@@ -301,10 +304,7 @@ export const createAdjustmentFn = createServerFn({ method: "POST" })
 		for (const item of data.items) {
 			await assertCanonicalUnit(item.ingredientId ?? null)
 		}
-		if (lotIds.length > 0) {
-			const { data: lotItems } = await inv.from("stock_lot").select("ingredient_id").in("id", lotIds)
-			for (const lot of lotItems ?? []) await assertCanonicalUnit(lot.ingredient_id)
-		}
+		for (const lot of lots) await assertCanonicalUnit(lot.ingredient_id)
 
 		const { data: doc, error } = await inv
 			.from("stock_adjustment")
@@ -435,7 +435,7 @@ export const createAdjustmentFn = createServerFn({ method: "POST" })
 				adjustmentId: doc.id,
 				status: "pending_approval" as const,
 				movements: 0,
-				postFailure: postError.message as string | null,
+				postFailure: publicDbMessage(postError) as string | null,
 			}
 		}
 		return {
@@ -662,7 +662,8 @@ export const splitLotFn = createServerFn({ method: "POST" })
 		})
 		if (error) throw new Error(`Erro ao fracionar o lote: ${publicDbMessage(error)}`)
 		const row = result?.[0]
-		return { lotId: row?.new_lot_id as string, shortCode: row?.new_short_code as string, expiryDate: (row?.new_expiry_date ?? null) as string | null }
+		if (!row) throw new Error("O fracionamento não devolveu o lote novo")
+		return { lotId: row.new_lot_id, shortCode: row.new_short_code, expiryDate: row.new_expiry_date ?? null }
 	})
 
 /** Ajustes da cozinha, com limite e total (listagem exposta a operador e a IA). */
@@ -801,11 +802,17 @@ export const listQuarantinedLotsFn = createServerFn({ method: "GET" })
 			.limit(100)
 		if (error) throw new Error(`Erro ao listar lotes em quarentena: ${publicDbMessage(error)}`)
 
-		const ingredientIds = (lots ?? []).map((lot) => lot.ingredient_id).filter((id): id is string => id != null)
-		const ingredients = await readAllPagesIn("os nomes dos itens em quarentena", ingredientIds, (chunk, from, to) =>
-			kitchen().from("ingredient").select("id, description").in("id", chunk).order("id").range(from, to)
-		)
-		const names = new Map(ingredients.map((ingredient) => [ingredient.id, ingredient.description]))
+		const ingredientIds = (lots ?? []).map((lot) => lot.ingredient_id).filter((id) => id != null)
+		// Uma requisição: a lista tem no máximo 100 lotes, abaixo da fatia e do teto de linhas.
+		const names = new Map<string, string | null>()
+		if (ingredientIds.length > 0) {
+			const { data: ingredients, error: namesError } = await kitchen()
+				.from("ingredient")
+				.select("id, description")
+				.in("id", [...new Set(ingredientIds)])
+			if (namesError) throw new Error(`Erro ao ler os nomes dos itens em quarentena: ${publicDbMessage(namesError)}`)
+			for (const ingredient of ingredients ?? []) names.set(ingredient.id, ingredient.description)
+		}
 
 		return (lots ?? []).map((lot) => ({
 			...lot,

@@ -127,8 +127,8 @@ export const fetchExpiringLotsFn = createServerFn({ method: "GET" })
 		)
 
 		// descrição e unidade vêm dos dois catálogos que alimentam o lote
-		const ingredientIds = all.map((row) => row.ingredient_id).filter((id): id is string => id != null)
-		const frozenIds = all.map((row) => row.frozen_preparation_id).filter((id): id is string => id != null)
+		const ingredientIds = all.map((row) => row.ingredient_id).filter((id) => id != null)
+		const frozenIds = all.map((row) => row.frozen_preparation_id).filter((id) => id != null)
 		const kit = kitchen()
 		// sem o nome, todo lote vira "(item sem cadastro)" — parece defeito de
 		// catálogo, e é falha de leitura
@@ -156,7 +156,7 @@ export const fetchExpiringLotsFn = createServerFn({ method: "GET" })
 				.order("id")
 				.range(from, to)
 		)
-		const pendingLots = new Set(pending.map((row) => row.lot_id).filter((id): id is string => id != null))
+		const pendingLots = new Set(pending.map((row) => row.lot_id).filter((id) => id != null))
 
 		const BAND_ORDER: Record<ExpiryBand, number> = { expired: 0, critical: 1, warning: 2, no_expiry: 3 }
 		const mapped: ExpiryLotRow[] = all
@@ -285,7 +285,7 @@ export const fetchExpiryPoliciesFn = createServerFn({ method: "GET" })
 				.order("id")
 				.range(from, to)
 		)
-		const ingredientIds = all.map((row) => row.ingredient_id).filter((id): id is string => id != null)
+		const ingredientIds = all.map((row) => row.ingredient_id).filter((id) => id != null)
 		const names = new Map<string, string>()
 		for (const [id, meta] of await describeItems(kitchen(), ingredientIds, [])) names.set(id, meta.description)
 
@@ -453,8 +453,8 @@ export const fetchExpiringInPeriodFn = createServerFn({ method: "GET" })
 
 		const describe = await describeItems(
 			kitchen(),
-			[...byItem.values()].map((item) => item.ingredientId).filter((id): id is string => id != null),
-			[...byItem.values()].map((item) => item.frozenPreparationId).filter((id): id is string => id != null)
+			[...byItem.values()].map((item) => item.ingredientId).filter((id) => id != null),
+			[...byItem.values()].map((item) => item.frozenPreparationId).filter((id) => id != null)
 		)
 
 		const items = maskBlindCountQuantities(
