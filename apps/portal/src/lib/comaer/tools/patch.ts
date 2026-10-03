@@ -12,7 +12,8 @@
  * ordem do despacho e signatário não têm tool. É a mesma fronteira da geração de um tiro.
  */
 
-import { reconcileKindAndScope } from "../catalog"
+import { reconcileKindAndScope, resolveKind } from "../catalog"
+import { renderDivisions } from "../format"
 import { findForbiddenTreatmentInParagraph, forbiddenTreatmentMessage } from "../treatment"
 import type { DocumentInput, Paragraph } from "../types"
 
@@ -24,6 +25,35 @@ export interface PatchResult {
 	summary: string
 	/** Blocos afetados, para o preview destacar o que mudou no turno. */
 	touched: string[]
+}
+
+/**
+ * Numeração que a folha vai imprimir, no formato "1; 2 (2.1, 2.2); 3 (3.1 [a), b)])".
+ *
+ * Volta ao modelo junto do resumo de toda mudança de texto: a numeração é calculada pela
+ * montagem, não escrita por ele, e sem isto ele remetia a "alíneas a e b" num texto que
+ * imprimia os itens 3.1 a 3.3 — ou mantinha "item 3.1" depois de inserir um parágrafo antes.
+ */
+export function printedOutline(document: DocumentInput): string {
+	const lines = renderDivisions(document.paragraphs, resolveKind(document.kind).numberedParagraphs)
+	const paragraphs: { label: string; items: { label: string; alineas: string[] }[] }[] = []
+	for (const line of lines) {
+		const target = line.edit?.target
+		const label = line.text.split(" ")[0]
+		if (target?.field === "paragraph") paragraphs.push({ label: line.marker ?? "(sem número)", items: [] })
+		else if (target?.field === "item") paragraphs.at(-1)?.items.push({ label, alineas: [] })
+		else if (target?.field === "alinea") paragraphs.at(-1)?.items.at(-1)?.alineas.push(label)
+	}
+	return paragraphs
+		.map((p) => {
+			const items = p.items.map((i) => (i.alineas.length > 0 ? `${i.label} [${i.alineas.join(", ")}]` : i.label))
+			return items.length > 0 ? `${p.label.replace(/\.$/, "")} (${items.join(", ")})` : p.label.replace(/\.$/, "")
+		})
+		.join("; ")
+}
+
+function textSummary(document: DocumentInput, change: string): string {
+	return `${change} Numeração impressa agora: ${printedOutline(document)}.`
 }
 
 /** Erro de remendo: o modelo lê a mensagem e corrige na chamada seguinte. */
@@ -152,7 +182,8 @@ export function applyPatch(document: DocumentInput, name: string, args: Record<s
 			const paragraphs = asParagraphs(args.paragraphs)
 			if (paragraphs.length === 0) throw new PatchError("O texto precisa de ao menos um parágrafo.")
 			assertTreatment(document, paragraphs)
-			return { document: { ...document, paragraphs }, summary: `Texto reescrito com ${paragraphs.length} parágrafo(s).`, touched: ["texto"] }
+			const next = { ...document, paragraphs }
+			return { document: next, summary: textSummary(next, `Texto reescrito com ${paragraphs.length} parágrafo(s).`), touched: ["texto"] }
 		}
 
 		case "replace_paragraph": {
@@ -160,7 +191,8 @@ export function applyPatch(document: DocumentInput, name: string, args: Record<s
 			const [replacement] = asParagraphs([{ text: args.text, items: args.items }])
 			assertTreatment(document, [replacement])
 			const paragraphs = document.paragraphs.map((p, i) => (i === index ? replacement : p))
-			return { document: { ...document, paragraphs }, summary: `Parágrafo ${index + 1} substituído.`, touched: ["texto"] }
+			const next = { ...document, paragraphs }
+			return { document: next, summary: textSummary(next, `Parágrafo ${index + 1} substituído.`), touched: ["texto"] }
 		}
 
 		case "insert_paragraph": {
@@ -168,14 +200,16 @@ export function applyPatch(document: DocumentInput, name: string, args: Record<s
 			const [added] = asParagraphs([{ text: args.text, items: args.items }])
 			assertTreatment(document, [added])
 			const paragraphs = [...document.paragraphs.slice(0, index), added, ...document.paragraphs.slice(index)]
-			return { document: { ...document, paragraphs }, summary: `Parágrafo inserido na posição ${index + 1}.`, touched: ["texto"] }
+			const next = { ...document, paragraphs }
+			return { document: next, summary: textSummary(next, `Parágrafo inserido na posição ${index + 1}.`), touched: ["texto"] }
 		}
 
 		case "remove_paragraph": {
 			const index = paragraphIndex(document, args.number)
 			if (document.paragraphs.length === 1) throw new PatchError("O documento ficaria sem texto; substitua o parágrafo em vez de removê-lo.")
 			const paragraphs = document.paragraphs.filter((_, i) => i !== index)
-			return { document: { ...document, paragraphs }, summary: `Parágrafo ${index + 1} removido.`, touched: ["texto"] }
+			const next = { ...document, paragraphs }
+			return { document: next, summary: textSummary(next, `Parágrafo ${index + 1} removido.`), touched: ["texto"] }
 		}
 
 		default:
