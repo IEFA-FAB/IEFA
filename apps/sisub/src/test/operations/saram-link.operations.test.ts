@@ -230,16 +230,17 @@ describeSupabaseIntegration("vínculo de SARAM verificado (banco real)", () => {
 			const saram = `0${digits(5)}`
 			const requested = await requestSaramLink(tx, me, { saram, justification: "Cheguei depois da última carga do cadastro." })
 			expect(requested.status.status).toMatch(/^(pending_request|contested)$/)
-			await expect(requestSaramLink(tx, me, { saram, justification: "Segundo pedido enquanto o primeiro está pendente." })).rejects.toMatchObject({
-				code: "REQUEST_PENDING",
-			})
+			// Recusa do banco aborta a transação: savepoint, como em todo erro esperado no meio do teste.
+			await expect(
+				tx.transaction((sp) => requestSaramLink(sp, me, { saram, justification: "Segundo pedido enquanto o primeiro está pendente." }))
+			).rejects.toMatchObject({ code: "REQUEST_PENDING" })
 			const withdrawn = await withdrawSaramRequest(tx, me, { requestId: requested.requestId ?? "" })
 			expect(withdrawn.outcome).toBe("withdrawn")
 
 			const link = { operation: "linkUserSaramFn", grade: "fresh" as const }
-			await expect(linkUserSaram(tx, admin, { userId, saram, expectedSaram: "1234567", reason: "Conferido na seção." }, undefined, link)).rejects.toMatchObject(
-				{ code: "CONFLICT" }
-			)
+			await expect(
+				tx.transaction((sp) => linkUserSaram(sp, admin, { userId, saram, expectedSaram: "1234567", reason: "Conferido na seção." }, undefined, link))
+			).rejects.toMatchObject({ code: "CONFLICT" })
 			// a linha de core.user_data ainda não existia: nasce do e-mail do Auth
 			const linked = await linkUserSaram(tx, admin, { userId, saram, expectedSaram: null, reason: "Conferido na seção." }, undefined, link)
 			expect(await logRow(tx, linked.logId ?? "")).toMatchObject({ actor_id: adminId, operation: "linkUserSaramFn" })

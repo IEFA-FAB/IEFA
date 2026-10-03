@@ -76,4 +76,6 @@ run "$HERE/admin-ceiling.test.sql"
 # 20261003100000: vínculo de SARAM verificado e conta institucional (aplica a migration duas vezes
 # de dentro do teste, depois de semear o estado de antes para o backfill).
 run "$HERE/saram-link.test.sql"
+run "$MIGRATIONS/20261003100100_saram_link_request_fk_indexes.sql"
+run "$MIGRATIONS/20261003100100_saram_link_request_fk_indexes.sql"
 echo "access-audit: tudo verde"
