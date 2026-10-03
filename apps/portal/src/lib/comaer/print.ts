@@ -3,13 +3,22 @@
  * Regras de página da impressão que dependem do documento.
  *
  * O `<style>` do editor é texto montado em tempo de render; o que vem do documento entra numa
- * string CSS e por isso passa por `cssString`, que também tira `<` e `>` para o conteúdo não
+ * string CSS e por isso passa por `cssString`, que também escapa `<` e `>` para o conteúdo não
  * fechar a tag `<style>` no HTML do servidor.
  */
 
-/** Literal de string CSS, seguro dentro de `<style>`. */
+/**
+ * Literal de string CSS, seguro dentro de `<style>`: `<` e `>` viram escape hexadecimal do CSS
+ * (o HTML não vê `</style>`, e a folha impressa mostra o caractere de volta); quebra de linha
+ * vira espaço.
+ */
 export function cssString(value: string): string {
-	return `"${value.replace(/[<>\r\n]/g, "").replace(/[\\"]/g, "\\$&")}"`
+	const escaped = value
+		.replace(/[\\"]/g, "\\$&")
+		.replace(/</g, "\\3C ")
+		.replace(/>/g, "\\3E ")
+		.replace(/[\r\n]+/g, " ")
+	return `"${escaped}"`
 }
 
 /**

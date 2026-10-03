@@ -96,23 +96,24 @@ function ementaBlock(input: DocumentInput, kind: DocumentKind): Line[] {
 		// Manual da Presidência. Nos demais o rótulo fica na margem e o texto a 2,5 cm (Anexo XV).
 		lines.push({
 			text: `Assunto: ${input.subject.replace(/\.?$/, ".")}`,
-			...(external ? { bold: true } : { marker: "Assunto:" }),
+			...(external ? { bold: true } : { marker: "Assunto:", hanging: true }),
 			edit: { target: { field: "subject" }, value: input.subject },
 		})
 	}
 	if (!external) {
-		// Art. 37 § 2º, II: a primeira linha leva o rótulo; as seguintes alinham sob ela. Entre
-		// os grupos, a linha em branco do modelo do Anexo XV.
+		// Art. 37 § 2º, II: a primeira linha leva o rótulo; as seguintes alinham sob ela — por
+		// isso o rótulo é pendente (`hanging`) e a quebra da 1ª referência cai na mesma coluna
+		// de 2,5 cm das demais. Entre os grupos, a linha em branco do modelo do Anexo XV.
 		for (const [i, item] of enumerationEntries(input.references ?? [], (n) => `${n + 1}.`).entries())
 			lines.push({
 				text: i === 0 ? `Referência: ${item.text}` : item.text,
-				...(i === 0 ? { marker: "Referência:", gapBefore: lines.length > 0 } : { indentCm: 2.5 }),
+				...(i === 0 ? { marker: "Referência:", hanging: true, gapBefore: lines.length > 0 } : { indentCm: 2.5 }),
 				edit: { target: { field: "reference", index: item.sourceIndex }, value: item.value },
 			})
 		for (const [i, item] of enumerationEntries(input.annexes ?? [], (n) => `${annexLetter(n)}.`).entries())
 			lines.push({
 				text: i === 0 ? `Anexo: ${item.text}` : item.text,
-				...(i === 0 ? { marker: "Anexo:", gapBefore: lines.length > 0 } : { indentCm: 2.5 }),
+				...(i === 0 ? { marker: "Anexo:", hanging: true, gapBefore: lines.length > 0 } : { indentCm: 2.5 }),
 				edit: { target: { field: "annex", index: item.sourceIndex }, value: item.value },
 			})
 	}
@@ -291,7 +292,9 @@ function checkCompliance(input: DocumentInput, kind: DocumentKind, rendered: Set
  */
 export function continuationLabel(input: DocumentInput): string {
 	const kind = resolveKind(input.kind)
-	const numbering = kind.numbering === "nenhuma" ? kind.label : numberingLine(kind.numberingLabel, input.numbering, input.classification, kind.numbering)
+	// O Despacho numera por "Nº 183/…" (art. 48 § 3º, II, d); aqui a espécie tem de aparecer.
+	const label = kind.numberingLabel.trim() === "Nº" ? kind.label : kind.numberingLabel
+	const numbering = kind.numbering === "nenhuma" ? kind.label : numberingLine(label, input.numbering, input.classification, kind.numbering)
 	const om = input.om.acronym?.trim() || input.om.name.trim()
 	const parts = [[numbering, om].filter(Boolean).join(" - "), `de ${shortDate(input.date, "mes-maiusculo")}`]
 	if (input.nup && isValidNup(input.nup)) parts.push(`Prot nº ${formatNup(input.nup)}`)

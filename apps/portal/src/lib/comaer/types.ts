@@ -161,6 +161,11 @@ export interface Line {
 	 * saída em texto puro usa `text` como está.
 	 */
 	marker?: string
+	/**
+	 * Com `marker`: as linhas quebradas ficam na coluna de 2,5 cm em vez de voltar à margem.
+	 * É a ementa (rótulos em coluna, Anexo XV); o parágrafo numerado volta à margem (Anexo XIV).
+	 */
+	hanging?: boolean
 	/** Linha em branco antes: separa os grupos da ementa (assunto, referência, anexo). */
 	gapBefore?: boolean
 	/** Recuo só na primeira linha: parágrafo sem número também começa a 2,5 cm (art. 20, II, a). */

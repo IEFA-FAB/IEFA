@@ -48,8 +48,17 @@ function plainLine(l: Line): string {
 	return l.rightOnSameLine ? `${l.text}\n${l.rightOnSameLine}` : l.text
 }
 
+/**
+ * Junta as linhas do bloco com `separator`, e com linha em branco antes de quem tem
+ * `gapBefore`: a separação dos grupos da ementa (Anexo XV) que a folha mostra tem de chegar
+ * igual ao texto copiado.
+ */
+function joinLines(lines: string[], source: Line[], separator: string): string {
+	return lines.reduce((acc, line, i) => (i === 0 ? line : `${acc}${source[i].gapBefore ? "\n\n" : separator}${line}`), "")
+}
+
 export function blockToPlainText(bloco: AssembledBlock): string {
-	return bloco.lines.map(plainLine).join("\n")
+	return joinLines(bloco.lines.map(plainLine), bloco.lines, "\n")
 }
 
 export function toPlainText(doc: AssembledDocument): string {
@@ -86,7 +95,11 @@ export function escapeMarkdownStructure(text: string): string {
  * linha só. Ali vai a quebra forçada do Markdown, dois espaços antes do fim da linha.
  */
 function blockToMarkdown(bloco: AssembledBlock): string {
-	return bloco.lines.map((l) => escapeMarkdownStructure(plainLine(l))).join(bloco.id === "texto" ? "\n\n" : "  \n")
+	return joinLines(
+		bloco.lines.map((l) => escapeMarkdownStructure(plainLine(l))),
+		bloco.lines,
+		bloco.id === "texto" ? "\n\n" : "  \n"
+	)
 }
 
 /**

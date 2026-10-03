@@ -98,14 +98,19 @@ const MARKER_COLUMN_CM = 2.5
  * Art. 20, II, a c/c art. 39: o número do parágrafo fica NA margem esquerda, o texto começa
  * a 2,5 cm dela e as linhas seguintes voltam à margem — é o desenho do modelo do Anexo XIV e
  * o que o próprio SIGADAER imprime. O mesmo vale para os rótulos da ementa ("Assunto:",
- * "Referência:"), como no Anexo XV. O rótulo ocupa uma caixa de 2,5 cm (`LineContent`).
+ * "Referência:"), como no Anexo XV, com a diferença de que ali as linhas quebradas ficam na
+ * coluna (`hanging`). O rótulo ocupa uma caixa de pelo menos 2,5 cm (`LineContent`): mínima,
+ * não fixa, porque com fonte de reserva mais larga a caixa cresce em vez de sobrepor o texto.
  * Parágrafo sem número começa a 2,5 cm só na primeira linha; os demais recuos (item, alínea,
  * fecho de cortesia — art. 30, I) deslocam a linha inteira.
  */
 function lineStyle(linha: Line): React.CSSProperties | undefined {
 	const style: React.CSSProperties = {}
 	if (linha.gapBefore) style.marginTop = "0.42cm"
-	if (!markerOf(linha) && linha.indentCm) {
+	if (markerOf(linha) && linha.hanging) {
+		style.paddingLeft = `${MARKER_COLUMN_CM}cm`
+		style.textIndent = `-${MARKER_COLUMN_CM}cm`
+	} else if (!markerOf(linha) && linha.indentCm) {
 		if (linha.indentFirstLine) style.textIndent = `${linha.indentCm}cm`
 		else style.paddingLeft = `${linha.indentCm}cm`
 	}

@@ -598,6 +598,12 @@ describe("modelo do Anexo XV", () => {
 		expect(ementa.map((l) => Boolean(l.gapBefore))).toEqual([false, true, false, true])
 		// O texto continua com o rótulo: é ele que vai para o campo "Texto" do SIGADAER.
 		expect(ementa[1].text).toBe("Referência: 1. Acordo X; e")
+		// E a separação dos grupos chega ao texto copiado, não só à folha.
+		const texto = sigadaerHandoff(
+			base({ references: ["Acordo X"], annexes: ["Planta"] }),
+			assembleDocument(base({ references: ["Acordo X"], annexes: ["Planta"] }))
+		).fields.find((c) => c.id === "texto")?.value
+		expect(texto).toContain("Referência: 1. Acordo X.\n\nAnexo: A. Planta.")
 	})
 
 	it("no ofício externo o assunto segue o Manual da Presidência: negrito, sem coluna de rótulo", () => {
@@ -611,6 +617,10 @@ describe("modelo do Anexo XV", () => {
 describe("folhas suplementares (art. 42 § 1º)", () => {
 	it("identifica o documento, a OM, a data abreviada e o protocolo", () => {
 		expect(continuationLabel(base())).toBe("Ofício nº 34/GAB/255 - IEFA, de 03 JUL 2026, Prot nº 68000.000000/2026-00")
+	})
+
+	it('no Despacho, que numera por "Nº", a identificação diz a espécie', () => {
+		expect(continuationLabel(base({ kind: "despacho" }))).toMatch(/^Despacho nº 34\/GAB\/255 - IEFA/)
 	})
 
 	it("omite o protocolo incompleto em vez de imprimir um número pela metade", () => {

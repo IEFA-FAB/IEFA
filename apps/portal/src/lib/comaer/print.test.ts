@@ -4,6 +4,8 @@ import { continuationPageRule, cssString } from "./print"
 describe("regras de página da impressão", () => {
 	it("escapa aspas e barra, e não deixa o texto fechar a tag <style>", () => {
 		expect(cssString('IEFA "x" \\ y')).toBe('"IEFA \\"x\\" \\\\ y"')
+		// Escape hexadecimal, não remoção: o HTML não vê "</style>" e a folha mostra o caractere.
+		expect(cssString("OM <X>")).toBe('"OM \\3C X\\3E "')
 		expect(cssString("</style><script>")).not.toContain("<")
 	})
 
