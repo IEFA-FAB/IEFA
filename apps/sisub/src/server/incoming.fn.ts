@@ -36,11 +36,11 @@ import { publicDbMessage } from "@/lib/db-error-message"
 import { purchaseUnitIdOfKitchen } from "@/lib/kitchen-purchase-unit.server"
 import { readAllPages, readAllPagesIn } from "@/lib/read-all-pages"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
-import { getLooseServerClient } from "@/lib/supabase.server"
+import { getServerClient } from "@/lib/supabase.server"
 
-const inventory = () => getLooseServerClient("inventory")
-const procurement = () => getLooseServerClient("procurement")
-const finance = () => getLooseServerClient("finance")
+const inventory = () => getServerClient("inventory")
+const procurement = () => getServerClient("procurement")
+const finance = () => getServerClient("finance")
 
 export const INCOMING_KINDS = ["supply_order", "nfe", "delivery_without_invoice", "promised_replacement"] as const
 export type IncomingKind = (typeof INCOMING_KINDS)[number]
@@ -111,8 +111,7 @@ export const fetchIncomingFn = createServerFn({ method: "GET" })
 		// Toda leitura deste arquivo passa por `readAllPages`/`readAllPagesIn`: o
 		// PostgREST corta em 1000 linhas sem erro, e `.in()` com centenas de ids
 		// estoura a URL. Consertar só a leitura apontada deixava as irmãs cortando.
-		type Order = { id: string; empenho_id: string; number: string | null; expected_delivery: string | null; status: string }
-		const orderRows = await readAllPages<Order>("as ordens de fornecimento", (from, to) =>
+		const orderRows = await readAllPages("as ordens de fornecimento", (from, to) =>
 			proc
 				.from("supply_order")
 				.select("id, empenho_id, number, sent_at, expected_delivery, status, notes")
@@ -123,12 +122,10 @@ export const fetchIncomingFn = createServerFn({ method: "GET" })
 		)
 
 		// o fornecedor da OF vem do empenho, que é quem tem o favorecido
-		const empenhoIds = [...new Set(orderRows.map((order) => order.empenho_id).filter(Boolean))]
+		const empenhoIds = orderRows.map((order) => order.empenho_id).filter((id) => id != null)
 		const empenhoById = new Map<string, { numero_empenho: string | null; favorecido_nome: string | null; favorecido_cnpj: string | null }>()
-		const empenhos = await readAllPagesIn<{ id: string; numero_empenho: string | null; favorecido_nome: string | null; favorecido_cnpj: string | null }>(
-			"os empenhos",
-			empenhoIds,
-			(chunk, from, to) => finance().from("empenho").select("id, numero_empenho, favorecido_nome, favorecido_cnpj").in("id", chunk).order("id").range(from, to)
+		const empenhos = await readAllPagesIn("os empenhos", empenhoIds, (chunk, from, to) =>
+			finance().from("empenho").select("id, numero_empenho, favorecido_nome, favorecido_cnpj").in("id", chunk).order("id").range(from, to)
 		)
 		for (const row of empenhos) empenhoById.set(row.id, row)
 
@@ -147,7 +144,7 @@ export const fetchIncomingFn = createServerFn({ method: "GET" })
 		// entrega dizia "Concluir o recebimento".
 		const definitiveByOrder = new Set<string>()
 		const openByOrder = new Map<string, string>()
-		const orderReceipts = await readAllPagesIn<{ id: string; supply_order_id: string; definitive_at: string | null }>(
+		const orderReceipts = await readAllPagesIn(
 			"os recebimentos das ordens",
 			orderRows.map((order) => order.id),
 			(chunk, from, to) =>
@@ -161,6 +158,7 @@ export const fetchIncomingFn = createServerFn({ method: "GET" })
 					.range(from, to)
 		)
 		for (const row of orderReceipts) {
+			if (row.supply_order_id == null) continue // filtrado no `.in()`; o tipo só o declara nulável
 			if (row.definitive_at != null) definitiveByOrder.add(row.supply_order_id)
 			else openByOrder.set(row.supply_order_id, row.id)
 		}
@@ -170,7 +168,7 @@ export const fetchIncomingFn = createServerFn({ method: "GET" })
 			// acompanhado: o painel responde "o que falta chegar", não "o que o
 			// campo status diz"
 			if (definitiveByOrder.has(order.id) && order.status !== "partially_received" && !openByOrder.has(order.id)) continue
-			const empenho = empenhoById.get(order.empenho_id)
+			const empenho = order.empenho_id ? empenhoById.get(order.empenho_id) : undefined
 			const openReceiptId = openByOrder.get(order.id) ?? null
 			// chegou e está sendo conferido: não há o que cobrar
 			const late = openReceiptId ? 0 : daysLateFrom(order.expected_delivery, today)
@@ -183,7 +181,7 @@ export const fetchIncomingFn = createServerFn({ method: "GET" })
 				referenceDate: order.expected_delivery,
 				daysLate: late,
 				value: null,
-				summary: empenho?.numero_empenho ? `Empenho ${empenho.numero_empenho}` : "Empenho não identificado",
+				summary: empenho?.numero_empenho ? `Empenho ${empenho.numero_empenho}` : order.empenho_id == null ? "Aguardando empenho" : "Empenho não identificado",
 				nextAction: openReceiptId
 					? "Concluir o recebimento"
 					: order.status === "partially_received"
@@ -206,19 +204,7 @@ export const fetchIncomingFn = createServerFn({ method: "GET" })
 		const purchaseUnit = await purchaseUnitIdOfKitchen(data.kitchenId)
 		const scope =
 			purchaseUnit == null ? `kitchen_id.eq.${data.kitchenId}` : `kitchen_id.eq.${data.kitchenId},and(kitchen_id.is.null,unit_id.eq.${purchaseUnit})`
-		type Note = {
-			id: string
-			access_key: string | null
-			supplier_name: string | null
-			supplier_cnpj: string | null
-			supplier_cpf: string | null
-			issued_at: string | null
-			total_value: number | null
-			status: string
-			situation_result: string | null
-			kitchen_id: number | null
-		}
-		const noteRows = await readAllPages<Note>("as notas", (from, to) =>
+		const noteRows = await readAllPages("as notas", (from, to) =>
 			inv
 				.from("nfe_document")
 				.select("id, access_key, supplier_name, supplier_cnpj, supplier_cpf, issued_at, total_value, status, situation_result, kitchen_id")
@@ -240,19 +226,17 @@ export const fetchIncomingFn = createServerFn({ method: "GET" })
 		const definitiveByNote = new Set<string>()
 		const openHereByNote = new Map<string, string>()
 		const openElsewhere = new Set<string>()
-		const noteReceipts = await readAllPagesIn<{ id: string; nfe_document_id: string; kitchen_id: number; definitive_at: string | null }>(
-			"os recebimentos das notas",
-			noteIds,
-			(chunk, from, to) =>
-				inv
-					.from("goods_receipt")
-					.select("id, nfe_document_id, kitchen_id, definitive_at")
-					.in("nfe_document_id", chunk)
-					.neq("status", "rejected")
-					.order("id")
-					.range(from, to)
+		const noteReceipts = await readAllPagesIn("os recebimentos das notas", noteIds, (chunk, from, to) =>
+			inv
+				.from("goods_receipt")
+				.select("id, nfe_document_id, kitchen_id, definitive_at")
+				.in("nfe_document_id", chunk)
+				.neq("status", "rejected")
+				.order("id")
+				.range(from, to)
 		)
 		for (const row of noteReceipts) {
+			if (row.nfe_document_id == null) continue // filtrado no `.in()`
 			if (row.definitive_at != null) definitiveByNote.add(row.nfe_document_id)
 			else if (Number(row.kitchen_id) === data.kitchenId) openHereByNote.set(row.nfe_document_id, row.id)
 			else openElsewhere.add(row.nfe_document_id)
@@ -261,7 +245,7 @@ export const fetchIncomingFn = createServerFn({ method: "GET" })
 		// Só os pendentes vêm do banco; cortar esta lista mostrava "Registrar o
 		// recebimento" em nota com item sem insumo, que a criação do recebimento recusa.
 		const pendingByNote = new Map<string, number>()
-		const pendingItems = await readAllPagesIn<{ id: string; nfe_document_id: string }>("os itens das notas", noteIds, (chunk, from, to) =>
+		const pendingItems = await readAllPagesIn("os itens das notas", noteIds, (chunk, from, to) =>
 			inv.from("nfe_item").select("id, nfe_document_id").in("nfe_document_id", chunk).is("ingredient_item_id", null).order("id").range(from, to)
 		)
 		for (const item of pendingItems) pendingByNote.set(item.nfe_document_id, (pendingByNote.get(item.nfe_document_id) ?? 0) + 1)
@@ -328,16 +312,7 @@ export const fetchIncomingFn = createServerFn({ method: "GET" })
 		//    mês e meio atrás sem nota é pendência para a revisão fiscal, não algo
 		//    "a caminho".
 		const horizon = new Date(Date.now() - UNBILLED_HORIZON_DAYS * 86_400_000).toISOString()
-		type Receipt = {
-			id: string
-			supply_order_id: string | null
-			status: string
-			delivery_note_number: string | null
-			supplier_name: string | null
-			supplier_document: string | null
-			created_at: string
-		}
-		const unbilled = await readAllPages<Receipt>("as entregas sem nota", (from, to) =>
+		const unbilled = await readAllPages("as entregas sem nota", (from, to) =>
 			inv
 				.from("goods_receipt")
 				.select("id, supply_order_id, status, delivery_note_number, supplier_name, supplier_document, created_at")
@@ -437,12 +412,12 @@ export const suggestNfeLinksFn = createServerFn({ method: "GET" })
 		}
 
 		const fin = finance()
-		type Empenho = { id: string; numero_empenho: string | null; favorecido_nome: string | null }
-		const candidates = await readAllPages<Empenho>("os empenhos do fornecedor", (from, to) =>
+		const supplierCnpj = note.supplier_cnpj
+		const candidates = await readAllPages("os empenhos do fornecedor", (from, to) =>
 			fin
 				.from("empenho")
 				.select("id, numero_empenho, favorecido_nome, unit_id")
-				.eq("favorecido_cnpj", note.supplier_cnpj)
+				.eq("favorecido_cnpj", supplierCnpj)
 				.eq("unit_id", purchaseUnit)
 				.order("id")
 				.range(from, to)
@@ -454,10 +429,10 @@ export const suggestNfeLinksFn = createServerFn({ method: "GET" })
 		// número, e as duas divergiriam na primeira anulação. Sem saldo lido, todo
 		// empenho sumiria da sugestão — e a tela diria que não há empenho com saldo.
 		const balanceById = new Map<string, number>()
-		const balances = await readAllPagesIn<{ empenho_id: string; saldo_a_liquidar: number }>("o saldo dos empenhos", candidateIds, (chunk, from, to) =>
+		const balances = await readAllPagesIn("o saldo dos empenhos", candidateIds, (chunk, from, to) =>
 			fin.from("v_empenho_saldo").select("empenho_id, saldo_a_liquidar").in("empenho_id", chunk).order("empenho_id").range(from, to)
 		)
-		for (const row of balances) balanceById.set(row.empenho_id, Number(row.saldo_a_liquidar))
+		for (const row of balances) if (row.empenho_id) balanceById.set(row.empenho_id, Number(row.saldo_a_liquidar))
 		const withBalance = candidates.filter((row) => (balanceById.get(row.id) ?? 0) > 0)
 		const withBalanceIds = new Set(withBalance.map((row) => row.id))
 
@@ -469,32 +444,23 @@ export const suggestNfeLinksFn = createServerFn({ method: "GET" })
 		// por inteiro (a semana do pão fechou) e o empenho, sem saldo: por isso o
 		// conjunto é toda OF da cozinha num empenho deste fornecedor; as ABERTAS,
 		// com saldo, são a sugestão de OF.
-		const supplierOrders = await readAllPagesIn<{ id: string; empenho_id: string; status: string }>(
-			"as ordens do fornecedor",
-			candidateIds,
-			(chunk, from, to) =>
-				procurement()
-					.from("supply_order")
-					.select("id, empenho_id, number, expected_delivery, status")
-					.eq("kitchen_id", data.kitchenId)
-					.in("empenho_id", chunk)
-					.order("id")
-					.range(from, to)
+		const supplierOrders = await readAllPagesIn("as ordens do fornecedor", candidateIds, (chunk, from, to) =>
+			procurement()
+				.from("supply_order")
+				.select("id, empenho_id, number, expected_delivery, status")
+				.eq("kitchen_id", data.kitchenId)
+				.in("empenho_id", chunk)
+				.order("id")
+				.range(from, to)
 		)
 		const openOrders = supplierOrders.filter(
-			(order) => (order.status === "sent" || order.status === "partially_received") && withBalanceIds.has(order.empenho_id)
+			(order) => (order.status === "sent" || order.status === "partially_received") && order.empenho_id != null && withBalanceIds.has(order.empenho_id)
 		)
 
 		// mesmo corte de 45 dias do painel: entrega mais velha sem nota é assunto
 		// da revisão fiscal, não da sugestão de vínculo
 		const horizon = new Date(Date.now() - UNBILLED_HORIZON_DAYS * 86_400_000).toISOString()
-		const receipts = await readAllPagesIn<{
-			id: string
-			delivery_note_number: string | null
-			created_at: string
-			status: string
-			supply_order_id: string
-		}>(
+		const receipts = await readAllPagesIn(
 			"as entregas sem nota",
 			supplierOrders.map((order) => order.id),
 			(chunk, from, to) =>
