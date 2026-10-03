@@ -46,7 +46,7 @@ O painel ARP distingue **saldo oficial** (snapshot Compras.gov — inclui carona
 
 ## Operação pós-deploy
 
-1. Aplicar migrations (`bun run db:push` em `packages/database`) e regenerar tipos (`db:types` + `db:drizzle:pull`) — remove os casts `LooseClient` das server fns.
+1. Aplicar migrations (`bun run db:push` em `packages/database`) e regenerar tipos (`db:types` + `db:drizzle:pull`) — as server fns leem pelo cliente tipado (`getServerClient`); as que ainda usam `getLooseServerClient` estão sendo convertidas.
 2. Rodar a suíte de integração: `SISUB_RUN_INTEGRATION=true` (ledger, recebimento, fechamento — transacionais com rollback).
 3. Importar a publicação GPC (`bun run sync:gpc <url>` no apps/api) e, com credenciais, configurar `GS1_VBG_API_URL`/`GS1_VBG_API_KEY` para o lookup Verified by GS1.
 4. Resolver as filas de revisão (unidades não-canônicas e barcodes inválidos) antes de operar o recebimento.

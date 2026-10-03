@@ -19,17 +19,14 @@ import { hasPermission, NOT_EXPIRED, resolveEffectivePermissions, type UserPermi
 import { INFLOW_REASONS, OUTFLOW_REASONS, REASON_NATURE, STOCK_ADJUSTMENT_REASONS, type StockAdjustmentReason } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
-import { requireStorageForKitchen } from "@/lib/storage-auth.server"
-import { getServerClient } from "@/lib/supabase.server"
 import { publicDbMessage } from "@/lib/db-error-message"
+import { requireStorageForKitchen } from "@/lib/storage-auth.server"
+import { getLooseServerClient } from "@/lib/supabase.server"
 
-// biome-ignore lint/suspicious/noExplicitAny: tabelas novas fora dos tipos gerados
-type LooseClient = { from: (table: string) => any; rpc: (fn: string, args?: Record<string, unknown>) => any }
-
-const inventory = () => getServerClient("inventory") as unknown as LooseClient
-const kitchen = () => getServerClient("kitchen") as unknown as LooseClient
-const accessControl = () => getServerClient("access_control") as unknown as LooseClient
-const core = () => getServerClient("core") as unknown as LooseClient
+const inventory = () => getLooseServerClient("inventory")
+const kitchen = () => getLooseServerClient("kitchen")
+const accessControl = () => getLooseServerClient("access_control")
+const core = () => getLooseServerClient("core")
 
 /**
  * Bloqueio da Fase 2a: ingrediente com unidade fora do catálogo canônico não

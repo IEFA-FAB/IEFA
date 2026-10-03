@@ -11,16 +11,13 @@
 import type { ConservationClass } from "@iefa/sisub-domain"
 import { type OpeningCatalogIngredient, type OpeningCostCandidate, pickOpeningCost, pricePerBaseUnit } from "@iefa/sisub-domain/opening-balance"
 import { readAllPages, readAllPagesIn } from "@/lib/read-all-pages"
-import { getServerClient } from "@/lib/supabase.server"
+import { getLooseServerClient } from "@/lib/supabase.server"
 import { publicDbMessage } from "./db-error-message"
 
-// biome-ignore lint/suspicious/noExplicitAny: tabelas fora dos tipos gerados
-type LooseClient = { from: (table: string) => any; rpc: (fn: string, args?: Record<string, unknown>) => any }
-
-const inventory = () => getServerClient("inventory") as unknown as LooseClient
-const kitchen = () => getServerClient("kitchen") as unknown as LooseClient
-const core = () => getServerClient("core") as unknown as LooseClient
-const procurement = () => getServerClient("procurement") as unknown as LooseClient
+const inventory = () => getLooseServerClient("inventory")
+const kitchen = () => getLooseServerClient("kitchen")
+const core = () => getLooseServerClient("core")
+const procurement = () => getLooseServerClient("procurement")
 
 /**
  * Insumos do catálogo que podem entrar numa carga: vivos e que são INSUMO — preparação herdada

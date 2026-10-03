@@ -10,14 +10,11 @@
 
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
+import { publicDbMessage } from "@/lib/db-error-message"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
-import { publicDbMessage } from "@/lib/db-error-message"
 
-// biome-ignore lint/suspicious/noExplicitAny: tabela nova fora dos tipos gerados
-type LooseClient = { from: (table: string) => any }
-
-const inventory = () => getServerClient("inventory") as unknown as LooseClient
+const inventory = () => getServerClient("inventory")
 
 export interface ScannerProfile {
 	maxKeyIntervalMs: number
@@ -154,7 +151,7 @@ export const resolveScanToIngredientFn = createServerFn({ method: "GET" })
 			data,
 		}): Promise<{ ingredientId: string | null; lotId: string | null; description: string | null; matchedBy: "gtin" | "alias" | "lot" | null }> => {
 			await requireStorageForKitchen(1, data.kitchenId)
-			const kit = getServerClient("kitchen") as unknown as LooseClient
+			const kit = getServerClient("kitchen")
 
 			if (data.lotShortCode) {
 				const inv = inventory()
@@ -205,7 +202,7 @@ export const resolveScanToIngredientFn = createServerFn({ method: "GET" })
 				// `maybeSingle` isso virava PGRST116, o erro era descartado e a
 				// leitura respondia "não está no catálogo" justamente para os
 				// códigos que a tabela de apelidos existe para resolver.
-				const gs1 = getServerClient("gs1_integration") as unknown as LooseClient
+				const gs1 = getServerClient("gs1_integration")
 				const { data: aliases, error: aliasError } = await gs1
 					.from("gtin_alias")
 					.select("ingredient_item_id, status")

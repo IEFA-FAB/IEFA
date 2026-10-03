@@ -62,7 +62,7 @@ const describeIf = url ? describeSupabaseIntegration : describeSupabaseIntegrati
 const SERVER_DIR = join(import.meta.dirname, "..", "..", "server")
 
 /** `const x = () => getServerClient("schema")` e `const x = getServerClient("schema")`. */
-const CLIENT_DECLARATION = /\b(?:const|let)\s+(\w+)\s*=\s*(?:\(\)\s*=>\s*)?getServerClient\(\s*"(\w+)"/g
+const CLIENT_DECLARATION = /\b(?:const|let)\s+(\w+)\s*=\s*(?:\(\)\s*=>\s*)?(?:getServerClient|getLooseServerClient)\(\s*"(\w+)"/g
 /** `const inv = inventory()` — o apelido local do factory. */
 const LOCAL_ALIAS = /\b(?:const|let)\s+(\w+)\s*=\s*(\w+)\(\)/g
 /** `<recebedor>.from("tabela")`, com o encadeamento quebrado em linhas. */

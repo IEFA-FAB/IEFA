@@ -14,16 +14,13 @@ import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { assertNoBlindCountHides, hiddenByBlindCount } from "@/lib/blind-count.server"
 import { csvRow } from "@/lib/csv"
+import { publicDbMessage } from "@/lib/db-error-message"
 import { committedQuantity } from "@/lib/empenho-items"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
-import { getServerClient } from "@/lib/supabase.server"
-import { publicDbMessage } from "@/lib/db-error-message"
+import { getLooseServerClient } from "@/lib/supabase.server"
 
-// biome-ignore lint/suspicious/noExplicitAny: tabelas novas fora dos tipos gerados até o regen pós-migration (task 2.4)
-type LooseClient = { from: (table: string) => any; rpc: (fn: string, args?: Record<string, unknown>) => any }
-
-const inventory = () => getServerClient("inventory") as unknown as LooseClient
-const kitchen = () => getServerClient("kitchen") as unknown as LooseClient
+const inventory = () => getLooseServerClient("inventory")
+const kitchen = () => getLooseServerClient("kitchen")
 
 // A partição entrada/saída vive em UM lugar (@iefa/sisub-domain) e é conferida
 // contra as triggers de custeio por sql-vocabulary.contract.test.ts. Esta era a
@@ -199,7 +196,7 @@ export const exportCatmatCsvFn = createServerFn({ method: "GET" })
 		const ingredientIds = balancete.map((row) => row.ingredientId).filter((id): id is string => id != null)
 		const catmatByIngredient = new Map<string, { codigo: number | null; descricao: string | null }>()
 		if (ingredientIds.length > 0) {
-			const proc = getServerClient("procurement") as unknown as LooseClient
+			const proc = getLooseServerClient("procurement")
 			const { data: links } = await proc
 				.from("purchase_item_ingredient")
 				.select("ingredient_id, is_default, purchase_item:purchase_item_id (catmat_item_codigo, catmat_item_descricao)")
@@ -247,10 +244,11 @@ export const fetchEmpenhoLiquidacaoFn = createServerFn({ method: "GET" })
 	.handler(async ({ data }) => {
 		await requireStorageForKitchen(1, data.kitchenId)
 		const inv = inventory()
-		const kitchenDb = getServerClient("kitchen") as unknown as LooseClient
-		const finance = getServerClient("finance") as unknown as LooseClient
+		const kitchenDb = getLooseServerClient("kitchen")
+		const finance = getLooseServerClient("finance")
 
-		const { data: kitchenRow } = await kitchenDb.from("kitchen").select("unit_id, purchase_unit_id").eq("id", data.kitchenId).single()
+		const { data: kitchenRow, error: kitchenError } = await kitchenDb.from("kitchen").select("unit_id, purchase_unit_id").eq("id", data.kitchenId).single()
+		if (kitchenError) throw new Error(`Erro ao carregar a cozinha: ${publicDbMessage(kitchenError)}`)
 		const unitId = kitchenRow?.purchase_unit_id ?? kitchenRow?.unit_id
 		if (unitId == null) return []
 

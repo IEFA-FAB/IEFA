@@ -12,11 +12,8 @@
 
 import { createServerFn } from "@tanstack/react-start"
 import { requireAuthWithPermission } from "@/lib/auth.server"
-import { getServerClient } from "@/lib/supabase.server"
 import { publicDbMessage } from "@/lib/db-error-message"
-
-// biome-ignore lint/suspicious/noExplicitAny: views novas ainda fora dos tipos gerados (regen na task 2.4)
-type LooseClient = { from: (table: string) => any }
+import { getServerClient } from "@/lib/supabase.server"
 
 export interface MeasureUnitReviewRow {
 	source_table: string
@@ -35,19 +32,35 @@ export interface BarcodeReviewRow {
 /** Unidades de medida fora do catálogo canônico — bloqueiam movimento de estoque do item. */
 export const fetchMeasureUnitReviewFn = createServerFn({ method: "GET" }).handler(async (): Promise<MeasureUnitReviewRow[]> => {
 	await requireAuthWithPermission("global", 1)
-	const core = getServerClient("core") as unknown as LooseClient
+	const core = getServerClient("core")
 	const { data, error } = await core.from("v_measure_unit_review").select("*").order("source_table").limit(500)
 	if (error) throw new Error(`Erro ao buscar fila de unidades: ${publicDbMessage(error)}`)
-	return (data ?? []) as MeasureUnitReviewRow[]
+	// Coluna de view sai anulável nos tipos gerados; linha sem origem não é pendência a mostrar.
+	return (data ?? []).flatMap((row) =>
+		row.source_table && row.source_id
+			? [{ source_table: row.source_table, source_id: row.source_id, source_description: row.source_description ?? "", raw_value: row.raw_value ?? "" }]
+			: []
+	)
 })
 
 /** Barcodes legados que não viraram GTIN (check digit inválido ou colisão). */
 export const fetchBarcodeReviewFn = createServerFn({ method: "GET" }).handler(async (): Promise<BarcodeReviewRow[]> => {
 	await requireAuthWithPermission("global", 1)
-	const gs1 = getServerClient("gs1_integration") as unknown as LooseClient
+	const gs1 = getServerClient("gs1_integration")
 	const { data, error } = await gs1.from("v_barcode_review").select("*").order("description").limit(500)
 	if (error) throw new Error(`Erro ao buscar fila de barcodes: ${publicDbMessage(error)}`)
-	return (data ?? []) as BarcodeReviewRow[]
+	return (data ?? []).flatMap((row) =>
+		row.ingredient_item_id
+			? [
+					{
+						ingredient_item_id: row.ingredient_item_id,
+						description: row.description ?? "",
+						raw_barcode: row.raw_barcode ?? "",
+						ingredient_id: row.ingredient_id,
+					},
+				]
+			: []
+	)
 })
 
 export interface ConditioningReviewRow {
@@ -68,8 +81,23 @@ export interface ConditioningReviewRow {
  */
 export const fetchConditioningReviewFn = createServerFn({ method: "GET" }).handler(async (): Promise<ConditioningReviewRow[]> => {
 	await requireAuthWithPermission("global", 1)
-	const procurement = getServerClient("procurement") as unknown as LooseClient
+	const procurement = getServerClient("procurement")
 	const { data, error } = await procurement.from("v_purchase_item_conditioning_review").select("*").order("itens_vinculados", { ascending: false }).limit(500)
 	if (error) throw new Error(`Erro ao buscar fila de acondicionamento: ${publicDbMessage(error)}`)
-	return (data ?? []) as ConditioningReviewRow[]
+	return (data ?? []).flatMap((row) =>
+		row.purchase_item_id && row.pendencia
+			? [
+					{
+						purchase_item_id: row.purchase_item_id,
+						description: row.description ?? "",
+						catmat_item_codigo: row.catmat_item_codigo,
+						delivery_conditioning: row.delivery_conditioning,
+						conservation_class: row.conservation_class,
+						pendencia: row.pendencia as ConditioningReviewRow["pendencia"],
+						pista_catmat: row.pista_catmat,
+						itens_vinculados: row.itens_vinculados ?? 0,
+					},
+				]
+			: []
+	)
 })

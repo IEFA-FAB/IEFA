@@ -19,16 +19,13 @@ import { hasPermission, type UserContext } from "@iefa/pbac"
 import { readAllPages, readAllPagesIn } from "@/lib/read-all-pages"
 import { getServerClient } from "@/lib/supabase.server"
 
-// biome-ignore lint/suspicious/noExplicitAny: tabelas fora dos tipos gerados
-type LooseClient = { from: (table: string) => any }
-
 const OPEN_STATUSES = ["draft", "counting", "review", "recount"]
 
 /** Itens (ingrediente ou preparação) que uma contagem cega aberta esconde deste usuário. */
 export async function hiddenByBlindCount(kitchenId: number, ctx: UserContext): Promise<Set<string>> {
 	if (hasPermission(ctx.permissions, "storage", 3, { type: "kitchen", id: kitchenId })) return new Set()
 
-	const inv = getServerClient("inventory") as unknown as LooseClient
+	const inv = getServerClient("inventory")
 	const counts = await readAllPages<{ id: string }>("as contagens cegas abertas", (from, to) =>
 		inv.from("inventory_count").select("id").eq("kitchen_id", kitchenId).eq("blind", true).in("status", OPEN_STATUSES).order("id").range(from, to)
 	)

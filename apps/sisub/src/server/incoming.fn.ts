@@ -30,20 +30,17 @@
  */
 
 import { getBrasiliaToday } from "@iefa/sisub-domain"
-import { resolvePurchaseUnitId } from "@iefa/sisub-domain/operations"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
+import { publicDbMessage } from "@/lib/db-error-message"
+import { purchaseUnitIdOfKitchen } from "@/lib/kitchen-purchase-unit.server"
 import { readAllPages, readAllPagesIn } from "@/lib/read-all-pages"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
-import { getServerClient } from "@/lib/supabase.server"
-import { publicDbMessage } from "@/lib/db-error-message"
+import { getLooseServerClient } from "@/lib/supabase.server"
 
-// biome-ignore lint/suspicious/noExplicitAny: tabelas fora dos tipos gerados
-type LooseClient = { from: (table: string) => any }
-
-const inventory = () => getServerClient("inventory") as unknown as LooseClient
-const procurement = () => getServerClient("procurement") as unknown as LooseClient
-const finance = () => getServerClient("finance") as unknown as LooseClient
+const inventory = () => getLooseServerClient("inventory")
+const procurement = () => getLooseServerClient("procurement")
+const finance = () => getLooseServerClient("finance")
 
 export const INCOMING_KINDS = ["supply_order", "nfe", "delivery_without_invoice", "promised_replacement"] as const
 export type IncomingKind = (typeof INCOMING_KINDS)[number]
@@ -95,16 +92,6 @@ function civilDate(timestamp: string): string {
 }
 
 /** Unidade COMPRADORA da cozinha — quem empenha e a quem a nota é enviada. */
-async function purchaseUnitOf(kitchenId: number): Promise<number | null> {
-	const { data: row, error } = await (getServerClient("kitchen") as unknown as LooseClient)
-		.from("kitchen")
-		.select("unit_id, purchase_unit_id")
-		.eq("id", kitchenId)
-		.maybeSingle()
-	if (error) throw new Error(`Erro ao carregar a cozinha: ${publicDbMessage(error)}`)
-	return resolvePurchaseUnitId({ unitId: row?.unit_id ?? null, purchaseUnitId: row?.purchase_unit_id ?? null })
-}
-
 export const fetchIncomingFn = createServerFn({ method: "GET" })
 	.validator(
 		z.object({
@@ -216,7 +203,7 @@ export const fetchIncomingFn = createServerFn({ method: "GET" })
 		// reivindicou ainda (`kitchen_id` nulo). Estas são justamente as "prestes a
 		// chegar via NF-e": só `kitchen_id` fazia o painel dizer que não há nada
 		// pendente quando há.
-		const purchaseUnit = await purchaseUnitOf(data.kitchenId)
+		const purchaseUnit = await purchaseUnitIdOfKitchen(data.kitchenId)
 		const scope =
 			purchaseUnit == null ? `kitchen_id.eq.${data.kitchenId}` : `kitchen_id.eq.${data.kitchenId},and(kitchen_id.is.null,unit_id.eq.${purchaseUnit})`
 		type Note = {
@@ -431,7 +418,7 @@ export const suggestNfeLinksFn = createServerFn({ method: "GET" })
 		// nota que o painel manda "assumir". E o empenho é da unidade COMPRADORA
 		// da cozinha, não do `unit_id` da nota, que é nulo nas notas importadas
 		// antes de a coluna existir — e `.eq("unit_id", null)` nem é filtro válido.
-		const purchaseUnit = await purchaseUnitOf(data.kitchenId)
+		const purchaseUnit = await purchaseUnitIdOfKitchen(data.kitchenId)
 		const ownKitchen = note.kitchen_id != null && Number(note.kitchen_id) === data.kitchenId
 		const unclaimedForUnit = note.kitchen_id == null && note.unit_id != null && Number(note.unit_id) === purchaseUnit
 		if (!ownKitchen && !unclaimedForUnit) throw new Error("Nota não pertence a esta cozinha")

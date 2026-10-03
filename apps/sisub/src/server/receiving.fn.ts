@@ -52,6 +52,7 @@ import type { UserContext } from "@iefa/sisub-domain/types"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAuthWithPermission } from "@/lib/auth.server"
+import { publicDbMessage } from "@/lib/db-error-message"
 import { withDeferralRollback } from "@/lib/deferral-mark"
 import { invoiceSituationProblem } from "@/lib/invoice-gate"
 import { purchaseUnitIdOfKitchen } from "@/lib/kitchen-purchase-unit.server"
@@ -59,16 +60,12 @@ import { nfeOwnershipProblem } from "@/lib/nfe-ownership"
 import { readAllPages } from "@/lib/read-all-pages"
 import { decideReceiptInvoice, isInvoiceCancelled } from "@/lib/receipt-invoice-gate"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
-import { getServerClient } from "@/lib/supabase.server"
-import { publicDbMessage } from "@/lib/db-error-message"
+import { getLooseServerClient, getServerClient } from "@/lib/supabase.server"
 
-// biome-ignore lint/suspicious/noExplicitAny: tabelas do módulo inventory ainda fora dos tipos gerados até o regen pós-migration
-type LooseClient = { from: (table: string) => any; rpc: (fn: string, args?: Record<string, unknown>) => any }
-
-const inventory = () => getServerClient("inventory") as unknown as LooseClient
-const procurement = () => getServerClient("procurement") as unknown as LooseClient
-const kitchen = () => getServerClient("kitchen") as unknown as LooseClient
-const finance = () => getServerClient("finance") as unknown as LooseClient
+const inventory = () => getLooseServerClient("inventory")
+const procurement = () => getLooseServerClient("procurement")
+const kitchen = () => getLooseServerClient("kitchen")
+const finance = () => getLooseServerClient("finance")
 
 const IsoDate = z
 	.string()
@@ -930,7 +927,7 @@ async function scanLinesFor(receiptId: string) {
 		for (const sku of skus ?? []) {
 			if (sku.gtin) catalogByItem.set(sku.id, [sku.gtin])
 		}
-		const gs1 = getServerClient("gs1_integration") as unknown as LooseClient
+		const gs1 = getLooseServerClient("gs1_integration")
 		const { data: aliases, error: aliasError } = await gs1
 			.from("gtin_alias")
 			.select("gtin, ingredient_item_id, status")
@@ -1193,7 +1190,7 @@ export const associateGtinToLineFn = createServerFn({ method: "POST" })
 			supplierCnpj = nfe?.supplier_cnpj ?? null
 		}
 
-		const gs1 = getServerClient("gs1_integration") as unknown as LooseClient
+		const gs1 = getLooseServerClient("gs1_integration")
 		const { error } = await gs1.from("gtin_alias").upsert(
 			{
 				gtin: data.gtin,

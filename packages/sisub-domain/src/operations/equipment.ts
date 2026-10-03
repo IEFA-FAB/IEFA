@@ -968,7 +968,7 @@ export async function saveRecipeEquipment(db: SisubDb, ctx: UserContext, input: 
 	const now = new Date().toISOString()
 	await db.transaction(async (tx) => {
 		// Versão superada não recebe equipamentos (ver `assertRecipeVersionIsHead`).
-		await assertRecipeVersionIsHead(tx as unknown as SisubDb, input.recipeId)
+		await assertRecipeVersionIsHead(tx, input.recipeId)
 		await runQuery("DELETE_FAILED", () =>
 			tx
 				.update(recipeEquipmentRequirementInKitchen)

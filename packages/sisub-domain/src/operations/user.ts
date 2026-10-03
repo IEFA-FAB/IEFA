@@ -171,10 +171,10 @@ export async function syncUserSaram(db: SisubDb, input: SyncUserSaram) {
 			await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`saram:${requested}`}))`)
 		}
 
-		const current = await fetchUserSaram(tx as unknown as SisubDb, { userId: input.userId })
+		const current = await fetchUserSaram(tx, { userId: input.userId })
 		const changes = (current ?? "") !== requested
 
-		if (changes && current != null && (await fetchMilitaryData(tx as unknown as SisubDb, { saram: current })) != null) {
+		if (changes && current != null && (await fetchMilitaryData(tx, { saram: current })) != null) {
 			throw new DomainError(
 				"SARAM_LOCKED",
 				"O SARAM já está vinculado à sua conta e não pode ser alterado por aqui. Para corrigi-lo, procure o administrador do sistema."
@@ -196,7 +196,7 @@ export async function syncUserSaram(db: SisubDb, input: SyncUserSaram) {
 
 		// Sem mudança, só o email é sincronizado — o saram nem entra no payload. Vazio grava
 		// `null`: string em branco não é um vínculo.
-		await upsertUserDataReclaimingEmail(tx as unknown as SisubDb, {
+		await upsertUserDataReclaimingEmail(tx, {
 			id: input.userId,
 			email: input.email,
 			...(changes ? { saram: requested.length > 0 ? requested : null } : {}),

@@ -18,17 +18,14 @@ import { resolvePurchaseUnitId } from "@iefa/sisub-domain/operations"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAuth } from "@/lib/auth.server"
+import { publicDbMessage } from "@/lib/db-error-message"
 import { readAllPagesIn } from "@/lib/read-all-pages"
 import { checkSupplierSicaf } from "@/lib/sicaf.server"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
-import { getServerClient } from "@/lib/supabase.server"
+import { getLooseServerClient } from "@/lib/supabase.server"
 import { sicafDecision, supplyOrderLinkProblems, supplyOrderLinkUpdateProblem } from "@/lib/supply-order-gate"
-import { publicDbMessage } from "@/lib/db-error-message"
 
-// biome-ignore lint/suspicious/noExplicitAny: tabelas novas fora dos tipos gerados até o regen pós-migration (task 2.4)
-type LooseClient = { from: (table: string) => any; rpc: (fn: string, args?: Record<string, unknown>) => any }
-
-const procurement = () => getServerClient("procurement") as unknown as LooseClient
+const procurement = () => getLooseServerClient("procurement")
 
 /** OFs de uma cozinha, com itens e dados do empenho. */
 export const listSupplyOrdersFn = createServerFn({ method: "GET" })
@@ -59,7 +56,7 @@ export const listSupplyOrdersFn = createServerFn({ method: "GET" })
 		const empenhoIds = [...new Set(list.map((o: { empenho_id: string | null }) => o.empenho_id).filter((id: string | null): id is string => id != null))]
 		const empenhoById = new Map<string, unknown>()
 		if (empenhoIds.length > 0) {
-			const { data: empenhos, error: empenhoError } = await (getServerClient("finance") as unknown as LooseClient)
+			const { data: empenhos, error: empenhoError } = await getLooseServerClient("finance")
 				.from("empenho")
 				.select("id, numero_empenho, valor_total, status")
 				.in("id", empenhoIds)
@@ -109,7 +106,7 @@ async function resolvePurchaseItemsByArpItem(arpItemIds: readonly string[]): Pro
 
 /** Itens de ARP cobertos pela NE — pelos itens dela (`finance.empenho_item`). */
 async function coveredArpItemIds(empenhoId: string): Promise<string[]> {
-	const { data, error } = await (getServerClient("finance") as unknown as LooseClient).from("empenho_item").select("arp_item_id").eq("empenho_id", empenhoId)
+	const { data, error } = await getLooseServerClient("finance").from("empenho_item").select("arp_item_id").eq("empenho_id", empenhoId)
 	if (error) throw new Error(`Erro ao ler os itens do empenho: ${publicDbMessage(error)}`)
 	const ids: string[] = (data ?? []).map((row: { arp_item_id: string | null }) => row.arp_item_id).filter((id: string | null): id is string => id != null)
 	return [...new Set(ids)]
@@ -173,7 +170,7 @@ export const createSupplyOrderFn = createServerFn({ method: "POST" })
 		// (favorecido da NE, ou o fornecedor dos itens de ARP) e a consulta acontece
 		// aqui, na emissão. OF aguardando empenho não tem fornecedor conhecido ainda.
 		let sicafStatus: string | null = null
-		const finance = getServerClient("finance") as unknown as LooseClient
+		const finance = getLooseServerClient("finance")
 		let empenhoRow: { unit_id: number | null; status: string; favorecido_cnpj: string | null } | null = null
 		if (data.empenhoId) {
 			const { data: row, error: empenhoError } = await finance.from("empenho").select("unit_id, status, favorecido_cnpj").eq("id", data.empenhoId).maybeSingle()
@@ -187,7 +184,7 @@ export const createSupplyOrderFn = createServerFn({ method: "POST" })
 		// dele era lido sem comparação: a OF consumia o saldo de outra OM. A unidade
 		// compradora é calculada como em `listEmpenhosForKitchenFn`, de onde a tela
 		// tira o empenho — e ANTES do SICAF, que não deve consultar fornecedor alheio.
-		const kitchenDb = getServerClient("kitchen") as unknown as LooseClient
+		const kitchenDb = getLooseServerClient("kitchen")
 		const { data: kitchenRow, error: kitchenError } = await kitchenDb.from("kitchen").select("unit_id, purchase_unit_id").eq("id", data.kitchenId).maybeSingle()
 		if (kitchenError) throw new Error(`Erro ao conferir a cozinha: ${publicDbMessage(kitchenError)}`)
 		const problems = supplyOrderLinkProblems({
@@ -270,7 +267,7 @@ export const linkSupplyOrderEmpenhoFn = createServerFn({ method: "POST" })
 		if (order.empenho_id != null) throw new Error("A OF já tem empenho vinculado")
 		if (order.status === "cancelled") throw new Error("OF cancelada não recebe empenho")
 
-		const finance = getServerClient("finance") as unknown as LooseClient
+		const finance = getLooseServerClient("finance")
 		const { data: empenhoRow, error: empenhoError } = await finance
 			.from("empenho")
 			.select("unit_id, status, favorecido_cnpj")
@@ -278,7 +275,7 @@ export const linkSupplyOrderEmpenhoFn = createServerFn({ method: "POST" })
 			.maybeSingle()
 		if (empenhoError) throw new Error(`Erro ao conferir o empenho: ${publicDbMessage(empenhoError)}`)
 		if (!empenhoRow) throw new Error("Empenho não encontrado")
-		const { data: kitchenRow, error: kitchenError } = await (getServerClient("kitchen") as unknown as LooseClient)
+		const { data: kitchenRow, error: kitchenError } = await getLooseServerClient("kitchen")
 			.from("kitchen")
 			.select("unit_id, purchase_unit_id")
 			.eq("id", order.kitchen_id)
@@ -342,10 +339,11 @@ export const listEmpenhosForKitchenFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive() }))
 	.handler(async ({ data }) => {
 		await requireStorageForKitchen(1, data.kitchenId)
-		const kitchenDb = getServerClient("kitchen") as unknown as LooseClient
-		const finance = getServerClient("finance") as unknown as LooseClient
+		const kitchenDb = getLooseServerClient("kitchen")
+		const finance = getLooseServerClient("finance")
 
-		const { data: kitchenRow } = await kitchenDb.from("kitchen").select("unit_id, purchase_unit_id").eq("id", data.kitchenId).single()
+		const { data: kitchenRow, error: kitchenError } = await kitchenDb.from("kitchen").select("unit_id, purchase_unit_id").eq("id", data.kitchenId).single()
+		if (kitchenError) throw new Error(`Erro ao carregar a cozinha: ${publicDbMessage(kitchenError)}`)
 		// Mesma regra que `createSupplyOrderFn` confere na emissão: o que se lista aqui
 		// é exatamente o que se pode usar lá.
 		const unitId = resolvePurchaseUnitId({ unitId: kitchenRow?.unit_id ?? null, purchaseUnitId: kitchenRow?.purchase_unit_id ?? null })

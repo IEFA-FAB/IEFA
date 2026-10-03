@@ -16,17 +16,14 @@ import { getBrasiliaToday } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { hiddenByBlindCount } from "@/lib/blind-count.server"
+import { publicDbMessage } from "@/lib/db-error-message"
 import { readAllPages, readAllPagesIn } from "@/lib/read-all-pages"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 import { transferDestinationProblem } from "@/lib/transfer-destination"
-import { publicDbMessage } from "@/lib/db-error-message"
 
-// biome-ignore lint/suspicious/noExplicitAny: tabelas novas fora dos tipos gerados até o regen pós-migration (task 2.4)
-type LooseClient = { from: (table: string) => any; rpc: (fn: string, args?: Record<string, unknown>) => any }
-
-const inventory = () => getServerClient("inventory") as unknown as LooseClient
-const kitchen = () => getServerClient("kitchen") as unknown as LooseClient
+const inventory = () => getServerClient("inventory")
+const kitchen = () => getServerClient("kitchen")
 
 export interface StockLotBalanceRow {
 	lot_id: string | null
@@ -250,7 +247,7 @@ export const createTransferFn = createServerFn({ method: "POST" })
 			row
 				? { unitId: row.unit_id == null ? null : Number(row.unit_id), purchaseUnitId: row.purchase_unit_id == null ? null : Number(row.purchase_unit_id) }
 				: null
-		const byId = new Map<number, KitchenUnitRow>(((kitchenRows ?? []) as KitchenUnitRow[]).map((row) => [Number(row.id), row]))
+		const byId = new Map<number, KitchenUnitRow>((kitchenRows ?? []).map((row) => [Number(row.id), row]))
 		const problem = transferDestinationProblem({
 			origin: toUnits(byId.get(Number(lotRow.kitchen_id))),
 			destination: toUnits(byId.get(data.toKitchenId)),

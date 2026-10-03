@@ -43,8 +43,7 @@ export async function withIngredientVersions<T>(
 	changeSummary?: string
 ): Promise<T> {
 	const actor = await resolveActor()
-	return getDb().transaction(async (tx) => {
-		const db = tx as unknown as SisubDb
+	return getDb().transaction(async (db) => {
 		const touched = new Set<string>()
 		const result = await work(db, (...ids) => {
 			for (const id of ids) if (id) touched.add(id)

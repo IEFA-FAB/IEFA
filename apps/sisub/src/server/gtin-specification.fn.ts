@@ -27,14 +27,11 @@ import { createLocalVerifier, type GpcRequirement, isVerdictStale, normalizeGtin
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAuthWithPermission } from "@/lib/auth.server"
-import { getServerClient } from "@/lib/supabase.server"
 import { publicDbMessage } from "@/lib/db-error-message"
+import { getLooseServerClient } from "@/lib/supabase.server"
 
-// biome-ignore lint/suspicious/noExplicitAny: tabelas de gs1_integration fora dos tipos gerados até o regen pós-migration
-type LooseClient = { from: (table: string) => any }
-
-const gs1 = () => getServerClient("gs1_integration") as unknown as LooseClient
-const procurement = () => getServerClient("procurement") as unknown as LooseClient
+const gs1 = () => getLooseServerClient("gs1_integration")
+const procurement = () => getLooseServerClient("procurement")
 
 /** Exigência da especificação, já no formato do domínio. */
 async function loadRequirements(purchaseItemId: string): Promise<GpcRequirement[]> {

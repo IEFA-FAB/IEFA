@@ -16,21 +16,18 @@ import { matchNfeItem, type NfeMatchCandidates, parseNfeAccessKey } from "@iefa/
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAuthWithPermission } from "@/lib/auth.server"
+import { publicDbMessage } from "@/lib/db-error-message"
 import { purchaseUnitIdOfKitchen } from "@/lib/kitchen-purchase-unit.server"
 import { nfeOwnershipProblem } from "@/lib/nfe-ownership"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
-import { getServerClient } from "@/lib/supabase.server"
-import { publicDbMessage } from "@/lib/db-error-message"
+import { getLooseServerClient } from "@/lib/supabase.server"
 
 const API_BASE = (process.env.IEFA_API_BASE_URL || "https://api.iefa.com.br").replace(/\/+$/, "")
 
-// biome-ignore lint/suspicious/noExplicitAny: tabelas novas fora dos tipos gerados até o regen pós-migration (task 2.4)
-type LooseClient = { from: (table: string) => any; rpc: (fn: string, args?: Record<string, unknown>) => any }
-
-const inventory = () => getServerClient("inventory") as unknown as LooseClient
-const gs1 = () => getServerClient("gs1_integration") as unknown as LooseClient
-const kitchen = () => getServerClient("kitchen") as unknown as LooseClient
-const procurement = () => getServerClient("procurement") as unknown as LooseClient
+const inventory = () => getLooseServerClient("inventory")
+const gs1 = () => getLooseServerClient("gs1_integration")
+const kitchen = () => getLooseServerClient("kitchen")
+const procurement = () => getLooseServerClient("procurement")
 
 /** Autentica, resolve a cozinha do documento e aplica o guard escopado. */
 async function requireStorageForDocument(level: 1 | 2, nfeDocumentId: string): Promise<{ userId: string }> {
