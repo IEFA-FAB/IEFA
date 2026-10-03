@@ -49,7 +49,7 @@
     "clean": "bunx turbo run clean && rm -rf node_modules .turbo",
     "clean:cache": "rm -rf .turbo node_modules/.cache",
     "knip": "knip",
-    "knip:files": "knip --include files --no-config-hints",
+    "knip:files": "knip --include files",
     "generate:deploy": "bun scripts/generate-deploy-artifacts.ts",
     "check:deploy": "bun scripts/generate-deploy-artifacts.ts --check",
     "check:security-headers": "bun scripts/check-security-headers.ts",

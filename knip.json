@@ -35,7 +35,7 @@
       ],
       "project": ["src/**/*.{ts,tsx}", "routes/**/*.ts"],
       "ignore": ["src/server/gtin.fn.ts", "src/server/gtin-specification.fn.ts", "src/components/features/global/gtin/GtinScannerField.tsx"],
-      "vite": false
+      "vite": { "config": [] }
     },
     "apps/rumaer": {
       "entry": ["src/client.tsx", "src/server.ts", "src/router.tsx", "vite.config.ts", "src/**/*.test.{ts,tsx}"],
@@ -70,8 +70,8 @@
       "project": ["src/**/*.ts"]
     },
     "apps/docs": {
-      "entry": ["src/router.tsx", "src/start.ts", "vite.config.ts", "src/**/*.test.{ts,tsx}"],
-      "project": ["src/**/*.{ts,tsx}"]
+      "entry": ["src/router.tsx", "src/start.ts", "vite.config.ts", "src/**/*.test.{ts,tsx}", "content/**/*.mdx"],
+      "project": ["src/**/*.{ts,tsx}", "content/**/*.mdx"]
     },
     "packages/ai-provider": {
       "entry": ["src/index.ts", "src/**/*.test.{ts,tsx}"],
@@ -91,8 +91,7 @@
     },
     "packages/database": {
       "entry": ["src/index.ts", "src/**/*.test.{ts,tsx}"],
-      "project": ["src/**/*.ts"],
-      "drizzle": false
+      "project": ["src/**/*.ts"]
     },
     "packages/hono-client": {
       "entry": ["src/index.ts", "src/**/*.test.{ts,tsx}"],
