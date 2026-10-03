@@ -104,4 +104,12 @@ describe("tom da redação", () => {
 		expect(prompt).toContain("superior, par ou subordinado")
 		expect(prompt).not.toContain("Determino")
 	})
+
+	// Benchmark de 2026-10-03: a dúvida sobre o destinatário voltou a segurar o 1º turno, e o
+	// texto remeteu a "alíneas a e b" quando a folha imprimia itens 3.1 a 3.3.
+	it("não deixa a dúvida sobre o destinatário segurar a redação e remete pela numeração impressa", () => {
+		const prompt = buildChatSystemPrompt(assembleDocument(base()))
+		expect(prompt).toContain("qual autoridade recebe o ofício não seguram a redação")
+		expect(prompt).toContain("use a numeração que a folha imprime")
+	})
 })
