@@ -90,11 +90,13 @@ export function MilitaryRecordPanel({ status, api, now }: { status: SaramStatus;
 	}
 
 	const action = useMutation({
-		mutationFn: ({ run }: { run: () => Promise<SaramLinkOutcome>; source: Feedback["source"] }) => run(),
-		onSuccess: (result, { source }) => {
+		mutationFn: ({ run }: { run: () => Promise<SaramLinkOutcome>; source: Feedback["source"]; from: SaramStatus["status"] }) => run(),
+		onSuccess: (result, { source, from }) => {
 			const outcome = describeSaramOutcome(result, now)
 			// Erro de conferência fica junto do formulário (a pessoa vai redigitar); o resto, no topo.
-			setFeedback({ ...outcome, source: outcome.kind === "error" ? source : "top" })
+			// Se o estado mudou (a última tentativa bloqueou), o formulário da origem some: vai para o topo.
+			const stays = outcome.kind === "error" && result.status.status === from
+			setFeedback({ ...outcome, source: stays ? source : "top" })
 			if (outcome.kind !== "error") requestAnimationFrame(() => feedbackRef.current?.focus())
 		},
 		onError: (error, { source }) => {
@@ -106,10 +108,19 @@ export function MilitaryRecordPanel({ status, api, now }: { status: SaramStatus;
 
 	const run = (source: Feedback["source"], fn: () => Promise<SaramLinkOutcome>) => {
 		setFeedback(null)
-		action.mutate({ run: fn, source })
+		action.mutate({ run: fn, source, from: status.status })
 	}
 	const busy = action.isPending
 	const formFeedback = (source: Feedback["source"]) => (feedback && feedback.source === source ? feedback : null)
+
+	// Vínculo antigo cujo e-mail localiza o dono: o banco oferece confirmar pelo e-mail (troca o legacy
+	// por um verificado). Um candidato sem dígito de homônimo é um clique; o resto pede os 4 dígitos.
+	const legacyCanConfirm =
+		status.status === "legacy" && hasSaramAction(status, "confirm_candidate") && status.candidates.length > 0
+			? status.requiresCpfSuffix
+				? "several"
+				: "one"
+			: null
 
 	const offersAlternatives = hasSaramAction(status, "verify_cpf") || hasSaramAction(status, "request_link") || hasSaramAction(status, "set_institutional")
 	// Sem sugestão nem candidato, as alternativas SÃO a tela; com sugestão, ficam atrás do "Não sou eu".
@@ -134,9 +145,14 @@ export function MilitaryRecordPanel({ status, api, now }: { status: SaramStatus;
 						<IdentityList identity={status.identity} saram={status.saram} />
 					</CardContent>
 				)}
-				{status.status === "suggestion" && status.candidates[0] && !showAlternatives && (
+				{(status.status === "suggestion" || legacyCanConfirm === "one") && status.candidates[0] && !showAlternatives && (
 					<CardContent>
 						<SuggestionStep
+							lead={
+								status.status === "legacy"
+									? "Seu e-mail institucional corresponde a este cadastro. Confirmando, ele substitui o vínculo antigo, já verificado."
+									: undefined
+							}
 							candidate={status.candidates[0]}
 							busy={busy}
 							onConfirm={(candidate) => run("top", () => api.confirmCandidate({ candidateRef: candidate.ref }))}
@@ -160,7 +176,7 @@ export function MilitaryRecordPanel({ status, api, now }: { status: SaramStatus;
 
 			{feedback && feedback.source === "top" && <FeedbackAlert feedback={feedback} focusRef={feedbackRef} />}
 
-			{status.status === "homonyms" && !showAlternatives && (
+			{(status.status === "homonyms" || legacyCanConfirm === "several") && !showAlternatives && (
 				<HomonymsStep
 					status={status}
 					busy={busy}
@@ -184,7 +200,7 @@ export function MilitaryRecordPanel({ status, api, now }: { status: SaramStatus;
 									? "Então vamos por outro caminho"
 									: "Como vincular seu SARAM"}
 						</h2>
-						{status.status === "suggestion" || status.status === "homonyms" ? (
+						{(status.status === "suggestion" || status.status === "homonyms" || legacyCanConfirm) && showAlternatives ? (
 							<Button variant="link" size="sm" className="self-start" onClick={() => setShowAlternatives(false)}>
 								Voltar à sugestão
 							</Button>
@@ -271,11 +287,13 @@ function IdentityList({ identity, saram }: { identity: NonNullable<SaramStatus["
 }
 
 function SuggestionStep({
+	lead,
 	candidate,
 	busy,
 	onConfirm,
 	onNotMe,
 }: {
+	lead?: string
 	candidate: SaramCandidate
 	busy: boolean
 	onConfirm: (candidate: SaramCandidate) => void
@@ -283,6 +301,7 @@ function SuggestionStep({
 }) {
 	return (
 		<div className="flex flex-col gap-4 border-t pt-4">
+			{lead && <p className="max-w-prose text-body text-muted-foreground">{lead}</p>}
 			<CandidateSummary candidate={candidate} />
 			{candidate.heldByOther && (
 				<p className="max-w-prose text-caption text-muted-foreground">

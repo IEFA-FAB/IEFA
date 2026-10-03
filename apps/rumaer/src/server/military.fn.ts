@@ -74,12 +74,12 @@ export const getMyMilitaryProfileFn = createServerFn({ method: "GET" }).handler(
 
 /**
  * Estado do vínculo de SARAM da conta logada (`core.saram_link_status`, a mesma função do sisub e
- * do sucont) — SÓ o nome do estado, sem SARAM nem cadastro: o menu do usuário usa para dizer por
+ * do sucont) — SÓ o nome do estado e se os dados aparecem, sem SARAM nem cadastro: o menu do usuário usa para dizer por
  * que o posto e o nome de guerra não aparecem e levar à tela "Meu cadastro militar" do SISUB, onde
  * a verificação acontece. Sem sessão ou com falha de leitura: `null` (o menu só não avisa).
  */
 // nosemgrep: server-fn-missing-auth-guard
-export const getMySaramLinkStatusFn = createServerFn({ method: "GET" }).handler(async (): Promise<SaramLinkStatusName | null> => {
+export const getMySaramLinkStatusFn = createServerFn({ method: "GET" }).handler(async (): Promise<{ status: SaramLinkStatusName; visible: boolean } | null> => {
 	const user = await getRequestUser()
 	if (!user) return null
 	const { data, error } = await getCoreReadClient().rpc("saram_link_status", {
@@ -88,5 +88,6 @@ export const getMySaramLinkStatusFn = createServerFn({ method: "GET" }).handler(
 		p_email_confirmed: Boolean(user.email_confirmed_at),
 	})
 	if (error) return null
-	return parseSaramStatus(data).status
+	const parsed = parseSaramStatus(data)
+	return { status: parsed.status, visible: parsed.visible }
 })

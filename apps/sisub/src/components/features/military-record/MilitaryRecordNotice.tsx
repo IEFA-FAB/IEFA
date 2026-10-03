@@ -2,10 +2,11 @@ import { describeSaramStatus, type SaramStatus } from "@iefa/database/saram-link
 import { Link, useRouterState } from "@tanstack/react-router"
 import { Clock, ShieldAlert, UserRoundSearch, X } from "lucide-react"
 import { useState } from "react"
+import { usePBAC } from "@/auth/pbac"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/hooks/auth/useAuth"
-import { useSaramStatus } from "@/hooks/business/useUserSaram"
+import { useSaramStatus, useUserSaram } from "@/hooks/business/useUserSaram"
 
 /** Rota da tela "Meu cadastro militar": o aviso não aparece nela (a tela já é a ação). */
 export const MILITARY_RECORD_PATH = "/diner/military-record"
@@ -27,11 +28,17 @@ const dismissedByUser = new Map<string, string>()
 export function MilitaryRecordNotice() {
 	const { user } = useAuth()
 	const pathname = useRouterState({ select: (state) => state.location.pathname })
-	const { data: status } = useSaramStatus()
 	const userId = user?.id ?? ""
+	// A ação mora numa tela do Comensal: quem tem o módulo negado não teria para onde ir.
+	const { can } = usePBAC()
+	const canOpen = can("diner", 1)
+	// Quem já tem SARAM visível (verificado, ou antigo ainda valendo) não paga a ida ao estado: o
+	// aviso só existe para quem não tem.
+	const visibleSaram = useUserSaram(userId || null)
+	const { data: status } = useSaramStatus({ enabled: canOpen && visibleSaram.isSuccess && !visibleSaram.data })
 	const [dismissed, setDismissed] = useState<string | null>(() => dismissedByUser.get(userId) ?? null)
 
-	if (!status || pathname.startsWith(MILITARY_RECORD_PATH)) return null
+	if (!canOpen || !status || pathname.startsWith(MILITARY_RECORD_PATH)) return null
 	if (dismissed === status.status) return null
 
 	return (

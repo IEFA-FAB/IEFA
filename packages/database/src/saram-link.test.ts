@@ -101,13 +101,21 @@ describe("estado → aviso e ações", () => {
 	const ALL: SaramLinkStatusName[] = ["verified", "legacy", "institutional", "pending_request", "contested", "suggestion", "homonyms", "locked_out", "no_match"]
 
 	test("o aviso de entrada aparece só para quem tem algo a fazer ou acompanhar", () => {
-		const withNotice = ALL.filter((s) => saramStatusNeedsAttention({ status: s }))
+		const withNotice = ALL.filter((s) => saramStatusNeedsAttention({ status: s, visible: true }))
 		expect(withNotice).toEqual(["pending_request", "contested", "suggestion", "homonyms", "locked_out", "no_match"])
-		for (const s of ALL) {
-			const view = describeSaramStatus(status({ status: s }), NOW, TZ)
-			expect(view.needsAttention).toBe(saramStatusNeedsAttention({ status: s }))
-			expect(Boolean(view.notice)).toBe(view.needsAttention)
+		for (const visible of [true, false]) {
+			for (const s of ALL) {
+				const view = describeSaramStatus(status({ status: s, visible }), NOW, TZ)
+				expect(view.needsAttention).toBe(saramStatusNeedsAttention({ status: s, visible }))
+				expect(Boolean(view.notice)).toBe(view.needsAttention)
+			}
 		}
+	})
+
+	test("vínculo antigo que perdeu os dados (verificado em outra conta) avisa e sinaliza", () => {
+		expect(saramStatusNeedsAttention({ status: "legacy", visible: false })).toBe(true)
+		expect(saramStatusNeedsAttention({ status: "legacy", visible: true })).toBe(false)
+		expect(isSaramUnverified({ status: "legacy", accountKind: "pessoal", visible: false })).toBe(true)
 	})
 
 	test("nenhuma frase mostra o vocabulário do contrato", () => {
@@ -161,11 +169,11 @@ describe("estado → aviso e ações", () => {
 	})
 
 	test("conta não verificada é sinalizada; seção, verificada e antiga, não", () => {
-		expect(isSaramUnverified({ status: "no_match", accountKind: "pessoal" })).toBe(true)
-		expect(isSaramUnverified({ status: "pending_request", accountKind: "pessoal" })).toBe(true)
-		expect(isSaramUnverified({ status: "verified", accountKind: "pessoal" })).toBe(false)
-		expect(isSaramUnverified({ status: "legacy", accountKind: "pessoal" })).toBe(false)
-		expect(isSaramUnverified({ status: "institutional", accountKind: "institucional" })).toBe(false)
+		expect(isSaramUnverified({ status: "no_match", accountKind: "pessoal", visible: false })).toBe(true)
+		expect(isSaramUnverified({ status: "pending_request", accountKind: "pessoal", visible: false })).toBe(true)
+		expect(isSaramUnverified({ status: "verified", accountKind: "pessoal", visible: true })).toBe(false)
+		expect(isSaramUnverified({ status: "legacy", accountKind: "pessoal", visible: true })).toBe(false)
+		expect(isSaramUnverified({ status: "institutional", accountKind: "institucional", visible: false })).toBe(false)
 		expect(hasSaramAction({ actions: ["verify_cpf"] }, "verify_cpf")).toBe(true)
 		expect(hasSaramAction(null, "verify_cpf")).toBe(false)
 	})

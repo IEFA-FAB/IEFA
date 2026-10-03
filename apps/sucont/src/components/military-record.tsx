@@ -160,7 +160,11 @@ function MilitaryRecordPanel({ status }: { status: SaramStatus }) {
 	}
 	const busy = action.isPending
 	const candidate = status.candidates[0]
-	const showAlternatives = step === "alternatives" || status.status === "no_match" || status.status === "locked_out" || status.status === "legacy"
+	// Escolher uma alternativa (CPF, pedido, seção) continua dentro do bloco de alternativas.
+	const inAlternatives = step === "alternatives" || step === "cpf" || step === "request" || step === "institutional"
+	const showAlternatives = inAlternatives || status.status === "no_match" || status.status === "locked_out" || status.status === "legacy"
+	// Vínculo antigo cujo e-mail localiza o dono: confirmar pelo e-mail troca o legacy por um verificado.
+	const legacyCanConfirm = status.status === "legacy" && hasSaramAction(status, "confirm_candidate") && status.candidates.length > 0
 
 	return (
 		<div className="flex flex-col gap-4">
@@ -190,7 +194,7 @@ function MilitaryRecordPanel({ status }: { status: SaramStatus }) {
 				</Alert>
 			)}
 
-			{status.status === "suggestion" && candidate && step === null && (
+			{(status.status === "suggestion" || (legacyCanConfirm && !status.requiresCpfSuffix)) && candidate && step === null && (
 				<div className="flex flex-col gap-2 sm:flex-row">
 					<Button disabled={busy} onClick={() => run(() => confirmSaramCandidateFn({ data: { candidateRef: candidate.ref } }))}>
 						{busy && <Loader2 className="animate-spin" aria-hidden />}
@@ -202,7 +206,7 @@ function MilitaryRecordPanel({ status }: { status: SaramStatus }) {
 				</div>
 			)}
 
-			{status.status === "homonyms" && step === null && (
+			{(status.status === "homonyms" || (legacyCanConfirm && status.requiresCpfSuffix)) && step === null && (
 				<HomonymsForm
 					status={status}
 					busy={busy}

@@ -53,7 +53,7 @@ import type {
 } from "../schemas/saram-link.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError } from "../types/errors.ts"
-import { driverFailure, runQuery, unwrapPgError } from "../utils/index.ts"
+import { containsPattern, driverFailure, runQuery, unwrapPgError } from "../utils/index.ts"
 import { type AccessAudit, defaultAccessAudit, runAccessFunction, toAccessDomainError } from "./access-change.ts"
 
 // ── Tipos do contrato (`@iefa/database/saram-link`, compartilhado com o sucont e o rumaer) ──
@@ -313,9 +313,6 @@ export type SaramSearchAccount = {
 
 const SEARCH_LIMIT = 20
 
-/** `%`/`_`/`\` digitados são literais, não curinga. */
-const escapeLike = (value: string) => value.replace(/[\\%_]/g, (c) => `\\${c}`)
-
 /**
  * Busca de conta para o console (admin:2): por parte do e-mail, nome de guerra ou SARAM exato.
  * Até 20 resultados, os de e-mail mais curto primeiro (o endereço digitado inteiro sobe ao topo).
@@ -323,7 +320,7 @@ const escapeLike = (value: string) => value.replace(/[\\%_]/g, (c) => `\\${c}`)
 export async function searchSaramAccounts(db: SisubDb, ctx: UserContext, input: SearchSaramAccounts): Promise<SaramSearchAccount[]> {
 	requirePermission(ctx, "admin", 2)
 	const query = input.query.trim()
-	const pattern = `%${escapeLike(query.toLowerCase())}%`
+	const pattern = containsPattern(query.toLowerCase())
 	const rows = (await runQuery("FETCH_FAILED", () =>
 		db.execute(sql`
 			select ud.id as user_id, ud.email, ud.account_kind, ud.saram, ud.saram_verified_by,

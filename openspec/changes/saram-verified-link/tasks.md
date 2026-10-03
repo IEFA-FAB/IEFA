@@ -36,5 +36,5 @@
 - [x] 4.4b [rumaer] Menu do usuário diz por que o posto não aparece e leva à tela do SISUB
 - [x] 4.4c [database] Contrato e frases compartilhados (`@iefa/database/saram-link`): parser do `jsonb`, leitura de cada estado e desfecho, erros com o próximo passo, `visibleSaramOf`
 - [ ] 4.5 [sisub] e2e do fluxo de sugestão e do pedido (conferido no navegador no PR da FASE 2; spec Playwright pendente)
-- [ ] 4.6 [database] Drop de `core.link_own_saram` depois do deploy do sucont
+- [ ] 4.6 [database] Drop de `core.link_own_saram` e `core.claim_saram` depois do deploy do sucont (com `syncUserSaram`/`SyncUserSaramSchema` do domínio, sem chamador desde a FASE 2); função SQL em lote para o SARAM visível, que tira a cópia de `visibleSaramOf` do console de acessos do sucont
 - [x] 4.7 [root] `bun run check` (afetados), `lint:tailwind`, `scan:rules`, `format:check`

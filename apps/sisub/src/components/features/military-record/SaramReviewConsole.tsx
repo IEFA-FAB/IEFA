@@ -63,6 +63,8 @@ type PendingAction = {
 	askSaram?: { initial: string }
 	run: (input: { reason: string; saram: string }) => Promise<SaramAdminResult>
 	successMessage: string
+	/** Lote: o resultado parcial já foi gravado; reenviar repetiria contas já marcadas. Fecha e relata. */
+	closeOnError?: boolean
 }
 
 function rowKeys(queue: Queue | undefined): Set<string> {
@@ -119,6 +121,10 @@ export function SaramReviewConsole({ queue, isLoading, error, api }: { queue: Qu
 		enabled: tab === "search" && query.length >= 3,
 		staleTime: 30_000,
 	})
+
+	// Só o que está NA TELA entra no lote: a seleção feita sem filtro não pode marcar contas que o
+	// filtro escondeu, nem as que já saíram da fila.
+	const selectedShown = shown.candidates.filter((c) => selected.has(c.userId))
 
 	const count = (filtered: number, total: number) => (query && filtered !== total ? `${filtered} de ${total}` : String(total))
 
@@ -255,7 +261,7 @@ export function SaramReviewConsole({ queue, isLoading, error, api }: { queue: Qu
 	}
 
 	const bulkInstitutional = () => {
-		const targets = candidates.filter((c) => selected.has(c.userId))
+		const targets = selectedShown
 		setPending({
 			key: "bulk",
 			title: `Marcar ${targets.length} ${targets.length === 1 ? "conta" : "contas"} como de seção?`,
@@ -284,6 +290,7 @@ export function SaramReviewConsole({ queue, isLoading, error, api }: { queue: Qu
 				return last
 			},
 			successMessage: `${targets.length} ${targets.length === 1 ? "conta marcada" : "contas marcadas"} como de seção.`,
+			closeOnError: true,
 		})
 	}
 
@@ -402,8 +409,10 @@ export function SaramReviewConsole({ queue, isLoading, error, api }: { queue: Qu
 											indeterminate={shown.candidates.some((c) => selected.has(c.userId)) && !shown.candidates.every((c) => selected.has(c.userId))}
 											onCheckedChange={(checked) => setSelected(checked ? new Set(shown.candidates.map((c) => c.userId)) : new Set())}
 										/>
-										<span className="text-caption text-muted-foreground">{selected.size > 0 ? `${selected.size} selecionadas` : "Selecionar todas"}</span>
-										<Button size="sm" variant="outline" disabled={selected.size === 0} onClick={bulkInstitutional}>
+										<span className="text-caption text-muted-foreground">
+											{selectedShown.length > 0 ? `${selectedShown.length} selecionadas` : "Selecionar todas"}
+										</span>
+										<Button size="sm" variant="outline" disabled={selectedShown.length === 0} onClick={bulkInstitutional}>
 											Marcar selecionadas como seção
 										</Button>
 									</div>
@@ -688,6 +697,12 @@ function AdminActionDialog({
 		},
 		onError: async (error) => {
 			if (isElevationCancelled(error)) return
+			if (action?.closeOnError) {
+				toast.error("O lote não terminou inteiro", { description: errorText(error) })
+				await onSettled()
+				onClose()
+				return
+			}
 			setFailure(errorText(error))
 			// Conflito de versão (alguém decidiu antes) ou falha: a fila é relida e o diálogo mostra o novo estado.
 			await onSettled()

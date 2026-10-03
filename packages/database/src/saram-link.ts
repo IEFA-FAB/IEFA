@@ -283,14 +283,21 @@ export type SaramStatusView = {
 /** Estados que pedem ação (ou acompanhamento) da pessoa: o aviso de entrada aparece. */
 const ATTENTION: ReadonlySet<SaramLinkStatusName> = new Set(["suggestion", "homonyms", "no_match", "locked_out", "pending_request", "contested"])
 
-export function saramStatusNeedsAttention(status: Pick<SaramStatus, "status"> | null | undefined): boolean {
-	return !!status && ATTENTION.has(status.status)
+/**
+ * O aviso de entrada aparece. Além dos estados com ação, o vínculo antigo que deixou de mostrar os
+ * dados (o mesmo SARAM foi verificado em outra conta): sem aviso, a pessoa só descobriria abrindo a
+ * tela por conta própria.
+ */
+export function saramStatusNeedsAttention(status: Pick<SaramStatus, "status" | "visible"> | null | undefined): boolean {
+	if (!status) return false
+	return ATTENTION.has(status.status) || (status.status === "legacy" && !status.visible)
 }
 
 /** A conta pessoal ainda não tem vínculo que valha (o arranchamento continua, sinalizado). */
-export function isSaramUnverified(status: Pick<SaramStatus, "status" | "accountKind"> | null | undefined): boolean {
+export function isSaramUnverified(status: Pick<SaramStatus, "status" | "accountKind" | "visible"> | null | undefined): boolean {
 	if (!status || status.accountKind === "institucional") return false
-	return status.status !== "verified" && status.status !== "legacy"
+	if (status.status === "legacy") return !status.visible
+	return status.status !== "verified"
 }
 
 export function hasSaramAction(status: Pick<SaramStatus, "actions"> | null | undefined, action: SaramLinkAction): boolean {
@@ -400,8 +407,10 @@ export function describeSaramStatus(status: SaramStatus, now: Date = new Date(),
 				description: status.visible
 					? "Este vínculo é antigo (de antes da verificação automática) e está em revisão pela administração do sistema. Nada a fazer agora: seus dados continuam aparecendo."
 					: "Este vínculo é antigo e o mesmo SARAM foi verificado em outra conta, por isso seus dados militares não aparecem. A administração do sistema vai revisar; se o SARAM é seu, confira-o pelo CPF.",
-				needsAttention: false,
-				notice: null,
+				needsAttention: !status.visible,
+				notice: status.visible
+					? null
+					: { text: "Seus dados militares deixaram de aparecer: o mesmo SARAM foi verificado em outra conta.", cta: "Ver o que fazer" },
 			}
 		case "institutional":
 			return {

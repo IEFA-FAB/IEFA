@@ -29,7 +29,7 @@ import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireSucontAdmin, requireUserId } from "#/lib/auth.server"
 import { describePerson } from "#/lib/identity"
-import { fetchMilitaryIdentities, fetchVisibleSarams } from "#/lib/military.server"
+import { fetchMilitaryIdentities, fetchVisibleSarams, resolveVisibleSarams } from "#/lib/military.server"
 import { buildSucontGrant, buildSucontRevoke, type SucontPermissionRow } from "#/lib/permission-change"
 import { SUCONT_ADMIN_MODULE, SUCONT_PERMISSION_MODULES } from "#/lib/permission-modules"
 import { getAccessControlClient, getCoreClient } from "#/lib/supabase.server"
@@ -237,13 +237,11 @@ export const listSucontGrantsFn = createServerFn({ method: "GET" }).handler(asyn
 	const userIds = [...new Set(all.map((g) => g.userId))]
 	const core = getCoreClient()
 
-	const [{ data: users, error: usersError }, visible] = await Promise.all([
-		core.from("user_data").select("id, email").in("id", userIds),
-		// Só o SARAM verificado identifica (change `saram-verified-link`): a coluna crua pode ter o
-		// número de outra pessoa, ainda sem verificação.
-		fetchVisibleSarams(userIds),
-	])
+	const { data: users, error: usersError } = await core.from("user_data").select("id, email, saram, saram_verified_by, account_kind").in("id", userIds)
 	if (usersError) throw new Error(usersError.message)
+	// Só o SARAM verificado identifica (change `saram-verified-link`): a coluna crua pode ter o
+	// número de outra pessoa, ainda sem verificação.
+	const visible = await resolveVisibleSarams(users ?? [])
 
 	const rowById = new Map(
 		((users ?? []) as Array<{ id: string; email: string | null }>).map((u) => [u.id, { email: u.email ?? "", saram: visible.get(u.id) ?? null }])

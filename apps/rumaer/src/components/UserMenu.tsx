@@ -48,7 +48,7 @@ export function UserMenu() {
 	// Sem perfil militar visível, o estado do vínculo diz por quê (pedido em análise, não
 	// identificado…) e o menu leva à verificação no SISUB (change `saram-verified-link`).
 	const { data: linkStatus } = useQuery({ ...saramLinkStatusQueryOptions(), enabled: isAuthenticated && military === null })
-	const linkView = linkStatus ? describeSaramStatus(parseSaramStatus({ status: linkStatus })) : null
+	const linkView = linkStatus ? describeSaramStatus(parseSaramStatus(linkStatus)) : null
 	const linkNotice = linkView?.needsAttention ? linkView.notice : null
 
 	const displayName = meta.display_name || meta.first_name || meta.name || meta.full_name || email || "Usuário"
