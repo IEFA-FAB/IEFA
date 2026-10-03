@@ -17,10 +17,10 @@ import { csvRow } from "@/lib/csv"
 import { publicDbMessage } from "@/lib/db-error-message"
 import { committedQuantity } from "@/lib/empenho-items"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
-import { getLooseServerClient } from "@/lib/supabase.server"
+import { getServerClient } from "@/lib/supabase.server"
 
-const inventory = () => getLooseServerClient("inventory")
-const kitchen = () => getLooseServerClient("kitchen")
+const inventory = () => getServerClient("inventory")
+const kitchen = () => getServerClient("kitchen")
 
 // A partição entrada/saída vive em UM lugar (@iefa/sisub-domain) e é conferida
 // contra as triggers de custeio por sql-vocabulary.contract.test.ts. Esta era a
@@ -178,7 +178,7 @@ export const fetchLedgerSheetFn = createServerFn({ method: "GET" })
 			.order("created_at", { ascending: true })
 		if (error) throw new Error(`Erro ao consultar ficha: ${publicDbMessage(error)}`)
 
-		const entries = (moves ?? []).map((move: { type: string; quantity: number }) => {
+		const entries = (moves ?? []).map((move) => {
 			running += isInflow(move.type) ? Number(move.quantity) : -Number(move.quantity)
 			return { ...move, running: Number(running.toFixed(4)) }
 		})
@@ -196,7 +196,7 @@ export const exportCatmatCsvFn = createServerFn({ method: "GET" })
 		const ingredientIds = balancete.map((row) => row.ingredientId).filter((id): id is string => id != null)
 		const catmatByIngredient = new Map<string, { codigo: number | null; descricao: string | null }>()
 		if (ingredientIds.length > 0) {
-			const proc = getLooseServerClient("procurement")
+			const proc = getServerClient("procurement")
 			const { data: links } = await proc
 				.from("purchase_item_ingredient")
 				.select("ingredient_id, is_default, purchase_item:purchase_item_id (catmat_item_codigo, catmat_item_descricao)")
@@ -244,8 +244,8 @@ export const fetchEmpenhoLiquidacaoFn = createServerFn({ method: "GET" })
 	.handler(async ({ data }) => {
 		await requireStorageForKitchen(1, data.kitchenId)
 		const inv = inventory()
-		const kitchenDb = getLooseServerClient("kitchen")
-		const finance = getLooseServerClient("finance")
+		const kitchenDb = getServerClient("kitchen")
+		const finance = getServerClient("finance")
 
 		const { data: kitchenRow, error: kitchenError } = await kitchenDb.from("kitchen").select("unit_id, purchase_unit_id").eq("id", data.kitchenId).single()
 		if (kitchenError) throw new Error(`Erro ao carregar a cozinha: ${publicDbMessage(kitchenError)}`)
@@ -270,11 +270,11 @@ export const fetchEmpenhoLiquidacaoFn = createServerFn({ method: "GET" })
 			.select("empenho_id, quantity, unit")
 			.in(
 				"empenho_id",
-				list.map((e: { id: string }) => e.id)
+				list.map((e) => e.id)
 			)
 		if (neItemsError) throw new Error(`Erro ao ler os itens dos empenhos: ${publicDbMessage(neItemsError)}`)
 		const itemsByEmpenho = new Map<string, Array<{ quantity: number | string | null; unit: string | null }>>()
-		for (const item of (neItems ?? []) as Array<{ empenho_id: string; quantity: number | string | null; unit: string | null }>) {
+		for (const item of neItems ?? []) {
 			itemsByEmpenho.set(item.empenho_id, [...(itemsByEmpenho.get(item.empenho_id) ?? []), item])
 		}
 
@@ -283,22 +283,22 @@ export const fetchEmpenhoLiquidacaoFn = createServerFn({ method: "GET" })
 			.select("id, empenho_id, definitive_at")
 			.in(
 				"empenho_id",
-				list.map((e: { id: string }) => e.id)
+				list.map((e) => e.id)
 			)
 			.not("definitive_at", "is", null)
-		const receiptIds = (receipts ?? []).map((r: { id: string }) => r.id)
+		const receiptIds = (receipts ?? []).map((r) => r.id)
 		const receivedByEmpenho = new Map<string, number>()
 		if (receiptIds.length > 0) {
 			const { data: items } = await inv.from("goods_receipt_item").select("receipt_id, received_qty_base").in("receipt_id", receiptIds)
-			const empenhoByReceipt = new Map((receipts ?? []).map((r: { id: string; empenho_id: string }) => [r.id, r.empenho_id]))
+			const empenhoByReceipt = new Map((receipts ?? []).map((r) => [r.id, r.empenho_id]))
 			for (const item of items ?? []) {
 				const empenhoId = empenhoByReceipt.get(item.receipt_id)
 				if (!empenhoId) continue
-				receivedByEmpenho.set(empenhoId as string, (receivedByEmpenho.get(empenhoId as string) ?? 0) + Number(item.received_qty_base))
+				receivedByEmpenho.set(empenhoId, (receivedByEmpenho.get(empenhoId) ?? 0) + Number(item.received_qty_base))
 			}
 		}
 
-		return list.map((empenho: { id: string; numero_empenho: string; valor_total: number }) => {
+		return list.map((empenho) => {
 			const received = Number((receivedByEmpenho.get(empenho.id) ?? 0).toFixed(4))
 			const empenhada = committedQuantity(itemsByEmpenho.get(empenho.id) ?? [])
 			return {

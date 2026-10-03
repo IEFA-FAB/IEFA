@@ -23,15 +23,16 @@
  * @migration 20260901120300_gs1_specification_check
  */
 
+import type { Json } from "@iefa/database"
 import { createLocalVerifier, type GpcRequirement, isVerdictStale, normalizeGtin, specFingerprint } from "@iefa/sisub-domain/operations"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAuthWithPermission } from "@/lib/auth.server"
 import { publicDbMessage } from "@/lib/db-error-message"
-import { getLooseServerClient } from "@/lib/supabase.server"
+import { getServerClient } from "@/lib/supabase.server"
 
-const gs1 = () => getLooseServerClient("gs1_integration")
-const procurement = () => getLooseServerClient("procurement")
+const gs1 = () => getServerClient("gs1_integration")
+const procurement = () => getServerClient("procurement")
 
 /** Exigência da especificação, já no formato do domínio. */
 async function loadRequirements(purchaseItemId: string): Promise<GpcRequirement[]> {
@@ -41,7 +42,7 @@ async function loadRequirements(purchaseItemId: string): Promise<GpcRequirement[
 		.eq("purchase_item_id", purchaseItemId)
 	if (error) throw new Error(`Erro ao carregar exigências: ${publicDbMessage(error)}`)
 
-	const rows = (data ?? []) as Array<{ attribute_code: string; accepted_value_codes: string[] }>
+	const rows = data ?? []
 	if (rows.length === 0) return []
 
 	// Título só para a mensagem — o veredito não depende dele.
@@ -53,7 +54,7 @@ async function loadRequirements(purchaseItemId: string): Promise<GpcRequirement[
 			rows.map((row) => row.attribute_code)
 		)
 	const titleByCode = new Map<string, string>()
-	for (const attribute of (attributes ?? []) as Array<{ attribute_code: string; attribute_title: string }>) {
+	for (const attribute of attributes ?? []) {
 		titleByCode.set(attribute.attribute_code, attribute.attribute_title)
 	}
 
@@ -108,7 +109,7 @@ export const verifyGtinAgainstPurchaseItemFn = createServerFn({ method: "POST" }
 				.from("gtin_gpc_attribute")
 				.select("attribute_code, value_code, gpc_attribute_value:value_code (value_title)")
 				.eq("gtin", code)
-			return ((declared ?? []) as Array<{ attribute_code: string; value_code: string; gpc_attribute_value?: { value_title?: string } | null }>).map((row) => ({
+			return (declared ?? []).map((row) => ({
 				attributeCode: row.attribute_code,
 				valueCode: row.value_code,
 				valueTitle: row.gpc_attribute_value?.value_title ?? null,
@@ -117,15 +118,17 @@ export const verifyGtinAgainstPurchaseItemFn = createServerFn({ method: "POST" }
 
 		const result = await verifier.verify({ gtin, purchaseItemId: data.purchaseItemId, requirements })
 
-		const { error } = await gs1().from("gtin_specification_check").insert({
-			gtin,
-			purchase_item_id: data.purchaseItemId,
-			verdict: result.verdict,
-			divergences: result.divergences,
-			source: result.source,
-			spec_fingerprint: result.specFingerprint,
-			checked_by: userId,
-		})
+		const { error } = await gs1()
+			.from("gtin_specification_check")
+			.insert({
+				gtin,
+				purchase_item_id: data.purchaseItemId,
+				verdict: result.verdict,
+				divergences: result.divergences as unknown as Json,
+				source: result.source,
+				spec_fingerprint: result.specFingerprint,
+				checked_by: userId,
+			})
 		if (error) throw new Error(`Erro ao registrar veredito: ${publicDbMessage(error)}`)
 
 		return {
