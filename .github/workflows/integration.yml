@@ -158,8 +158,10 @@ jobs:
     concurrency:
       group: sisub-integration-real-db
       cancel-in-progress: false
-    # `issues: write` só para os dois passos de aviso no fim. O token não chega aos passos da suíte:
-    # nenhum deles o recebe por env, e o checkout não persiste credencial.
+    # `issues: write` para o passo de aviso no fim. O token do job fica ao alcance das actions do job
+    # (o `setup-bun`, fixado por SHA, recebe `github.token` por omissão); os passos da suíte não o
+    # recebem por env, e o checkout não persiste credencial. Job separado só com esta permissão
+    # dependeria do resultado do `full`, que o `continue-on-error` esconde de `needs`.
     permissions:
       contents: read
       issues: write
@@ -190,6 +192,7 @@ jobs:
           SISUB_DATABASE_URL: ${{ secrets.SISUB_DATABASE_URL }}
         run: bun run scripts/purge-test-fixtures.ts --apply
       - name: Run full integration suite
+        id: suite
         working-directory: apps/sisub
         env:
           SISUB_DATABASE_URL: ${{ secrets.SISUB_DATABASE_URL }}
@@ -204,33 +207,40 @@ jobs:
           SISUB_DATABASE_URL: ${{ secrets.SISUB_DATABASE_URL }}
         run: bun run scripts/purge-test-fixtures.ts --apply
       # Monitor vermelho que ninguém vê não monitora: com `continue-on-error`, o run da `main` fica
-      # verde e a falha só aparece para quem abrir o job. Falha abre uma issue (ou comenta na que já
-      # está aberta); o próximo verde a fecha. SHA e URL por env, nunca interpolados no script.
-      - name: Open or update the red-suite issue
-        if: failure() && github.event_name == 'push'
+      # verde e a falha só aparece para quem abrir o job. Pela saída da SUÍTE, não do job (faxina que
+      # falha não é suíte vermelha), e com `always()`: suíte cancelada por timeout também avisa.
+      # Pendente substituído na trava nunca começa, e não chega aqui. Só fecha se o commit ainda é o
+      # topo da `main`: o `full` de um commit mais velho pode terminar depois do mais novo.
+      - name: Report the suite result as an issue
+        if: always() && github.event_name == 'push'
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           COMMIT_SHA: ${{ github.sha }}
+          SUITE_OUTCOME: ${{ steps.suite.outcome }}
         run: |
-          gh label create integration-red --color B60205 --description "Suíte completa de integração vermelha na main" --force
-          body="Suíte completa de integração falhou na \`main\` em ${COMMIT_SHA}: ${RUN_URL}"
-          open=$(gh issue list --label integration-red --state open --json number --jq '.[0].number')
-          if [ -n "$open" ]; then
-            gh issue comment "$open" --body "$body"
-          else
-            gh issue create --label integration-red --title "Suíte completa de integração vermelha na main" --body "$body"
+          label=integration-red
+          title="Suíte completa de integração vermelha na main"
+          open=$(gh issue list --label "$label" --state open --json number --jq '.[].number')
+          if [ "$SUITE_OUTCOME" = "success" ]; then
+            [ -z "$open" ] && exit 0
+            tip=$(gh api "repos/$GH_REPO/commits/main" --jq .sha)
+            if [ "$tip" != "$COMMIT_SHA" ]; then
+              echo "Verde em ${COMMIT_SHA}, mas a main já está em ${tip}: a issue fica para o run do topo."
+              exit 0
+            fi
+            for number in $open; do gh issue close "$number" --comment "Verde de novo em ${COMMIT_SHA}: ${RUN_URL}"; done
+            exit 0
           fi
-      - name: Close the red-suite issue
-        if: success() && github.event_name == 'push'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          COMMIT_SHA: ${{ github.sha }}
-        run: |
-          open=$(gh issue list --label integration-red --state open --json number --jq '.[0].number')
-          if [ -n "$open" ]; then
-            gh issue close "$open" --comment "Verde de novo em ${COMMIT_SHA}: ${RUN_URL}"
+          body="Suíte completa de integração terminou como \`${SUITE_OUTCOME:-não executada}\` na \`main\` em ${COMMIT_SHA}: ${RUN_URL}"
+          # Se o aviso falhar, o `continue-on-error` do job o esconderia de novo: fica no resumo do run.
+          trap 'echo "::error title=Suíte de integração vermelha::$body (e o aviso por issue falhou)"' ERR
+          gh label list --search "$label" --json name --jq '.[].name' | grep -qx "$label" ||
+            gh label create "$label" --color B60205 --description "$title"
+          first=$(echo "$open" | head -n 1)
+          if [ -n "$first" ]; then
+            gh issue comment "$first" --body "$body"
+          else
+            gh issue create --label "$label" --title "$title" --body "$body"
           fi
