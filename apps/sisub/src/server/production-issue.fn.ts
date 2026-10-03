@@ -26,6 +26,7 @@ import { z } from "zod"
 import { hiddenByBlindCount } from "@/lib/blind-count.server"
 import { maskBlindCountIssueLines } from "@/lib/blind-count-mask"
 import { publicDbMessage } from "@/lib/db-error-message"
+import { readAllPages, readAllPagesIn } from "@/lib/read-all-pages"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient, rpcWithNulls } from "@/lib/supabase.server"
 
@@ -41,8 +42,9 @@ interface TaskWithSnapshot {
 
 async function fetchTask(taskId: string): Promise<{ task: TaskWithSnapshot; kitchenId: number }> {
 	const kit = kitchen()
-	const { data: task, error } = await kit.from("production_task").select("id, kitchen_id, production_date, status, menu_item_id").eq("id", taskId).single()
-	if (error || !task) throw new Error("Tarefa de produção não encontrada")
+	const { data: task, error } = await kit.from("production_task").select("id, kitchen_id, production_date, status, menu_item_id").eq("id", taskId).maybeSingle()
+	if (error) throw new Error(`Erro ao carregar a tarefa de produção: ${publicDbMessage(error)}`)
+	if (!task) throw new Error("Tarefa de produção não encontrada")
 	// Leitura que falha não vira "tarefa sem ficha": seguir com `menu_item` nulo baixava a tarefa
 	// com consumo teórico vazio.
 	const { data: menuItem, error: menuError } = await kit.from("menu_items").select("recipe, planned_portion_quantity").eq("id", task.menu_item_id).maybeSingle()
@@ -59,11 +61,21 @@ async function lotBalancesForIngredients(kitchenId: number, ingredientIds: strin
 	const byIngredient = new Map<string, LotBalance[]>()
 	if (ingredientIds.length === 0) return byIngredient
 	const inv = inventory()
-	const { data: rows } = await inv
-		.from("v_stock_balance")
-		.select("ingredient_id, lot_id, expiry_date, balance")
-		.eq("kitchen_id", kitchenId)
-		.in("ingredient_id", ingredientIds)
+	// Só lote com saldo, já no banco: a view guarda todo lote que a cozinha já teve, e com o tempo
+	// a leitura inteira passava do teto de 1000 linhas e cortava lote calada. Ordem pela chave da view.
+	const rows = await readAllPagesIn("o saldo dos insumos", ingredientIds, (chunk, from, to) =>
+		inv
+			.from("v_stock_balance")
+			.select("ingredient_id, lot_id, expiry_date, balance")
+			.eq("kitchen_id", kitchenId)
+			.in("ingredient_id", chunk)
+			.gt("balance", 0)
+			.not("lot_id", "is", null)
+			.order("ingredient_id")
+			.order("frozen_preparation_id")
+			.order("lot_id")
+			.range(from, to)
+	)
 
 	// A view é a soma do ledger e não conhece o lote: nem quarentena, nem
 	// entrada, nem "usar primeiro". Os três campos decidem a alocação no banco,
@@ -75,23 +87,19 @@ async function lotBalancesForIngredients(kitchenId: number, ingredientIds: strin
 	//  • "usar primeiro" — o lote marcado no painel de vencimentos FURA a fila,
 	//    e é o único jeito de o operador mandar sair o lote já aberto antes do
 	//    lote de validade menor.
-	// Só lote COM saldo. A view traz todo lote que a cozinha já teve, inclusive os
-	// vazios; em alguns meses seriam centenas de ids num `.in(...)` via GET, a URL
-	// estoura, e a leitura — que agora lança erro — derrubaria a tela inteira.
-	const lotIds = [...new Set((rows ?? []).flatMap((row) => (row.lot_id != null && Number(row.balance) > 0 ? [row.lot_id] : [])))]
+	const lotIds = [...new Set(rows.flatMap((row) => (row.lot_id != null ? [row.lot_id] : [])))]
 	const lotMeta = new Map<string, { quarantined_at: string | null; received_at: string | null; use_first: boolean | null }>()
-	if (lotIds.length > 0) {
-		const { data: lots, error: lotError } = await inv.from("stock_lot").select("id, quarantined_at, received_at, use_first").in("id", lotIds)
-		// Sem esta leitura o lote em quarentena volta a contar como disponível, e a
-		// tela diz que há saldo que o banco vai pular — o defeito que esta consulta
-		// existe para fechar, de volta e calado.
-		if (lotError) throw new Error(`Erro ao carregar os lotes: ${publicDbMessage(lotError)}`)
-		for (const lot of lots ?? []) lotMeta.set(lot.id, lot)
-	}
+	// Sem esta leitura o lote em quarentena volta a contar como disponível, e a
+	// tela diz que há saldo que o banco vai pular — o defeito que esta consulta
+	// existe para fechar, de volta e calado. Fatiada: centenas de ids estouram a URL.
+	const lots = await readAllPagesIn("os lotes", lotIds, (chunk, from, to) =>
+		inv.from("stock_lot").select("id, quarantined_at, received_at, use_first").in("id", chunk).order("id").range(from, to)
+	)
+	for (const lot of lots) lotMeta.set(lot.id, lot)
 
-	for (const row of rows ?? []) {
-		// `ingredient_id` da view vem declarado anulável, mas a leitura filtra por ele.
-		if (row.lot_id == null || row.ingredient_id == null || Number(row.balance) <= 0) continue
+	for (const row of rows) {
+		// Coluna de view sai nulável no tipo gerado; a leitura já filtra lote, insumo e saldo.
+		if (row.lot_id == null || row.ingredient_id == null) continue
 		const meta = lotMeta.get(row.lot_id)
 		if (meta?.quarantined_at != null) continue
 		const list = byIngredient.get(row.ingredient_id) ?? []
@@ -156,20 +164,25 @@ export const fetchPendingIssuesFn = createServerFn({ method: "GET" })
 		const taskList = tasks ?? []
 		if (taskList.length === 0) return []
 
-		const { data: issued, error: issuedError } = await inv
-			.from("stock_movement")
-			.select("production_task_id, ingredient_id, quantity, is_late_issue")
-			.eq("type", "production_issue")
-			.in(
-				"production_task_id",
-				taskList.map((t) => t.id)
-			)
-		if (issuedError) throw new Error(`Erro ao conferir as baixas das tarefas: ${publicDbMessage(issuedError)}`)
+		// Paginada: 300 tarefas com uma dúzia de saídas cada passam de 1000 linhas, e a tarefa baixada
+		// que ficasse de fora apareceria pendente (e o banco recusaria baixar de novo).
+		const issued = await readAllPagesIn(
+			"as baixas das tarefas",
+			taskList.map((t) => t.id),
+			(chunk, from, to) =>
+				inv
+					.from("stock_movement")
+					.select("id, production_task_id, ingredient_id, quantity, is_late_issue")
+					.eq("type", "production_issue")
+					.in("production_task_id", chunk)
+					.order("id")
+					.range(from, to)
+		)
 		// Baixada é a tarefa com saída que NÃO é tardia. A saída tardia ligada à tarefa é de um
 		// insumo: a baixa segue pendente, com o que já saiu tarde descontado por insumo.
 		const issuedIds = new Set<string>()
 		const lateByTask = new Map<string, Map<string, number>>()
-		for (const move of issued ?? []) {
+		for (const move of issued) {
 			// `production_task_id` nunca vem nulo: a consulta filtra por ele.
 			if (move.production_task_id == null) continue
 			if (!move.is_late_issue) {
@@ -184,27 +197,28 @@ export const fetchPendingIssuesFn = createServerFn({ method: "GET" })
 		const pending = taskList.filter((t) => !issuedIds.has(t.id))
 		if (pending.length === 0) return []
 
-		const { data: menuItems } = await kit
-			.from("menu_items")
-			.select("id, recipe, planned_portion_quantity")
-			.in(
-				"id",
-				pending.map((t) => t.menu_item_id)
-			)
-		const menuById = new Map((menuItems ?? []).map((m) => [m.id, m]))
+		const menuItems = await readAllPagesIn("as preparações do cardápio", [...new Set(pending.map((t) => t.menu_item_id))], (chunk, from, to) =>
+			kit.from("menu_items").select("id, recipe, planned_portion_quantity").in("id", chunk).order("id").range(from, to)
+		)
+		const menuById = new Map(menuItems.map((m) => [m.id, m]))
 
-		const results = []
-		for (const task of pending) {
+		const theoreticalByTask = pending.map((task) => {
 			const menuItem = menuById.get(task.menu_item_id) as { recipe: RecipeSnapshotForIssue | null; planned_portion_quantity: number | null } | undefined
 			const theoretical = remainingAfterLateIssues(
 				computeTheoreticalConsumption(menuItem?.recipe ?? null, Number(menuItem?.planned_portion_quantity ?? 0)),
 				lateByTask.get(task.id) ?? new Map()
 			)
-			const balances = await lotBalancesForIngredients(
-				data.kitchenId,
-				theoretical.map((t) => t.ingredientId)
-			)
-			const today = getBrasiliaToday()
+			return { task, menuItem, theoretical }
+		})
+		// O saldo de cada insumo é o mesmo em toda tarefa da lista: uma leitura para todas, e não uma
+		// por tarefa (300 tarefas eram 300 agregações do ledger em série).
+		const balances = await lotBalancesForIngredients(data.kitchenId, [
+			...new Set(theoreticalByTask.flatMap(({ theoretical }) => theoretical.map((t) => t.ingredientId))),
+		])
+		const today = getBrasiliaToday()
+
+		const results = []
+		for (const { task, menuItem, theoretical } of theoreticalByTask) {
 			const lines = maskBlindCountIssueLines(
 				theoretical.map((line) => {
 					const lots = balances.get(line.ingredientId) ?? []
@@ -342,7 +356,8 @@ export const registerLeftoverFn = createServerFn({ method: "POST" })
 		// O `refine` do validador garante a congelada quando não há provisória nova.
 		const frozenPreparationId = data.frozenPreparationId
 		if (!frozenPreparationId) throw new Error("Preparação congelada não encontrada")
-		const { data: prep } = await kit.from("frozen_preparation").select("id, shelf_life_days").eq("id", frozenPreparationId).single()
+		const { data: prep, error: prepError } = await kit.from("frozen_preparation").select("id, shelf_life_days").eq("id", frozenPreparationId).maybeSingle()
+		if (prepError) throw new Error(`Erro ao carregar a preparação congelada: ${publicDbMessage(prepError)}`)
 		if (!prep) throw new Error("Preparação congelada não encontrada")
 
 		// lote + movimentos numa função SQL (review: falha parcial deixava lote
@@ -401,25 +416,25 @@ export const fetchVarianceFn = createServerFn({ method: "GET" })
 		const kit = kitchen()
 		const inv = inventory()
 
-		const { data: tasks } = await kit
-			.from("production_task")
-			.select("id, menu_item_id")
-			.eq("kitchen_id", data.kitchenId)
-			.eq("status", "DONE")
-			.gte("production_date", data.from)
-			.lte("production_date", data.to)
-		const taskList = tasks ?? []
+		// Os dois lados paginados: cortar só o teórico em 1000 tarefas inventaria sobreconsumo.
+		const taskList = await readAllPages("as tarefas de produção", (from, to) =>
+			kit
+				.from("production_task")
+				.select("id, menu_item_id")
+				.eq("kitchen_id", data.kitchenId)
+				.eq("status", "DONE")
+				.gte("production_date", data.from)
+				.lte("production_date", data.to)
+				.order("id")
+				.range(from, to)
+		)
 
 		const theoretical = new Map<string, number>()
 		if (taskList.length > 0) {
-			const { data: menuItems } = await kit
-				.from("menu_items")
-				.select("id, recipe, planned_portion_quantity")
-				.in(
-					"id",
-					taskList.map((t) => t.menu_item_id)
-				)
-			const menuById = new Map((menuItems ?? []).map((m) => [m.id, m]))
+			const menuItems = await readAllPagesIn("as preparações do cardápio", [...new Set(taskList.map((t) => t.menu_item_id))], (chunk, from, to) =>
+				kit.from("menu_items").select("id, recipe, planned_portion_quantity").in("id", chunk).order("id").range(from, to)
+			)
+			const menuById = new Map(menuItems.map((m) => [m.id, m]))
 			// por TAREFA, não por menu_item deduplicado — a mesma preparação
 			// produzida N vezes conta N vezes (review: variância superestimada)
 			for (const taskRow of taskList) {
@@ -435,26 +450,30 @@ export const fetchVarianceFn = createServerFn({ method: "GET" })
 		}
 
 		const real = new Map<string, number>()
-		const { data: moves } = await inv
-			.from("stock_movement")
-			.select("ingredient_id, quantity")
-			.eq("kitchen_id", data.kitchenId)
-			.eq("type", "production_issue")
-			// o período é civil (Brasília): sem o offset, saída das 22:30 do
-			// último dia do mês caía no mês seguinte
-			.gte("occurred_at", `${data.from}T00:00:00-03:00`)
-			.lte("occurred_at", `${data.to}T23:59:59.999-03:00`)
-		for (const move of moves ?? []) {
+		// A soma do período passa de 1000 saídas cedo: paginada, para o realizado não sair cortado.
+		const moves = await readAllPages("as saídas para produção", (from, to) =>
+			inv
+				.from("stock_movement")
+				.select("id, ingredient_id, quantity")
+				.eq("kitchen_id", data.kitchenId)
+				.eq("type", "production_issue")
+				// o período é civil (Brasília): sem o offset, saída das 22:30 do
+				// último dia do mês caía no mês seguinte
+				.gte("occurred_at", `${data.from}T00:00:00-03:00`)
+				.lte("occurred_at", `${data.to}T23:59:59.999-03:00`)
+				.order("id")
+				.range(from, to)
+		)
+		for (const move of moves) {
 			if (move.ingredient_id == null) continue
 			real.set(move.ingredient_id, (real.get(move.ingredient_id) ?? 0) + Number(move.quantity))
 		}
 
 		const ingredientIds = [...new Set([...theoretical.keys(), ...real.keys()])]
-		const names = new Map<string, { description: string | null; measure_unit: string | null }>()
-		if (ingredientIds.length > 0) {
-			const { data: ings } = await kit.from("ingredient").select("id, description, measure_unit").in("id", ingredientIds)
-			for (const ing of ings ?? []) names.set(ing.id, ing)
-		}
+		const ings = await readAllPagesIn("os insumos", ingredientIds, (chunk, from, to) =>
+			kit.from("ingredient").select("id, description, measure_unit").in("id", chunk).order("id").range(from, to)
+		)
+		const names = new Map(ings.map((ing) => [ing.id, ing]))
 
 		return ingredientIds
 			.map((id) => {

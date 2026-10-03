@@ -398,6 +398,7 @@ export async function recordProductionSubstitution(db: SisubDb, ctx: UserContext
 			updated_at: new Date().toISOString(),
 			substitute_ingredient_id: input.substituteIngredientId ?? null,
 			substitute_description: input.substituteDescription,
+			recorded_by: ctx.userId,
 		},
 	}
 

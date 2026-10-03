@@ -3,9 +3,11 @@
  *
  * ## O defeito que este teste existe para pegar
  *
- * As tabelas novas de `inventory` entram nas server fns por um cliente `any`
- * (`LooseClient`), porque ainda não estão nos tipos gerados. Isso significa que
- * **o typecheck não enxerga nome de coluna**. E o modo de falhar é o pior
+ * As tabelas de `inventory` entraram nas server fns por um cliente `any`
+ * (`LooseClient`, removido quando o último arquivo passou ao cliente tipado),
+ * e ali **o typecheck não enxergava nome de coluna**. O cliente tipado enxerga
+ * só em parte: coluna errada numa string de `select` montada em variável, ou
+ * filtro com valor fora do CHECK, ainda compilam. E o modo de falhar é o pior
  * possível:
  *
  *     coluna errada → erro do PostgREST → erro descartado → lista VAZIA → tela calma
@@ -62,7 +64,7 @@ const describeIf = url ? describeSupabaseIntegration : describeSupabaseIntegrati
 const SERVER_DIR = join(import.meta.dirname, "..", "..", "server")
 
 /** `const x = () => getServerClient("schema")` e `const x = getServerClient("schema")`. */
-const CLIENT_DECLARATION = /\b(?:const|let)\s+(\w+)\s*=\s*(?:\(\)\s*=>\s*)?(?:getServerClient|getLooseServerClient)\(\s*"(\w+)"/g
+const CLIENT_DECLARATION = /\b(?:const|let)\s+(\w+)\s*=\s*(?:\(\)\s*=>\s*)?getServerClient\(\s*"(\w+)"/g
 /** `const inv = inventory()` — o apelido local do factory. */
 const LOCAL_ALIAS = /\b(?:const|let)\s+(\w+)\s*=\s*(\w+)\(\)/g
 /** `<recebedor>.from("tabela")`, com o encadeamento quebrado em linhas. */

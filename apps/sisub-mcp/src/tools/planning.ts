@@ -14,18 +14,18 @@ import {
 	getTrashItems,
 	ListKitchensSchema,
 	listAccessibleKitchens,
+	RecordMenuSubstitutionSchema,
 	RemoveMenuItemSchema,
 	RestoreMenuItemSchema,
+	recordMenuSubstitution,
 	removeMenuItem,
 	restoreMenuItem,
 	toJsonSchema,
 	UpdateHeadcountSchema,
 	UpdateMenuItemSchema,
-	UpdateSubstitutionsSchema,
 	UpsertDailyMenuSchema,
 	updateHeadcount,
 	updateMenuItem,
-	updateSubstitutions,
 	upsertDailyMenu,
 } from "@iefa/sisub-domain"
 import { AgentListRecipesSchema, agentFetchDayMenus, agentFetchMenus, agentListRecipes } from "@iefa/sisub-domain/agent"
@@ -292,22 +292,25 @@ const updateMenuItemTool: ToolDefinition = {
 }
 
 // ---------------------------------------------------------------------------
-// update_substitutions
+// record_menu_substitution
 // ---------------------------------------------------------------------------
 
-const updateSubstitutionsTool: ToolDefinition = {
+// Uma substituição por chamada, gravada por merge no banco. A tool antiga sobrescrevia o mapa
+// inteiro com o que o cliente mandou: a substituição que o turno registrou na tela entre a leitura
+// e a escrita do agente sumia (EDIT-SAFETY.md: nunca trocar o conjunto a partir do cliente).
+const recordMenuSubstitutionTool: ToolDefinition = {
 	schema: {
-		name: "update_substitutions",
+		name: "record_menu_substitution",
 		description:
-			"Substitui completamente o mapa de substituições de ingredientes de um item de menu (sobrescreve — não é merge). Formato: { [ingredientId]: { type, rationale, updated_at } }. Requer permissão kitchen nível 2.",
-		inputSchema: toJsonSchema(UpdateSubstitutionsSchema),
+			"Registra a substituição de UM insumo que faltou num item do cardápio do dia. ingredientId = o insumo que faltou, que tem de estar na ficha da preparação do item; substituteDescription (obrigatório) = o nome do que entrou, como o turno lê; substituteIngredientId (opcional) = o insumo do catálogo que entrou; rationale = motivo. Grava só essa chave: as outras substituições do item ficam. Se o insumo já tem substituição registrada, recusa (alterar é pela tela). Requer permissão kitchen nível 2.",
+		inputSchema: toJsonSchema(RecordMenuSubstitutionSchema),
 	},
 	async handler(args, credential) {
 		try {
 			const ctx = await resolveCredential(credential)
-			const input = UpdateSubstitutionsSchema.parse(args)
-			await updateSubstitutions(getDb(), ctx, input)
-			return toolResult({ success: true, menuItemId: input.menuItemId, message: "Substituições atualizadas com sucesso" })
+			const input = RecordMenuSubstitutionSchema.parse(args)
+			await recordMenuSubstitution(getDb(), ctx, input, { fromAgent: true })
+			return toolResult({ success: true, menuItemId: input.menuItemId, ingredientId: input.ingredientId, message: "Substituição registrada" })
 		} catch (e) {
 			return handleToolError(e)
 		}
@@ -352,6 +355,6 @@ export const planningTools: ToolDefinition[] = [
 	removeMenuItemTool,
 	restoreMenuItemTool,
 	updateMenuItemTool,
-	updateSubstitutionsTool,
+	recordMenuSubstitutionTool,
 	getTrashItemsTool,
 ]

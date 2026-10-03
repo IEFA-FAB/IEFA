@@ -3,18 +3,11 @@ import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/r
 import { useMemo } from "react"
 import { queryKeys } from "@/lib/query-keys"
 import { normalizeForSearch } from "@/lib/text-search"
-import {
-	fetchRecipeLastReviewsFn,
-	fetchRecipeMenuUsageFn,
-	fetchRecipeSummariesFn,
-	fetchRecipeWithIngredientsFn,
-	recordRecipeReviewFn,
-} from "@/server/recipes.fn"
-import type { RecipeWithIngredients } from "@/types/domain/recipes"
+import { fetchRecipeLastReviewsFn, fetchRecipeMenuUsageFn, fetchRecipeSummariesFn, recordRecipeReviewFn } from "@/server/recipes.fn"
 
 /**
  * Listagem SEM ficha técnica (`RecipeSummary`). Nenhuma tela de listagem lê ingredientes; quem
- * precisa do detalhe chama `fetchRecipeWithIngredients`/`useRecipe` por receita. Voltar a
+ * precisa do detalhe usa `useRecipe` (ou `recipeDetailQueryOptions`) por receita. Voltar a
  * listar com ingredientes é voltar aos 14,5 MB por chamada que derrubaram as tasks.
  */
 export const recipesQueryOptions = (kitchenId?: number | null, includeDeleted?: boolean) =>
@@ -85,14 +78,6 @@ export function useRecipeMenuUsage() {
 	const usedIds = useMemo(() => new Set(query.data ?? []), [query.data])
 
 	return { ...query, usedIds }
-}
-
-/**
- * Fetch a single recipe with all ingredient details.
- * Used when creating menu_items to generate the recipe snapshot.
- */
-export async function fetchRecipeWithIngredients(recipeId: string): Promise<RecipeWithIngredients> {
-	return fetchRecipeWithIngredientsFn({ data: { recipeId } })
 }
 
 /**

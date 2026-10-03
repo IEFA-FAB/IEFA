@@ -55,6 +55,11 @@ Arquivos de teste citados:
   os substitutos previstos na ficha aparecem primeiro, o resto se digita.
 - **UX:** no item → "Substituir insumo" → escolhe o insumo que faltou → substituto → motivo → selo "1 insumo substituído".
 - **Cobertura:** `INT › faltou um insumo…` (dois registros seguidos não se apagam: merge atômico) · `E2E › …faltou um insumo…`
+  · `INT › substituição vinda do agente…` (pelo MCP: só insumo da ficha, só substituto do catálogo,
+  nunca por cima de registro existente; grava `source: "mcp"` e `recorded_by`)
+- **Desfazer:** **LACUNA**. Substituto registrado no insumo errado não sai: não há operação nem botão
+  que retire uma chave de `substitutions`. Hoje só se corrige registrando de novo, pela tela, no
+  mesmo insumo; o registro no insumo errado fica no selo do dia.
 
 ### GC-AGD-07 — "Faltou luz (ou água): o dia inteiro muda"
 - **Realidade:** sem cocção; entra o cardápio de contingência (refeição fria).

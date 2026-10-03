@@ -485,9 +485,18 @@ export async function fetchMenuItemSubstituteOptions(
  * (`jsonb ||`), como o do turno (`recordProductionSubstitution`). Reescrever o mapa inteiro a
  * partir do que a tela tinha em memória apagava o registro que o turno gravou nesse meio-tempo.
  */
-export async function recordMenuSubstitution(db: SisubDb, ctx: UserContext, input: RecordMenuSubstitution): Promise<void> {
+export async function recordMenuSubstitution(
+	db: SisubDb,
+	ctx: UserContext,
+	input: RecordMenuSubstitution,
+	options: { fromAgent?: boolean } = {}
+): Promise<void> {
 	const kitchenId = await resolveKitchenFromMenuItem(db, input.menuItemId)
 	requireKitchen(ctx, 2, kitchenId)
+	// O agente não vê a tela: o insumo tem de estar na ficha congelada do item (senão o registro
+	// fica numa chave que nenhuma tela lê) e o substituto, no catálogo. A tela já parte das linhas
+	// da ficha.
+	if (options.fromAgent) await assertSubstitutionTargets(db, input.menuItemId, input.ingredientId, input.substituteIngredientId ?? null)
 
 	const entry: SubstitutionEntry = {
 		type: "manual",
@@ -495,6 +504,8 @@ export async function recordMenuSubstitution(db: SisubDb, ctx: UserContext, inpu
 		updated_at: new Date().toISOString(),
 		substitute_ingredient_id: input.substituteIngredientId ?? null,
 		substitute_description: input.substituteDescription,
+		recorded_by: ctx.userId,
+		...(options.fromAgent ? { source: "mcp" as const } : {}),
 	}
 	const updated = await runQuery("UPDATE_FAILED", () =>
 		db
@@ -502,8 +513,53 @@ export async function recordMenuSubstitution(db: SisubDb, ctx: UserContext, inpu
 			.set({
 				substitutions: sql`(coalesce(${menuItemsInKitchen.substitutions}::jsonb, '{}'::jsonb) || ${JSON.stringify({ [input.ingredientId]: entry })}::jsonb)::json`,
 			})
-			.where(and(eq(menuItemsInKitchen.id, input.menuItemId), isNull(menuItemsInKitchen.deletedAt)))
+			.where(
+				and(
+					eq(menuItemsInKitchen.id, input.menuItemId),
+					isNull(menuItemsInKitchen.deletedAt),
+					// O agente só registra onde não há registro: sobrescrever o do turno a partir de
+					// uma leitura velha é a perda que EDIT-SAFETY.md proíbe. Conferido na mesma
+					// instrução, sob a trava da linha.
+					options.fromAgent ? sql`not (coalesce(${menuItemsInKitchen.substitutions}::jsonb, '{}'::jsonb) ? ${input.ingredientId})` : undefined
+				)
+			)
 			.returning({ id: menuItemsInKitchen.id })
 	)
-	if (updated.length === 0) throw new NotFoundError("menu_item", input.menuItemId)
+	if (updated.length > 0) return
+	if (options.fromAgent) {
+		throw new DomainError(
+			"SUBSTITUTION_ALREADY_RECORDED",
+			"Já há substituição registrada para este insumo neste item (ou o item saiu do cardápio). Para alterar, use a tela de planejamento."
+		)
+	}
+	throw new NotFoundError("menu_item", input.menuItemId)
+}
+
+/**
+ * Confere os alvos de uma substituição vinda de agente: o insumo que faltou está na ficha
+ * congelada do item (`menu_items.recipe.ingredients[].ingredient_id`, a chave que as telas leem)
+ * e o substituto, se informado, existe no catálogo e não foi excluído.
+ */
+async function assertSubstitutionTargets(db: SisubDb, menuItemId: string, ingredientId: string, substituteIngredientId: string | null): Promise<void> {
+	const [item] = await runQuery("FETCH_FAILED", () =>
+		db
+			.select({ recipe: menuItemsInKitchen.recipe })
+			.from(menuItemsInKitchen)
+			.where(and(eq(menuItemsInKitchen.id, menuItemId), isNull(menuItemsInKitchen.deletedAt)))
+			.limit(1)
+	)
+	if (!item) throw new NotFoundError("menu_item", menuItemId)
+	const snapshot = item.recipe as { ingredients?: Array<{ ingredient_id?: string | null }> | null } | null
+	if (!snapshot?.ingredients?.some((line) => line.ingredient_id === ingredientId)) {
+		throw new DomainError("SUBSTITUTION_INGREDIENT_NOT_IN_RECIPE", "O insumo informado não está na ficha desta preparação no cardápio do dia.")
+	}
+	if (substituteIngredientId == null) return
+	const [substitute] = await runQuery("FETCH_FAILED", () =>
+		db
+			.select({ id: ingredientInKitchen.id })
+			.from(ingredientInKitchen)
+			.where(and(eq(ingredientInKitchen.id, substituteIngredientId), isNull(ingredientInKitchen.deletedAt)))
+			.limit(1)
+	)
+	if (!substitute) throw new DomainError("SUBSTITUTE_INGREDIENT_NOT_FOUND", "O insumo substituto não existe no catálogo (ou foi excluído).")
 }

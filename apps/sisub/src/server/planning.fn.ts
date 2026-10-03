@@ -41,14 +41,8 @@ export const updateMenuItemFn = createServerFn({ method: "POST" }).validator(Upd
 
 export const removeMenuItemFn = createServerFn({ method: "POST" }).validator(RemoveMenuItemSchema).handler(requireAuthThenRun(removeMenuItem))
 
-// Legacy alias kept for backward compat
-export const softDeleteMenuItemFn = removeMenuItemFn
-
 export const restoreMenuItemFn = createServerFn({ method: "POST" }).validator(RestoreMenuItemSchema).handler(requireAuthThenRun(restoreMenuItem))
 
 export const updateHeadcountFn = createServerFn({ method: "POST" }).validator(UpdateHeadcountSchema).handler(requireAuthThenRun(updateHeadcount))
-
-// Legacy alias kept for backward compat
-export const updateDailyMenuFn = updateHeadcountFn
 
 export const fetchTrashItemsFn = createServerFn({ method: "GET" }).validator(GetTrashItemsSchema).handler(requireAuthThenRun(getTrashItems))
