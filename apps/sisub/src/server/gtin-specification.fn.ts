@@ -93,12 +93,14 @@ export const verifyGtinAgainstPurchaseItemFn = createServerFn({ method: "POST" }
 		const fingerprint = specFingerprint(requirements)
 
 		if (!data.force) {
-			const { data: cached } = await gs1()
+			const { data: cached, error: cachedError } = await gs1()
 				.from("v_gtin_specification_latest")
 				.select("verdict, divergences, source, spec_fingerprint, checked_at")
 				.eq("gtin", gtin)
 				.eq("purchase_item_id", data.purchaseItemId)
 				.maybeSingle()
+			// Erro aqui não é cache vazio: cada chamada gravaria um veredito novo na trilha.
+			if (cachedError) throw new Error(`Erro ao carregar o último veredito: ${publicDbMessage(cachedError)}`)
 			if (cached && !isVerdictStale(cached.spec_fingerprint, fingerprint)) {
 				return { ...cached, gtin, purchase_item_id: data.purchaseItemId, cached: true }
 			}

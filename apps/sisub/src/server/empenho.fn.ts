@@ -109,14 +109,17 @@ export const fetchEmpenhoFn = createServerFn({ method: "GET" })
 	.validator(z.object({ empenhoId: z.uuid() }))
 	.handler(async ({ data }) => {
 		const fin = finance()
-		const { data: empenho, error } = await fin.from("empenho").select("*").eq("id", data.empenhoId).single()
-		if (error || !empenho) throw new Error("Empenho não encontrado")
+		const { data: empenho, error } = await fin.from("empenho").select("*").eq("id", data.empenhoId).maybeSingle()
+		if (error) throw new Error(`Erro ao carregar o empenho: ${publicDbMessage(error)}`)
+		if (!empenho) throw new Error("Empenho não encontrado")
 		await requireUnitScope(1, Number(empenho.unit_id))
 
-		const [{ data: events }, saldos] = await Promise.all([
+		// Histórico vazio por erro mostraria um empenho sem reforço nem anulação com saldo que os conta.
+		const [{ data: events, error: eventsError }, saldos] = await Promise.all([
 			fin.from("empenho_event").select("*").eq("empenho_id", data.empenhoId).order("data", { ascending: false }),
 			fetchSaldos([data.empenhoId]),
 		])
+		if (eventsError) throw new Error(`Erro ao carregar o histórico do empenho: ${publicDbMessage(eventsError)}`)
 		return { ...empenho, events: events ?? [], saldo: saldos.get(data.empenhoId) ?? null }
 	})
 

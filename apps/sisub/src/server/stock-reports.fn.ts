@@ -38,9 +38,10 @@ function monthRange(competencia: string): { from: string; to: string } {
 
 async function describeIngredients(ids: string[]) {
 	const names = new Map<string, { description: string | null; measure_unit: string | null }>()
-	if (ids.length === 0) return names
-	const { data } = await kitchen().from("ingredient").select("id, description, measure_unit").in("id", ids)
-	for (const row of data ?? []) names.set(row.id, row)
+	const rows = await readAllPagesIn("os nomes dos itens", ids, (chunk, from, to) =>
+		kitchen().from("ingredient").select("id, description, measure_unit").in("id", chunk).order("id").range(from, to)
+	)
+	for (const row of rows) names.set(row.id, row)
 	return names
 }
 
@@ -87,13 +88,16 @@ export const fetchBalanceteFn = createServerFn({ method: "GET" })
 		const { from, to } = monthRange(data.competencia)
 
 		// O saldo inicial soma o ledger inteiro até a competência: passa de 1000 linhas cedo, e o
-		// corte calado do PostgREST daria um balancete fechado com número errado.
+		// corte calado do PostgREST daria um balancete fechado com número errado. Ordem por
+		// `created_at` primeiro: o `id` é UUID aleatório, e movimento lançado durante a leitura
+		// deslocaria a paginação por offset; por data, ele cai na última página.
 		const moves = await readAllPages("o ledger", (rangeFrom, rangeTo) =>
 			inventory()
 				.from("stock_movement")
 				.select("id, ingredient_id, frozen_preparation_id, type, quantity, total_cost, created_at")
 				.eq("kitchen_id", data.kitchenId)
 				.lt("created_at", to)
+				.order("created_at")
 				.order("id")
 				.range(rangeFrom, rangeTo)
 		)
@@ -269,33 +273,38 @@ export const fetchEmpenhoLiquidacaoFn = createServerFn({ method: "GET" })
 		const unitId = kitchenRow?.purchase_unit_id ?? kitchenRow?.unit_id
 		if (unitId == null) return []
 
-		const { data: empenhos, error: empenhosError } = await finance
-			.from("empenho")
-			.select("id, numero_empenho, valor_total, status")
-			.eq("unit_id", unitId)
-			.eq("status", "ativo")
-			.order("data_empenho", { ascending: false })
-			.limit(100)
-		if (empenhosError) throw new Error(`Erro ao ler os empenhos: ${publicDbMessage(empenhosError)}`)
-		const list = empenhos ?? []
+		// Todos os ativos: o corte em 100 escondia justamente os mais antigos, que são os que ainda
+		// costumam ter saldo a receber.
+		const list = await readAllPages("os empenhos", (rangeFrom, rangeTo) =>
+			finance
+				.from("empenho")
+				.select("id, numero_empenho, valor_total, status")
+				.eq("unit_id", unitId)
+				.eq("status", "ativo")
+				.order("data_empenho", { ascending: false })
+				.order("id")
+				.range(rangeFrom, rangeTo)
+		)
 		const empenhoIds = list.map((e) => e.id)
 		if (list.length === 0) return []
 
 		// Quantidade empenhada pelos ITENS da NE (`finance.empenho_item`), só quando eles falam da
 		// mesma coisa: itens em unidades diferentes (quilo com litro) ou só por valor (estimativa/
 		// global) não somam, e a tela mostra "—" em vez de um "a receber" sem sentido.
-		const neItems = await readAllPagesIn("os itens dos empenhos", empenhoIds, (chunk, rangeFrom, rangeTo) =>
-			finance.from("empenho_item").select("id, empenho_id, quantity, unit").in("empenho_id", chunk).order("id").range(rangeFrom, rangeTo)
-		)
+		// Recebida a menos é "a receber" a mais, sem erro nenhum: toda leitura daqui lança e pagina.
+		const [neItems, receipts] = await Promise.all([
+			readAllPagesIn("os itens dos empenhos", empenhoIds, (chunk, rangeFrom, rangeTo) =>
+				finance.from("empenho_item").select("id, empenho_id, quantity, unit").in("empenho_id", chunk).order("id").range(rangeFrom, rangeTo)
+			),
+			readAllPagesIn("os recebimentos dos empenhos", empenhoIds, (chunk, rangeFrom, rangeTo) =>
+				inv.from("goods_receipt").select("id, empenho_id").in("empenho_id", chunk).not("definitive_at", "is", null).order("id").range(rangeFrom, rangeTo)
+			),
+		])
 		const itemsByEmpenho = new Map<string, Array<{ quantity: number | string | null; unit: string | null }>>()
 		for (const item of neItems) {
 			itemsByEmpenho.set(item.empenho_id, [...(itemsByEmpenho.get(item.empenho_id) ?? []), item])
 		}
 
-		// Recebida a menos é "a receber" a mais, sem erro nenhum: toda leitura daqui lança e pagina.
-		const receipts = await readAllPagesIn("os recebimentos dos empenhos", empenhoIds, (chunk, rangeFrom, rangeTo) =>
-			inv.from("goods_receipt").select("id, empenho_id").in("empenho_id", chunk).not("definitive_at", "is", null).order("id").range(rangeFrom, rangeTo)
-		)
 		const receiptItems = await readAllPagesIn(
 			"os itens recebidos",
 			receipts.map((r) => r.id),

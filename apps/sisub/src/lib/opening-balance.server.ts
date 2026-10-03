@@ -176,7 +176,7 @@ export async function suggestOpeningCosts(ingredientIds: readonly string[], unit
 			source: "ata",
 			unitCost,
 			reference: `ARP ${arp.numero_ata}${arp.ano_ata ? `/${arp.ano_ata}` : ""}${arpItem.numero_item != null ? `, item ${arpItem.numero_item}` : ""}`,
-			sameUnit: unitId != null && Number(arp.unit_id) === unitId,
+			sameUnit: unitId != null && arp.unit_id === unitId,
 			date: arp.data_vigencia_inicio,
 		})
 	}
