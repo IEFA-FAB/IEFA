@@ -12,7 +12,7 @@ import { useCallback, useReducer } from "react"
 import { EvaluationDialog } from "@/components/features/messhall/EvaluationDialog"
 import { SaramDialog } from "@/components/features/messhall/SaramDialog"
 import { useAuth } from "@/hooks/auth/useAuth"
-import { useUpdateSaram, useUserSaram } from "@/hooks/business/useUserSaram"
+import { saramStatusNeedsAction, useSaramStatus, useUpdateSaram, useUserSaram } from "@/hooks/business/useUserSaram"
 import { useEvaluation, useSubmitEvaluation } from "@/hooks/data/useEvaluation"
 
 const SARAM_MIN_LEN = 7
@@ -81,6 +81,7 @@ export function OnboardingDialogs() {
 	const userId = user?.id ?? null
 
 	const saramQuery = useUserSaram(userId)
+	const saramStatusQuery = useSaramStatus(userId)
 	const evaluationQuery = useEvaluation(userId)
 
 	const serverSaram = !userId ? "" : saramQuery.data ? String(saramQuery.data) : ""
@@ -95,7 +96,9 @@ export function OnboardingDialogs() {
 		dispatch({ type: "SET_SARAM", value: serverSaram })
 	}
 
-	const shouldForceSaramDialog = !!userId && saramQuery.isSuccess && !saramQuery.data
+	// Sem SARAM visível E com ação possível: conta institucional, pedido em análise e bloqueio de
+	// tentativas não reabrem o diálogo a cada sessão (20261003100000).
+	const shouldForceSaramDialog = !!userId && saramQuery.isSuccess && !saramQuery.data && saramStatusNeedsAction(saramStatusQuery.data)
 	const saramDialogOpen = !!userId && (shouldForceSaramDialog || saramDialogOpenState)
 
 	const saveSaramMutation = useUpdateSaram()

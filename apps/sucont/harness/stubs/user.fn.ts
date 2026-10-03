@@ -9,14 +9,16 @@
  * harness e ver o caminho de sucesso sem tocar no Supabase.
  */
 
-export type SucontIdentity = { saram: string | null; posto: string | null; nomeGuerra: string | null }
+import type { SaramClaimOutcome, SaramLinkIdentity } from "#/lib/saram-link"
+
+export type SucontIdentity = SaramLinkIdentity & { outcome: SaramClaimOutcome | null }
 
 export async function fetchMyIdentityFn(): Promise<SucontIdentity> {
-	return { saram: null, posto: null, nomeGuerra: null }
+	return { saram: null, posto: null, nomeGuerra: null, registered: false, status: "suggestion", outcome: null }
 }
 
 export async function saveMySaramFn({ data }: { data: { saram: string } }): Promise<SucontIdentity> {
-	return { saram: data.saram, posto: "1T", nomeGuerra: "NANNI" }
+	return { saram: data.saram, posto: "1T", nomeGuerra: "NANNI", registered: true, status: "verified", outcome: "linked" }
 }
 
 export async function syncSucontIdentityFn(): Promise<{ ok: boolean }> {

@@ -19,8 +19,10 @@
  * no workflow de integração.
  */
 
+import type { SisubDb } from "@iefa/database/drizzle/sisub"
 import type { AppModule, UserContext, UserPermission } from "@iefa/sisub-domain"
 import type { SupabaseClient } from "@supabase/supabase-js"
+import { sql } from "drizzle-orm"
 import { ACCESS_FIXTURE_TABLES, createAccessFixtureWriter } from "./access-fixture-writer"
 import { createSisubReachabilityClient, createSisubServiceClient, getSupabaseTestEnv } from "./supabase"
 
@@ -88,6 +90,24 @@ const RUN = `${Date.now().toString(36)}${crypto.randomUUID().slice(0, 8)}`
  * ubíqua, D2).
  */
 const MIRROR_SARAM_COLUMN = "nrOrdem"
+
+/**
+ * Linha do espelho do cadastro de pessoal DENTRO de uma transação que o teste desfaz (vínculo de
+ * SARAM verificado, 20261003100000). A chave do e-mail usa o nome completo e a conferência usa o
+ * CPF: só esta semeadura os escreve, e nenhum teste os lê de volta. SARAM de 6 dígitos (o espelho
+ * real só tem 7) e nomes aleatórios mantêm a semeadura longe de chave e SARAM reais.
+ */
+export async function insertRosterRowInTx(
+	tx: SisubDb,
+	row: { saram: string; cpf: string; nomeGuerra: string; nomeCompleto: string; posto?: string; sgOrg?: string }
+): Promise<number> {
+	const rows = (await tx.execute(sql`
+		insert into core.user_military_data ("nrOrdem", "nrCpf", "nmGuerra", "nmPessoa", "sgPosto", "sgOrg", "dataAtualizacao")
+		values (${row.saram}, ${row.cpf}, ${row.nomeGuerra}, ${row.nomeCompleto}, ${row.posto ?? "3S"}, ${row.sgOrg ?? "IEFA"}, now())
+		returning id
+	`)) as unknown as Array<{ id: number | string }>
+	return Number(rows[0]?.id)
+}
 
 /** String única e estável por execução, com prefixo opcional. */
 export function uid(prefix = ""): string {

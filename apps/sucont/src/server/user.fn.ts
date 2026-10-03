@@ -15,9 +15,8 @@
 
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
-import { requireSucontApp, requireUser, requireUserId } from "#/lib/auth.server"
-import { fetchMilitaryIdentity } from "#/lib/military.server"
-import { saramLinkErrorMessage } from "#/lib/saram-link"
+import { requireSucontApp, requireUser } from "#/lib/auth.server"
+import { identityFromSaramStatus, type SaramClaimOutcome, type SaramLinkIdentity, saramLinkErrorMessage } from "#/lib/saram-link"
 import { getCoreClient } from "#/lib/supabase.server"
 
 /**
@@ -51,90 +50,72 @@ export const syncSucontIdentityFn = createServerFn({ method: "POST" }).handler(a
 /**
  * SARAM vinculado à conta e a identificação militar que ele resolve.
  *
- * `saram` é o que a conta declarou; `posto`/`nomeGuerra` são o que o cadastro de
- * pessoal responde sobre ele. Os dois viajam separados porque a segunda pode faltar
- * (SARAM digitado errado, ou pessoa ausente do espelho) sem que a primeira falte.
+ * `saram` é o vínculo da conta (verificado ou legacy); `posto`/`nomeGuerra` são o que o cadastro
+ * de pessoal responde sobre ele, e só saem quando a conta pode vê-los (`core.saram_link_status`,
+ * a mesma função que o sisub lê — change `saram-verified-link`). `status` é o estado do vínculo:
+ * o diálogo só insiste quando há ação possível.
  */
-export type SucontIdentity = {
-	saram: string | null
-	posto: string | null
-	nomeGuerra: string | null
-	/**
-	 * O SARAM localiza um cadastro militar — e por isso está TRAVADO (write-once,
-	 * `core.link_own_saram`). Separado do nome: o cadastro pode existir sem nome de guerra, e a
-	 * tela não pode oferecer "Corrigir" para um número que o servidor vai recusar trocar.
-	 */
-	registered: boolean
+export type SucontIdentity = SaramLinkIdentity & {
+	/** Desfecho da última gravação (`saveMySaramFn`); `null` na leitura. */
+	outcome: SaramClaimOutcome | null
 }
 
-const EMPTY_IDENTITY: SucontIdentity = { saram: null, posto: null, nomeGuerra: null, registered: false }
+/**
+ * `core.saram_link_status` / `core.claim_saram` nascem em 20261003100000; o client tipado só as
+ * conhece depois do `db:types` que segue o apply. Assinaturas declaradas aqui, e só elas — a
+ * chamada continua sendo método do client (o `rpc` solto perderia o `this`).
+ */
+type SaramLinkArgs = { p_user: string; p_email: string | null; p_email_confirmed: boolean }
+type SaramLinkClient = {
+	rpc(fn: "saram_link_status", args: SaramLinkArgs): PromiseLike<{ data: unknown; error: { message: string } | null }>
+	rpc(fn: "claim_saram", args: SaramLinkArgs & { p_saram: string }): PromiseLike<{ data: unknown; error: { message: string } | null }>
+}
+
+/** Conta, e-mail e e-mail confirmado: tudo da sessão, nunca do payload. */
+function sessionArgs(user: { id: string; email?: string | null; email_confirmed_at?: string | null }): SaramLinkArgs {
+	return { p_user: user.id, p_email: user.email?.trim() || null, p_email_confirmed: Boolean(user.email_confirmed_at) }
+}
 
 /**
- * Identidade do PRÓPRIO usuário. Sem argumento: o `id` vem do JWT — receber um
- * `userId` do cliente aqui devolveria o SARAM de qualquer conta (IDOR), e SARAM é
- * dado pessoal.
+ * Identidade do PRÓPRIO usuário. Sem argumento: o `id` e o e-mail vêm do JWT — receber um
+ * `userId` do cliente aqui devolveria o SARAM de qualquer conta (IDOR), e SARAM é dado pessoal.
  *
- * É o que decide se o diálogo de primeiro acesso aparece: `saram: null` significa
- * "ainda não informou".
+ * É o que decide se o diálogo de primeiro acesso aparece: `saram: null` com ação possível
+ * (`saramStatusNeedsAction`).
  */
 export const fetchMyIdentityFn = createServerFn({ method: "GET" }).handler(async (): Promise<SucontIdentity> => {
-	const userId = await requireUserId()
+	const user = await requireUser()
 
-	const { data, error } = await getCoreClient().from("user_data").select("saram").eq("id", userId).maybeSingle()
-	if (error) throw new Error(error.message)
-
-	const saram = data?.saram?.trim() || null
-	if (!saram) return EMPTY_IDENTITY
-
-	const military = await fetchMilitaryIdentity(saram)
-	return { saram, posto: military?.posto ?? null, nomeGuerra: military?.nomeGuerra ?? null, registered: military !== null }
+	const core = getCoreClient() as unknown as SaramLinkClient
+	const { data, error } = await core.rpc("saram_link_status", sessionArgs(user))
+	if (error) throw new Error(saramLinkErrorMessage(error.message))
+	return { ...identityFromSaramStatus(data), outcome: null }
 })
 
 /**
- * `core.link_own_saram` nasce em 20261001100200; o client tipado só a conhece depois do
- * `db:types` que segue o apply. Assinatura declarada aqui, e só ela — a chamada continua sendo
- * método do client (o `rpc` solto perderia o `this`).
- */
-type LinkOwnSaramClient = {
-	rpc(fn: "link_own_saram", args: { p_user: string; p_email: string | null; p_saram: string }): PromiseLike<{ error: { message: string } | null }>
-}
-
-/**
- * Vincula um SARAM à PRÓPRIA conta. O número vem do formulário (é input legítimo do
- * usuário); `id` e `email`, da sessão.
+ * O SARAM digitado no diálogo de primeiro acesso. O número vem do formulário (é input legítimo
+ * do usuário); `id`, e-mail e e-mail confirmado, da sessão.
  *
  * Exige acesso ao app (`requireSucontApp`, qualquer módulo do sucont): só sessão bastava, e
  * qualquer conta do ERP gravava SARAM por este endpoint sem nunca ter acesso ao hub.
  *
- * As travas são as de `syncUserSaram` (sisub-domain), aplicadas no banco por
- * `core.link_own_saram` (migration 20261001100200) — o sucont não tem conexão Postgres
- * direta, e checar-e-gravar pelo PostgREST seriam duas requisições sem transação:
- *   - write-once: SARAM que já localiza um cadastro militar não muda pela própria conta (sem
- *     isso, gravar e regravar o SARAM de outras pessoas lia posto e nome de guerra delas, um
- *     por um — LGPD). O que não localiza ninguém (dígito trocado) segue corrigível;
- *   - exclusivo: SARAM vinculado a outra conta é recusado;
- *   - lock: o mesmo advisory lock do sisub, então os dois apps se serializam no mesmo número.
- *
- * O SARAM NÃO é validado contra o cadastro de pessoal antes de gravar, de propósito:
- * o espelho de `core.user_military_data` é uma cópia com data, e recusar quem não
- * está nela trancaria fora do hub exatamente quem chegou depois da última carga. O
- * que a gravação devolve é a identificação resolvida — `null` ali é o sinal de que o
- * número não bate com ninguém, e a tela diz isso em vez de fingir sucesso completo.
+ * Desde 20261003100000 o número não é gravado como veio: `core.claim_saram` (a MESMA regra do
+ * `syncUserSaram` do sisub, no banco) só vincula se ele for o candidato único da chave do e-mail
+ * institucional da sessão (nome de guerra + iniciais, o padrão do Zimbra). Qualquer outro vira
+ * pedido para a administração do sistema, e a conta não vê o cadastro de ninguém até a decisão.
+ * Antes, quem pedia primeiro levava: o número de outra pessoa abria o posto e o nome de guerra
+ * dela.
  */
 export const saveMySaramFn = createServerFn({ method: "POST" })
 	.validator(z.object({ saram: z.string().regex(/^\d{6,7}$/, "O SARAM tem 6 ou 7 dígitos.") }))
 	.handler(async ({ data }): Promise<SucontIdentity> => {
 		await requireSucontApp()
 		const user = await requireUser()
-		const { saram } = data
 
-		// `id` e `email` da sessão, nunca do payload. Conta sem e-mail só ATUALIZA a linha que
-		// existir (`core.user_data.email` é NOT NULL); sem linha, a função recusa em vez de
-		// devolver sucesso sobre uma gravação que não houve.
-		const core = getCoreClient() as unknown as LinkOwnSaramClient
-		const { error } = await core.rpc("link_own_saram", { p_user: user.id, p_email: user.email?.trim() || null, p_saram: saram })
+		const core = getCoreClient() as unknown as SaramLinkClient
+		const { data: claimed, error } = await core.rpc("claim_saram", { ...sessionArgs(user), p_saram: data.saram })
 		if (error) throw new Error(saramLinkErrorMessage(error.message))
 
-		const military = await fetchMilitaryIdentity(saram)
-		return { saram, posto: military?.posto ?? null, nomeGuerra: military?.nomeGuerra ?? null, registered: military !== null }
+		const result = (claimed ?? {}) as { outcome?: SaramClaimOutcome; status?: unknown }
+		return { ...identityFromSaramStatus(result.status), outcome: result.outcome ?? null }
 	})

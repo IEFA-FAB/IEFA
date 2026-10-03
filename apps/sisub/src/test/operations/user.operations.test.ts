@@ -5,7 +5,7 @@
  */
 
 import type { SisubDb } from "@iefa/database/drizzle/sisub"
-import { fetchMaskedCpf, fetchMilitaryData, fetchSisubUserData, fetchUserSaram, syncUserEmail, syncUserSaram } from "@iefa/sisub-domain"
+import { fetchMaskedCpf, fetchMilitaryData, fetchSisubUserData, fetchUserSaram, fetchVisibleSaram, syncUserEmail, syncUserSaram } from "@iefa/sisub-domain"
 import { afterAll, afterEach, beforeAll, beforeEach, expect, test } from "vitest"
 import { type AnyClient, makeSeeder, type Seeder, setupIntegration, uid } from "@/test/operations-fixtures"
 import { createSisubTestDb, describeSupabaseIntegration, getSisubDatabaseUrl } from "@/test/supabase"
@@ -94,51 +94,34 @@ describeSupabaseIntegration("user operations (regressão)", () => {
 		expect(await fetchMaskedCpf(db, { saram: uid("NO") })).toBeNull()
 	})
 
-	test("syncUserSaram faz upsert idempotente e corrige saram que não localiza cadastro", async () => {
+	// Desde 20261003100000 o SARAM digitado só vincula se for o candidato da chave do e-mail
+	// institucional (`core.claim_saram`); os fluxos completos estão em `saram-link.operations.test.ts`.
+	test("syncUserSaram: número fora da chave do e-mail vira pedido, e nada é gravado na conta", async () => {
 		if (!reachable || !seeder || !db) return
 		const userId = await seeder.seedAuthUser()
 		seeder.track("user_data", userId)
 		const email = `${uid("sync-")}@example.invalid`.toLowerCase()
-		// valores únicos: o vínculo agora é exclusivo, e "111" fixo colidiria com conta real
-		const first = uid("NO")
-		const second = uid("NO")
+		const saram = String(100000 + Math.floor(Math.random() * 899999))
 
-		await syncUserSaram(db, { userId, email, saram: first })
-		expect((await fetchSisubUserData(db, { userId }))?.saram).toBe(first)
+		const outcome = await syncUserSaram(db, { userId, email, saram, emailConfirmed: true })
+		expect(outcome?.outcome).toBe("requested")
+		expect(outcome?.status.status).toMatch(/^(pending_request|contested)$/)
+		expect((await fetchSisubUserData(db, { userId }))?.saram).toBeNull()
+		expect(await fetchVisibleSaram(db, { userId })).toBeNull()
 
-		// reenvio do mesmo valor é idempotente
-		await syncUserSaram(db, { userId, email, saram: first })
-		expect((await fetchSisubUserData(db, { userId }))?.saram).toBe(first)
-
-		// `first` não localiza cadastro militar (erro de digitação) → segue corrigível
-		await syncUserSaram(db, { userId, email, saram: second })
-		expect((await fetchSisubUserData(db, { userId }))?.saram).toBe(second)
+		// reenvio do mesmo número é idempotente; outro número esbarra no pedido pendente
+		expect((await syncUserSaram(db, { userId, email, saram, emailConfirmed: true }))?.outcome).toBe("pending")
+		await expect(syncUserSaram(db, { userId, email, saram: "1234567", emailConfirmed: true })).rejects.toMatchObject({ code: "REQUEST_PENDING" })
 	})
 
-	test("syncUserSaram trava o saram que já localiza cadastro militar (LGPD)", async () => {
+	test("SARAM gravado fora do fluxo verificado não abre o cadastro militar", async () => {
 		if (!reachable || !seeder || !db) return
 		const saram = await seeder.seedUserMilitaryData({ sgPosto: "SO" })
 		const userId = await seeder.seedAuthUser()
-		seeder.track("user_data", userId)
-		const email = `${uid("lock-")}@example.invalid`.toLowerCase()
+		await seeder.seedUserData({ id: userId, saram })
 
-		await syncUserSaram(db, { userId, email, saram })
-		// trocar por outro — ou limpar — é leitura de dado de terceiro em dois passos
-		await expect(syncUserSaram(db, { userId, email, saram: uid("NO") })).rejects.toMatchObject({ code: "SARAM_LOCKED" })
-		await expect(syncUserSaram(db, { userId, email, saram: "" })).rejects.toMatchObject({ code: "SARAM_LOCKED" })
-		expect((await fetchSisubUserData(db, { userId }))?.saram).toBe(saram)
-	})
-
-	test("syncUserSaram recusa saram já vinculado a outra conta", async () => {
-		if (!reachable || !seeder || !db) return
-		const saram = uid("NO")
-		const owner = await seeder.seedAuthUser()
-		await seeder.seedUserData({ id: owner, saram })
-
-		const intruder = await seeder.seedAuthUser()
-		seeder.track("user_data", intruder)
-		const email = `${uid("taken-")}@example.invalid`.toLowerCase()
-		await expect(syncUserSaram(db, { userId: intruder, email, saram })).rejects.toMatchObject({ code: "SARAM_TAKEN" })
+		expect(await fetchUserSaram(db, { userId })).toBe(saram)
+		expect(await fetchVisibleSaram(db, { userId })).toBeNull()
 	})
 
 	test("syncUserEmail reivindica o email de uma linha órfã (delete + retry)", async () => {

@@ -10,6 +10,7 @@ import { Input } from "#/components/ui/input"
 import { toast } from "#/components/ui/toast"
 import { formatMilitaryName } from "#/lib/identity"
 import { readSaramDismissal, rememberSaramDismissal } from "#/lib/saram-dismissal"
+import { isSaramClaimPending, saramStatusNeedsAction } from "#/lib/saram-link"
 import { type SucontIdentity, saveMySaramFn } from "#/server/user.fn"
 
 /**
@@ -76,6 +77,16 @@ export function SaramDialog() {
 		mutationFn: (value: string) => saveMySaramFn({ data: { saram: value } }),
 		onSuccess: (saved) => {
 			queryClient.setQueryData(myIdentityQueryOptions().queryKey, saved)
+			// O número que não bate com o e-mail institucional vira pedido para a administração
+			// (`core.claim_saram`): não há quem confirmar, e o diálogo não volta a insistir.
+			if (isSaramClaimPending(saved.outcome)) {
+				toast.info("Pedido de vínculo enviado à administração do sistema", {
+					description: "O SARAM informado não pôde ser conferido pelo seu e-mail. Até a decisão, a conta segue identificada pelo e-mail.",
+				})
+				setPendingConfirmation(null)
+				setReopened(false)
+				return
+			}
 			// A lista de acessos passa a mostrar o nome — e quem acabou de se vincular
 			// costuma ser justamente o administrador olhando a tela.
 			queryClient.invalidateQueries({ queryKey: ["sucont", "grants"] })
@@ -111,7 +122,10 @@ export function SaramDialog() {
 
 	// Confirmação pendente e pedido reaberto mantêm o diálogo aberto APESAR de o
 	// `saram` já estar gravado — é essa janela que dá o caminho de correção.
-	const open = pendingConfirmation !== null || reopened || (identity.isSuccess && !identity.data.saram && !dismissed)
+	// Sem SARAM, só insiste com ação possível: conta institucional, pedido em análise e bloqueio de
+	// tentativas não reabrem o diálogo (20261003100000).
+	const open =
+		pendingConfirmation !== null || reopened || (identity.isSuccess && !identity.data.saram && saramStatusNeedsAction(identity.data.status) && !dismissed)
 
 	/**
 	 * Esc e clique fora. O que fechar significa depende do passo: na confirmação é
