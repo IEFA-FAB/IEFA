@@ -4594,6 +4594,8 @@ export const saramLinkRequestInCore = core.table("saram_link_request", {
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
+	index("saram_link_request_decided_by_idx").using("btree", table.decidedBy.asc().nullsLast()),
+	index("saram_link_request_holder_user_idx").using("btree", table.holderUserId.asc().nullsLast()),
 	uniqueIndex("saram_link_request_one_pending_uniq").using("btree", table.userId.asc().nullsLast()).where(sql`(status = 'pending'::text)`),
 	index("saram_link_request_saram_idx").using("btree", table.saram.asc().nullsLast()),
 	index("saram_link_request_user_created_idx").using("btree", table.userId.asc().nullsLast(), table.createdAt.desc().nullsFirst()),
