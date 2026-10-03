@@ -158,6 +158,11 @@ jobs:
     concurrency:
       group: sisub-integration-real-db
       cancel-in-progress: false
+    # `issues: write` só para os dois passos de aviso no fim. O token não chega aos passos da suíte:
+    # nenhum deles o recebe por env, e o checkout não persiste credencial.
+    permissions:
+      contents: read
+      issues: write
     steps:
       - uses: actions/checkout@v7
         with:
@@ -198,3 +203,34 @@ jobs:
         env:
           SISUB_DATABASE_URL: ${{ secrets.SISUB_DATABASE_URL }}
         run: bun run scripts/purge-test-fixtures.ts --apply
+      # Monitor vermelho que ninguém vê não monitora: com `continue-on-error`, o run da `main` fica
+      # verde e a falha só aparece para quem abrir o job. Falha abre uma issue (ou comenta na que já
+      # está aberta); o próximo verde a fecha. SHA e URL por env, nunca interpolados no script.
+      - name: Open or update the red-suite issue
+        if: failure() && github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          gh label create integration-red --color B60205 --description "Suíte completa de integração vermelha na main" --force
+          body="Suíte completa de integração falhou na \`main\` em ${COMMIT_SHA}: ${RUN_URL}"
+          open=$(gh issue list --label integration-red --state open --json number --jq '.[0].number')
+          if [ -n "$open" ]; then
+            gh issue comment "$open" --body "$body"
+          else
+            gh issue create --label integration-red --title "Suíte completa de integração vermelha na main" --body "$body"
+          fi
+      - name: Close the red-suite issue
+        if: success() && github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          open=$(gh issue list --label integration-red --state open --json number --jq '.[0].number')
+          if [ -n "$open" ]; then
+            gh issue close "$open" --comment "Verde de novo em ${COMMIT_SHA}: ${RUN_URL}"
+          fi
