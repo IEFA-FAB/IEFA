@@ -1,15 +1,19 @@
 import type { EditScope } from "@iefa/sisub-domain"
-import { useQuery } from "@tanstack/react-query"
+import { queryOptions, useQuery } from "@tanstack/react-query"
 import { queryKeys } from "@/lib/query-keys"
 import { fetchRecipeFn, fetchRecipeLineageHeadFn, fetchRecipeVersionsFn } from "@/server/recipes.fn"
 
-export function useRecipe(id: string | undefined) {
-	return useQuery({
+/** Ficha técnica de uma receita. A mesma chave serve o editor, o hovercard e o fork em lote. */
+export const recipeDetailQueryOptions = (id: string | undefined) =>
+	queryOptions({
 		queryKey: queryKeys.recipes.detail(id),
 		queryFn: () => fetchRecipeFn({ data: { recipeId: id as string } }),
 		enabled: !!id,
 		staleTime: 5 * 60 * 1000, // 5 minutes
 	})
+
+export function useRecipe(id: string | undefined) {
+	return useQuery(recipeDetailQueryOptions(id))
 }
 
 export function useRecipeVersions(recipeId: string | undefined) {

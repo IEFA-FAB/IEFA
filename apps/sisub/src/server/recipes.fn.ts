@@ -85,9 +85,6 @@ export const fetchRecipeIngredientDigestsFn = createServerFn({ method: "GET" })
 	.validator(ListRecipeIngredientDigestsSchema)
 	.handler(requireAuthThenRun(listRecipeIngredientDigests))
 
-// Alias kept for backward compat
-export const fetchRecipeWithIngredientsFn = fetchRecipeFn
-
 // IDs das preparações usadas em algum plano semanal (menu_template weekly não excluído).
 export const fetchRecipeMenuUsageFn = createServerFn({ method: "GET" }).handler(async () => {
 	const ctx = await requireAuth()

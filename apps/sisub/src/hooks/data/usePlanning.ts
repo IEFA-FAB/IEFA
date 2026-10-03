@@ -8,9 +8,9 @@ import {
 	fetchDailyMenusFn,
 	fetchDayDetailsFn,
 	fetchTrashItemsFn,
+	removeMenuItemFn,
 	restoreMenuItemFn,
-	softDeleteMenuItemFn,
-	updateDailyMenuFn,
+	updateHeadcountFn,
 	updateMenuItemFn,
 	upsertDailyMenuFn,
 } from "@/server/planning.fn"
@@ -126,36 +126,24 @@ export function useAddMenuItem(options?: { silent?: boolean }) {
 	})
 }
 
-export function useUpdateDailyMenu(options?: { silent?: boolean }) {
+export function useUpdateHeadcount(options?: { silent?: boolean }) {
 	const queryClient = useQueryClient()
 
 	return useMutation({
-		mutationFn: ({
-			id,
-			updates,
-		}: {
-			id: string
-			// Positivo e obrigatório, igual ao schema do domínio. O `?? 1` que existia aqui
-			// transformava "limpei o campo para preencher depois" em "o dia tem 1 comensal",
-			// com toast de sucesso.
-			updates: { forecasted_headcount: number }
-		}) =>
-			updateDailyMenuFn({
-				data: {
-					dailyMenuId: id,
-					forecastedHeadcount: updates.forecasted_headcount,
-				},
-			}),
+		// Positivo e obrigatório, igual ao schema do domínio. O `?? 1` que existia aqui
+		// transformava "limpei o campo para preencher depois" em "o dia tem 1 comensal",
+		// com toast de sucesso.
+		mutationFn: (data: { dailyMenuId: string; forecastedHeadcount: number }) => updateHeadcountFn({ data }),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.planning.menus() })
 			queryClient.invalidateQueries({ queryKey: queryKeys.planning.day() })
 			// A disputa de equipamento da refeição é função dos ITENS: sem isto o alerta segue
 			// acusando falta de forno para uma preparação que o usuário acabou de tirar.
 			queryClient.invalidateQueries({ queryKey: queryKeys.equipment.all() })
-			if (!options?.silent) toast.success("Cardápio atualizado!")
+			if (!options?.silent) toast.success("Comensais atualizados!")
 		},
 		onError: (error) => {
-			if (!options?.silent) toast.error(`Erro ao atualizar cardápio: ${error.message}`)
+			if (!options?.silent) toast.error(`Erro ao atualizar os comensais: ${error.message}`)
 		},
 	})
 }
@@ -204,7 +192,7 @@ export function useDeleteMenuItem() {
 	const queryClient = useQueryClient()
 
 	return useMutation({
-		mutationFn: (itemId: string) => softDeleteMenuItemFn({ data: { menuItemId: itemId } }),
+		mutationFn: (itemId: string) => removeMenuItemFn({ data: { menuItemId: itemId } }),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.planning.menus() })
 			queryClient.invalidateQueries({ queryKey: queryKeys.planning.day() })
