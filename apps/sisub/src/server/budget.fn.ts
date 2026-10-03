@@ -27,10 +27,10 @@ import { getBrasiliaCurrentMonth, getBrasiliaToday } from "@iefa/sisub-domain/ci
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { withSensitiveAudit } from "@/lib/audit.server"
+import { publicDbMessage } from "@/lib/db-error-message"
 import { selectColumns } from "@/lib/select-columns"
 import { getServerClient } from "@/lib/supabase.server"
 import { requireUnitScope } from "@/lib/unit-auth.server"
-import { publicDbMessage } from "@/lib/db-error-message"
 
 const finance = () => getServerClient("finance")
 const siafi = () => getServerClient("siafi_integration")

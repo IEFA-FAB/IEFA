@@ -31,14 +31,11 @@ import { z } from "zod"
 import { requireAuthWithPermission } from "@/lib/auth.server"
 import { assertNoBlindCountHides } from "@/lib/blind-count.server"
 import { getDb } from "@/lib/db.server"
+import { publicDbMessage } from "@/lib/db-error-message"
 import { currentFiscalYear } from "@/lib/expense-execution"
 import { checkSupplierSicaf } from "@/lib/sicaf.server"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
-import { getServerClient } from "@/lib/supabase.server"
-import { publicDbMessage } from "@/lib/db-error-message"
-
-// biome-ignore lint/suspicious/noExplicitAny: tabelas novas fora dos tipos gerados até o regen pós-migration (task 2.4)
-type LooseClient = { from: (table: string) => any; rpc: (fn: string, args?: Record<string, unknown>) => any }
+import { getLooseServerClient } from "@/lib/supabase.server"
 
 /**
  * Quanto resta do limite da dispensa por valor (Lei 14.133/2021, art. 75, II) no exercício, por
@@ -79,7 +76,7 @@ async function loadDispensaRoomByClass(unitId: number | null, classCodes: readon
 	// Valor de cada dispensa: o maior entre o empenhado vigente e o estimado.
 	const committed = new Map<string, number>()
 	if (acquisitionRows.length > 0) {
-		const fin = getServerClient("finance") as unknown as LooseClient
+		const fin = getLooseServerClient("finance")
 		const { data: empenhos, error } = await fin
 			.from("empenho")
 			.select("id, acquisition_id")
@@ -136,7 +133,7 @@ async function loadDispensaRoomByClass(unitId: number | null, classCodes: readon
 async function loadMaterialClassByCatmat(catmats: readonly number[]): Promise<Map<number, string>> {
 	const byCatmat = new Map<number, string>()
 	if (catmats.length === 0) return byCatmat
-	const compras = getServerClient("compras_gov_integration") as unknown as LooseClient
+	const compras = getLooseServerClient("compras_gov_integration")
 	const { data: items, error } = await compras
 		.from("compras_material_item")
 		.select("codigo_item, codigo_pdm")
@@ -158,9 +155,9 @@ async function loadMaterialClassByCatmat(catmats: readonly number[]): Promise<Ma
 	return byCatmat
 }
 
-const inventory = () => getServerClient("inventory") as unknown as LooseClient
-const kitchen = () => getServerClient("kitchen") as unknown as LooseClient
-const procurement = () => getServerClient("procurement") as unknown as LooseClient
+const inventory = () => getLooseServerClient("inventory")
+const kitchen = () => getLooseServerClient("kitchen")
+const procurement = () => getLooseServerClient("procurement")
 
 export interface ReplenishmentSuggestion {
 	ingredientId: string

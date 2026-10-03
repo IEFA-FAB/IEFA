@@ -27,6 +27,7 @@ import {
 } from "@iefa/sisub-domain/opening-balance"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
+import { publicDbMessage } from "@/lib/db-error-message"
 import {
 	loadCanonicalUnits,
 	loadConservationClasses,
@@ -37,14 +38,10 @@ import {
 } from "@/lib/opening-balance.server"
 import { readAllPages, readAllPagesIn } from "@/lib/read-all-pages"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
-import { getServerClient } from "@/lib/supabase.server"
-import { publicDbMessage } from "@/lib/db-error-message"
+import { getLooseServerClient } from "@/lib/supabase.server"
 
-// biome-ignore lint/suspicious/noExplicitAny: tabelas novas fora dos tipos gerados
-type LooseClient = { from: (table: string) => any; rpc: (fn: string, args?: Record<string, unknown>) => any }
-
-const inventory = () => getServerClient("inventory") as unknown as LooseClient
-const kitchen = () => getServerClient("kitchen") as unknown as LooseClient
+const inventory = () => getLooseServerClient("inventory")
+const kitchen = () => getLooseServerClient("kitchen")
 
 /** Teto do arquivo enviado: 5.000 linhas de CSV cabem com folga em 3 MB. */
 const MAX_SHEET_CHARS = 3_000_000

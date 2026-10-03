@@ -199,37 +199,27 @@ function ReconciliationPage() {
 								</tr>
 							</thead>
 							<tbody className="divide-y divide-border/60">
-								{physical.map(
-									(row: {
-										goods_receipt_id: string
-										definitive_at: string
-										valor_recebido: number
-										numero_ns: string | null
-										valor_liquidado: number | null
-										situacao: string
-										dias_desde_recebimento: number
-									}) => (
-										<tr key={row.goods_receipt_id}>
-											<td className="py-2.5 px-3 text-xs" suppressHydrationWarning>
-												{new Date(row.definitive_at).toLocaleDateString("pt-BR")}
-											</td>
-											<td className="py-2.5 px-2 text-xs text-right tabular-nums">{BRL.format(Number(row.valor_recebido))}</td>
-											<td className="py-2.5 px-2 text-xs font-mono">{row.numero_ns ?? "—"}</td>
-											<td className="py-2.5 px-2 text-xs text-right tabular-nums">
-												{row.valor_liquidado != null ? BRL.format(Number(row.valor_liquidado)) : "—"}
-											</td>
-											<td className="py-2.5 px-2 text-xs">
-												<span className={row.situacao === "sem_liquidacao" ? "text-warning inline-flex items-center gap-1" : "text-destructive"}>
-													{row.situacao === "sem_liquidacao" ? <TriangleAlert className="size-3.5" /> : null}
-													{row.situacao === "sem_liquidacao" ? "Sem liquidação" : "Valor divergente"}
-												</span>
-											</td>
-											<td className={`py-2.5 px-2 text-xs text-right tabular-nums ${row.dias_desde_recebimento > 30 ? "text-warning" : ""}`}>
-												{row.dias_desde_recebimento}d
-											</td>
-										</tr>
-									)
-								)}
+								{physical.map((row) => (
+									<tr key={row.goods_receipt_id}>
+										<td className="py-2.5 px-3 text-xs" suppressHydrationWarning>
+											{new Date(row.definitive_at).toLocaleDateString("pt-BR")}
+										</td>
+										<td className="py-2.5 px-2 text-xs text-right tabular-nums">{BRL.format(Number(row.valor_recebido))}</td>
+										<td className="py-2.5 px-2 text-xs font-mono">{row.numero_ns ?? "—"}</td>
+										<td className="py-2.5 px-2 text-xs text-right tabular-nums">
+											{row.valor_liquidado != null ? BRL.format(Number(row.valor_liquidado)) : "—"}
+										</td>
+										<td className="py-2.5 px-2 text-xs">
+											<span className={row.situacao === "sem_liquidacao" ? "text-warning inline-flex items-center gap-1" : "text-destructive"}>
+												{row.situacao === "sem_liquidacao" ? <TriangleAlert className="size-3.5" /> : null}
+												{row.situacao === "sem_liquidacao" ? "Sem liquidação" : "Valor divergente"}
+											</span>
+										</td>
+										<td className={`py-2.5 px-2 text-xs text-right tabular-nums ${row.dias_desde_recebimento > 30 ? "text-warning" : ""}`}>
+											{row.dias_desde_recebimento}d
+										</td>
+									</tr>
+								))}
 							</tbody>
 						</table>
 					)}

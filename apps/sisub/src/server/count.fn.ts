@@ -26,16 +26,13 @@ import { evaluateCountLine, INVENTORY_COUNT_TYPES } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { PENDING_PRODUCTION_SQLSTATE, parsePendingProductionDays } from "@/lib/count-waiver"
+import { publicDbMessage } from "@/lib/db-error-message"
 import { readAllPages, readAllPagesIn } from "@/lib/read-all-pages"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
-import { getServerClient } from "@/lib/supabase.server"
-import { publicDbMessage } from "@/lib/db-error-message"
+import { getLooseServerClient } from "@/lib/supabase.server"
 
-// biome-ignore lint/suspicious/noExplicitAny: tabelas novas fora dos tipos gerados
-type LooseClient = { from: (table: string) => any; rpc: (fn: string, args?: Record<string, unknown>) => any }
-
-const inventory = () => getServerClient("inventory") as unknown as LooseClient
-const kitchen = () => getServerClient("kitchen") as unknown as LooseClient
+const inventory = () => getLooseServerClient("inventory")
+const kitchen = () => getLooseServerClient("kitchen")
 
 export const COUNT_SCOPES = ["full", "conservation_class", "location", "item_list", "menu_cycle"] as const
 

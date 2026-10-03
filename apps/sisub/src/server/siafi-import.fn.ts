@@ -13,15 +13,12 @@
 
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
+import { publicDbMessage } from "@/lib/db-error-message"
 import { getServerClient } from "@/lib/supabase.server"
 import { requireUnitScope } from "@/lib/unit-auth.server"
-import { publicDbMessage } from "@/lib/db-error-message"
-
-// biome-ignore lint/suspicious/noExplicitAny: tabelas novas fora dos tipos gerados até o regen pós-migration
-type LooseClient = { from: (table: string) => any; rpc: (fn: string, args?: Record<string, unknown>) => any }
 
 const API_BASE = (process.env.IEFA_API_BASE_URL || "https://api.iefa.com.br").replace(/\/+$/, "")
-const siafi = () => getServerClient("siafi_integration") as unknown as LooseClient
+const siafi = () => getServerClient("siafi_integration")
 
 export const REPORT_TYPE_LABEL: Record<string, string> = {
 	credito: "Crédito disponível",

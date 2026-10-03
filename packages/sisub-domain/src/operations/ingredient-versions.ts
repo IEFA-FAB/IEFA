@@ -312,7 +312,7 @@ export async function recordIngredientVersion(
 	actor?: VersionActor
 ): Promise<IngredientVersionRow | null> {
 	requirePermission(ctx, "global", 2)
-	return runQuery("INSERT_FAILED", () => db.transaction(async (tx) => insertIngredientVersion(tx as unknown as SisubDb, ctx, input, actor)))
+	return runQuery("INSERT_FAILED", () => db.transaction(async (tx) => insertIngredientVersion(tx, ctx, input, actor)))
 }
 
 async function insertIngredientVersion(
@@ -525,12 +525,7 @@ export async function restoreIngredientVersion(
 					})
 			}
 			// 5) Registra a restauração como nova versão
-			return recordIngredientVersion(
-				tx as unknown as SisubDb,
-				ctx,
-				{ ingredientId: input.ingredientId, changeSummary: `Restaurado da versão ${version.versionNumber}` },
-				actor
-			)
+			return recordIngredientVersion(tx, ctx, { ingredientId: input.ingredientId, changeSummary: `Restaurado da versão ${version.versionNumber}` }, actor)
 		})
 	)
 }

@@ -16,15 +16,12 @@ import { EMPENHO_TOTAL_ANNULMENT_EVENT, LEGACY_EMPENHO_TOTAL_ANNULMENT_EVENT } f
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { withSensitiveAudit } from "@/lib/audit.server"
-import { getServerClient } from "@/lib/supabase.server"
+import { publicDbMessage } from "@/lib/db-error-message"
+import { getLooseServerClient } from "@/lib/supabase.server"
 import { requireUnitScope } from "@/lib/unit-auth.server"
 import { floorMessage, insertEmpenhoEventSerialized, toEmpenhoEventError } from "@/server/empenho-events.server"
-import { publicDbMessage } from "@/lib/db-error-message"
 
-// biome-ignore lint/suspicious/noExplicitAny: tabelas novas fora dos tipos gerados até o regen
-type LooseClient = { from: (table: string) => any; rpc: (fn: string, args?: Record<string, unknown>) => any }
-
-const finance = () => getServerClient("finance") as unknown as LooseClient
+const finance = () => getLooseServerClient("finance")
 
 export interface EmpenhoSaldo {
 	valor_original: number

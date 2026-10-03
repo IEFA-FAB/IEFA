@@ -922,12 +922,12 @@ export async function saveRecipeEdit(db: SisubDb, ctx: UserContext, input: SaveR
 	// versão: a listagem passaria a escolher uma das duas arbitrariamente e o histórico
 	// mostraria números repetidos. O lock é liberado no commit/rollback.
 	const recipe = await db.transaction(async (tx) => {
-		await lockRecipeLineage(tx as unknown as SisubDb, rootId)
+		await lockRecipeLineage(tx, rootId)
 
 		// Linhagem completa (raiz + descendentes) para achar o próximo número de versão no
 		// escopo de destino. Um fork já existente desta cozinha aparece aqui, então a edição
 		// seguinte versiona esse fork em vez de bifurcar de novo.
-		const lineage = await loadLineageRows(tx as unknown as SisubDb, rootId)
+		const lineage = await loadLineageRows(tx, rootId)
 
 		// Só se grava sobre a versão VIGENTE no contexto. Aberta uma versão que outra pessoa já
 		// superou (aba antiga, rascunho de dias atrás, link do histórico), salvar gravaria a

@@ -270,8 +270,8 @@ export async function saveRecipeFlow(db: SisubDb, ctx: UserContext, input: SaveR
 	await db.transaction(async (tx) => {
 		// Versão superada não recebe fluxo: ele ficaria numa versão que ninguém usa, e a vigente
 		// (copiada antes) seguiria sem ele. Sob o lock da linhagem, o mesmo de `saveRecipeEdit`.
-		await assertRecipeVersionIsHead(tx as unknown as SisubDb, input.recipeId)
-		await softDeleteFlow(tx as unknown as SisubDb, input.recipeId, now)
+		await assertRecipeVersionIsHead(tx, input.recipeId)
+		await softDeleteFlow(tx, input.recipeId, now)
 
 		if (input.steps.length === 0) return
 
@@ -344,7 +344,7 @@ export async function saveRecipeFlow(db: SisubDb, ctx: UserContext, input: SaveR
 		// `clientId` das existentes é o id antigo). Quem aponta para etapa — hoje, a lista mínima
 		// de equipamentos — precisa ser reapontado na mesma transação, senão fica órfão em
 		// silêncio: a tela recusa a gravação seguinte e o cálculo de concorrência conta a mais.
-		await remapRequirementStepBindings(tx as unknown as SisubDb, input.recipeId, stepIdMap)
+		await remapRequirementStepBindings(tx, input.recipeId, stepIdMap)
 	})
 
 	const flow = await fetchRecipeFlow(db, ctx, { recipeId: input.recipeId })

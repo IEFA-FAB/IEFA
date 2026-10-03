@@ -31,6 +31,19 @@ export function getServerClient<S extends DbSchema>(schema: S) {
 	})
 }
 
+// biome-ignore lint/suspicious/noExplicitAny: porta frouxa das tabelas; ver `getLooseServerClient`
+export type LooseClient = { from: (table: string) => any; rpc: (fn: string, args?: Record<string, unknown>) => any }
+
+/**
+ * Cliente SEM tipo das tabelas. Dívida, não padrão: sobrou em arquivos de estoque, compras e
+ * finanças de quando essas tabelas não estavam nos tipos gerados. Elas estão hoje; tirar a porta
+ * frouxa de um arquivo revela a nulidade que ela escondia (linha `string | null` indo para
+ * parâmetro não nulo), e cada conversão trata isso. Código novo usa `getServerClient`.
+ */
+export function getLooseServerClient(schema: DbSchema): LooseClient {
+	return getServerClient(schema) as unknown as LooseClient
+}
+
 // biome-ignore lint/suspicious/noExplicitAny: retorno das RPCs chamadas pela porta frouxa; ver `toLooseRpcClient`
 type LooseRpcClient = { rpc: (fn: string, args?: Record<string, unknown>) => any }
 

@@ -264,7 +264,7 @@ export async function applyPlacesDiff(
 		// mesmas linhas na mesma ordem e não se cruzam em deadlock.
 		const changes: ReparentChange[] = []
 		for (const diff of diffs.filter(isReparentDiff)) {
-			const previous = await runQuery("FETCH_FAILED", () => lockCurrentValue(tx as unknown as SisubDb, diff))
+			const previous = await runQuery("FETCH_FAILED", () => lockCurrentValue(tx, diff))
 			if (previous !== diff.newValue) changes.push({ table: diff.table, record_id: diff.recordId, column: diff.column, previous, value: diff.newValue })
 		}
 
@@ -288,7 +288,7 @@ export async function applyPlacesDiff(
 		}
 
 		if (changes.length > 0) {
-			await recordSensitiveOperation(tx as unknown as SisubDb, ctx, {
+			await recordSensitiveOperation(tx, ctx, {
 				operation: audit.operation,
 				assurance: audit.grade,
 				target: { action: "reparent", changes },

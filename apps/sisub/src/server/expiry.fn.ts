@@ -21,16 +21,13 @@ import { z } from "zod"
 import { requireAuth } from "@/lib/auth.server"
 import { hiddenByBlindCount } from "@/lib/blind-count.server"
 import { maskBlindCountQuantities, withoutBlindCountLots } from "@/lib/blind-count-mask"
+import { publicDbMessage } from "@/lib/db-error-message"
 import { readAllPages, readAllPagesIn } from "@/lib/read-all-pages"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
-import { getServerClient } from "@/lib/supabase.server"
-import { publicDbMessage } from "@/lib/db-error-message"
+import { getLooseServerClient, type LooseClient } from "@/lib/supabase.server"
 
-// biome-ignore lint/suspicious/noExplicitAny: view e tabela novas, fora dos tipos gerados
-type LooseClient = { from: (table: string) => any }
-
-const inventory = () => getServerClient("inventory") as unknown as LooseClient
-const kitchen = () => getServerClient("kitchen") as unknown as LooseClient
+const inventory = () => getLooseServerClient("inventory")
+const kitchen = () => getLooseServerClient("kitchen")
 
 export interface ExpiryLotRow {
 	lotId: string

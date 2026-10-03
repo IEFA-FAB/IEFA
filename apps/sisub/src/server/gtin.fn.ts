@@ -13,8 +13,8 @@ import { parseGtin } from "@iefa/sisub-domain/gtin"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAuthWithPermission } from "@/lib/auth.server"
-import { getServerClient } from "@/lib/supabase.server"
 import { publicDbMessage } from "@/lib/db-error-message"
+import { getServerClient } from "@/lib/supabase.server"
 
 const API_BASE = (process.env.IEFA_API_BASE_URL || "https://api.iefa.com.br").replace(/\/+$/, "")
 
@@ -23,8 +23,6 @@ const API_BASE = (process.env.IEFA_API_BASE_URL || "https://api.iefa.com.br").re
  * `bun run db:types` pós-migration (task 2.4 do change sisub-inventory-cycle).
  * Até lá, acesso frouxo e explícito — não espalhar `any` pelos call sites.
  */
-// biome-ignore lint/suspicious/noExplicitAny: tipos gerados ainda sem as tabelas novas (ver acima)
-type LooseClient = { from: (table: string) => any }
 
 export interface GtinLookupResult {
 	gtin: string
@@ -79,8 +77,8 @@ export const attachGtinToIngredientItemFn = createServerFn({ method: "POST" })
 		const gtin = parseGtin(data.gtin)
 		if (!gtin) throw new Error("GTIN inválido (formato ou dígito verificador)")
 
-		const gs1 = getServerClient("gs1_integration") as unknown as LooseClient
-		const kitchen = getServerClient("kitchen") as unknown as LooseClient
+		const gs1 = getServerClient("gs1_integration")
+		const kitchen = getServerClient("kitchen")
 
 		const { data: existing, error: readError } = await gs1.from("gtin").select("gtin").eq("gtin", gtin).maybeSingle()
 		if (readError) throw new Error(`Erro ao consultar GTIN: ${publicDbMessage(readError)}`)

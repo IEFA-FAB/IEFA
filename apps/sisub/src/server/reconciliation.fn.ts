@@ -16,16 +16,13 @@ import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { withSensitiveAudit } from "@/lib/audit.server"
 import { requireAuth } from "@/lib/auth.server"
+import { publicDbMessage } from "@/lib/db-error-message"
 import { getServerClient } from "@/lib/supabase.server"
 import { requireUnitScope } from "@/lib/unit-auth.server"
 import { resolveDivergenceAtomically, toReconciliationDecisionError } from "@/server/reconciliation-decision.server"
-import { publicDbMessage } from "@/lib/db-error-message"
 
-// biome-ignore lint/suspicious/noExplicitAny: tabelas novas fora dos tipos gerados até o regen
-type LooseClient = { from: (table: string) => any; rpc: (fn: string, args?: Record<string, unknown>) => any }
-
-const finance = () => getServerClient("finance") as unknown as LooseClient
-const siafi = () => getServerClient("siafi_integration") as unknown as LooseClient
+const finance = () => getServerClient("finance")
+const siafi = () => getServerClient("siafi_integration")
 
 export interface ReconciliationRow {
 	documento_tipo: string
@@ -57,12 +54,22 @@ export const fetchReconciliationFn = createServerFn({ method: "GET" })
 			.sort((a, b) => (SEVERITY[a.situacao] ?? 9) - (SEVERITY[b.situacao] ?? 9) || Math.abs(b.diferenca) - Math.abs(a.diferenca))
 	})
 
+export interface PhysicalAccountingRow {
+	goods_receipt_id: string
+	definitive_at: string
+	valor_recebido: number
+	numero_ns: string | null
+	valor_liquidado: number | null
+	situacao: string
+	dias_desde_recebimento: number
+}
+
 /** Recebimento definitivo × liquidação (pendência contábil e diferença de valor). */
 export const fetchPhysicalAccountingFn = createServerFn({ method: "GET" })
 	.validator(z.object({ unitId: z.number().int().positive(), minDays: z.number().int().default(0) }))
 	.handler(async ({ data }) => {
 		await requireUnitScope(1, data.unitId)
-		const kitchenDb = getServerClient("kitchen") as unknown as LooseClient
+		const kitchenDb = getServerClient("kitchen")
 		const { data: kitchens } = await kitchenDb.from("kitchen").select("id").or(`unit_id.eq.${data.unitId},purchase_unit_id.eq.${data.unitId}`)
 		const kitchenIds = (kitchens ?? []).map((k: { id: number }) => k.id)
 		if (kitchenIds.length === 0) return []
@@ -76,7 +83,23 @@ export const fetchPhysicalAccountingFn = createServerFn({ method: "GET" })
 			.order("dias_desde_recebimento", { ascending: false })
 			.limit(200)
 		if (error) throw new Error(`Erro ao consultar conciliação físico × contábil: ${publicDbMessage(error)}`)
-		return rows ?? []
+		// Coluna de view sai anulável nos tipos gerados; recebimento e data vêm do recebimento
+		// definitivo, então linha sem eles não é pendência a mostrar.
+		return (rows ?? []).flatMap((row): PhysicalAccountingRow[] =>
+			row.goods_receipt_id && row.definitive_at
+				? [
+						{
+							goods_receipt_id: row.goods_receipt_id,
+							definitive_at: row.definitive_at,
+							valor_recebido: Number(row.valor_recebido ?? 0),
+							numero_ns: row.numero_ns,
+							valor_liquidado: row.valor_liquidado,
+							situacao: row.situacao ?? "",
+							dias_desde_recebimento: row.dias_desde_recebimento ?? 0,
+						},
+					]
+				: []
+		)
 	})
 
 export interface DocumentBatchResult {
