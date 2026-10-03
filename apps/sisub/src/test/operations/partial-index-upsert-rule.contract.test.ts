@@ -10,15 +10,37 @@
  * Este teste lê `pg_index` do banco vivo e exige que cada índice único parcial sem expressão e
  * sem gêmeo total nas mesmas colunas esteja coberto por algum bloco da regra. Bloco que não
  * corresponde mais a índice nenhum só é avisado: não quebra nada, só acusa à toa.
+ *
+ * Só reprova índice que alguma migration DESTA árvore cria. O banco é compartilhado e a
+ * migration de um PR é aplicada antes do merge dele; reprovar pelo índice alheio derrubava o
+ * gate de todo PR aberto até a `main` ganhar o bloco (13 de 17 falhas do gate entre 26/09 e
+ * 02/10, sete PRs de uma vez em 01/10). O índice alheio vira aviso; quando a migration dele
+ * entra na `main`, ele passa a reprovar aqui como qualquer outro.
  */
 
-import { readFileSync } from "node:fs"
+import { readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import postgres from "postgres"
 import { afterAll, beforeAll, describe, expect, test } from "vitest"
 import { describeSupabaseIntegration, getSisubDatabaseUrl } from "../supabase"
 
 const RULE_FILE = join(__dirname, "..", "..", "..", "..", "..", ".opengrep", "rules", "postgrest-partial-index-upsert.yaml")
+const MIGRATIONS_DIR = join(__dirname, "..", "..", "..", "..", "..", "packages", "database", "supabase", "migrations")
+
+/** Texto de todas as migrations desta árvore, em minúsculas. */
+function readMigrations(): string {
+	return readdirSync(MIGRATIONS_DIR)
+		.filter((file) => file.endsWith(".sql"))
+		.map((file) => readFileSync(join(MIGRATIONS_DIR, file), "utf8"))
+		.join("\n")
+		.toLowerCase()
+}
+
+/** O índice é criado por migration desta árvore? (`kitchen.foo_idx` → procura `foo_idx`.) */
+function isDeclaredInTree(indexName: string, migrations: string): boolean {
+	const bare = (indexName.split(".").pop() ?? "").replaceAll('"', "").toLowerCase()
+	return bare.length > 0 && new RegExp(`\\b${bare.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(migrations)
+}
 
 type RuleBlock = { table: RegExp; columns: RegExp }
 
@@ -44,6 +66,20 @@ function readRuleBlocks(): RuleBlock[] {
 }
 
 const isCovered = (blocks: RuleBlock[], table: string, columns: string) => blocks.some((b) => b.table.test(`"${table}"`) && b.columns.test(`"${columns}"`))
+
+describe("índice desta árvore x índice de migration alheia", () => {
+	test("acha o índice pelo nome sem schema, sem casar prefixo de outro nome", () => {
+		const migrations = "create unique index price_research_key_uniq on procurement.price_research (key) where x;"
+		expect(isDeclaredInTree("procurement.price_research_key_uniq", migrations)).toBe(true)
+		expect(isDeclaredInTree('"price_research_key_uniq"', migrations)).toBe(true)
+		expect(isDeclaredInTree("procurement.price_research_key", migrations)).toBe(false)
+		expect(isDeclaredInTree("outro_idx", migrations)).toBe(false)
+	})
+
+	test("as migrations desta árvore são lidas (proteção contra teste que passa vazio)", () => {
+		expect(readMigrations()).toContain("create unique index")
+	})
+})
 
 describe("regra postgrest-upsert-on-partial-unique-index: leitura dos blocos", () => {
 	test("todo bloco tem o par (tabela, colunas) e casa o índice que originou a regra", () => {
@@ -111,7 +147,15 @@ describeIf("regra postgrest-upsert-on-partial-unique-index × pg_index", () => {
 			order by sch, tbl, iname`
 
 		const blocks = readRuleBlocks()
-		const missing = rows.filter((r) => !isCovered(blocks, r.tbl, r.cols)).map((r) => `${r.iname} (${r.sch}.${r.tbl}: ${r.cols})`)
+		const migrations = readMigrations()
+		const uncovered = rows.filter((r) => !isCovered(blocks, r.tbl, r.cols))
+		const foreign = uncovered.filter((r) => !isDeclaredInTree(r.iname, migrations))
+		if (foreign.length > 0) {
+			console.warn(
+				`[partial-index-upsert-rule] índice parcial fora da regra, de migration que esta árvore ainda não tem (outro PR): ${foreign.map((r) => r.iname).join(", ")}`
+			)
+		}
+		const missing = uncovered.filter((r) => isDeclaredInTree(r.iname, migrations)).map((r) => `${r.iname} (${r.sch}.${r.tbl}: ${r.cols})`)
 		expect(missing, "índice único parcial fora da regra: acrescente o bloco (tabela, colunas) em .opengrep/rules/postgrest-partial-index-upsert.yaml").toEqual(
 			[]
 		)
