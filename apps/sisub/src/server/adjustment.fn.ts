@@ -20,13 +20,14 @@ import { INFLOW_REASONS, OUTFLOW_REASONS, REASON_NATURE, STOCK_ADJUSTMENT_REASON
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { publicDbMessage } from "@/lib/db-error-message"
+import { readAllPagesIn } from "@/lib/read-all-pages"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
-import { getLooseServerClient } from "@/lib/supabase.server"
+import { getServerClient } from "@/lib/supabase.server"
 
-const inventory = () => getLooseServerClient("inventory")
-const kitchen = () => getLooseServerClient("kitchen")
-const accessControl = () => getLooseServerClient("access_control")
-const core = () => getLooseServerClient("core")
+const inventory = () => getServerClient("inventory")
+const kitchen = () => getServerClient("kitchen")
+const accessControl = () => getServerClient("access_control")
+const core = () => getServerClient("core")
 
 /**
  * Bloqueio da Fase 2a: ingrediente com unidade fora do catálogo canônico não
@@ -183,7 +184,7 @@ async function hasOtherApprover(kitchenId: number, actorId: string): Promise<boo
 	if (attachmentResult.error) throw new Error(`Erro ao verificar os aprovadores da cozinha: ${publicDbMessage(attachmentResult.error)}`)
 	if (liveResult.error) throw new Error(`Erro ao verificar os aprovadores da cozinha: ${publicDbMessage(liveResult.error)}`)
 
-	const live = new Set(((liveResult.data ?? []) as Array<{ id: string }>).map((row) => row.id))
+	const live = new Set((liveResult.data ?? []).map((row) => row.id))
 	const byPolicy = new Map<string, Array<Omit<PermissionRow, "user_id">>>()
 	for (const row of statementRows) {
 		if (!live.has(row.policy_id)) continue
@@ -192,7 +193,7 @@ async function hasOtherApprover(kitchenId: number, actorId: string): Promise<boo
 		byPolicy.set(row.policy_id, list)
 	}
 	const policyRows: PermissionRow[] = []
-	for (const attachment of (attachmentResult.data ?? []) as Array<{ user_id: string; policy_id: string }>) {
+	for (const attachment of attachmentResult.data ?? []) {
 		for (const statement of byPolicy.get(attachment.policy_id) ?? []) {
 			policyRows.push({ ...statement, user_id: attachment.user_id })
 		}
@@ -368,13 +369,12 @@ export const createAdjustmentFn = createServerFn({ method: "POST" })
 		if (requires === true) {
 			const { error: pendingError } = await inv.from("stock_adjustment").update({ status: "pending_approval" }).eq("id", doc.id)
 			if (pendingError) await abandon(`Erro ao enviar o ajuste para aprovação: ${publicDbMessage(pendingError)}`)
-			return { adjustmentId: doc.id as string, status: "pending_approval" as const, movements: 0, postFailure: null as string | null }
+			return { adjustmentId: doc.id, status: "pending_approval" as const, movements: 0, postFailure: null as string | null }
 		}
 
 		const { data: posted, error: postError } = await inv.rpc("post_stock_adjustment", {
 			p_adjustment_id: doc.id,
 			p_actor: userId,
-			p_approval_exception_reason: null,
 		})
 		if (postError) {
 			// O documento não pode ficar encalhado em `draft`: a tela não oferece
@@ -422,7 +422,7 @@ export const createAdjustmentFn = createServerFn({ method: "POST" })
 				if (current?.status === "posted") {
 					// a resposta falhou, o lançamento não: é sucesso, e dizer outra coisa
 					// convidaria o operador a lançar a mesma perda de novo
-					return { adjustmentId: doc.id as string, status: "posted" as const, movements: 0, postFailure: null as string | null }
+					return { adjustmentId: doc.id, status: "posted" as const, movements: 0, postFailure: null as string | null }
 				}
 				throw new Error(`Erro ao lançar o ajuste: ${publicDbMessage(postError)}. O documento está em "${current?.status ?? "desconhecido"}"`)
 			}
@@ -432,14 +432,14 @@ export const createAdjustmentFn = createServerFn({ method: "POST" })
 			// um segundo documento pendente para a MESMA perda, e um aprovador podia
 			// aprovar os dois, tirando o estoque duas vezes.
 			return {
-				adjustmentId: doc.id as string,
+				adjustmentId: doc.id,
 				status: "pending_approval" as const,
 				movements: 0,
 				postFailure: postError.message as string | null,
 			}
 		}
 		return {
-			adjustmentId: doc.id as string,
+			adjustmentId: doc.id,
 			status: "posted" as const,
 			movements: Number(posted?.[0]?.movements ?? 0),
 			postFailure: null as string | null,
@@ -485,7 +485,7 @@ export const approveAdjustmentFn = createServerFn({ method: "POST" })
 		const { data: posted, error } = await inv.rpc("post_stock_adjustment", {
 			p_adjustment_id: data.adjustmentId,
 			p_actor: userId,
-			p_approval_exception_reason: exceptionReason,
+			p_approval_exception_reason: exceptionReason ?? undefined,
 		})
 		if (error) throw new Error(`Erro ao lançar o ajuste: ${publicDbMessage(error)}`)
 		return { movements: Number(posted?.[0]?.movements ?? 0), value: Number(posted?.[0]?.value ?? 0), exceptionReason }
@@ -657,8 +657,8 @@ export const splitLotFn = createServerFn({ method: "POST" })
 			p_quantity: data.quantity,
 			p_derivation: data.derivation,
 			p_user: userId,
-			p_expiry_date: data.expiryDate ?? null,
-			p_location: data.location?.trim() || null,
+			p_expiry_date: data.expiryDate ?? undefined,
+			p_location: data.location?.trim() || undefined,
 		})
 		if (error) throw new Error(`Erro ao fracionar o lote: ${publicDbMessage(error)}`)
 		const row = result?.[0]
@@ -689,20 +689,24 @@ export const listAdjustmentsFn = createServerFn({ method: "GET" })
 		const { data: rows, count, error } = await query
 		if (error) throw new Error(`Erro ao listar ajustes: ${publicDbMessage(error)}`)
 
-		const ids = (rows ?? []).map((row: { id: string }) => row.id)
-		const itemsByDoc = new Map<string, Array<Record<string, unknown>>>()
-		if (ids.length > 0) {
-			const { data: items } = await inv
-				.from("stock_adjustment_item")
-				.select("id, adjustment_id, lot_id, direction, quantity, reason_code, note, evidence_reference, measured_temperature_c, investigation_reference")
-				.in("adjustment_id", ids)
-			for (const item of items ?? []) {
-				itemsByDoc.set(item.adjustment_id, [...(itemsByDoc.get(item.adjustment_id) ?? []), item])
-			}
+		const items = await readAllPagesIn(
+			"os itens dos ajustes",
+			(rows ?? []).map((row) => row.id),
+			(chunk, from, to) =>
+				inv
+					.from("stock_adjustment_item")
+					.select("id, adjustment_id, lot_id, direction, quantity, reason_code, note, evidence_reference, measured_temperature_c, investigation_reference")
+					.in("adjustment_id", chunk)
+					.order("id")
+					.range(from, to)
+		)
+		const itemsByDoc = new Map<string, typeof items>()
+		for (const item of items) {
+			itemsByDoc.set(item.adjustment_id, [...(itemsByDoc.get(item.adjustment_id) ?? []), item])
 		}
 
 		return {
-			adjustments: (rows ?? []).map((row: { id: string }) => ({ ...row, items: itemsByDoc.get(row.id) ?? [] })),
+			adjustments: (rows ?? []).map((row) => ({ ...row, items: itemsByDoc.get(row.id) ?? [] })),
 			total: count ?? (rows ?? []).length,
 		}
 	})
@@ -797,14 +801,13 @@ export const listQuarantinedLotsFn = createServerFn({ method: "GET" })
 			.limit(100)
 		if (error) throw new Error(`Erro ao listar lotes em quarentena: ${publicDbMessage(error)}`)
 
-		const ingredientIds = [...new Set((lots ?? []).map((lot: { ingredient_id: string | null }) => lot.ingredient_id).filter(Boolean))] as string[]
-		const names = new Map<string, string>()
-		if (ingredientIds.length > 0) {
-			const { data: ingredients } = await kitchen().from("ingredient").select("id, description").in("id", ingredientIds)
-			for (const ingredient of ingredients ?? []) names.set(ingredient.id, ingredient.description)
-		}
+		const ingredientIds = (lots ?? []).map((lot) => lot.ingredient_id).filter((id): id is string => id != null)
+		const ingredients = await readAllPagesIn("os nomes dos itens em quarentena", ingredientIds, (chunk, from, to) =>
+			kitchen().from("ingredient").select("id, description").in("id", chunk).order("id").range(from, to)
+		)
+		const names = new Map(ingredients.map((ingredient) => [ingredient.id, ingredient.description]))
 
-		return (lots ?? []).map((lot: { ingredient_id: string | null }) => ({
+		return (lots ?? []).map((lot) => ({
 			...lot,
 			description: lot.ingredient_id ? (names.get(lot.ingredient_id) ?? "—") : "(preparação congelada)",
 		}))
