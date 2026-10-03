@@ -34,7 +34,8 @@
         "src/lib/nitro-build-id.ts"
       ],
       "project": ["src/**/*.{ts,tsx}", "routes/**/*.ts"],
-      "ignore": ["src/server/gtin.fn.ts", "src/server/gtin-specification.fn.ts", "src/components/features/global/gtin/GtinScannerField.tsx"]
+      "ignore": ["src/server/gtin.fn.ts", "src/server/gtin-specification.fn.ts", "src/components/features/global/gtin/GtinScannerField.tsx"],
+      "vite": false
     },
     "apps/rumaer": {
       "entry": ["src/client.tsx", "src/server.ts", "src/router.tsx", "vite.config.ts", "src/**/*.test.{ts,tsx}"],
@@ -90,7 +91,8 @@
     },
     "packages/database": {
       "entry": ["src/index.ts", "src/**/*.test.{ts,tsx}"],
-      "project": ["src/**/*.ts"]
+      "project": ["src/**/*.ts"],
+      "drizzle": false
     },
     "packages/hono-client": {
       "entry": ["src/index.ts", "src/**/*.test.{ts,tsx}"],

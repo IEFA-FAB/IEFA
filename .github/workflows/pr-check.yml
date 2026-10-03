@@ -60,6 +60,12 @@ jobs:
       - name: Agent guard cases
         run: bun test ./.claude/hooks/guard.test.ts
 
+      # Arquivo morto: nenhum entry o alcança. Só a categoria `files`, que está zerada; exports e
+      # dependências sem uso (centenas, muitos falsos positivos de runtime) seguem advisory em
+      # `bun run knip`. O #564 apagou uma leva de arquivos mortos que ninguém via. ~8 s.
+      - name: Unused files (knip)
+        run: bun run knip:files
+
       - name: Resolve scope
         id: scope
         env:
