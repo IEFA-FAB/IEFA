@@ -109,6 +109,7 @@ Leia antes de mexer na área (o Claude Code carrega sozinho pelo caminho do arqu
 | Área | Arquivo |
 |------|---------|
 | Banco, grants, RLS, auditoria de acesso, migrations | `.claude/rules/database.md` |
+| Acesso a dados no sisub (operation, função SQL ou supabase-js) | `.claude/rules/sisub-data-access.md` |
 | Tools de IA do chat e do MCP (`sisub-domain/agent`) | `.claude/rules/ai-tools.md` |
 | Providers de IA | `.claude/rules/ai-providers.md`, `AI-PROVIDERS.md` |
 | UI, design systems, Base UI | `.claude/rules/ui.md` |
