@@ -10,15 +10,62 @@
  * Este teste lê `pg_index` do banco vivo e exige que cada índice único parcial sem expressão e
  * sem gêmeo total nas mesmas colunas esteja coberto por algum bloco da regra. Bloco que não
  * corresponde mais a índice nenhum só é avisado: não quebra nada, só acusa à toa.
+ *
+ * Índice de migration ALHEIA não reprova. O banco é compartilhado e a migration de um PR é
+ * aplicada antes do merge dele; reprovar por ela derrubava o gate de todo PR aberto até a
+ * `main` ganhar o bloco (13 de 17 falhas do gate entre 26/09 e 02/10, sete PRs de uma vez em
+ * 01/10). "Alheia" é exato: versão registrada em `supabase_migrations.schema_migrations` que
+ * não existe nesta árvore, com um `create unique index` que cita a tabela. Vale para índice
+ * sem nome, nome truncado em 63 bytes e índice recriado. Índice criado fora de migration
+ * (editor SQL, hotfix) e índice das migrations desta árvore continuam reprovando.
  */
 
-import { readFileSync } from "node:fs"
+import { readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import postgres from "postgres"
 import { afterAll, beforeAll, describe, expect, test } from "vitest"
 import { describeSupabaseIntegration, getSisubDatabaseUrl } from "../supabase"
 
 const RULE_FILE = join(__dirname, "..", "..", "..", "..", "..", ".opengrep", "rules", "postgrest-partial-index-upsert.yaml")
+const MIGRATIONS_DIR = join(__dirname, "..", "..", "..", "..", "..", "packages", "database", "supabase", "migrations")
+
+/** Versões (`20261001170000`) das migrations desta árvore. */
+function readTreeVersions(): Set<string> {
+	return new Set(
+		readdirSync(MIGRATIONS_DIR)
+			.filter((file) => file.endsWith(".sql"))
+			.map((file) => file.split("_")[0] as string)
+	)
+}
+
+type AppliedMigration = { version: string; statements: string[] | null }
+type UncoveredIndex = { sch: string; tbl: string; iname: string }
+
+/**
+ * Separa o índice fora da regra em `foreign` (criado por migration aplicada que esta árvore não
+ * tem: é de outro PR) e `missing` (desta árvore, ou criado fora de migration: reprova).
+ */
+function partitionUncovered(
+	uncovered: readonly UncoveredIndex[],
+	applied: readonly AppliedMigration[],
+	treeVersions: ReadonlySet<string>
+): { foreign: UncoveredIndex[]; missing: UncoveredIndex[] } {
+	const foreignIndexStatements = applied
+		.filter((migration) => !treeVersions.has(migration.version))
+		.flatMap((migration) => migration.statements ?? [])
+		.map((statement) => statement.toLowerCase())
+		.filter((statement) => /create\s+unique\s+index/.test(statement))
+	const foreign: UncoveredIndex[] = []
+	const missing: UncoveredIndex[] = []
+	for (const index of uncovered) {
+		// Pela tabela do `ON [schema.]tabela`, e não pelo nome do índice, que pode ser gerado pelo
+		// Postgres ou truncado em 63 bytes. Nome de tabela do catálogo: [a-z0-9_$].
+		const table = new RegExp(`\\bon\\s+(?:only\\s+)?(?:"?[\\w$]+"?\\.)?"?${index.tbl.toLowerCase().replaceAll("$", "\\$")}"?(?![\\w$])`)
+		if (foreignIndexStatements.some((statement) => table.test(statement))) foreign.push(index)
+		else missing.push(index)
+	}
+	return { foreign, missing }
+}
 
 type RuleBlock = { table: RegExp; columns: RegExp }
 
@@ -44,6 +91,34 @@ function readRuleBlocks(): RuleBlock[] {
 }
 
 const isCovered = (blocks: RuleBlock[], table: string, columns: string) => blocks.some((b) => b.table.test(`"${table}"`) && b.columns.test(`"${columns}"`))
+
+describe("índice de migration alheia x desta árvore", () => {
+	const index = (tbl: string, iname = `${tbl}_idx`) => ({ sch: "kitchen", tbl, iname })
+	const otherPr = { version: "20991231000000", statements: ["CREATE UNIQUE INDEX ON kitchen.foo (bar) WHERE deleted_at IS NULL"] }
+
+	test("migration aplicada que a árvore não tem desculpa o índice da tabela dela, com ou sem nome", () => {
+		const out = partitionUncovered([index("foo", "foo_bar_idx")], [otherPr], new Set())
+		expect(out.foreign.map((i) => i.tbl)).toEqual(["foo"])
+		expect(out.missing).toEqual([])
+	})
+
+	test("a mesma migration já nesta árvore: reprova", () => {
+		const out = partitionUncovered([index("foo")], [otherPr], new Set(["20991231000000"]))
+		expect(out.missing.map((i) => i.tbl)).toEqual(["foo"])
+	})
+
+	test("índice criado fora de migration (editor SQL, hotfix): reprova", () => {
+		expect(partitionUncovered([index("bar")], [otherPr], new Set()).missing.map((i) => i.tbl)).toEqual(["bar"])
+	})
+
+	test("tabela citada só como prefixo de outra não conta", () => {
+		expect(partitionUncovered([index("fo")], [otherPr], new Set()).missing.map((i) => i.tbl)).toEqual(["fo"])
+	})
+
+	test("as versões desta árvore são lidas (proteção contra teste que passa vazio)", () => {
+		expect(readTreeVersions().size).toBeGreaterThan(100)
+	})
+})
 
 describe("regra postgrest-upsert-on-partial-unique-index: leitura dos blocos", () => {
 	test("todo bloco tem o par (tabela, colunas) e casa o índice que originou a regra", () => {
@@ -111,7 +186,18 @@ describeIf("regra postgrest-upsert-on-partial-unique-index × pg_index", () => {
 			order by sch, tbl, iname`
 
 		const blocks = readRuleBlocks()
-		const missing = rows.filter((r) => !isCovered(blocks, r.tbl, r.cols)).map((r) => `${r.iname} (${r.sch}.${r.tbl}: ${r.cols})`)
+		const applied = await sql<AppliedMigration[]>`select version, statements from supabase_migrations.schema_migrations`
+		const { foreign, missing: uncoveredHere } = partitionUncovered(
+			rows.filter((r) => !isCovered(blocks, r.tbl, r.cols)),
+			applied,
+			readTreeVersions()
+		)
+		if (foreign.length > 0) {
+			console.warn(
+				`[partial-index-upsert-rule] índice parcial fora da regra, de migration aplicada que esta árvore não tem (outro PR): ${foreign.map((r) => r.iname).join(", ")}`
+			)
+		}
+		const missing = uncoveredHere.map((r) => `${r.iname} (${r.sch}.${r.tbl})`)
 		expect(missing, "índice único parcial fora da regra: acrescente o bloco (tabela, colunas) em .opengrep/rules/postgrest-partial-index-upsert.yaml").toEqual(
 			[]
 		)
