@@ -53,10 +53,11 @@
  *   SISUB_DATABASE_URL=postgres://... bun run audit:rls
  *   ... --json    saída para máquina
  *
- * Sai com código 1 se houver qualquer ERRO. Read-only: só consulta o catálogo.
+ * Sai com código 1 se houver qualquer ERRO, e com 2 se a auditoria não rodou (variável ausente,
+ * banco sem resposta, consulta além do prazo): aí rode de novo. Read-only: só consulta o catálogo.
  */
 
-import postgres from "postgres"
+import { createResilientPostgres, QueryDeadlineError } from "../src/postgres-pool.ts"
 import { SUPABASE_SCHEMAS } from "./supabase-schemas.ts"
 
 /**
@@ -82,7 +83,18 @@ if (!url) {
 
 const asJson = process.argv.includes("--json")
 // Transaction pooler (6543) não suporta prepared statements — mesmo motivo do db.server.ts.
-const sql = postgres(url, { prepare: false })
+// A auditoria leva ~4 s, mas no gate de integração já ficou 15 min muda, presa no banco
+// compartilhado, até o timeout do job cancelar o run sem dizer o quê. O pool resiliente do
+// pacote (o mesmo do incidente #326) dá prazo a cada consulta, contado do início da execução,
+// e rejeita com QUERY_DEADLINE; o `connect_timeout` cobre a conexão que não abre.
+const sql = createResilientPostgres(url, { connection: { prepare: false, connect_timeout: 15 }, queryDeadlineMs: 30_000, transactionDeadlineMs: 30_000 }).sql
+
+/** A auditoria `name` falhou: o erro sai com o nome dela, para o gate dizer qual consulta travou. */
+function labeled<T>(name: string, promise: Promise<T>): Promise<T> {
+	return promise.catch((error: unknown) => {
+		throw new Error(`${name}: ${error instanceof Error ? error.message : String(error)}`, { cause: error })
+	})
+}
 
 /**
  * Lê os schemas expostos direto do setting do role `authenticator`. Se o role da
@@ -104,8 +116,11 @@ async function resolveExposedSchemas(): Promise<string[]> {
 			.map((s) => s.trim())
 			.filter(Boolean)
 			.filter((s) => s !== "graphql_public")
-	} catch {
-		return FALLBACK_EXPOSED_SCHEMAS
+	} catch (error) {
+		// Só a falta de permissão para ler o setting cai na lista fixa. Conexão que não abre ou
+		// consulta além do prazo sobe: auditar a lista fixa calado esconderia o banco travado.
+		if ((error as { code?: string }).code === "42501") return FALLBACK_EXPOSED_SCHEMAS
+		throw error
 	}
 }
 
@@ -937,24 +952,24 @@ async function auditDefaultAclAnySchema(): Promise<Finding[]> {
 }
 
 async function main() {
-	const schemas = await resolveExposedSchemas()
+	const schemas = await labeled("resolveExposedSchemas", resolveExposedSchemas())
 	const findings = (
 		await Promise.all([
-			auditTables(schemas),
-			auditAnonPolicies(schemas),
-			auditSecurityDefiner(schemas),
-			auditFunctionSearchPath(schemas),
-			auditViews(schemas),
-			auditDefinerExecuteGrants(schemas),
-			auditClientWriteGrants(schemas),
-			auditClientExecute(schemas),
-			auditServiceRoleExecute(schemas),
-			auditDefaultAcl(schemas),
-			auditClientSchemaUsage(schemas),
-			auditClientTableGrants(schemas),
-			auditForeignKeyIndexes(),
-			auditAccessTriggers(),
-			auditDefaultAclAnySchema(),
+			labeled("auditTables", auditTables(schemas)),
+			labeled("auditAnonPolicies", auditAnonPolicies(schemas)),
+			labeled("auditSecurityDefiner", auditSecurityDefiner(schemas)),
+			labeled("auditFunctionSearchPath", auditFunctionSearchPath(schemas)),
+			labeled("auditViews", auditViews(schemas)),
+			labeled("auditDefinerExecuteGrants", auditDefinerExecuteGrants(schemas)),
+			labeled("auditClientWriteGrants", auditClientWriteGrants(schemas)),
+			labeled("auditClientExecute", auditClientExecute(schemas)),
+			labeled("auditServiceRoleExecute", auditServiceRoleExecute(schemas)),
+			labeled("auditDefaultAcl", auditDefaultAcl(schemas)),
+			labeled("auditClientSchemaUsage", auditClientSchemaUsage(schemas)),
+			labeled("auditClientTableGrants", auditClientTableGrants(schemas)),
+			labeled("auditForeignKeyIndexes", auditForeignKeyIndexes()),
+			labeled("auditAccessTriggers", auditAccessTriggers()),
+			labeled("auditDefaultAclAnySchema", auditDefaultAclAnySchema()),
 		])
 	).flat()
 
@@ -973,12 +988,16 @@ async function main() {
 		console.log(`\n${errors.length} erro(s), ${warnings.length} aviso(s).`)
 	}
 
-	await sql.end()
+	await sql.end({ timeout: 5 })
 	process.exit(errors.length > 0 ? 1 : 0)
 }
 
 main().catch(async (error) => {
-	console.error("Falha na auditoria de RLS:", error instanceof Error ? error.message : error)
+	const deadline = error instanceof QueryDeadlineError || (error instanceof Error && error.cause instanceof QueryDeadlineError)
+	console.error(
+		deadline ? "Auditoria de RLS sem resposta do banco (rode de novo; se repetir, veja locks em pg_stat_activity):" : "Falha na auditoria de RLS:",
+		error instanceof Error ? error.message : error
+	)
 	await sql.end({ timeout: 5 }).catch(() => {})
 	process.exit(2)
 })
