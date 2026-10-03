@@ -45,7 +45,7 @@
     "check": "biome check . && bun run typecheck --concurrency=2 && bun run lint:tailwind",
     "doctor": "bun scripts/doctor.ts",
     "lint:tailwind": "bun scripts/lint-tailwind.ts",
-    "ci": "bun run lint && bun run typecheck",
+    "ci": "bun run lint --concurrency=2 && bun run typecheck --concurrency=2",
     "clean": "bunx turbo run clean && rm -rf node_modules .turbo",
     "clean:cache": "rm -rf .turbo node_modules/.cache",
     "knip": "knip",
