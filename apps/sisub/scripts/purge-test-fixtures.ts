@@ -111,6 +111,16 @@ function isFollowedOnDelete(onDelete: string): boolean {
 	return onDelete === "a" || onDelete === "r" || onDelete === "c"
 }
 
+/** Teto de cada comando da faxina, e de espera por trava (as fixtures podem estar em uso pelo gate). */
+const STATEMENT_TIMEOUT = "120s"
+const LOCK_TIMEOUT = "15s"
+
+const sqlState = (e: unknown) => (e as { code?: unknown } | null)?.code
+/** 55P03 = lock_not_available (o `lock_timeout` disparou). */
+const isLockTimeout = (e: unknown) => sqlState(e) === "55P03"
+/** 57014 = query_canceled (o `statement_timeout` disparou). */
+const isStatementTimeout = (e: unknown) => sqlState(e) === "57014"
+
 const qualified = (schema: string, table: string) => `"${schema}"."${table}"`
 const key = (r: Row) => `${r.schema}.${r.table}#${r.ctid}`
 
@@ -119,7 +129,7 @@ async function main() {
 	const url = process.env.SISUB_DATABASE_URL
 	if (!url) throw new Error("SISUB_DATABASE_URL ausente")
 
-	const sql = postgres(url, { max: 1, prepare: false })
+	const sql = postgres(url, { max: 1, prepare: false, connect_timeout: 15 })
 	try {
 		// Uma transação só: os `ctid` coletados na varredura precisam continuar válidos no delete.
 		// Sem `--apply` termina em ROLLBACK, então o dry-run também exercita os deletes de verdade
@@ -130,6 +140,10 @@ async function main() {
 			// auditadas. Apagar lixo de teste não é revogar acesso de ninguém — e não vai ao log.
 			// LOCAL à transação: some no commit/rollback (seguro no transaction pooler).
 			await tx`select set_config('iefa.audit_bypass', 'purge-test-fixtures', true)`
+			// Prazos no SERVIDOR, locais à transação. Matar só o processo (teto do passo no CI) deixava
+			// o backend esperando a trava de outra suíte com a transação aberta; aqui o próprio banco
+			// cancela o comando e solta o que segurava, e o erro diz qual foi.
+			await tx`select set_config('statement_timeout', ${STATEMENT_TIMEOUT}, true), set_config('lock_timeout', ${LOCK_TIMEOUT}, true)`
 			const fks = await loadForeignKeys(tx)
 			const { roots, suspects, deferred, timestamped } = await findCandidates(tx, minAgeMinutes, force)
 
@@ -160,6 +174,14 @@ async function main() {
 		if (e instanceof DryRun) {
 			console.log(`\n🔎 dry-run: ${e.rows.length} linha(s) seriam removidas. Rode com --apply para efetivar.`)
 			return
+		}
+		if (isLockTimeout(e)) {
+			// Outra suíte segura a linha agora: como `FreshData`, o próximo passe recolhe.
+			console.log(`\n⏭️  Linha de fixture travada por outra transação (lock_timeout de ${LOCK_TIMEOUT}). O próximo passe recolhe.`)
+			return
+		}
+		if (isStatementTimeout(e)) {
+			throw new Error(`A faxina passou de ${STATEMENT_TIMEOUT} num comando e o banco o cancelou (nada foi apagado): ${(e as Error).message}`)
 		}
 		if (e instanceof FreshData) {
 			// Não é erro: outra suíte está usando essas linhas. Sair 0 evita passo vermelho no CI
