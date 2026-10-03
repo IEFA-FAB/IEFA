@@ -245,7 +245,8 @@ async function loadActivityLineNames(codes: readonly string[]): Promise<Map<stri
 	const numeric = [...new Set(codes.filter((code) => /^\d{4}$/.test(code)).map(Number))]
 	const names = new Map<string, string>()
 	if (numeric.length === 0) return names
-	const { data } = await comprasGov().from("compras_material_classe").select("codigo_classe, nome_classe").in("codigo_classe", numeric)
+	const { data, error } = await comprasGov().from("compras_material_classe").select("codigo_classe, nome_classe").in("codigo_classe", numeric)
+	if (error) throw new Error(`Erro ao ler as classes do CATMAT: ${publicDbMessage(error)}`)
 	for (const row of data ?? []) names.set(String(row.codigo_classe), String(row.nome_classe))
 	return names
 }

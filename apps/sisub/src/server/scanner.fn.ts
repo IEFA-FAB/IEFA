@@ -52,13 +52,14 @@ export const fetchScannerProfileFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive() }))
 	.handler(async ({ data }): Promise<ScannerProfile> => {
 		const { userId } = await requireStorageForKitchen(1, data.kitchenId)
-		const { data: row } = await inventory()
+		const { data: row, error } = await inventory()
 			.from("scanner_profile")
 			.select("max_key_interval_ms, min_length, terminator, idle_timeout_ms, prefix, suffix, gs_substitute")
 			.eq("user_id", userId)
 			.eq("kitchen_id", data.kitchenId)
 			.maybeSingle()
-		if (!row) return DEFAULT_SCANNER_PROFILE
+		// De propósito: sem o perfil salvo, o leitor funciona com o padrão; a conferência não para por isso.
+		if (error || !row) return DEFAULT_SCANNER_PROFILE
 		return {
 			maxKeyIntervalMs: Number(row.max_key_interval_ms),
 			minLength: Number(row.min_length),

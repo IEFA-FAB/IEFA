@@ -501,7 +501,8 @@ export const fetchIssueRequestFn = createServerFn({ method: "GET" })
 
 		const names = new Map<string, { description: string | null; measure_unit: string | null }>()
 		if (ingredientIds.length > 0) {
-			const { data: ingredients } = await kit.from("ingredient").select("id, description, measure_unit").in("id", ingredientIds)
+			const { data: ingredients, error: ingredientsError } = await kit.from("ingredient").select("id, description, measure_unit").in("id", ingredientIds)
+			if (ingredientsError) throw new Error(`Erro ao carregar os insumos: ${publicDbMessage(ingredientsError)}`)
 			for (const ingredient of ingredients ?? []) names.set(ingredient.id, ingredient)
 		}
 
@@ -644,7 +645,8 @@ export const fetchReturnableLotsFn = createServerFn({ method: "GET" })
 	.validator(z.object({ requestId: z.uuid(), ingredientId: z.uuid() }))
 	.handler(async ({ data }) => {
 		const inv = inventory()
-		const { data: request } = await inv.from("stock_issue_request").select("kitchen_id").eq("id", data.requestId).maybeSingle()
+		const { data: request, error: requestError } = await inv.from("stock_issue_request").select("kitchen_id").eq("id", data.requestId).maybeSingle()
+		if (requestError) throw new Error(`Erro ao carregar a requisição: ${publicDbMessage(requestError)}`)
 		if (!request) throw new Error("Requisição não encontrada")
 		await requireStorageForKitchen(1, Number(request.kitchen_id))
 
@@ -667,7 +669,8 @@ export const fetchReturnableLotsFn = createServerFn({ method: "GET" })
 
 		const lotIds = [...net.entries()].filter(([, quantity]) => quantity > 0).map(([lotId]) => lotId)
 		if (lotIds.length === 0) return { lots: [] }
-		const { data: lots } = await inv.from("stock_lot").select("id, short_code, lot_code, expiry_date").in("id", lotIds)
+		const { data: lots, error: lotsError } = await inv.from("stock_lot").select("id, short_code, lot_code, expiry_date").in("id", lotIds)
+		if (lotsError) throw new Error(`Erro ao carregar os lotes devolvíveis: ${publicDbMessage(lotsError)}`)
 		return {
 			lots: (lots ?? [])
 				.map((lot) => ({

@@ -13,8 +13,8 @@ import { PCA_FOOD_CLASS_CODES } from "@iefa/sisub-domain/pncp-pca"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAuth } from "@/lib/auth.server"
-import { getComprasGovIntegrationClient, getProcurementClient } from "@/lib/supabase.server"
 import { publicDbMessage } from "@/lib/db-error-message"
+import { getComprasGovIntegrationClient, getProcurementClient } from "@/lib/supabase.server"
 
 /** CNPJ raiz do Comando da Aeronáutica: um plano cobre todas as UASGs do órgão. */
 const COMAER_CNPJ = "00394429000100"
@@ -186,12 +186,13 @@ export const fetchPcaItemsFn = createServerFn({ method: "GET" })
 			itensForaDaSoma: scope.length - comQuantidade.length,
 		}
 
-		const { data: snap } = await supabase
+		const { data: snap, error: snapError } = await supabase
 			.from("pncp_pca_snapshot")
 			.select("applied_at, row_count")
 			.eq("cnpj_orgao", COMAER_CNPJ)
 			.eq("ano_pca", data.ano)
 			.maybeSingle()
+		if (snapError) throw new Error(`Erro ao ler a última carga do PCA: ${publicDbMessage(snapError)}`)
 
 		return {
 			items: mapped,

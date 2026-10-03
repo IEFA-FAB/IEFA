@@ -95,10 +95,12 @@ export const listLiquidacoesFn = createServerFn({ method: "GET" })
 		if (liquidacoes.length === 0) return []
 
 		const ids = liquidacoes.map((l: { id: string }) => l.id)
-		const [{ data: pagamentos }, { data: deductionRows, error: deductionError }] = await Promise.all([
+		const [{ data: pagamentos, error: pagamentosError }, { data: deductionRows, error: deductionError }] = await Promise.all([
 			fin.from("pagamento").select("liquidacao_id, valor").in("liquidacao_id", ids),
 			fin.from("liquidacao_deduction").select(selectColumns(DEDUCTION_COLUMNS)).in("liquidacao_id", ids).order("created_at"),
 		])
+		// Sem os pagamentos, toda liquidação apareceria "a pagar" inteira.
+		if (pagamentosError) throw new Error(`Erro ao listar os pagamentos: ${publicDbMessage(pagamentosError)}`)
 		if (deductionError) throw new Error(`Erro ao listar as deduções: ${publicDbMessage(deductionError)}`)
 		const pagamentosByLiquidacao = new Map<string, number[]>()
 		for (const pag of pagamentos ?? []) {
@@ -153,25 +155,34 @@ export const suggestLiquidacaoFromReceiptFn = createServerFn({ method: "GET" })
 		// Só a cozinha do recebimento é lida antes do guard — o resto (valores,
 		// empenho, NF-e) fica atrás dele. Devolver "não encontrado" x "existe"
 		// para quem não tem escopo é um oráculo barato, mas é um oráculo.
-		const { data: receiptScope } = await inv.from("goods_receipt").select("kitchen_id").eq("id", data.receiptId).maybeSingle()
+		const { data: receiptScope, error: scopeError } = await inv.from("goods_receipt").select("kitchen_id").eq("id", data.receiptId).maybeSingle()
+		if (scopeError) throw new Error(`Erro ao carregar o recebimento: ${publicDbMessage(scopeError)}`)
 		if (!receiptScope) throw new Error("Recebimento não encontrado")
 
 		const kitchenDb = getServerClient("kitchen")
-		const { data: kitchenRow } = await kitchenDb.from("kitchen").select("unit_id, purchase_unit_id").eq("id", receiptScope.kitchen_id).single()
+		const { data: kitchenRow, error: kitchenError } = await kitchenDb
+			.from("kitchen")
+			.select("unit_id, purchase_unit_id")
+			.eq("id", receiptScope.kitchen_id)
+			.maybeSingle()
+		if (kitchenError) throw new Error(`Erro ao carregar a cozinha do recebimento: ${publicDbMessage(kitchenError)}`)
 		// Quem empenha e liquida é a unidade COMPRADORA: inverter a precedência
 		// autorizaria contra a unidade errada. Ver `resolvePurchaseUnitId`.
 		const unitId = resolvePurchaseUnitId({ unitId: kitchenRow?.unit_id ?? null, purchaseUnitId: kitchenRow?.purchase_unit_id ?? null })
 		if (unitId == null) throw new Error("Cozinha do recebimento não tem unidade vinculada")
 		await requireUnitScope(1, unitId)
 
-		const { data: receipt } = await inv
+		const { data: receipt, error: receiptError } = await inv
 			.from("goods_receipt")
 			.select("id, kitchen_id, status, definitive_at, empenho_id, nfe_document_id")
 			.eq("id", data.receiptId)
 			.maybeSingle()
+		if (receiptError) throw new Error(`Erro ao carregar o recebimento: ${publicDbMessage(receiptError)}`)
 		if (!receipt) throw new Error("Recebimento não encontrado")
 
-		const { data: items } = await inv.from("goods_receipt_item").select("received_qty_base, unit_cost").eq("receipt_id", data.receiptId)
+		// Itens que não se leem dariam liquidação sugerida de R$ 0,00 com cara de cálculo.
+		const { data: items, error: itemsError } = await inv.from("goods_receipt_item").select("received_qty_base, unit_cost").eq("receipt_id", data.receiptId)
+		if (itemsError) throw new Error(`Erro ao carregar os itens do recebimento: ${publicDbMessage(itemsError)}`)
 		// `suggestedLiquidacaoValue` fecha em centavo sem o viés do arredondamento
 		// anterior, que descia o meio-centavo sempre — ver `roundToCents` em
 		// liquidacao-math.ts.
@@ -543,14 +554,16 @@ export const fetchPagamentoPanelFn = createServerFn({ method: "GET" })
 		const empenhoIds = [...new Set(liquidacoes.map((l) => l.empenho_id))]
 		const supplierByEmpenho = new Map<string, string>()
 		if (empenhoIds.length > 0) {
-			const { data: empenhos } = await fin.from("empenho").select("id, favorecido_nome, favorecido_cnpj").in("id", empenhoIds)
+			const { data: empenhos, error: empenhosError } = await fin.from("empenho").select("id, favorecido_nome, favorecido_cnpj").in("id", empenhoIds)
+			if (empenhosError) throw new Error(`Erro ao ler os favorecidos: ${publicDbMessage(empenhosError)}`)
 			for (const empenho of empenhos ?? []) {
 				supplierByEmpenho.set(empenho.id, empenho.favorecido_nome ?? empenho.favorecido_cnpj ?? "(sem favorecido)")
 			}
 		}
 
 		// prazo médio: liquidação → primeiro pagamento, por fornecedor
-		const { data: pagamentos } = await fin.from("pagamento").select("liquidacao_id, data").eq("unit_id", data.unitId).limit(500)
+		const { data: pagamentos, error: pagamentosError } = await fin.from("pagamento").select("liquidacao_id, data").eq("unit_id", data.unitId).limit(500)
+		if (pagamentosError) throw new Error(`Erro ao ler os pagamentos: ${publicDbMessage(pagamentosError)}`)
 		const firstPagamentoByLiquidacao = new Map<string, string>()
 		for (const pag of pagamentos ?? []) {
 			const current = firstPagamentoByLiquidacao.get(pag.liquidacao_id)
@@ -767,7 +780,12 @@ export const registerDeductionRemittanceFn = createServerFn({ method: "POST" })
 					.select("id")
 				if (error) throw new Error(`Erro ao registrar o recolhimento: ${publicDbMessage(error)}`)
 				if ((updated ?? []).length === 0) {
-					const { data: now } = await finance().from("liquidacao_deduction").select("paid_on, document_number").eq("id", data.deductionId).maybeSingle()
+					// Leitura só para o texto da recusa: se falhar, a mensagem sai genérica, e a recusa vale igual.
+					const { data: now, error: _nowError } = await finance()
+						.from("liquidacao_deduction")
+						.select("paid_on, document_number")
+						.eq("id", data.deductionId)
+						.maybeSingle()
 					throw new Error(
 						deductionRemittanceProblem({ paidOn: now?.paid_on ?? "outra data", documentNumber: now?.document_number ?? null }) ??
 							"Esta retenção já foi recolhida; o registro não é sobrescrito."
