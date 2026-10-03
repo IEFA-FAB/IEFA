@@ -16,7 +16,8 @@
  * @migration 20260922100000_inventory_opening_balance
  */
 
-import { CONSERVATION_CLASSES, OPENING_BALANCE_SOURCES, type OpeningBalanceSource, type OpeningCostSource } from "@iefa/sisub-domain"
+import type { Json } from "@iefa/database"
+import { CONSERVATION_CLASSES, OPENING_BALANCE_SOURCES, OPENING_COST_SOURCES, type OpeningBalanceSource, type OpeningCostSource } from "@iefa/sisub-domain"
 import {
 	buildIngredientIndex,
 	buildOpeningCatalogSheet,
@@ -38,10 +39,10 @@ import {
 } from "@/lib/opening-balance.server"
 import { readAllPages, readAllPagesIn } from "@/lib/read-all-pages"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
-import { getLooseServerClient } from "@/lib/supabase.server"
+import { getServerClient } from "@/lib/supabase.server"
 
-const inventory = () => getLooseServerClient("inventory")
-const kitchen = () => getLooseServerClient("kitchen")
+const inventory = () => getServerClient("inventory")
+const kitchen = () => getServerClient("kitchen")
 
 /** Teto do arquivo enviado: 5.000 linhas de CSV cabem com folga em 3 MB. */
 const MAX_SHEET_CHARS = 3_000_000
@@ -87,8 +88,11 @@ async function requireOpeningDoc(openingBalanceId: string, level: 1 | 2 | 3) {
 	return { ctx, kitchenId, status: data.status as OpeningDocRow["status"] }
 }
 
+/** O CHECK de `opening_balance_item.cost_source` é o vocabulário (contrato em `sql-vocabulary`). */
+const toCostSource = (value: string | null): OpeningCostSource | null => OPENING_COST_SOURCES.find((source) => source === value) ?? null
+
 async function loadItems(openingBalanceId: string): Promise<OpeningItemRow[]> {
-	return readAllPages<OpeningItemRow>("as linhas da carga", (from, to) =>
+	const rows = await readAllPages("as linhas da carga", (from, to) =>
 		inventory()
 			.from("opening_balance_item")
 			.select("id, line_number, ingredient_id, quantity, lot_code, expiry_date, location, unit_cost, cost_source, cost_reference")
@@ -97,6 +101,7 @@ async function loadItems(openingBalanceId: string): Promise<OpeningItemRow[]> {
 			.order("id")
 			.range(from, to)
 	)
+	return rows.map((row) => ({ ...row, cost_source: toCostSource(row.cost_source) }))
 }
 
 const num = (value: number | string | null) => (value == null ? null : Number(value))
@@ -130,10 +135,8 @@ export const fetchOpeningBalanceFn = createServerFn({ method: "GET" })
 		if (draftRow) {
 			const items = await loadItems(draftRow.id)
 			const ingredientIds = [...new Set(items.map((item) => item.ingredient_id))]
-			const described = await readAllPagesIn<{ id: string; description: string | null; measure_unit: string | null }>(
-				"os insumos da carga",
-				ingredientIds,
-				(chunk, from, to) => kitchen().from("ingredient").select("id, description, measure_unit").in("id", chunk).order("id").range(from, to)
+			const described = await readAllPagesIn("os insumos da carga", ingredientIds, (chunk, from, to) =>
+				kitchen().from("ingredient").select("id, description, measure_unit").in("id", chunk).order("id").range(from, to)
 			)
 			const ingredientById = new Map(described.map((row) => [row.id, row]))
 			const suggestions = await suggestOpeningCosts(ingredientIds, await loadKitchenUnitId(data.kitchenId))
@@ -269,7 +272,7 @@ export const importOpeningSheetFn = createServerFn({ method: "POST" })
 				expiry_date: line.expiryDate,
 				location: line.location,
 			})),
-			p_rejections: rejections,
+			p_rejections: rejections as unknown as Json,
 		})
 		if (error) throw new Error(`Erro ao salvar o rascunho da carga: ${publicDbMessage(error)}`)
 

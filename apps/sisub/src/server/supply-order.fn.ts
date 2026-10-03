@@ -22,10 +22,10 @@ import { publicDbMessage } from "@/lib/db-error-message"
 import { readAllPagesIn } from "@/lib/read-all-pages"
 import { checkSupplierSicaf } from "@/lib/sicaf.server"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
-import { getLooseServerClient } from "@/lib/supabase.server"
+import { getServerClient } from "@/lib/supabase.server"
 import { sicafDecision, supplyOrderLinkProblems, supplyOrderLinkUpdateProblem } from "@/lib/supply-order-gate"
 
-const procurement = () => getLooseServerClient("procurement")
+const procurement = () => getServerClient("procurement")
 
 /** OFs de uma cozinha, com itens e dados do empenho. */
 export const listSupplyOrdersFn = createServerFn({ method: "GET" })
@@ -49,14 +49,14 @@ export const listSupplyOrdersFn = createServerFn({ method: "GET" })
 			.select("id, supply_order_id, arp_item_id, purchase_item_id, ordered_qty, unit_price")
 			.in(
 				"supply_order_id",
-				list.map((o: { id: string }) => o.id)
+				list.map((o) => o.id)
 			)
 
 		// OF aguardando empenho tem `empenho_id` nulo: fica fora da consulta e sai com `empenho: null`.
-		const empenhoIds = [...new Set(list.map((o: { empenho_id: string | null }) => o.empenho_id).filter((id: string | null): id is string => id != null))]
-		const empenhoById = new Map<string, unknown>()
+		const empenhoIds = [...new Set(list.map((o) => o.empenho_id).filter((id): id is string => id != null))]
+		const empenhoById = new Map<string, { id: string; numero_empenho: string; valor_total: number; status: string }>()
 		if (empenhoIds.length > 0) {
-			const { data: empenhos, error: empenhoError } = await getLooseServerClient("finance")
+			const { data: empenhos, error: empenhoError } = await getServerClient("finance")
 				.from("empenho")
 				.select("id, numero_empenho, valor_total, status")
 				.in("id", empenhoIds)
@@ -64,11 +64,11 @@ export const listSupplyOrdersFn = createServerFn({ method: "GET" })
 			for (const e of empenhos ?? []) empenhoById.set(e.id, e)
 		}
 
-		return list.map((order: { id: string; empenho_id: string | null }) => ({
+		return list.map((order) => ({
 			...order,
 			empenho: order.empenho_id ? (empenhoById.get(order.empenho_id) ?? null) : null,
 			awaitingEmpenho: order.empenho_id == null,
-			items: (items ?? []).filter((item: { supply_order_id: string }) => item.supply_order_id === order.id),
+			items: (items ?? []).filter((item) => item.supply_order_id === order.id),
 		}))
 	})
 
@@ -84,18 +84,18 @@ async function resolvePurchaseItemsByArpItem(arpItemIds: readonly string[]): Pro
 	const proc = procurement()
 
 	const { data: arpItems } = await proc.from("arp_item").select("id, catmat_item_codigo").in("id", ids)
-	const catmatByArpItem = new Map<string, string>()
+	const catmatByArpItem = new Map<string, number>()
 	for (const row of arpItems ?? []) {
-		if (row.catmat_item_codigo) catmatByArpItem.set(row.id as string, String(row.catmat_item_codigo))
+		if (row.catmat_item_codigo) catmatByArpItem.set(row.id, row.catmat_item_codigo)
 	}
 	const catmats = [...new Set(catmatByArpItem.values())]
 	if (catmats.length === 0) return resolved
 
 	const { data: purchaseItems } = await proc.from("purchase_item").select("id, catmat_item_codigo").in("catmat_item_codigo", catmats)
-	const byCatmat = new Map<string, string[]>()
+	const byCatmat = new Map<number, string[]>()
 	for (const row of purchaseItems ?? []) {
-		const key = String(row.catmat_item_codigo)
-		byCatmat.set(key, [...(byCatmat.get(key) ?? []), row.id as string])
+		if (row.catmat_item_codigo == null) continue
+		byCatmat.set(row.catmat_item_codigo, [...(byCatmat.get(row.catmat_item_codigo) ?? []), row.id])
 	}
 	for (const [arpItemId, catmat] of catmatByArpItem) {
 		const candidates = byCatmat.get(catmat) ?? []
@@ -106,9 +106,9 @@ async function resolvePurchaseItemsByArpItem(arpItemIds: readonly string[]): Pro
 
 /** Itens de ARP cobertos pela NE — pelos itens dela (`finance.empenho_item`). */
 async function coveredArpItemIds(empenhoId: string): Promise<string[]> {
-	const { data, error } = await getLooseServerClient("finance").from("empenho_item").select("arp_item_id").eq("empenho_id", empenhoId)
+	const { data, error } = await getServerClient("finance").from("empenho_item").select("arp_item_id").eq("empenho_id", empenhoId)
 	if (error) throw new Error(`Erro ao ler os itens do empenho: ${publicDbMessage(error)}`)
-	const ids: string[] = (data ?? []).map((row: { arp_item_id: string | null }) => row.arp_item_id).filter((id: string | null): id is string => id != null)
+	const ids: string[] = (data ?? []).map((row) => row.arp_item_id).filter((id): id is string => id != null)
 	return [...new Set(ids)]
 }
 
@@ -131,8 +131,15 @@ async function supplierCnpjFor(favorecidoCnpj: string | null, arpItemIds: readon
 	if (error) throw new Error(`Erro ao ler o fornecedor da ARP: ${publicDbMessage(error)}`)
 	return supplierCnpjFromRows(
 		favorecidoCnpj,
-		(data ?? []).map((row: { ni_fornecedor: string | null }) => row.ni_fornecedor)
+		(data ?? []).map((row) => row.ni_fornecedor)
 	)
+}
+
+async function loadEmpenhoForOrder(finance: ReturnType<typeof getServerClient<"finance">>, empenhoId: string) {
+	const { data: row, error } = await finance.from("empenho").select("unit_id, status, favorecido_cnpj").eq("id", empenhoId).maybeSingle()
+	if (error) throw new Error(`Erro ao conferir o empenho: ${publicDbMessage(error)}`)
+	if (!row) throw new Error("Empenho não encontrado")
+	return row
 }
 
 /**
@@ -170,28 +177,20 @@ export const createSupplyOrderFn = createServerFn({ method: "POST" })
 		// (favorecido da NE, ou o fornecedor dos itens de ARP) e a consulta acontece
 		// aqui, na emissão. OF aguardando empenho não tem fornecedor conhecido ainda.
 		let sicafStatus: string | null = null
-		const finance = getLooseServerClient("finance")
-		let empenhoRow: { unit_id: number | null; status: string; favorecido_cnpj: string | null } | null = null
-		if (data.empenhoId) {
-			const { data: row, error: empenhoError } = await finance.from("empenho").select("unit_id, status, favorecido_cnpj").eq("id", data.empenhoId).maybeSingle()
-			if (empenhoError) throw new Error(`Erro ao conferir o empenho: ${publicDbMessage(empenhoError)}`)
-			if (!row) throw new Error("Empenho não encontrado")
-			empenhoRow = row
-		}
+		const finance = getServerClient("finance")
+		const empenhoRow = data.empenhoId ? await loadEmpenhoForOrder(finance, data.empenhoId) : null
 		const covered = empenhoRow && data.empenhoId ? await coveredArpItemIds(data.empenhoId) : []
 
 		// O guard acima prova só a cozinha. O empenho vinha do corpo e o `unit_id`
 		// dele era lido sem comparação: a OF consumia o saldo de outra OM. A unidade
 		// compradora é calculada como em `listEmpenhosForKitchenFn`, de onde a tela
 		// tira o empenho — e ANTES do SICAF, que não deve consultar fornecedor alheio.
-		const kitchenDb = getLooseServerClient("kitchen")
+		const kitchenDb = getServerClient("kitchen")
 		const { data: kitchenRow, error: kitchenError } = await kitchenDb.from("kitchen").select("unit_id, purchase_unit_id").eq("id", data.kitchenId).maybeSingle()
 		if (kitchenError) throw new Error(`Erro ao conferir a cozinha: ${publicDbMessage(kitchenError)}`)
 		const problems = supplyOrderLinkProblems({
 			kitchenPurchaseUnitId: resolvePurchaseUnitId({ unitId: kitchenRow?.unit_id ?? null, purchaseUnitId: kitchenRow?.purchase_unit_id ?? null }),
-			empenho: empenhoRow
-				? { unitId: empenhoRow.unit_id == null ? null : Number(empenhoRow.unit_id), status: String(empenhoRow.status), coveredArpItemIds: covered }
-				: null,
+			empenho: empenhoRow ? { unitId: empenhoRow.unit_id, status: empenhoRow.status, coveredArpItemIds: covered } : null,
 			itemArpItemIds: data.items.map((item) => item.arpItemId),
 		})
 		if (problems.length > 0) throw new Error(problems.join("; "))
@@ -244,7 +243,7 @@ export const createSupplyOrderFn = createServerFn({ method: "POST" })
 			const isGate = /excede|anulado|preço/.test(itemsError.message)
 			throw new Error(isGate ? itemsError.message : `Erro nos itens da OF: ${publicDbMessage(itemsError)}`)
 		}
-		return { supplyOrderId: order.id as string, awaitingEmpenho: data.empenhoId == null }
+		return { supplyOrderId: order.id, awaitingEmpenho: data.empenhoId == null }
 	})
 
 /**
@@ -267,7 +266,7 @@ export const linkSupplyOrderEmpenhoFn = createServerFn({ method: "POST" })
 		if (order.empenho_id != null) throw new Error("A OF já tem empenho vinculado")
 		if (order.status === "cancelled") throw new Error("OF cancelada não recebe empenho")
 
-		const finance = getLooseServerClient("finance")
+		const finance = getServerClient("finance")
 		const { data: empenhoRow, error: empenhoError } = await finance
 			.from("empenho")
 			.select("unit_id, status, favorecido_cnpj")
@@ -275,7 +274,7 @@ export const linkSupplyOrderEmpenhoFn = createServerFn({ method: "POST" })
 			.maybeSingle()
 		if (empenhoError) throw new Error(`Erro ao conferir o empenho: ${publicDbMessage(empenhoError)}`)
 		if (!empenhoRow) throw new Error("Empenho não encontrado")
-		const { data: kitchenRow, error: kitchenError } = await getLooseServerClient("kitchen")
+		const { data: kitchenRow, error: kitchenError } = await getServerClient("kitchen")
 			.from("kitchen")
 			.select("unit_id, purchase_unit_id")
 			.eq("id", order.kitchen_id)
@@ -292,7 +291,7 @@ export const linkSupplyOrderEmpenhoFn = createServerFn({ method: "POST" })
 				status: String(empenhoRow.status),
 				coveredArpItemIds: covered,
 			},
-			itemArpItemIds: (items ?? []).map((item: { arp_item_id: string | null }) => item.arp_item_id),
+			itemArpItemIds: (items ?? []).map((item) => item.arp_item_id),
 		})
 		if (problems.length > 0) throw new Error(problems.join("; "))
 
@@ -322,25 +321,13 @@ export const linkSupplyOrderEmpenhoFn = createServerFn({ method: "POST" })
 		if (problem) throw new Error(problem)
 	})
 
-interface EmpenhoItemForOrder {
-	id: string
-	position: number
-	arp_item_id: string | null
-	purchase_item_id: string | null
-	description: string | null
-	quantity: number | string | null
-	unit: string | null
-	unit_price: number | string | null
-	value: number | string
-}
-
 /** Empenhos ativos da unidade da cozinha (para emitir OF), com os itens de cada NE. */
 export const listEmpenhosForKitchenFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive() }))
 	.handler(async ({ data }) => {
 		await requireStorageForKitchen(1, data.kitchenId)
-		const kitchenDb = getLooseServerClient("kitchen")
-		const finance = getLooseServerClient("finance")
+		const kitchenDb = getServerClient("kitchen")
+		const finance = getServerClient("finance")
 
 		const { data: kitchenRow, error: kitchenError } = await kitchenDb.from("kitchen").select("unit_id, purchase_unit_id").eq("id", data.kitchenId).single()
 		if (kitchenError) throw new Error(`Erro ao carregar a cozinha: ${publicDbMessage(kitchenError)}`)
@@ -361,11 +348,11 @@ export const listEmpenhosForKitchenFn = createServerFn({ method: "GET" })
 
 		// Itens da NE: a OF se monta a partir deles (somar a quantidade de itens diferentes no teto
 		// misturaria quilo com litro).
-		const empenhoIds = list.map((e: { id: string }) => e.id)
+		const empenhoIds = list.map((e) => e.id)
 		const neItems =
 			empenhoIds.length === 0
 				? []
-				: await readAllPagesIn<EmpenhoItemForOrder & { empenho_id: string }>("itens das NEs", empenhoIds, (chunk, from, to) =>
+				: await readAllPagesIn("itens das NEs", empenhoIds, (chunk, from, to) =>
 						finance
 							.from("empenho_item")
 							.select("id, empenho_id, position, arp_item_id, purchase_item_id, description, quantity, unit, unit_price, value")
@@ -390,7 +377,7 @@ export const listEmpenhosForKitchenFn = createServerFn({ method: "GET" })
 			if (arpError) throw new Error(`Erro ao ler os itens da ARP: ${publicDbMessage(arpError)}`)
 			for (const item of arpItems ?? []) arpItemById.set(item.id, item)
 		}
-		return list.map((e: { id: string; favorecido_cnpj: string | null }) => {
+		return list.map((e) => {
 			const items = neItems.filter((item) => item.empenho_id === e.id)
 			return {
 				...e,

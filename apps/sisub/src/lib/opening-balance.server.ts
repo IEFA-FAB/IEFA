@@ -11,13 +11,13 @@
 import type { ConservationClass } from "@iefa/sisub-domain"
 import { type OpeningCatalogIngredient, type OpeningCostCandidate, pickOpeningCost, pricePerBaseUnit } from "@iefa/sisub-domain/opening-balance"
 import { readAllPages, readAllPagesIn } from "@/lib/read-all-pages"
-import { getLooseServerClient } from "@/lib/supabase.server"
+import { getServerClient } from "@/lib/supabase.server"
 import { publicDbMessage } from "./db-error-message"
 
-const inventory = () => getLooseServerClient("inventory")
-const kitchen = () => getLooseServerClient("kitchen")
-const core = () => getLooseServerClient("core")
-const procurement = () => getLooseServerClient("procurement")
+const inventory = () => getServerClient("inventory")
+const kitchen = () => getServerClient("kitchen")
+const core = () => getServerClient("core")
+const procurement = () => getServerClient("procurement")
 
 /**
  * Insumos do catálogo que podem entrar numa carga: vivos e que são INSUMO — preparação herdada
@@ -25,16 +25,14 @@ const procurement = () => getLooseServerClient("procurement")
  * São ~1.800 linhas: passa do teto de 1000 do PostgREST, por isso a leitura paginada.
  */
 export async function loadOpeningCatalog(): Promise<OpeningCatalogIngredient[]> {
-	const rows = await readAllPages<{ id: string; legacy_id: number | null; description: string | null; measure_unit: string | null }>(
-		"o catálogo de insumos",
-		(from, to) =>
-			kitchen()
-				.from("ingredient")
-				.select("id, legacy_id, description, measure_unit")
-				.is("deleted_at", null)
-				.is("preparation_group_id", null)
-				.order("id")
-				.range(from, to)
+	const rows = await readAllPages("o catálogo de insumos", (from, to) =>
+		kitchen()
+			.from("ingredient")
+			.select("id, legacy_id, description, measure_unit")
+			.is("deleted_at", null)
+			.is("preparation_group_id", null)
+			.order("id")
+			.range(from, to)
 	)
 	return rows
 		.filter((row) => (row.description ?? "").trim() !== "")
@@ -50,7 +48,7 @@ export async function loadOpeningCatalog(): Promise<OpeningCatalogIngredient[]> 
 export async function loadCanonicalUnits(): Promise<Set<string>> {
 	const { data, error } = await core().from("measure_unit").select("code")
 	if (error) throw new Error(`Erro ao carregar as unidades de medida: ${publicDbMessage(error)}`)
-	return new Set(((data ?? []) as Array<{ code: string }>).map((row) => row.code.toUpperCase()))
+	return new Set((data ?? []).map((row) => row.code.toUpperCase()))
 }
 
 /**
@@ -63,7 +61,7 @@ export async function loadCanonicalUnits(): Promise<Set<string>> {
  * `post_opening_balance`, que olha o ledger sob trava.
  */
 export async function loadMovedIngredientIds(kitchenId: number): Promise<Set<string>> {
-	const rows = await readAllPages<{ ingredient_id: string | null }>("os itens já movimentados", (from, to) =>
+	const rows = await readAllPages("os itens já movimentados", (from, to) =>
 		// Paginado por `ingredient_id`: filtrada por cozinha, a chave de negócio de `stock_cost` é
 		// o insumo — (kitchen_id, ingredient_id), única por índice parcial —, e ela já dá a ordem
 		// estável que a paginação exige. O `id` (PK física desde 20260926219000) não acrescenta nada.
@@ -78,15 +76,13 @@ export async function loadMovedIngredientIds(kitchenId: number): Promise<Set<str
  * padrão fica sem classe, e a folha filtrada por classe não o traz.
  */
 export async function loadConservationClasses(): Promise<Map<string, ConservationClass>> {
-	const links = await readAllPages<{ ingredient_id: string; purchase_item: { conservation_class: string | null } | null }>(
-		"a classe de conservação dos insumos",
-		(from, to) =>
-			procurement()
-				.from("purchase_item_ingredient")
-				.select("id, ingredient_id, purchase_item:purchase_item_id (conservation_class)")
-				.eq("is_default", true)
-				.order("id")
-				.range(from, to)
+	const links = await readAllPages("a classe de conservação dos insumos", (from, to) =>
+		procurement()
+			.from("purchase_item_ingredient")
+			.select("id, ingredient_id, purchase_item:purchase_item_id (conservation_class)")
+			.eq("is_default", true)
+			.order("id")
+			.range(from, to)
 	)
 	const byIngredient = new Map<string, ConservationClass>()
 	for (const link of links) {
@@ -101,16 +97,6 @@ export async function loadKitchenUnitId(kitchenId: number): Promise<number | nul
 	const { data, error } = await kitchen().from("kitchen").select("unit_id").eq("id", kitchenId).maybeSingle()
 	if (error) throw new Error(`Erro ao carregar a cozinha: ${publicDbMessage(error)}`)
 	return data?.unit_id != null ? Number(data.unit_id) : null
-}
-
-interface ListItemRow {
-	id: string
-	quantity_estimate_id: string
-	ingredient_id: string
-	unit_price: number | string | null
-	conversion_factor: number | string | null
-	purchase_quantity: number | string | null
-	computed_at: string | null
 }
 
 const toNumber = (value: number | string | null | undefined) => (value == null ? null : Number(value))
@@ -133,7 +119,7 @@ const toNumber = (value: number | string | null | undefined) => (value == null ?
  */
 export async function suggestOpeningCosts(ingredientIds: readonly string[], unitId: number | null): Promise<Map<string, OpeningCostCandidate>> {
 	const proc = procurement()
-	const listItems = await readAllPagesIn<ListItemRow>("os preços dos anexos quantitativos", ingredientIds, (chunk, from, to) =>
+	const listItems = await readAllPagesIn("os preços dos anexos quantitativos", ingredientIds, (chunk, from, to) =>
 		proc
 			.from("quantity_estimate_item")
 			.select("id, quantity_estimate_id, ingredient_id, unit_price, conversion_factor, purchase_quantity, computed_at")
@@ -143,7 +129,7 @@ export async function suggestOpeningCosts(ingredientIds: readonly string[], unit
 	)
 	if (listItems.length === 0) return new Map()
 
-	const lists = await readAllPagesIn<{ id: string; unit_id: number; title: string }>(
+	const lists = await readAllPagesIn(
 		"os anexos quantitativos",
 		listItems.map((item) => item.quantity_estimate_id),
 		// Anexo descartado não sugere preço: o custo de abertura vira custo médio e depois
@@ -152,13 +138,7 @@ export async function suggestOpeningCosts(ingredientIds: readonly string[], unit
 	)
 	const listById = new Map(lists.map((list) => [list.id, list]))
 
-	const arpItems = await readAllPagesIn<{
-		id: string
-		arp_id: string
-		quantity_estimate_item_id: string
-		numero_item: number | null
-		valor_unitario: number | string | null
-	}>(
+	const arpItems = await readAllPagesIn(
 		"os itens das atas de registro de preços",
 		listItems.map((item) => item.id),
 		(chunk, from, to) =>
@@ -170,7 +150,7 @@ export async function suggestOpeningCosts(ingredientIds: readonly string[], unit
 				.order("id")
 				.range(from, to)
 	)
-	const arps = await readAllPagesIn<{ id: string; unit_id: number; numero_ata: string; ano_ata: string | null; data_vigencia_inicio: string | null }>(
+	const arps = await readAllPagesIn(
 		"as atas de registro de preços",
 		arpItems.map((item) => item.arp_id),
 		(chunk, from, to) => proc.from("arp").select("id, unit_id, numero_ata, ano_ata, data_vigencia_inicio").in("id", chunk).order("id").range(from, to)
@@ -186,9 +166,10 @@ export async function suggestOpeningCosts(ingredientIds: readonly string[], unit
 	}
 
 	for (const arpItem of arpItems) {
-		const listItem = listItemById.get(arpItem.quantity_estimate_item_id)
+		const listItem = arpItem.quantity_estimate_item_id ? listItemById.get(arpItem.quantity_estimate_item_id) : undefined
 		const arp = arpById.get(arpItem.arp_id)
-		if (!listItem || !arp) continue
+		// `ingredient_id` nulo não chega: a consulta filtra por ele.
+		if (!listItem?.ingredient_id || !arp) continue
 		const unitCost = pricePerBaseUnit(toNumber(arpItem.valor_unitario), toNumber(listItem.conversion_factor))
 		if (unitCost == null) continue
 		push(listItem.ingredient_id, {
@@ -201,6 +182,7 @@ export async function suggestOpeningCosts(ingredientIds: readonly string[], unit
 	}
 
 	for (const item of listItems) {
+		if (!item.ingredient_id) continue
 		const factor = item.purchase_quantity != null ? toNumber(item.conversion_factor) : 1
 		const unitCost = pricePerBaseUnit(toNumber(item.unit_price), factor)
 		if (unitCost == null) continue

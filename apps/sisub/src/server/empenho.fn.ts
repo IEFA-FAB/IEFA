@@ -17,11 +17,11 @@ import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { withSensitiveAudit } from "@/lib/audit.server"
 import { publicDbMessage } from "@/lib/db-error-message"
-import { getLooseServerClient } from "@/lib/supabase.server"
+import { getServerClient } from "@/lib/supabase.server"
 import { requireUnitScope } from "@/lib/unit-auth.server"
 import { floorMessage, insertEmpenhoEventSerialized, toEmpenhoEventError } from "@/server/empenho-events.server"
 
-const finance = () => getLooseServerClient("finance")
+const finance = () => getServerClient("finance")
 
 export interface EmpenhoSaldo {
 	valor_original: number
@@ -56,6 +56,7 @@ async function fetchSaldos(empenhoIds: string[]): Promise<Map<string, EmpenhoSal
 	if (empenhoIds.length === 0) return map
 	const { data } = await finance().from("v_empenho_saldo").select("*").in("empenho_id", empenhoIds)
 	for (const row of data ?? []) {
+		if (!row.empenho_id) continue
 		map.set(row.empenho_id, {
 			valor_original: Number(row.valor_original ?? 0),
 			ajustes: Number(row.ajustes ?? 0),
