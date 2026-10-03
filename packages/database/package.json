@@ -21,7 +21,7 @@
   },
   "scripts": {
     "generate": "bun run db:types",
-    "db:link": "bunx supabase link --project-ref jgigqdpdjgnnuwajtayh",
+    "db:link": "bun run scripts/supabase-schemas.ts link",
     "db:types": "bun run scripts/supabase-schemas.ts types",
     "db:push": "bunx supabase db push",
     "db:pull": "bun run scripts/supabase-schemas.ts pull",
