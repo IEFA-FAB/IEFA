@@ -510,7 +510,12 @@ export async function getSnackOrderingContext(db: SisubDb, ctx: UserContext): Pr
 
 	const me = await runQuery("FETCH_FAILED", () =>
 		db
-			.select({ defaultMessHallId: userDataInCore.defaultMessHallId, saram: userDataInCore.saram, email: userDataInCore.email })
+			.select({
+				defaultMessHallId: userDataInCore.defaultMessHallId,
+				// Só o SARAM verificado identifica a pessoa (`core.visible_saram`, 20261003100000).
+				saram: sql<string | null>`core.visible_saram(${userDataInCore.id})`,
+				email: userDataInCore.email,
+			})
 			.from(userDataInCore)
 			.where(eq(userDataInCore.id, ctx.userId))
 			.limit(1)
@@ -557,7 +562,10 @@ async function resolvePeople(db: Pick<SisubDb, "select">, userIds: string[]): Pr
 	const ids = [...new Set(userIds)]
 	if (ids.length === 0) return new Map()
 	const users = await runQuery("FETCH_FAILED", () =>
-		db.select({ id: userDataInCore.id, email: userDataInCore.email, saram: userDataInCore.saram }).from(userDataInCore).where(inArray(userDataInCore.id, ids))
+		db
+			.select({ id: userDataInCore.id, email: userDataInCore.email, saram: sql<string | null>`core.visible_saram(${userDataInCore.id})` })
+			.from(userDataInCore)
+			.where(inArray(userDataInCore.id, ids))
 	)
 	const military = await fetchMilitary(
 		db,

@@ -33,7 +33,7 @@ O SARAM de uma conta SHALL ser vinculado apenas por uma das verificações: chav
 
 ### Requirement: Conferência por CPF com limite de tentativas
 
-A conta SHALL poder vincular informando SARAM e CPF completo, conferidos no banco sem que o CPF saia dele. Falhas MUST ser registradas no banco por conta e por SARAM; com 5 falhas na última hora, a verificação MUST ficar bloqueada até a 5ª falha mais recente sair da janela. A resposta MUST ser a mesma para SARAM inexistente e CPF errado.
+A conta SHALL poder vincular informando SARAM e CPF completo, conferidos no banco sem que o CPF saia dele. Falhas MUST ser registradas no banco; com 5 falhas na última hora da conta, ou 20 de outras contas no mesmo SARAM, a verificação MUST ficar bloqueada até a falha que completou o teto sair da janela. A resposta MUST ser a mesma para SARAM inexistente e CPF errado.
 
 #### Scenario: CPF confere
 

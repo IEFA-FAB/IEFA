@@ -17,7 +17,7 @@ import type { InsertPresence, ListArranchamentoMap, ListPresences } from "../sch
 import type { UserContext } from "../types/context.ts"
 import { NotFoundError } from "../types/errors.ts"
 import { runQuery, unwrapPgError } from "../utils/index.ts"
-import { assertAccountCanEat, toSaramDomainError } from "./saram-link.ts"
+import { toSaramDomainError } from "./saram-link.ts"
 
 export async function listPresences(db: SisubDb, input: ListPresences) {
 	const rows = await runQuery("FETCH_FAILED", () =>
@@ -90,8 +90,6 @@ export async function insertPresence(db: SisubDb, ctx: UserContext, input: Inser
 	// marcando a si mesmo no self check-in. Só o primeiro precisa de permissão no refeitório —
 	// exigir `messhall:2` de todo mundo quebraria o check-in do próprio comensal.
 	if (input.user_id !== ctx.userId) requireMessHall(ctx, 2, input.messHallId)
-	// Conta institucional não registra presença própria (trigger de 20261003100000 é a garantia).
-	await assertAccountCanEat(db, input.user_id)
 
 	try {
 		await db.insert(mealPresencesInKitchen).values({ userId: input.user_id, date: input.date, meal: input.meal, messHallId: input.messHallId })
@@ -99,6 +97,8 @@ export async function insertPresence(db: SisubDb, ctx: UserContext, input: Inser
 		// Preserva o código de erro do PG (ex.: "23505" duplicate) para tratamento no caller.
 		// O código real fica em .cause (DrizzleQueryError) — unwrapPgError o resgata.
 		const err = unwrapPgError(e)
+		// Conta institucional não registra presença própria: o trigger de 20261003100000 recusa, e
+		// aqui a recusa vira mensagem (sem SELECT antes: o check-in em fila é caminho quente).
 		if (err.message === "ACCOUNT_INSTITUTIONAL_NO_MEALS") throw toSaramDomainError(e)
 		throw Object.assign(new Error(err.message ?? "insert presence failed"), { code: err.code })
 	}

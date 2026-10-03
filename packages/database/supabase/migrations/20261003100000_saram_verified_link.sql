@@ -148,15 +148,19 @@ alter table core.saram_verification_attempt enable row level security;
 revoke all on core.saram_verification_attempt from public, anon, authenticated;
 
 comment on table core.saram_verification_attempt is
-	'Tentativas de conferência de SARAM por CPF (ou pelos 4 últimos dígitos, no desempate de homônimos). 5 falhas na última hora, por conta ou por SARAM, bloqueiam a verificação até a 5ª falha mais recente sair da janela. Registro de segurança; o CPF digitado não é guardado.';
+	'Tentativas de conferência de SARAM por CPF (ou pelos 4 últimos dígitos, no desempate de homônimos). 5 falhas na última hora por conta, ou 20 de outras contas no mesmo SARAM, bloqueiam a verificação até a falha que completou o teto sair da janela. Registro de segurança; o CPF digitado não é guardado.';
 
 -- ═════════════════════════════════════════════════════════════════════════════
 -- 3. A chave
 -- ═════════════════════════════════════════════════════════════════════════════
 
 -- Nome de guerra (só letras) + iniciais das palavras do nome completo, sem acento, minúsculas,
--- sem as preposições de/da/do/das/dos/e. `immutable` com o dicionário explícito: é o que permite
--- o índice de expressão (o `unaccent(text)` é `stable` porque lê o dicionário pelo search_path).
+-- sem as preposições de/da/do/das/dos/e. Acento sai por `translate`, não por `unaccent`: o
+-- `unaccent` é `stable` (lê o dicionário) e mora em `public` aqui mas em `extensions` num banco
+-- recriado das migrations (20260414120000); `translate` é imutável e não depende de extensão, o
+-- que permite o índice de expressão (mesmo motivo de `core.person`, 20260910225309). Conferido no
+-- espelho em 2026-10-03: as 68.317 chaves saem iguais às do `unaccent` (o mapa cobre todo acento
+-- que o cadastro tem, maiúsculo e minúsculo: o `lower` de letra acentuada depende do locale).
 create or replace function core.military_name_key(p_nome_guerra text, p_nome text)
 returns text
 language sql
@@ -165,11 +169,11 @@ parallel safe
 set search_path = ''
 as $$
 	select nullif(
-		regexp_replace(lower(public.unaccent('public.unaccent'::regdictionary, coalesce(p_nome_guerra, ''))), '[^a-z]', '', 'g')
+		regexp_replace(lower(translate(coalesce(p_nome_guerra, ''), 'ÁÀÂÃÄÅáàâãäåÉÈÊËéèêëÍÌÎÏíìîïÓÒÔÕÖóòôõöÚÙÛÜúùûüÇçÑñÝýÿ', 'aaaaaaaaaaaaeeeeeeeeiiiiiiiioooooooooouuuuuuuuccnnyyy')), '[^a-z]', '', 'g')
 		|| coalesce((
 			select string_agg(left(w.word, 1), '' order by w.ord)
 			from unnest(regexp_split_to_array(
-				regexp_replace(lower(public.unaccent('public.unaccent'::regdictionary, coalesce(p_nome, ''))), '[^a-z ]', '', 'g'),
+				regexp_replace(lower(translate(coalesce(p_nome, ''), 'ÁÀÂÃÄÅáàâãäåÉÈÊËéèêëÍÌÎÏíìîïÓÒÔÕÖóòôõöÚÙÛÜúùûüÇçÑñÝýÿ', 'aaaaaaaaaaaaeeeeeeeeiiiiiiiioooooooooouuuuuuuuccnnyyy')), '[^a-z ]', '', 'g'),
 				'\s+'
 			)) with ordinality as w(word, ord)
 			where w.word <> '' and w.word not in ('de', 'da', 'do', 'das', 'dos', 'e')
@@ -236,8 +240,11 @@ $$;
 -- 4. Tentativas
 -- ═════════════════════════════════════════════════════════════════════════════
 
--- Até quando a conta (ou o SARAM) está bloqueada: 5 falhas na última hora; libera quando a 5ª
--- falha mais recente sai da janela. NULL = livre.
+-- Até quando a verificação está bloqueada. Por conta: 5 falhas na última hora (libera quando a 5ª
+-- falha mais recente sai da janela). Por SARAM: 20 falhas na última hora vindas de OUTRAS contas —
+-- teto alto de propósito: ele só existe contra força bruta distribuída, e um teto baixo deixaria
+-- qualquer um trancar a verificação do dono verdadeiro (a sugestão por e-mail sem homônimo não
+-- passa por aqui). NULL = livre.
 create or replace function core.saram_attempt_locked_until(p_user uuid, p_saram text)
 returns timestamptz
 language sql
@@ -252,8 +259,8 @@ as $$
 		union all
 		(select a.created_at + interval '1 hour'
 			from core.saram_verification_attempt a
-			where p_saram is not null and a.saram = p_saram and not a.succeeded and a.created_at > now() - interval '1 hour'
-			order by a.created_at desc offset 4 limit 1)
+			where p_saram is not null and a.saram = p_saram and a.user_id <> p_user and not a.succeeded and a.created_at > now() - interval '1 hour'
+			order by a.created_at desc offset 19 limit 1)
 	) x;
 $$;
 
@@ -355,6 +362,55 @@ create trigger user_data_guard_saram_link
 -- `postgrest-partial-index-upsert`.
 create unique index if not exists user_data_saram_verified_uniq on core.user_data (saram)
 	where saram_verified_by in ('email', 'cpf', 'admin');
+
+-- ── 6b. Nome de exibição só pelo SARAM que vale ──────────────────────────────
+--
+-- `core.v_user_identity` (contrate, sucont, sisub) e `analytics.v_user_identity` (assistente de
+-- análises) montam "posto + nome de guerra" de TODA conta. Pela coluna crua, a conta que gravou o
+-- SARAM de outra pessoa (legacy repetido de um verificado, ou SARAM gravado fora das funções) seria
+-- exibida aos outros com o posto e o nome do dono real. A condição é a de `core.visible_saram`,
+-- escrita por extenso: `analytics.v_user_identity` não é `security_invoker` (o `analytics_reader`
+-- a lê sem grant em `core`), e chamar uma função ali checaria o EXECUTE de quem consulta. Mesmas
+-- colunas de saída; `create or replace` preserva dono, grants e opções.
+
+create or replace view core.v_user_identity
+with (security_invoker = true) as
+select
+	ud.id,
+	case
+		when nullif(btrim(coalesce(mi.posto, '') || ' ' || coalesce(mi.nome_guerra, '')), '') is not null
+			then btrim(coalesce(mi.posto, '') || ' ' || initcap(coalesce(mi.nome_guerra, '')))
+		else ud.email
+	end as display_name
+from core.user_data ud
+left join core.military_identity mi on mi.saram = ud.saram
+	and ud.account_kind = 'pessoal'
+	and (
+		ud.saram_verified_by in ('email', 'cpf', 'admin')
+		or (ud.saram_verified_by = 'legacy' and not exists (
+			select 1 from core.user_data o
+			where o.saram = ud.saram and o.id <> ud.id and o.saram_verified_by in ('email', 'cpf', 'admin')
+		))
+	);
+
+create or replace view analytics.v_user_identity as
+select
+	ud.id,
+	case
+		when nullif(btrim(coalesce(umd."sgPosto", '') || ' ' || coalesce(umd."nmGuerra", '')), '') is not null
+			then btrim(coalesce(umd."sgPosto", '') || ' ' || initcap(coalesce(umd."nmGuerra", '')))
+		else 'Usuário ' || left(ud.id::text, 8)
+	end as display_name
+from core.user_data ud
+left join core.user_military_data umd on umd."nrOrdem" = ud.saram
+	and ud.account_kind = 'pessoal'
+	and (
+		ud.saram_verified_by in ('email', 'cpf', 'admin')
+		or (ud.saram_verified_by = 'legacy' and not exists (
+			select 1 from core.user_data o
+			where o.saram = ud.saram and o.id <> ud.id and o.saram_verified_by in ('email', 'cpf', 'admin')
+		))
+	);
 
 -- ═════════════════════════════════════════════════════════════════════════════
 -- 7. Conta institucional não come (arranchamento e presença)
@@ -630,38 +686,51 @@ begin
 		else 'eligible'
 	end;
 
+	-- Candidatos da chave do e-mail: para quem não tem vínculo e para o legacy (provar outra
+	-- identidade troca o legacy).
+	if v_eligibility = 'eligible' and v_kind = 'pessoal' and v_req_id is null and (v_by is null or v_by = 'legacy') then
+		select
+			coalesce(jsonb_agg(jsonb_build_object(
+				'ref', c.roster_id,
+				'posto', c.posto,
+				'nome_guerra', c.nome_guerra,
+				'sg_org', c.sg_org,
+				'held_by_other', exists (select 1 from core.user_data o where o.saram = c.saram and o.id <> p_user),
+				'holder_verified', exists (
+					select 1 from core.user_data o
+					where o.saram = c.saram and o.id <> p_user and o.saram_verified_by in ('email', 'cpf', 'admin')
+				)
+			) order by c.nome_guerra, c.roster_id), '[]'::jsonb),
+			count(*)
+			into v_candidates, v_count
+			from core.saram_email_candidates(p_email) c;
+	end if;
+
 	if v_kind = 'institucional' then
 		v_status := 'institutional';
 		v_actions := array['set_personal'];
 	elsif v_by in ('email', 'cpf', 'admin') then
 		v_status := 'verified';
 		v_visible := true;
+	elsif v_req_id is not null then
+		-- Antes do legacy: o legacy que verificou contra titular verificado tem contestação aberta,
+		-- e a tela precisa mostrá-la e oferecer a desistência.
+		v_status := case v_req_kind when 'dispute' then 'contested' else 'pending_request' end;
+		v_visible := v_by = 'legacy' and core.visible_saram(p_user) is not null;
+		v_actions := array['withdraw_request'];
 	elsif v_by = 'legacy' then
 		v_status := 'legacy';
 		v_visible := core.visible_saram(p_user) is not null;
+		-- Provar outra identidade (e-mail ou CPF) troca o legacy; pedir sem prova, só quando o
+		-- legacy não localiza ninguém no cadastro (número digitado errado).
 		v_actions := array['verify_cpf'];
-	elsif v_req_id is not null then
-		v_status := case v_req_kind when 'dispute' then 'contested' else 'pending_request' end;
-		v_actions := array['withdraw_request'];
-	else
-		if v_eligibility = 'eligible' then
-			select
-				coalesce(jsonb_agg(jsonb_build_object(
-					'ref', c.roster_id,
-					'posto', c.posto,
-					'nome_guerra', c.nome_guerra,
-					'sg_org', c.sg_org,
-					'held_by_other', exists (select 1 from core.user_data o where o.saram = c.saram and o.id <> p_user),
-					'holder_verified', exists (
-						select 1 from core.user_data o
-						where o.saram = c.saram and o.id <> p_user and o.saram_verified_by in ('email', 'cpf', 'admin')
-					)
-				) order by c.nome_guerra, c.roster_id), '[]'::jsonb),
-				count(*)
-				into v_candidates, v_count
-				from core.saram_email_candidates(p_email) c;
+		if v_count >= 1 then
+			v_actions := array['confirm_candidate'] || v_actions;
 		end if;
-
+		if not exists (select 1 from core.military_identity mi where mi.saram = v_saram) then
+			v_actions := v_actions || array['request_link'];
+		end if;
+	else
 		if v_count = 1 and not v_suffix then
 			v_status := 'suggestion';
 			v_actions := array['confirm_candidate', 'verify_cpf', 'request_link', 'set_institutional'];
@@ -714,9 +783,11 @@ comment on function core.saram_link_status(uuid, text, boolean) is
 -- 10. Mutações do próprio usuário
 -- ═════════════════════════════════════════════════════════════════════════════
 
--- Pré-condições comuns às verificações: pessoal, sem pedido pendente, sem vínculo que impeça.
--- `p_upgrade` = o legacy que confere o PRÓPRIO número (sobe para cpf). Devolve o vínculo atual.
-create or replace function core.saram_assert_can_link(p_user uuid, p_saram text, p_upgrade boolean)
+-- Pré-condições comuns às verificações: pessoal, sem pedido pendente, sem vínculo verificado.
+-- Legacy: `p_proof` (e-mail ou CPF conferidos) pode trocá-lo — verificado prevalece sobre legacy;
+-- sem prova (pedido), só o legacy que não localiza ninguém no cadastro (número digitado errado,
+-- que era corrigível antes desta migration). Devolve o vínculo atual.
+create or replace function core.saram_assert_can_link(p_user uuid, p_saram text, p_proof boolean)
 returns text
 language plpgsql
 security invoker
@@ -735,8 +806,9 @@ begin
 	if v_by in ('email', 'cpf', 'admin') then
 		raise exception 'SARAM_ALREADY_LINKED' using errcode = 'P0001', detail = 'a conta já tem SARAM verificado';
 	end if;
-	if v_by = 'legacy' and not (p_upgrade and v_saram = p_saram) then
-		raise exception 'SARAM_ALREADY_LINKED' using errcode = 'P0001', detail = 'a conta tem vínculo anterior; o administrador revisa';
+	if v_by = 'legacy' and not p_proof and v_saram is distinct from p_saram
+		and exists (select 1 from core.military_identity mi where mi.saram = v_saram) then
+		raise exception 'SARAM_ALREADY_LINKED' using errcode = 'P0001', detail = 'a conta tem vínculo anterior que localiza cadastro; o administrador revisa';
 	end if;
 	if exists (select 1 from core.saram_link_request r where r.user_id = p_user and r.status = 'pending') then
 		raise exception 'REQUEST_PENDING' using errcode = 'P0001', detail = 'há pedido de vínculo pendente';
@@ -773,7 +845,7 @@ begin
 	select count(*) into v_count from core.saram_email_candidates(p_email);
 
 	perform pg_advisory_xact_lock(hashtext('saram:' || v_saram));
-	perform core.saram_assert_can_link(p_user, v_saram, false);
+	perform core.saram_assert_can_link(p_user, v_saram, true);
 
 	if v_count > 1 or core.email_has_homonym_suffix(p_email) then
 		if v_suffix is null or v_suffix !~ '^[0-9]{4}$' then
@@ -817,6 +889,7 @@ declare
 	v_saram text := btrim(coalesce(p_saram, ''));
 	v_cpf text := regexp_replace(coalesce(p_cpf, ''), '\D', '', 'g');
 	v_current text;
+	v_current_by text;
 	v_locked timestamptz;
 	v_ok boolean;
 	v_result jsonb;
@@ -830,6 +903,7 @@ begin
 
 	perform pg_advisory_xact_lock(hashtext('saram:' || v_saram));
 	v_current := core.saram_assert_can_link(p_user, v_saram, true);
+	select ud.saram_verified_by into v_current_by from core.user_data ud where ud.id = p_user;
 
 	v_locked := core.saram_attempt_locked_until(p_user, v_saram);
 	if v_locked is not null then
@@ -854,7 +928,12 @@ begin
 	v_result := core.apply_saram_link(p_user, p_email, v_saram, 'cpf');
 	perform set_config('iefa.saram_link', '', true);
 
-	return v_result || jsonb_build_object('upgraded', v_current is not null, 'status', core.saram_link_status(p_user, p_email, p_email_confirmed));
+	-- `upgraded`: o legacy conferiu o PRÓPRIO número e subiu para cpf (não vale para contestação nem
+	-- para troca de um SARAM sem verificação).
+	return v_result || jsonb_build_object(
+		'upgraded', v_result ->> 'outcome' = 'linked' and v_current_by = 'legacy' and v_current = v_saram,
+		'status', core.saram_link_status(p_user, p_email, p_email_confirmed)
+	);
 end;
 $$;
 
@@ -958,7 +1037,11 @@ begin
 		if v_current = v_saram then
 			return jsonb_build_object('outcome', 'unchanged', 'status', core.saram_link_status(p_user, p_email, p_email_confirmed));
 		end if;
-		raise exception 'SARAM_LOCKED' using errcode = 'P0001', detail = 'a conta já tem SARAM vinculado';
+		-- Só o legacy que não localiza ninguém (número digitado errado) segue corrigível por aqui,
+		-- como era antes desta migration; o resto é do administrador.
+		if v_by <> 'legacy' or exists (select 1 from core.military_identity mi where mi.saram = v_current) then
+			raise exception 'SARAM_LOCKED' using errcode = 'P0001', detail = 'a conta já tem SARAM vinculado';
+		end if;
 	end if;
 
 	select r.saram into v_pending_saram from core.saram_link_request r where r.user_id = p_user and r.status = 'pending';
@@ -1118,7 +1201,11 @@ as $$
 					and lower(btrim(u.email)) ~ '^[^@[:space:]]+@fab\.mil\.br$'
 					and (u.saram is null or u.saram_verified_by is null)
 					and not exists (select 1 from core.saram_link_request r where r.user_id = u.id and r.status = 'pending')
-					and not exists (select 1 from core.saram_email_candidates(u.email))
+					-- Inline (não a função de candidatos): usa o índice de expressão do espelho.
+					and not exists (
+						select 1 from core.user_military_data m
+						where core.military_name_key(m."nmGuerra", m."nmPessoa") = core.email_name_key(u.email)
+					)
 				order by u.email
 				limit 500
 			) ud

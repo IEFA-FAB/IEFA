@@ -27,7 +27,7 @@ Hipóteses a verificar.
 ### COM-PRF-02 — "Troquei de nome (casamento) ou de nome de guerra, e o e-mail não bate mais"
 - **O sistema precisa:** a chave do e-mail (nome de guerra + iniciais) não acha a pessoa, ou acha
   outra. O caminho é SARAM + CPF completo, conferidos no banco (`verified_by = 'cpf'`), com 5
-  tentativas por hora por conta e por SARAM. Vínculo verificado não muda depois por troca de nome
+  tentativas por hora por conta (e 20 de outras contas por SARAM, para ninguém trancar o dono). Vínculo verificado não muda depois por troca de nome
   ou de e-mail (write-once).
 - **UX:** estado `no_match` (ou sugestão errada) → "Informar SARAM e CPF"; erro único "SARAM e CPF
   não conferem", com as tentativas restantes; bloqueio diz até que horas.
@@ -71,7 +71,9 @@ Hipóteses a verificar.
 ### COM-PRF-07 — "Meu vínculo é antigo (legacy) e o e-mail não bate"
 - **O sistema precisa:** o vínculo anterior à verificação continua valendo (ninguém perde acesso
   no deploy) e vai para a fila "a revisar" do admin, que confirma (vira `admin`) ou desvincula. A
-  pessoa pode subir para `cpf` conferindo o próprio SARAM.
+  pessoa pode subir para `cpf` conferindo o próprio SARAM, ou trocar o legacy provando outra
+  identidade (e-mail ou CPF); o legacy que não localiza ninguém (digitado errado) também pode pedir
+  outro número.
 - **Cobertura:** `saram-link.test.sql` (backfill e confirmação de legacy). Tela: FASE 2.
 
 ### COM-CRD-01 — "O cardápio mudou depois que eu vi"

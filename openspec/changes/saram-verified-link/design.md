@@ -26,7 +26,7 @@ O domínio TS só traduz erros, aplica o PBAC e tipa o retorno.
 
 - Militar: `regexp_replace(lower(unaccent("nmGuerra")), '[^a-z]', '', 'g')` || iniciais das palavras de `"nmPessoa"` (sem acento, minúsculo, só letras), sem `de/da/do/das/dos/e` — `core.military_name_key`.
 - E-mail: só `@fab.mil.br` exato; parte local minúscula, sem o prefixo `tp.` e sem os dígitos finais; só letras, senão não há chave — `core.email_name_key`.
-- Índice de expressão `core.user_military_data (core.military_name_key("nmGuerra", "nmPessoa"))`. A função é declarada `immutable` chamando `public.unaccent('public.unaccent', …)` com dicionário explícito (o padrão para indexar `unaccent`). Índice não muda as colunas: o patch de carga segue no formato de 20260927170000.
+- Índice de expressão `core.user_military_data (core.military_name_key("nmGuerra", "nmPessoa"))`. O acento sai por `translate` (imutável, sem extensão), não por `unaccent`: este é `stable` e mora em `public` no banco compartilhado mas em `extensions` num banco recriado das migrations (20260414120000). Conferido: as 68.317 chaves saem iguais às do `unaccent`. Índice não muda as colunas: o patch de carga segue no formato de 20260927170000.
 
 ### D3. Homônimos
 
@@ -38,7 +38,7 @@ A referência do candidato é o `id` físico do espelho (opaco). Se a carga troc
 
 ### D4. Tentativas (CPF e sufixo do CPF)
 
-`core.saram_verification_attempt` (conta, SARAM tentado, método, sucesso, hora; nunca o CPF digitado). Bloqueio quando há 5 falhas na última hora **por conta** ou **por SARAM**; libera quando a 5ª falha mais recente sai da janela. Vale com várias instâncias porque está no banco. A falha não levanta exceção (desfaria o registro da tentativa): as funções devolvem `outcome: "mismatch" | "locked"`. Mensagem única ("SARAM e CPF não conferem") para SARAM inexistente e CPF errado. O bloqueio por SARAM permite a um terceiro travar a verificação por CPF da vítima por 1 hora; aceito, porque o e-mail e o pedido continuam abertos.
+`core.saram_verification_attempt` (conta, SARAM tentado, método, sucesso, hora; nunca o CPF digitado). Bloqueio com 5 falhas na última hora **por conta**, ou 20 falhas de **outras contas** no mesmo SARAM; libera quando a falha que completou o teto sai da janela. Vale com várias instâncias porque está no banco. A falha não levanta exceção (desfaria o registro da tentativa): as funções devolvem `outcome: "mismatch" | "locked"`. Mensagem única ("SARAM e CPF não conferem") para SARAM inexistente e CPF errado. O teto por SARAM é alto de propósito: ele só existe contra força bruta distribuída (o CPF completo não é forçável por uma conta com 5/hora, e o sufixo de 4 dígitos só vale para candidatos da chave do próprio e-mail); um teto baixo deixaria qualquer um trancar a verificação do dono verdadeiro. O estado mostra o bloqueio da conta; o do SARAM aparece no resultado da tentativa (`outcome: "locked"`).
 
 ### D5. Disputa
 
@@ -49,7 +49,7 @@ A referência do candidato é o `id` físico do espelho (opaco). Se a carga troc
 
 ### D6. Legacy
 
-Backfill: vínculo que bate pela chave (com ou sem dígito) → `email`; o resto → `legacy` (inclusive SARAM ausente do espelho). Em cada SARAM repetido, só a primeira conta que bate vira `email`. Legacy **continua vendo** os dados militares (ninguém perde acesso no deploy), salvo quando o mesmo SARAM está verificado em outra conta (o caso das 3 duplicatas: ali o legacy é quem tinha digitado o número de outra pessoa). Sai da fila quando o admin confirma (vira `admin`) ou desvincula. Legacy pode subir para `cpf` conferindo o próprio SARAM.
+Backfill: vínculo que bate pela chave (com ou sem dígito) → `email`; o resto → `legacy` (inclusive SARAM ausente do espelho). Em cada SARAM repetido, só a primeira conta que bate vira `email`. Legacy **continua vendo** os dados militares (ninguém perde acesso no deploy), salvo quando o mesmo SARAM está verificado em outra conta (o caso das 3 duplicatas: ali o legacy é quem tinha digitado o número de outra pessoa). Sai da fila quando o admin confirma (vira `admin`) ou desvincula. Saídas da própria conta: conferir o próprio SARAM por CPF (sobe para `cpf`); **provar outra identidade** (e-mail ou CPF) troca o legacy, porque verificado prevalece; e o legacy que não localiza ninguém no cadastro (número digitado errado, que antes era corrigível) pode também pedir outro número. Legacy que localiza cadastro não troca sem prova. Pedido pendente aparece no estado antes do legacy (`contested`/`pending_request`, com desistência).
 
 ### D7. Gravação fora das funções
 
@@ -79,7 +79,7 @@ Caminhos de escrita conferidos: `upsertArranchamento` (comensal), `insertPresenc
 
 ### D12. Visibilidade
 
-`core.visible_saram(p_user)`: o SARAM se a conta é pessoal e o vínculo é `email`/`cpf`/`admin`, ou `legacy` sem verificado concorrente. Usada por `fetchMilitaryDataFn` (sisub), `getMyMilitaryProfileFn` (rumaer) e `fetchMyIdentityFn` (sucont).
+`core.visible_saram(p_user)`: o SARAM se a conta é pessoal e o vínculo é `email`/`cpf`/`admin`, ou `legacy` sem verificado concorrente. Usada por `fetchMilitaryDataFn` (sisub), `getMyMilitaryProfileFn` (rumaer), `fetchMyIdentityFn` (sucont) e pelos rótulos que terceiros veem no sisub (designações, pesquisa de preços, painel, pedidos de lanche). As views `core.v_user_identity` e `analytics.v_user_identity` aplicam a mesma condição por extenso (a do analytics não é invoker, e uma função ali checaria o EXECUTE de quem consulta): a conta que gravou o SARAM de outra pessoa não aparece com o nome dela. Fica de fora o console de acessos do sucont (`permissions.fn.ts`/`people.fn.ts`), que lê pelo client tipado e muda depois do `db:types` (FASE 2).
 
 ## Contrato para a FASE 2
 

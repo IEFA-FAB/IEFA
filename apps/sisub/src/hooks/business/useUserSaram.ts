@@ -25,11 +25,11 @@ export function useUserSaram(userId: string | null) {
  * quando há o que a pessoa possa fazer por ali: conta institucional, pedido em análise ou
  * bloqueio de tentativas não reabrem o diálogo a cada sessão.
  */
-export function useSaramStatus(userId: string | null) {
+export function useSaramStatus(userId: string | null, options: { enabled?: boolean } = {}) {
 	return useQuery({
 		queryKey: queryKeys.user.saramStatus(userId),
 		queryFn: () => fetchMySaramStatusFn(),
-		enabled: !!userId,
+		enabled: !!userId && (options.enabled ?? true),
 		staleTime: QUERY_STALE_TIME,
 		gcTime: QUERY_GC_TIME,
 	})

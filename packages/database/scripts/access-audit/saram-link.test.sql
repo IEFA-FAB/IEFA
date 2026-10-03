@@ -27,8 +27,9 @@ end;
 $$;
 
 -- ── Esqueleto: espelho, view, arranchamento, presença ───────────────────────
-create extension if not exists unaccent schema public;
+-- Sem `unaccent` de propósito: a chave usa `translate` e não depende de extensão.
 create schema if not exists sisub;
+create schema if not exists analytics;
 create or replace function sisub.set_updated_at() returns trigger language plpgsql as $$ begin new.updated_at = now(); return new; end $$;
 
 drop table if exists core.military_identity;
@@ -77,8 +78,10 @@ insert into auth.users (id, email) values
 	('00000000-0000-0000-0000-000000000079', 'secao-gapsj@fab.mil.br'),
 	('00000000-0000-0000-0000-000000000080', 'admin.saram@fab.mil.br'),
 	('00000000-0000-0000-0000-000000000081', 'pedinte@fab.mil.br'),
-	('00000000-0000-0000-0000-000000000082', 'rochadr@fab.mil.br');
+	('00000000-0000-0000-0000-000000000082', 'rochadr@fab.mil.br'),
+	('00000000-0000-0000-0000-000000000083', 'digitouerrado@fab.mil.br');
 insert into core.user_data (id, email, saram) values
+	('00000000-0000-0000-0000-000000000083', 'digitouerrado@fab.mil.br', '1111110'),
 	('00000000-0000-0000-0000-000000000061', 'carvalhobc@fab.mil.br', '4000004'),
 	('00000000-0000-0000-0000-000000000062', 'outro.carvalho@fab.mil.br', '4000004'),
 	('00000000-0000-0000-0000-000000000063', 'tp.joaojss3@fab.mil.br', '7000007'),
@@ -123,6 +126,11 @@ begin
 	assert core.visible_saram('00000000-0000-0000-0000-000000000061') = '4000004';
 	assert core.visible_saram('00000000-0000-0000-0000-000000000062') is null, 'legacy em conflito não vê';
 	assert core.visible_saram('00000000-0000-0000-0000-000000000064') = '6000006', 'legacy sozinho vê';
+	-- Nome de exibição pelas mesmas regras: o legacy em conflito não aparece com o nome do dono.
+	assert (select display_name from core.v_user_identity where id = '00000000-0000-0000-0000-000000000061') = 'SO Carvalho';
+	assert (select display_name from core.v_user_identity where id = '00000000-0000-0000-0000-000000000062') = 'outro.carvalho@fab.mil.br';
+	assert (select display_name from analytics.v_user_identity where id = '00000000-0000-0000-0000-000000000062') like 'Usuário %';
+	assert (select display_name from analytics.v_user_identity where id = '00000000-0000-0000-0000-000000000064') = 'S1 Melo';
 end $$;
 
 -- ── Guarda de core.user_data ────────────────────────────────────────────────
@@ -131,6 +139,7 @@ begin
 	update core.user_data set saram = '9999999' where id = '00000000-0000-0000-0000-000000000051';
 	assert (select saram_verified_by is null from core.user_data where id = '00000000-0000-0000-0000-000000000051'), 'SARAM gravado por fora fica sem verificação';
 	assert core.visible_saram('00000000-0000-0000-0000-000000000051') is null, 'sem verificação não vê';
+	assert (select display_name from core.v_user_identity where id = '00000000-0000-0000-0000-000000000051') = 'um@fab.mil.br';
 	perform pg_temp.expect_error($q$ update core.user_data set saram_verified_by = 'admin' where id = '00000000-0000-0000-0000-000000000051' $q$, 'SARAM_LINK_OUTSIDE_FUNCTION');
 	perform pg_temp.expect_error($q$ update core.user_data set account_kind = 'institucional', saram = null where id = '00000000-0000-0000-0000-000000000052' $q$, 'SARAM_LINK_OUTSIDE_FUNCTION');
 	perform pg_temp.expect_error($q$ select core.assign_saram('00000000-0000-0000-0000-000000000052', null, '8000008', 'admin') $q$, 'SARAM_LINK_OUTSIDE_FUNCTION');
@@ -267,6 +276,21 @@ begin
 	r := core.claim_saram('00000000-0000-0000-0000-000000000082', 'rochadr@fab.mil.br', true, '8000008');
 	assert r ->> 'outcome' = 'unchanged';
 	perform pg_temp.expect_error($q$ select core.claim_saram('00000000-0000-0000-0000-000000000082', 'rochadr@fab.mil.br', true, '1000001') $q$, 'SARAM_LOCKED');
+	-- legacy que localiza cadastro: só o administrador troca; sem prova, nada passa
+	perform pg_temp.expect_error($q$ select core.claim_saram('00000000-0000-0000-0000-000000000062', 'outro.carvalho@fab.mil.br', true, '8100001') $q$, 'SARAM_LOCKED');
+	perform pg_temp.expect_error($q$ select core.request_saram_link('00000000-0000-0000-0000-000000000062', 'outro.carvalho@fab.mil.br', true, '8100001', 'Quero trocar o meu SARAM antigo.') $q$, 'SARAM_ALREADY_LINKED');
+	-- ...e ao conferir o PRÓPRIO número contra titular verificado, abre contestação visível no estado
+	r := core.verify_saram_by_cpf('00000000-0000-0000-0000-000000000062', 'outro.carvalho@fab.mil.br', true, '4000004', '44455566677');
+	assert r ->> 'outcome' = 'disputed' and not (r ->> 'upgraded')::boolean, r::text;
+	assert r -> 'status' ->> 'status' = 'contested' and (r -> 'status' -> 'actions') ? 'withdraw_request', r::text;
+	perform core.withdraw_saram_request('00000000-0000-0000-0000-000000000062', 'outro.carvalho@fab.mil.br', true,
+		(select id from core.saram_link_request where user_id = '00000000-0000-0000-0000-000000000062' and status = 'pending'));
+	-- legacy que não localiza ninguém (digitado errado) segue corrigível: pede, ou prova outro
+	assert core.saram_link_status('00000000-0000-0000-0000-000000000083', 'digitouerrado@fab.mil.br', true) -> 'actions' ? 'request_link';
+	r := core.verify_saram_by_cpf('00000000-0000-0000-0000-000000000083', 'digitouerrado@fab.mil.br', true, '5000005', '55566677788');
+	assert r ->> 'outcome' = 'linked' and not (r ->> 'upgraded')::boolean, r::text;
+	assert (select saram = '5000005' and saram_verified_by = 'cpf' from core.user_data where id = '00000000-0000-0000-0000-000000000083');
+
 	r := core.claim_saram('00000000-0000-0000-0000-000000000073', 'tp.limaal2@fab.mil.br', true, '5000005');
 	assert r ->> 'outcome' = 'requested', 'e-mail com dígito não vincula pelo formulário: ' || r::text;
 	r := core.claim_saram('00000000-0000-0000-0000-000000000073', 'tp.limaal2@fab.mil.br', true, '5000005');

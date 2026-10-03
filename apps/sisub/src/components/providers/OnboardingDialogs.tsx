@@ -81,7 +81,8 @@ export function OnboardingDialogs() {
 	const userId = user?.id ?? null
 
 	const saramQuery = useUserSaram(userId)
-	const saramStatusQuery = useSaramStatus(userId)
+	// Só quem ainda não tem SARAM visível consulta o estado: o comensal verificado não paga a ida.
+	const saramStatusQuery = useSaramStatus(userId, { enabled: saramQuery.isSuccess && !saramQuery.data })
 	const evaluationQuery = useEvaluation(userId)
 
 	const serverSaram = !userId ? "" : saramQuery.data ? String(saramQuery.data) : ""

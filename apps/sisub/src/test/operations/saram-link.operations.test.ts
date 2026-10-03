@@ -155,7 +155,7 @@ describeSupabaseIntegration("vínculo de SARAM verificado (banco real)", () => {
 		})
 	})
 
-	test("CPF: erro genérico, bloqueio depois de 5 falhas; titular legacy perde o SARAM com log", async () => {
+	test("CPF: erro genérico, bloqueio da conta depois de 5 falhas; titular legacy perde o SARAM com log", async () => {
 		if (!reachable || !seeder || !db) return
 		const brute = await seeder.seedAuthUser()
 		const holder = await seeder.seedAuthUser()
@@ -173,11 +173,7 @@ describeSupabaseIntegration("vínculo de SARAM verificado (banco real)", () => {
 			expect(locked.lockedUntil).not.toBeNull()
 
 			await seedLinkInTx(tx, holder, `${letters(10)}@example.invalid`, m.saram, "legacy")
-			// o bloqueio é também por SARAM: com 5 falhas nele, quem tem o CPF certo espera
-			const blocked = await verifySaramByCpf(tx, { userId: claimant, email: "dono@example.invalid", emailConfirmed: true }, { saram: m.saram, cpf: m.cpf })
-			expect(blocked.outcome).toBe("locked")
-			await tx.execute(sql`delete from core.saram_verification_attempt where saram = ${m.saram}`)
-
+			// o bloqueio por SARAM só pesa com 20 falhas de outras contas: 5 de um atacante não trancam o dono
 			const linked = await verifySaramByCpf(tx, { userId: claimant, email: "dono@example.invalid", emailConfirmed: true }, { saram: m.saram, cpf: m.cpf })
 			expect(linked.outcome).toBe("linked")
 			expect(linked.status.verifiedBy).toBe("cpf")
@@ -276,9 +272,10 @@ describeSupabaseIntegration("vínculo de SARAM verificado (banco real)", () => {
 			await expect(upsertArranchamento(tx, fullAccessCtx(section), { date: "2099-01-03", meal: "almoco", willEat: true, messHallId })).rejects.toMatchObject({
 				code: "ACCOUNT_INSTITUTIONAL",
 			})
-			await expect(insertPresence(tx, fullAccessCtx(adminId), { user_id: section, date: "2099-01-03", meal: "almoco", messHallId })).rejects.toMatchObject({
-				code: "ACCOUNT_INSTITUTIONAL",
-			})
+			// presença: o trigger recusa e o domínio traduz (savepoint: a recusa não derruba a transação)
+			await expect(
+				tx.transaction((sp) => insertPresence(sp, fullAccessCtx(adminId), { user_id: section, date: "2099-01-03", meal: "almoco", messHallId }))
+			).rejects.toMatchObject({ code: "ACCOUNT_INSTITUTIONAL" })
 			// o banco recusa mesmo por fora do domínio
 			await expect(
 				tx.transaction(async (sp) => {

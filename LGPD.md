@@ -154,7 +154,7 @@ nome completo e CPF continuam sem sair dele, e nenhum candidato é mostrado com
 SARAM, CPF ou nome completo. As tentativas de conferência ficam em
 `core.saram_verification_attempt` (conta, SARAM tentado, método, resultado e
 hora; **nunca o CPF digitado**), registro de segurança que limita 5 falhas por
-hora por conta e por SARAM; como o resto, sem expurgo por idade. Pedidos e
+hora por conta (e 20 de outras contas por SARAM); como o resto, sem expurgo por idade. Pedidos e
 contestações ficam em `core.saram_link_request`. SARAM ausente do espelho (quem
 chegou depois do último patch) vira pedido para o administrador, que pode
 aprovar sem o espelho (sem FK, de propósito).

@@ -39,5 +39,5 @@ Fases: **FASE 1** (este PR) banco, domínio, server functions, sucont/rumaer e t
 - Telas (FASE 2).
 - Mapear `sgOrg` para `core.units` para delegar a aprovação a `unit:2`: medido, só 17 de 51 unidades casam e nenhum GAP (as unidades que operam cozinha); fica `admin:2`.
 - Revalidar vínculo verificado quando a pessoa troca de nome ou de e-mail: o vínculo é write-once.
-- Mudar os rótulos de identidade que terceiros veem (`v_user_identity`, console de permissões): depois desta change o SARAM só é gravado por fluxo verificado; o resíduo são os legacy, revisados pelo admin.
+- O console de acessos do sucont (`permissions.fn.ts`/`people.fn.ts`) continua rotulando pela coluna crua até o `db:types` (FASE 2); as views de identidade e os rótulos do sisub já seguem o SARAM verificado.
 - Remover `core.link_own_saram`: o sucont em produção a chama até o deploy; sai num PR seguinte.

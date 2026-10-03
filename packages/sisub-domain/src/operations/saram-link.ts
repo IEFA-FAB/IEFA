@@ -38,7 +38,7 @@ import type {
 import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
 import { driverFailure, runQuery, unwrapPgError } from "../utils/index.ts"
-import { type AccessAudit, defaultAccessAudit, toAccessDomainError } from "./access-change.ts"
+import { type AccessAudit, defaultAccessAudit, runAccessFunction, toAccessDomainError } from "./access-change.ts"
 
 // ── Tipos do contrato (FASE 2 monta as telas só a partir daqui) ─────────────
 
@@ -170,17 +170,9 @@ export function toSaramDomainError(error: unknown, fallbackCode = "SARAM_LINK_FA
 	return driverFailure(fallbackCode, error)
 }
 
-async function callSaramFunction(db: SisubDb, call: SQL, fallbackCode: string): Promise<Record<string, unknown>> {
-	let rows: unknown
-	try {
-		rows = await db.execute(sql`select ${call} as result`)
-	} catch (error) {
-		throw toSaramDomainError(error, fallbackCode)
-	}
-	const raw = (rows as unknown as Array<{ result: unknown }>)[0]?.result
-	const result = typeof raw === "string" ? (JSON.parse(raw) as unknown) : raw
-	if (!result || typeof result !== "object") throw new DomainError(fallbackCode, "A função de vínculo de SARAM não devolveu resultado.")
-	return result as Record<string, unknown>
+/** Uma função `core.*` = uma transação; o `jsonb` dela, com os erros do vínculo traduzidos. */
+function callSaramFunction(db: SisubDb, call: SQL, fallbackCode: string): Promise<Record<string, unknown>> {
+	return runAccessFunction<Record<string, unknown>>(db, call, {}, (error) => toSaramDomainError(error, fallbackCode))
 }
 
 // ── Conversão do jsonb (snake_case) para o contrato ─────────────────────────

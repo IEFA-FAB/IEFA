@@ -66,8 +66,9 @@ describe(`migration ${FILE}`, () => {
 		expect(body("core.email_name_key")).toContain("'^tp\\.'")
 		expect(body("core.email_name_key")).toContain("'[0-9]+$'")
 		expect(body("core.military_name_key")).toContain("w.word not in ('de', 'da', 'do', 'das', 'dos', 'e')")
-		// dicionário explícito: o que deixa a função ser imutável e indexável
-		expect(body("core.military_name_key")).toContain("public.unaccent('public.unaccent'::regdictionary")
+		// `translate`, não `unaccent`: imutável, indexável e sem depender do schema da extensão
+		expect(body("core.military_name_key")).toContain("lower(translate(coalesce(p_nome_guerra, ''), 'ÁÀÂÃÄÅáàâãäå")
+		expect(body("core.military_name_key")).not.toContain("unaccent")
 		expect(executable).toMatch(/create index if not exists user_military_data_name_key_idx on core\.\w+ \(core\.military_name_key\("nmGuerra", "nmPessoa"\)\)/)
 	})
 
@@ -89,9 +90,9 @@ describe(`migration ${FILE}`, () => {
 			expect(text, name).toContain("'outcome', 'mismatch'")
 			expect(text, name).toContain("'outcome', 'locked'")
 		}
-		// 5 falhas na última hora, por conta e por SARAM
-		expect(body("core.saram_attempt_locked_until")).toMatch(/offset 4 limit 1[\s\S]*offset 4 limit 1/)
-		expect(body("core.saram_attempt_locked_until")).toContain("a.saram = p_saram")
+		// 5 falhas na última hora por conta; 20 de OUTRAS contas no mesmo SARAM
+		expect(body("core.saram_attempt_locked_until")).toMatch(/offset 4 limit 1[\s\S]*offset 19 limit 1/)
+		expect(body("core.saram_attempt_locked_until")).toContain("a.saram = p_saram and a.user_id <> p_user")
 	})
 
 	test("o mesmo advisory lock de sempre, por SARAM, antes de gravar", () => {
@@ -155,6 +156,17 @@ describe(`migration ${FILE}`, () => {
 		expect(executable).toMatch(
 			/create unique index if not exists user_data_saram_verified_uniq on core\.user_data \(saram\)\s+where saram_verified_by in \('email', 'cpf', 'admin'\)/
 		)
+	})
+
+	test("nome de exibição: as views de identidade só juntam o SARAM que vale", () => {
+		for (const view of ["core.v_user_identity", "analytics.v_user_identity"]) {
+			const at = executable.indexOf(`create or replace view ${view}`)
+			const text = executable.slice(at, executable.indexOf(";", at))
+			expect(text, view).toContain("ud.saram_verified_by in ('email', 'cpf', 'admin')")
+			expect(text, view).toContain("ud.account_kind = 'pessoal'")
+			// a do analytics não é invoker: chamar função ali checaria o EXECUTE de quem consulta
+			if (view.startsWith("analytics")) expect(text).not.toContain("visible_saram(")
+		}
 	})
 
 	test("tabelas novas sem cliente e sem escopo do treino", () => {
