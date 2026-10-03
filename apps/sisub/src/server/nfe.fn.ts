@@ -12,6 +12,7 @@
  * @migration 20260729150000_inventory_nfe
  */
 
+import type { TableInsert, TableRow, TableUpdate } from "@iefa/database"
 import { matchNfeItem, type NfeMatchCandidates, parseNfeAccessKey } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
@@ -20,14 +21,14 @@ import { publicDbMessage } from "@/lib/db-error-message"
 import { purchaseUnitIdOfKitchen } from "@/lib/kitchen-purchase-unit.server"
 import { nfeOwnershipProblem } from "@/lib/nfe-ownership"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
-import { getLooseServerClient } from "@/lib/supabase.server"
+import { getServerClient } from "@/lib/supabase.server"
 
 const API_BASE = (process.env.IEFA_API_BASE_URL || "https://api.iefa.com.br").replace(/\/+$/, "")
 
-const inventory = () => getLooseServerClient("inventory")
-const gs1 = () => getLooseServerClient("gs1_integration")
-const kitchen = () => getLooseServerClient("kitchen")
-const procurement = () => getLooseServerClient("procurement")
+const inventory = () => getServerClient("inventory")
+const gs1 = () => getServerClient("gs1_integration")
+const kitchen = () => getServerClient("kitchen")
+const procurement = () => getServerClient("procurement")
 
 /** Autentica, resolve a cozinha do documento e aplica o guard escopado. */
 async function requireStorageForDocument(level: 1 | 2, nfeDocumentId: string): Promise<{ userId: string }> {
@@ -75,13 +76,7 @@ export interface NfeDocumentRow {
 	situation_checked_at?: string | null
 }
 
-interface IngredientItemLinkRow {
-	id: string
-	gtin: string | null
-	purchase_item_id: string | null
-	ingredient_id: string | null
-	unit_content_quantity: number | null
-}
+type IngredientItemLinkRow = Pick<TableRow<"kitchen", "ingredient_item">, "id" | "gtin" | "purchase_item_id" | "ingredient_id" | "unit_content_quantity">
 
 /**
  * Roda o pipeline de matching para todos os itens de um documento e persiste
@@ -96,64 +91,69 @@ async function runMatchingForDocument(nfeDocumentId: string): Promise<{ matched:
 
 	const { data: items, error: itemsError } = await inv.from("nfe_item").select("*").eq("nfe_document_id", nfeDocumentId)
 	if (itemsError) throw new Error(`Erro ao carregar itens: ${publicDbMessage(itemsError)}`)
-	const nfeItems = (items ?? []) as (NfeItemRow & { nfe_document_id: string })[]
+	const nfeItems = items ?? []
 	if (nfeItems.length === 0) return { matched: 0, review: 0, noMatch: 0 }
 
 	// ── Candidatos em lote ───────────────────────────────────────────────────
-	const allGtins = [...new Set(nfeItems.flatMap((item) => [item.gtin, item.gtin_trib]).filter((g): g is string => g != null))]
+	const allGtins = [...new Set(nfeItems.flatMap((item) => [item.gtin, item.gtin_trib]).filter((g) => g != null))]
 
 	const linkByGtin = new Map<string, IngredientItemLinkRow>()
 	const gtinEntityByGtin = new Map<string, { net_content: number | null; gpc_brick_code: string | null }>()
 	if (allGtins.length > 0) {
-		const { data: links } = await kitchen()
+		// Leitura que falha aqui não é "sem candidato": o upsert abaixo rebaixaria itens já casados.
+		const { data: links, error: linksError } = await kitchen()
 			.from("ingredient_item")
 			.select("id, gtin, purchase_item_id, ingredient_id, unit_content_quantity")
 			.in("gtin", allGtins)
 			.is("deleted_at", null)
-		for (const link of (links ?? []) as IngredientItemLinkRow[]) {
+		if (linksError) throw new Error(`Erro ao ler os itens de insumo pelo GTIN: ${publicDbMessage(linksError)}`)
+		for (const link of links ?? []) {
 			if (link.gtin) linkByGtin.set(link.gtin, link)
 		}
 
-		const { data: entities } = await gs1().from("gtin").select("gtin, net_content, gpc_brick_code").in("gtin", allGtins)
+		const { data: entities, error: entitiesError } = await gs1().from("gtin").select("gtin, net_content, gpc_brick_code").in("gtin", allGtins)
+		if (entitiesError) throw new Error(`Erro ao ler o catálogo GTIN: ${publicDbMessage(entitiesError)}`)
 		for (const entity of entities ?? []) gtinEntityByGtin.set(entity.gtin, entity)
 
 		// 4.4 — GTIN visto em NF-e autorizada e desconhecido no catálogo: cria source='nfe'
-		const unseen = nfeItems
-			.filter((item) => item.gtin != null && !gtinEntityByGtin.has(item.gtin))
-			.map((item) => ({ gtin: item.gtin, description: item.description, ncm: item.ncm, source: "nfe" }))
+		const unseen = nfeItems.flatMap((item) =>
+			item.gtin != null && !gtinEntityByGtin.has(item.gtin) ? [{ gtin: item.gtin, description: item.description, ncm: item.ncm, source: "nfe" }] : []
+		)
 		if (unseen.length > 0) {
 			const dedup = [...new Map(unseen.map((row) => [row.gtin, row])).values()]
 			const { error: gtinInsertError } = await gs1().from("gtin").upsert(dedup, { onConflict: "gtin", ignoreDuplicates: true })
 			if (gtinInsertError) throw new Error(`Erro ao cadastrar GTINs da nota: ${publicDbMessage(gtinInsertError)}`)
-			for (const row of dedup) gtinEntityByGtin.set(row.gtin as string, { net_content: null, gpc_brick_code: null })
+			for (const row of dedup) gtinEntityByGtin.set(row.gtin, { net_content: null, gpc_brick_code: null })
 		}
 	}
 
-	const supplierCodes = [...new Set(nfeItems.map((item) => item.supplier_code).filter((c): c is string => c != null))]
+	const supplierCodes = [...new Set(nfeItems.map((item) => item.supplier_code).filter((c) => c != null))]
 	const mapByCode = new Map<string, { ingredient_item_id: string | null; purchase_item_id: string | null }>()
 	if (doc.supplier_cnpj && supplierCodes.length > 0) {
-		const { data: maps } = await gs1()
+		const { data: maps, error: mapsError } = await gs1()
 			.from("supplier_product_map")
 			.select("supplier_code, ingredient_item_id, purchase_item_id")
 			.eq("supplier_cnpj", doc.supplier_cnpj)
 			.in("supplier_code", supplierCodes)
+		if (mapsError) throw new Error(`Erro ao ler o mapa do fornecedor: ${publicDbMessage(mapsError)}`)
 		for (const row of maps ?? []) mapByCode.set(row.supplier_code, row)
 	}
 
 	// links dos ingredient_items referenciados pelo supplier map (para conversão)
-	const mapItemIds = [...new Set([...mapByCode.values()].map((m) => m.ingredient_item_id).filter((id): id is string => id != null))]
+	const mapItemIds = [...new Set([...mapByCode.values()].map((m) => m.ingredient_item_id).filter((id) => id != null))]
 	const linkById = new Map<string, IngredientItemLinkRow>()
 	if (mapItemIds.length > 0) {
-		const { data: links } = await kitchen()
+		const { data: links, error: linksError } = await kitchen()
 			.from("ingredient_item")
 			.select("id, gtin, purchase_item_id, ingredient_id, unit_content_quantity")
 			.in("id", mapItemIds)
 			.is("deleted_at", null)
-		for (const link of (links ?? []) as IngredientItemLinkRow[]) linkById.set(link.id, link)
+		if (linksError) throw new Error(`Erro ao ler os itens de insumo do mapa do fornecedor: ${publicDbMessage(linksError)}`)
+		for (const link of links ?? []) linkById.set(link.id, link)
 	}
 
 	// ── Decisão por item (pura) + sugestões só para quem caiu sem candidato ──
-	const updates: Record<string, unknown>[] = []
+	const updates: TableInsert<"inventory", "nfe_item">[] = []
 	let matched = 0
 	let review = 0
 	let noMatch = 0
@@ -190,12 +190,13 @@ async function runMatchingForDocument(nfeDocumentId: string): Promise<{ matched:
 		// Sugestões (trigram + brick GPC) só quando nada acima resolveu
 		if (!candidates.gtinLink && !candidates.supplierMapLink && !candidates.supplierMapPurchaseItemId && item.description) {
 			const brick = item.gtin != null ? (gtinEntityByGtin.get(item.gtin)?.gpc_brick_code ?? null) : null
-			const { data: suggestions } = await inv.rpc("suggest_purchase_items", {
+			const { data: suggestions, error: suggestionsError } = await inv.rpc("suggest_purchase_items", {
 				p_description: item.description,
-				p_gpc_brick: brick,
+				p_gpc_brick: brick ?? undefined,
 				p_limit: 5,
 			})
-			candidates.suggestionPurchaseItemIds = (suggestions ?? []).map((s: { purchase_item_id: string }) => s.purchase_item_id)
+			if (suggestionsError) throw new Error(`Erro ao sugerir itens de compra: ${publicDbMessage(suggestionsError)}`)
+			candidates.suggestionPurchaseItemIds = (suggestions ?? []).map((s) => s.purchase_item_id)
 		}
 
 		const result = matchNfeItem({ gtin: item.gtin, gtinTrib: item.gtin_trib, supplierCode: item.supplier_code, commercialQty: item.commercial_qty }, candidates)
@@ -221,7 +222,8 @@ async function runMatchingForDocument(nfeDocumentId: string): Promise<{ matched:
 	if (upsertError) throw new Error(`Erro ao gravar resultado do matching: ${publicDbMessage(upsertError)}`)
 
 	const newStatus = matched === nfeItems.length ? "matched" : "imported"
-	await inv.from("nfe_document").update({ status: newStatus }).eq("id", nfeDocumentId)
+	const { error: statusError } = await inv.from("nfe_document").update({ status: newStatus }).eq("id", nfeDocumentId)
+	if (statusError) throw new Error(`Erro ao atualizar a situação da NF-e: ${publicDbMessage(statusError)}`)
 
 	return { matched, review, noMatch }
 }
@@ -319,7 +321,7 @@ export const createNfeFromAccessKeyFn = createServerFn({ method: "POST" })
 				if (!claimed || claimed.length === 0)
 					throw new Error("A nota mudou enquanto era registrada (outra cozinha a assumiu ou a triagem mudou a unidade) — recarregue a lista")
 			}
-			return { nfeDocumentId: existing.id as string, created: false, status: existing.status as string }
+			return { nfeDocumentId: existing.id, created: false, status: existing.status }
 		}
 
 		// AAMM da chave → primeiro dia do mês de emissão. É uma aproximação
@@ -342,7 +344,7 @@ export const createNfeFromAccessKeyFn = createServerFn({ method: "POST" })
 			.select("id")
 			.single()
 		if (error || !doc) throw new Error(`Erro ao registrar a nota pela chave: ${publicDbMessage(error)}`)
-		return { nfeDocumentId: doc.id as string, created: true, status: "announced" }
+		return { nfeDocumentId: doc.id, created: true, status: "announced" }
 	})
 
 /**
@@ -358,7 +360,7 @@ export const registerNfeSituationFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		const { userId } = await requireStorageForDocument(2, data.nfeDocumentId)
 		const inv = inventory()
-		const update: Record<string, unknown> = {
+		const update: TableUpdate<"inventory", "nfe_document"> = {
 			situation_checked_at: new Date().toISOString(),
 			situation_checked_by: userId,
 			situation_result: data.result,
@@ -528,8 +530,13 @@ export const fetchNfeItemSuggestionsFn = createServerFn({ method: "GET" })
 
 		const brick =
 			item.gtin != null ? ((await gs1().from("gtin").select("gpc_brick_code").eq("gtin", item.gtin).maybeSingle()).data?.gpc_brick_code ?? null) : null
-		const { data: suggestions } = await inv.rpc("suggest_purchase_items", { p_description: item.description, p_gpc_brick: brick, p_limit: 8 })
-		return (suggestions ?? []) as { purchase_item_id: string; description: string; score: number }[]
+		const { data: suggestions, error: suggestionsError } = await inv.rpc("suggest_purchase_items", {
+			p_description: item.description,
+			p_gpc_brick: brick ?? undefined,
+			p_limit: 8,
+		})
+		if (suggestionsError) throw new Error(`Erro ao sugerir itens de compra: ${publicDbMessage(suggestionsError)}`)
+		return suggestions ?? []
 	})
 
 /**
@@ -561,23 +568,26 @@ export const resolveNfeItemFn = createServerFn({ method: "POST" })
 		// (preferindo o que tem conversão de unidade).
 		let link: IngredientItemLinkRow | null = null
 		if (data.ingredientItemId) {
-			const { data: row } = await kitchen()
+			const { data: row, error: rowError } = await kitchen()
 				.from("ingredient_item")
 				.select("id, gtin, purchase_item_id, ingredient_id, unit_content_quantity")
 				.eq("id", data.ingredientItemId)
 				.is("deleted_at", null)
 				.maybeSingle()
-			link = (row as IngredientItemLinkRow | null) ?? null
+			if (rowError) throw new Error(`Erro ao ler o item de insumo: ${publicDbMessage(rowError)}`)
+			link = row ?? null
 			if (!link) throw new Error("Item de insumo não encontrado (ou excluído)")
 		} else if (data.purchaseItemId) {
-			const { data: rows } = await kitchen()
+			// Erro aqui não pode virar "sem embalagem": o mapa do fornecedor seria regravado sem o SKU.
+			const { data: rows, error: rowsError } = await kitchen()
 				.from("ingredient_item")
 				.select("id, gtin, purchase_item_id, ingredient_id, unit_content_quantity")
 				.eq("purchase_item_id", data.purchaseItemId)
 				.is("deleted_at", null)
 				.order("unit_content_quantity", { ascending: false, nullsFirst: false })
 				.limit(1)
-			link = ((rows ?? [])[0] as IngredientItemLinkRow | undefined) ?? null
+			if (rowsError) throw new Error(`Erro ao ler as embalagens do item de compra: ${publicDbMessage(rowsError)}`)
+			link = rows?.[0] ?? null
 		}
 
 		const purchaseItemId = link?.purchase_item_id ?? data.purchaseItemId ?? null
@@ -599,14 +609,15 @@ export const resolveNfeItemFn = createServerFn({ method: "POST" })
 				.eq("is_default", true)
 				.limit(2)
 			if (defaultError) throw new Error(`Erro ao ler o insumo padrão do item de compra: ${publicDbMessage(defaultError)}`)
-			if (defaultLinks?.length === 1) ingredientId = (defaultLinks[0].ingredient_id as string | null) ?? null
+			if (defaultLinks?.length === 1) ingredientId = defaultLinks[0].ingredient_id ?? null
 		}
 		const qty = perPackage != null && perPackage > 0 && item.commercial_qty != null && item.commercial_qty > 0 ? item.commercial_qty * perPackage : null
 
 		// Aprendizado ANTES do update do item (review: partial state). Se o mapa
 		// falhar, nada mudou; se o update do item falhar depois, o mapa já
 		// aprendido é idempotente e o retry da resolução converge.
-		const { data: doc } = await inv.from("nfe_document").select("supplier_cnpj").eq("id", item.nfe_document_id).single()
+		const { data: doc, error: docError } = await inv.from("nfe_document").select("supplier_cnpj").eq("id", item.nfe_document_id).single()
+		if (docError) throw new Error(`Erro ao ler o fornecedor da NF-e: ${publicDbMessage(docError)}`)
 		if (doc?.supplier_cnpj && item.supplier_code) {
 			const { error: mapError } = await gs1()
 				.from("supplier_product_map")

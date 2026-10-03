@@ -24,10 +24,12 @@ import { maskBlindCountQuantities, withoutBlindCountLots } from "@/lib/blind-cou
 import { publicDbMessage } from "@/lib/db-error-message"
 import { readAllPages, readAllPagesIn } from "@/lib/read-all-pages"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
-import { getLooseServerClient, type LooseClient } from "@/lib/supabase.server"
+import { getServerClient } from "@/lib/supabase.server"
 
-const inventory = () => getLooseServerClient("inventory")
-const kitchen = () => getLooseServerClient("kitchen")
+const inventory = () => getServerClient("inventory")
+const kitchen = () => getServerClient("kitchen")
+
+const toExpiryBand = (value: string | null): ExpiryBand | null => EXPIRY_BANDS.find((band) => band === value) ?? null
 
 export interface ExpiryLotRow {
 	lotId: string
@@ -56,16 +58,17 @@ export interface ExpiryLotRow {
  * Os ids vão fatiados: `.in()` com centenas de ids estoura a URL do GET.
  */
 async function describeItems(
-	kit: LooseClient,
+	kit: ReturnType<typeof kitchen>,
 	ingredientIds: readonly string[],
 	frozenIds: readonly string[]
 ): Promise<Map<string, { description: string; measureUnit: string | null }>> {
 	const describe = new Map<string, { description: string; measureUnit: string | null }>()
-	const ingredients = await readAllPagesIn<{ id: string; description: string; measure_unit: string | null }>("os insumos", ingredientIds, (chunk, from, to) =>
+	const ingredients = await readAllPagesIn("os insumos", ingredientIds, (chunk, from, to) =>
 		kit.from("ingredient").select("id, description, measure_unit").in("id", chunk).order("id").range(from, to)
 	)
-	for (const row of ingredients) describe.set(row.id, { description: row.description, measureUnit: row.measure_unit })
-	const frozen = await readAllPagesIn<{ id: string; description: string }>("as preparações", frozenIds, (chunk, from, to) =>
+	// `description` é nulável no insumo; vazia aqui quebraria o `localeCompare` da ordenação.
+	for (const row of ingredients) describe.set(row.id, { description: row.description?.trim() || "(item sem descrição)", measureUnit: row.measure_unit })
+	const frozen = await readAllPagesIn("as preparações", frozenIds, (chunk, from, to) =>
 		kit.from("frozen_preparation").select("id, description").in("id", chunk).order("id").range(from, to)
 	)
 	for (const row of frozen) describe.set(row.id, { description: row.description, measureUnit: null })
@@ -91,29 +94,12 @@ export const fetchExpiringLotsFn = createServerFn({ method: "GET" })
 		const ctx = await requireStorageForKitchen(1, data.kitchenId)
 		const bands = data.bands?.length ? data.bands : [...EXPIRY_BANDS]
 
-		type Row = {
-			lot_id: string
-			short_code: string | null
-			lot_code: string | null
-			ingredient_id: string | null
-			frozen_preparation_id: string | null
-			location: string | null
-			expiry_date: string | null
-			days_left: number | null
-			alert_days: number
-			conservation_class: string | null
-			balance: number
-			balance_value: number
-			use_first: boolean
-			quarantined_at: string | null
-			band: ExpiryBand
-		}
 		// Todas as páginas: o PostgREST corta em 1000 linhas sem erro, e cortar
 		// ANTES do sort perde lote vencido — os totais saem baixos e o "Mostrando X
 		// de Y" nunca aparece. Toda leitura de lista deste arquivo passa por
 		// `readAllPages`/`readAllPagesIn`, não só a que foi apontada.
-		const [read, hidden] = await Promise.all([
-			readAllPages<Row>("os vencimentos", (from, to) =>
+		const [viewRows, hidden] = await Promise.all([
+			readAllPages("os vencimentos", (from, to) =>
 				inventory()
 					.from("v_lot_expiry")
 					.select(
@@ -126,6 +112,11 @@ export const fetchExpiringLotsFn = createServerFn({ method: "GET" })
 			),
 			hiddenByBlindCount(data.kitchenId, ctx),
 		])
+		// Coluna de view sai nula no tipo gerado; a consulta filtra a faixa, e lote sem id não existe.
+		const read = viewRows.flatMap((row) => {
+			const band = toExpiryBand(row.band)
+			return row.lot_id && band ? [{ ...row, lot_id: row.lot_id, band }] : []
+		})
 
 		// Contagem cega alcança TODA leitura de saldo (`lib/blind-count.server.ts`): o saldo do lote
 		// aqui é o mesmo número que a folha esconde. O lote do item em contagem sai da lista e dos
@@ -136,8 +127,8 @@ export const fetchExpiringLotsFn = createServerFn({ method: "GET" })
 		)
 
 		// descrição e unidade vêm dos dois catálogos que alimentam o lote
-		const ingredientIds = [...new Set(all.map((row) => row.ingredient_id).filter(Boolean))] as string[]
-		const frozenIds = [...new Set(all.map((row) => row.frozen_preparation_id).filter(Boolean))] as string[]
+		const ingredientIds = all.map((row) => row.ingredient_id).filter((id) => id != null)
+		const frozenIds = all.map((row) => row.frozen_preparation_id).filter((id) => id != null)
 		const kit = kitchen()
 		// sem o nome, todo lote vira "(item sem cadastro)" — parece defeito de
 		// catálogo, e é falha de leitura
@@ -154,7 +145,7 @@ export const fetchExpiringLotsFn = createServerFn({ method: "GET" })
 		// aprovação é pouca. E só `pending_approval` conta: rascunho é transitório,
 		// e um rascunho que sobrou de lançamento que falhou marcava o lote como
 		// pendente para sempre, sem que ninguém pudesse aprová-lo.
-		const pending = await readAllPages<{ lot_id: string | null }>("as baixas pendentes", (from, to) =>
+		const pending = await readAllPages("as baixas pendentes", (from, to) =>
 			inventory()
 				.from("stock_adjustment_item")
 				.select("id, lot_id, stock_adjustment!inner(status, kitchen_id)")
@@ -165,7 +156,7 @@ export const fetchExpiringLotsFn = createServerFn({ method: "GET" })
 				.order("id")
 				.range(from, to)
 		)
-		const pendingLots = new Set(pending.map((row) => row.lot_id).filter(Boolean) as string[])
+		const pendingLots = new Set(pending.map((row) => row.lot_id).filter((id) => id != null))
 
 		const BAND_ORDER: Record<ExpiryBand, number> = { expired: 0, critical: 1, warning: 2, no_expiry: 3 }
 		const mapped: ExpiryLotRow[] = all
@@ -234,7 +225,7 @@ export const fetchExpirySummaryFn = createServerFn({ method: "GET" })
 		// faixa `ok`, que é a maioria — levava cozinha grande ao teto de 1000 linhas
 		// do PostgREST, e o cartão mostrava menos vencido e menos risco do que há.
 		// E mesmo essas faixas podem passar do teto: páginas até o fim.
-		const rows = await readAllPages<{ band: ExpiryBand; balance_value: number }>("o resumo dos vencimentos", (from, to) =>
+		const rows = await readAllPages("o resumo dos vencimentos", (from, to) =>
 			inventory()
 				.from("v_lot_expiry")
 				.select("lot_id, band, balance_value")
@@ -286,15 +277,7 @@ export const fetchExpiryPoliciesFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive() }))
 	.handler(async ({ data }) => {
 		await requireStorageForKitchen(1, data.kitchenId)
-		type PolicyRow = {
-			id: string
-			kitchen_id: number | null
-			ingredient_id: string | null
-			conservation_class: string | null
-			alert_days: number
-			notes: string | null
-		}
-		const all = await readAllPages<PolicyRow>("as políticas de vencimento", (from, to) =>
+		const all = await readAllPages("as políticas de vencimento", (from, to) =>
 			inventory()
 				.from("expiry_alert_policy")
 				.select("id, kitchen_id, ingredient_id, conservation_class, alert_days, notes")
@@ -302,7 +285,7 @@ export const fetchExpiryPoliciesFn = createServerFn({ method: "GET" })
 				.order("id")
 				.range(from, to)
 		)
-		const ingredientIds = [...new Set(all.map((row) => row.ingredient_id).filter(Boolean))] as string[]
+		const ingredientIds = all.map((row) => row.ingredient_id).filter((id) => id != null)
 		const names = new Map<string, string>()
 		for (const [id, meta] of await describeItems(kitchen(), ingredientIds, [])) names.set(id, meta.description)
 
@@ -347,7 +330,9 @@ export const saveExpiryPolicyFn = createServerFn({ method: "POST" })
 		const values = { alert_days: data.alertDays, notes: data.notes?.trim() || null, updated_at: new Date().toISOString() }
 		const matching = () => {
 			const query = inv.from("expiry_alert_policy").update(values).eq("kitchen_id", data.kitchenId)
-			return data.ingredientId ? query.eq("ingredient_id", data.ingredientId) : query.eq("conservation_class", data.conservationClass)
+			if (data.ingredientId) return query.eq("ingredient_id", data.ingredientId)
+			if (data.conservationClass) return query.eq("conservation_class", data.conservationClass)
+			throw new Error("A política é de um ingrediente OU de uma classe de conservação")
 		}
 
 		const { data: updated, error: updateError } = await matching().select("id")
@@ -428,15 +413,7 @@ export const fetchExpiringInPeriodFn = createServerFn({ method: "GET" })
 		// é sugerir comida que não vai existir. No passado, o corte é hoje.
 		const today = getBrasiliaToday()
 		const cutoff = data.from && data.from > today ? data.from : today
-		type Row = {
-			ingredient_id: string | null
-			frozen_preparation_id: string | null
-			expiry_date: string
-			balance: number
-			balance_value: number
-			quarantined_at: string | null
-		}
-		const rows = await readAllPages<Row>("os vencimentos do período", (from, to) =>
+		const rows = await readAllPages("os vencimentos do período", (from, to) =>
 			inventory()
 				.from("v_lot_expiry")
 				.select("lot_id, ingredient_id, frozen_preparation_id, expiry_date, balance, balance_value, quarantined_at")
@@ -456,7 +433,8 @@ export const fetchExpiringInPeriodFn = createServerFn({ method: "GET" })
 		const byItem = new Map<string, { ingredientId: string | null; frozenPreparationId: string | null; quantity: number; value: number; firstExpiry: string }>()
 		for (const row of rows.filter((row) => row.quarantined_at == null)) {
 			const key = row.ingredient_id ?? row.frozen_preparation_id ?? ""
-			if (!key) continue
+			// `expiry_date` nulo não chega (filtrado na consulta); a view só o declara nulável.
+			if (!key || row.expiry_date == null) continue
 			const current = byItem.get(key)
 			if (!current) {
 				byItem.set(key, {
@@ -475,8 +453,8 @@ export const fetchExpiringInPeriodFn = createServerFn({ method: "GET" })
 
 		const describe = await describeItems(
 			kitchen(),
-			[...byItem.values()].map((item) => item.ingredientId).filter(Boolean) as string[],
-			[...byItem.values()].map((item) => item.frozenPreparationId).filter(Boolean) as string[]
+			[...byItem.values()].map((item) => item.ingredientId).filter((id) => id != null),
+			[...byItem.values()].map((item) => item.frozenPreparationId).filter((id) => id != null)
 		)
 
 		const items = maskBlindCountQuantities(
