@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test"
 import { createPromptNonce, dropClientSystemMessages, untrustedContentRule } from "@iefa/ai-provider/untrusted"
 import { chatParamsFromRequestBody } from "@tanstack/ai"
 import { assembleDocument } from "./assemble"
-import { buildChatSystemPrompt, DOCUMENT_TAG_PREFIX, describeDocument } from "./prompt"
+import { buildChatSystemPrompt, DOCUMENT_TAG_PREFIX, describeDocument, NORM_RULES } from "./prompt"
 import type { DocumentInput } from "./types"
 
 /**
@@ -103,5 +103,15 @@ describe("tom da redação", () => {
 		expect(prompt).toContain("CORTESIA SEMPRE")
 		expect(prompt).toContain("superior, par ou subordinado")
 		expect(prompt).not.toContain("Determino")
+	})
+
+	// Benchmark de 2026-10-03: a dúvida sobre o destinatário voltou a segurar o 1º turno, e o
+	// texto remeteu a "alíneas a e b" quando a folha imprimia itens 3.1 a 3.3.
+	it("não deixa a dúvida sobre o destinatário segurar a redação e desestimula remissão interna", () => {
+		const prompt = buildChatSystemPrompt(assembleDocument(base()))
+		expect(prompt).toMatch(/autoridade recebe o ofício não seguram a redação/)
+		expect(prompt).toMatch(/Evite remeter a parágrafo, item ou alínea do próprio texto/)
+		// Regra da conversa, não da norma: o import preserva o texto e não pode reescrever remissões.
+		expect(NORM_RULES).not.toMatch(/remeter/)
 	})
 })

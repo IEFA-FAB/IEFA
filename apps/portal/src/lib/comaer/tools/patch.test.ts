@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test"
 import { newDocument } from "../draft"
 import { toPayload } from "../schema"
 import { CHAT_TOOLS, dropModelNulls } from "./definitions"
-import { applyPatch, PatchError } from "./patch"
+import { applyPatch, PatchError, printedOutline } from "./patch"
 
 const base = () => ({ ...newDocument(), city: "Brasília", paragraphs: [{ text: "Primeiro." }, { text: "Segundo." }] })
 
@@ -114,5 +114,25 @@ describe("null do modelo dentro de array", () => {
 		const patch = applyPatch(newDocument(), "set_parties", { recipients: [{ position: "Chefe do COMGEP", gender: "masculino" }] })
 		expect(patch.document.recipients[0]?.gender).toBeUndefined()
 		expect(() => toPayload(patch.document)).not.toThrow()
+	})
+})
+
+describe("numeração impressa no resumo", () => {
+	it("devolve ao modelo a numeração que a folha vai imprimir", () => {
+		const doc = {
+			...newDocument(),
+			kind: "oficio-comaer",
+			paragraphs: [{ text: "Um." }, { text: "Dois:", items: [{ text: "item", alineas: [{ text: "x" }, { text: "y" }] }, { text: "outro" }] }],
+		}
+		expect(printedOutline(doc)).toBe("1; 2 (2.1 [a), b)], 2.2)")
+	})
+
+	it("avisa a numeração nova quando a troca de espécie a muda", () => {
+		const { summary } = applyPatch({ ...base(), kind: "oficio-comaer" }, "set_form", { kind: "carta" })
+		expect(summary).toContain("Numeração impressa agora: (sem número); (sem número)")
+	})
+
+	it("diz quando a espécie não numera parágrafo", () => {
+		expect(printedOutline({ ...newDocument(), kind: "carta", paragraphs: [{ text: "A" }, { text: "B" }] })).toBe("(sem número); (sem número)")
 	})
 })
