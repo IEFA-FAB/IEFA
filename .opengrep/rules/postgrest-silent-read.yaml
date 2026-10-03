@@ -1,0 +1,75 @@
+##
+# Leitura por PostgREST cujo `error` ninguém lê, nas server fns do sisub.
+#
+# É a mesma regra de `module-chat-discarded-query-error` (em `module-chat-schemas.yaml`), agora
+# no servidor inteiro do sisub. Nasceu de uma varredura (#568–#576) que achou dezenas de
+# `const { data } = await …` sem `error`, e em vários a falha virava resposta errada com cara de
+# certa — não lista vazia, mas escrita:
+#
+#   - `importArpItemsFn`: os itens do anexo não liam, e o update desligava todo item da ARP do
+#     anexo e apagava a medida deles;
+#   - o casamento de NF-e: os vínculos por GTIN não liam, e o upsert rebaixava itens já casados;
+#   - `requiredRangeFor`: a especificação não lia, e o item fora da faixa de temperatura entrava
+#     sem divergência;
+#   - `fetchStockSettingsFn`: a configuração não lia, e valiam as alçadas padrão da cozinha.
+#
+# LEITURA é a metade que `postgrest-write-error-discarded` não cobre: ali a escrita não escreve
+# e diz que salvou; aqui a leitura não lê e a função segue decidindo com o vazio.
+#
+# Caminho certo:
+#
+#     const { data: rows, error } = await inv.from("t").select("…").eq("id", id)
+#     if (error) throw new Error(`Erro ao …: ${publicDbMessage(error)}`)
+#
+# Quando cair no padrão é de propósito (perfil do leitor, título só de exibição), desestruture o
+# `error` mesmo assim e diga no código por que a queda é aceitável — a regra passa e o motivo
+# fica ao lado de quem lê.
+#
+# Casos de teste: `__fixtures__/postgrest-silent-read.ts` (opengrep test --config
+# .opengrep/rules/postgrest-silent-read.yaml .opengrep/rules/__fixtures__/postgrest-silent-read.ts).
+##
+rules:
+  - id: postgrest-read-error-discarded
+    languages: [typescript]
+    # ERROR: depois da varredura o servidor do sisub não tem nenhum sítio. Os outros apps
+    # (portal 29, rumaer 7, forms 5, assignment-selection 1) ficam fora até a triagem deles.
+    severity: ERROR
+    message: >-
+      Resultado de consulta desestruturado sem o `error`. Se a leitura falhar, `data` vem `null`
+      e a função segue com o vazio: lista vazia com cara de "não há nada", "não encontrado" no
+      lugar do erro, ou pior, uma escrita decidida a partir do vazio. Desestruture `error` e
+      lance (`publicDbMessage`); se a queda é de propósito, desestruture `error` e diga por quê.
+    paths:
+      include:
+        - "apps/sisub/src/server/**/*.ts"
+        - "apps/sisub/src/lib/**/*.server.ts"
+      exclude:
+        - "**/*.test.ts"
+    patterns:
+      # O alvo é a DESESTRUTURAÇÃO, não a query: o `await` recai sobre a cadeia inteira
+      # (`.select().eq().maybeSingle()`), e casar a chamada não funciona (ver a regra do chat).
+      - pattern-either:
+          - pattern: |
+              const { data: $D } = await $EXPR
+          - pattern: |
+              const { data } = await $EXPR
+          - pattern: |
+              const { count: $C } = await $EXPR
+          - pattern: |
+              const { data: $D, count: $C } = await $EXPR
+      - pattern-not: |
+          const { error: $E } = await $ANY
+      - pattern-not: |
+          const { error } = await $ANY
+      # Auth (`auth.getSession()`, `auth.admin.*`) não é PostgREST e tem outro contrato de erro;
+      # `session-claims.server.ts` documenta a sua queda.
+      - pattern-not: |
+          const { data } = await $AUTH.auth.$METHOD(...).catch(...)
+      - pattern-not: |
+          const { data: $D } = await $AUTH.auth.$METHOD(...).catch(...)
+      - pattern-not: |
+          const { data } = await $AUTH.auth.$METHOD(...)
+      - pattern-not: |
+          const { data: $D } = await $AUTH.auth.$METHOD(...)
+      - pattern-not: |
+          const { data: $D } = await $AUTH.auth.$NS.$METHOD(...)
