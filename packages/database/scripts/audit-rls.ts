@@ -82,7 +82,21 @@ if (!url) {
 
 const asJson = process.argv.includes("--json")
 // Transaction pooler (6543) não suporta prepared statements — mesmo motivo do db.server.ts.
-const sql = postgres(url, { prepare: false })
+const sql = postgres(url, { prepare: false, connect_timeout: 15 })
+
+/**
+ * A auditoria leva ~4 s. No gate de integração ela já ficou 15 min sem imprimir nada (conexão ou
+ * consulta presa enquanto a suíte completa ocupava o banco) até o timeout do job matar o run, sem
+ * dizer o quê. Passado este teto, sai com erro e o motivo: o gate falha rápido e dá para rodar de
+ * novo sabendo que foi o banco, não a auditoria.
+ */
+const WATCHDOG_MS = 120_000
+const watchdog = setTimeout(() => {
+	console.error(
+		`Auditoria de RLS sem resposta do banco em ${WATCHDOG_MS / 1000} s (conexão ou consulta presa). Rode de novo; se repetir, veja locks em pg_stat_activity.`
+	)
+	process.exit(2)
+}, WATCHDOG_MS)
 
 /**
  * Lê os schemas expostos direto do setting do role `authenticator`. Se o role da
@@ -973,6 +987,7 @@ async function main() {
 		console.log(`\n${errors.length} erro(s), ${warnings.length} aviso(s).`)
 	}
 
+	clearTimeout(watchdog)
 	await sql.end()
 	process.exit(errors.length > 0 ? 1 : 0)
 }
