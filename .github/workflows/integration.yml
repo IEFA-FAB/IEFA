@@ -123,7 +123,11 @@ jobs:
           path: ~/.bun/install/cache
           key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
           restore-keys: ${{ runner.os }}-bun-
+      # Teto por passo, e não só o do job: num job que estoura os 15 min, o GitHub não diz qual passo
+      # travou (foi assim que o `audit:rls` ficou 15 min mudo, antes dos deadlines do #566). Medido em
+      # 2026-10-03 (8 runs verdes): install 2-4 s, auditoria 3-5 s, gate 198 s em média, 233 s no máximo.
       - name: Install dependencies
+        timeout-minutes: 5
         run: bun install --frozen-lockfile
       # Grants do banco: função nossa executável por cliente, função que o
       # service_role não executa, default que faz função NOVA nascer aberta, RLS e
@@ -132,10 +136,12 @@ jobs:
       # (`packages/database/**`) e é aplicada ANTES do merge — o gate vê o efeito
       # dela no banco, qualquer que seja o SQL que o causou.
       - name: Audit database grants and RLS
+        timeout-minutes: 3
         env:
           SISUB_DATABASE_URL: ${{ secrets.SISUB_DATABASE_URL }}
         run: bun --filter @iefa/database audit:rls
       - name: Run transactional integration gate
+        timeout-minutes: 10
         working-directory: apps/sisub
         env:
           SISUB_DATABASE_URL: ${{ secrets.SISUB_DATABASE_URL }}
@@ -171,6 +177,7 @@ jobs:
           key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
           restore-keys: ${{ runner.os }}-bun-
       - name: Install dependencies
+        timeout-minutes: 5
         run: bun install --frozen-lockfile
       # Varre fixtures `[TEST]` que sobraram de uma execução anterior morta no meio (job
       # cancelado → SIGKILL no vitest → nenhum afterEach roda). Antes da suíte porque este
@@ -179,6 +186,7 @@ jobs:
       # abortar o job, a suíte não roda e o `continue-on-error: true` do job pinta tudo de verde —
       # o run de integração vazio que este repo já levou uma vez.
       - name: Purge leftover test fixtures (pre)
+        timeout-minutes: 5
         continue-on-error: true
         working-directory: apps/sisub
         env:
@@ -193,6 +201,7 @@ jobs:
           VITE_SISUB_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
         run: bun run test:integration -- --no-file-parallelism
       - name: Purge leftover test fixtures (post)
+        timeout-minutes: 5
         if: always()
         working-directory: apps/sisub
         env:
