@@ -16,6 +16,7 @@ import { assertNoBlindCountHides, hiddenByBlindCount } from "@/lib/blind-count.s
 import { csvRow } from "@/lib/csv"
 import { publicDbMessage } from "@/lib/db-error-message"
 import { committedQuantity } from "@/lib/empenho-items"
+import { readAllPages, readAllPagesIn } from "@/lib/read-all-pages"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 
@@ -85,12 +86,17 @@ export const fetchBalanceteFn = createServerFn({ method: "GET" })
 		await assertNoBlindCountHides(data.kitchenId, ctx, "O balancete")
 		const { from, to } = monthRange(data.competencia)
 
-		const { data: moves, error } = await inventory()
-			.from("stock_movement")
-			.select("ingredient_id, frozen_preparation_id, type, quantity, total_cost, created_at")
-			.eq("kitchen_id", data.kitchenId)
-			.lt("created_at", to)
-		if (error) throw new Error(`Erro ao consultar ledger: ${publicDbMessage(error)}`)
+		// O saldo inicial soma o ledger inteiro até a competência: passa de 1000 linhas cedo, e o
+		// corte calado do PostgREST daria um balancete fechado com número errado.
+		const moves = await readAllPages("o ledger", (rangeFrom, rangeTo) =>
+			inventory()
+				.from("stock_movement")
+				.select("id, ingredient_id, frozen_preparation_id, type, quantity, total_cost, created_at")
+				.eq("kitchen_id", data.kitchenId)
+				.lt("created_at", to)
+				.order("id")
+				.range(rangeFrom, rangeTo)
+		)
 
 		type Row = {
 			key: string
@@ -104,7 +110,7 @@ export const fetchBalanceteFn = createServerFn({ method: "GET" })
 			outVal: number
 		}
 		const rows = new Map<string, Row>()
-		for (const move of moves ?? []) {
+		for (const move of moves) {
 			const key = move.ingredient_id ? `i:${move.ingredient_id}` : `f:${move.frozen_preparation_id}`
 			const row = rows.get(key) ?? {
 				key,
@@ -158,27 +164,34 @@ export const fetchLedgerSheetFn = createServerFn({ method: "GET" })
 		const { from, to } = monthRange(data.competencia)
 		const inv = inventory()
 
-		const { data: before } = await inv
-			.from("stock_movement")
-			.select("type, quantity, total_cost")
-			.eq("kitchen_id", data.kitchenId)
-			.eq("ingredient_id", data.ingredientId)
-			.lt("created_at", from)
+		const before = await readAllPages("o saldo anterior da ficha", (rangeFrom, rangeTo) =>
+			inv
+				.from("stock_movement")
+				.select("id, type, quantity")
+				.eq("kitchen_id", data.kitchenId)
+				.eq("ingredient_id", data.ingredientId)
+				.lt("created_at", from)
+				.order("id")
+				.range(rangeFrom, rangeTo)
+		)
 		let running = 0
-		for (const move of before ?? []) running += isInflow(move.type) ? Number(move.quantity) : -Number(move.quantity)
+		for (const move of before) running += isInflow(move.type) ? Number(move.quantity) : -Number(move.quantity)
 		const opening = Number(running.toFixed(4))
 
-		const { data: moves, error } = await inv
-			.from("stock_movement")
-			.select("id, type, quantity, unit_cost, total_cost, justification, created_at, lot_id")
-			.eq("kitchen_id", data.kitchenId)
-			.eq("ingredient_id", data.ingredientId)
-			.gte("created_at", from)
-			.lt("created_at", to)
-			.order("created_at", { ascending: true })
-		if (error) throw new Error(`Erro ao consultar ficha: ${publicDbMessage(error)}`)
+		const moves = await readAllPages("a ficha", (rangeFrom, rangeTo) =>
+			inv
+				.from("stock_movement")
+				.select("id, type, quantity, unit_cost, total_cost, justification, created_at, lot_id")
+				.eq("kitchen_id", data.kitchenId)
+				.eq("ingredient_id", data.ingredientId)
+				.gte("created_at", from)
+				.lt("created_at", to)
+				.order("created_at", { ascending: true })
+				.order("id")
+				.range(rangeFrom, rangeTo)
+		)
 
-		const entries = (moves ?? []).map((move) => {
+		const entries = moves.map((move) => {
 			running += isInflow(move.type) ? Number(move.quantity) : -Number(move.quantity)
 			return { ...move, running: Number(running.toFixed(4)) }
 		})
@@ -197,12 +210,16 @@ export const exportCatmatCsvFn = createServerFn({ method: "GET" })
 		const catmatByIngredient = new Map<string, { codigo: number | null; descricao: string | null }>()
 		if (ingredientIds.length > 0) {
 			const proc = getServerClient("procurement")
-			const { data: links } = await proc
-				.from("purchase_item_ingredient")
-				.select("ingredient_id, is_default, purchase_item:purchase_item_id (catmat_item_codigo, catmat_item_descricao)")
-				.in("ingredient_id", ingredientIds)
-				.eq("is_default", true)
-			for (const link of links ?? []) {
+			const links = await readAllPagesIn("o CATMAT dos itens", ingredientIds, (chunk, rangeFrom, rangeTo) =>
+				proc
+					.from("purchase_item_ingredient")
+					.select("id, ingredient_id, purchase_item:purchase_item_id (catmat_item_codigo, catmat_item_descricao)")
+					.in("ingredient_id", chunk)
+					.eq("is_default", true)
+					.order("id")
+					.range(rangeFrom, rangeTo)
+			)
+			for (const link of links) {
 				catmatByIngredient.set(link.ingredient_id, {
 					codigo: link.purchase_item?.catmat_item_codigo ?? null,
 					descricao: link.purchase_item?.catmat_item_descricao ?? null,
@@ -252,50 +269,45 @@ export const fetchEmpenhoLiquidacaoFn = createServerFn({ method: "GET" })
 		const unitId = kitchenRow?.purchase_unit_id ?? kitchenRow?.unit_id
 		if (unitId == null) return []
 
-		const { data: empenhos } = await finance
+		const { data: empenhos, error: empenhosError } = await finance
 			.from("empenho")
 			.select("id, numero_empenho, valor_total, status")
 			.eq("unit_id", unitId)
 			.eq("status", "ativo")
 			.order("data_empenho", { ascending: false })
 			.limit(100)
+		if (empenhosError) throw new Error(`Erro ao ler os empenhos: ${publicDbMessage(empenhosError)}`)
 		const list = empenhos ?? []
+		const empenhoIds = list.map((e) => e.id)
 		if (list.length === 0) return []
 
 		// Quantidade empenhada pelos ITENS da NE (`finance.empenho_item`), só quando eles falam da
 		// mesma coisa: itens em unidades diferentes (quilo com litro) ou só por valor (estimativa/
 		// global) não somam, e a tela mostra "—" em vez de um "a receber" sem sentido.
-		const { data: neItems, error: neItemsError } = await finance
-			.from("empenho_item")
-			.select("empenho_id, quantity, unit")
-			.in(
-				"empenho_id",
-				list.map((e) => e.id)
-			)
-		if (neItemsError) throw new Error(`Erro ao ler os itens dos empenhos: ${publicDbMessage(neItemsError)}`)
+		const neItems = await readAllPagesIn("os itens dos empenhos", empenhoIds, (chunk, rangeFrom, rangeTo) =>
+			finance.from("empenho_item").select("id, empenho_id, quantity, unit").in("empenho_id", chunk).order("id").range(rangeFrom, rangeTo)
+		)
 		const itemsByEmpenho = new Map<string, Array<{ quantity: number | string | null; unit: string | null }>>()
-		for (const item of neItems ?? []) {
+		for (const item of neItems) {
 			itemsByEmpenho.set(item.empenho_id, [...(itemsByEmpenho.get(item.empenho_id) ?? []), item])
 		}
 
-		const { data: receipts } = await inv
-			.from("goods_receipt")
-			.select("id, empenho_id, definitive_at")
-			.in(
-				"empenho_id",
-				list.map((e) => e.id)
-			)
-			.not("definitive_at", "is", null)
-		const receiptIds = (receipts ?? []).map((r) => r.id)
+		// Recebida a menos é "a receber" a mais, sem erro nenhum: toda leitura daqui lança e pagina.
+		const receipts = await readAllPagesIn("os recebimentos dos empenhos", empenhoIds, (chunk, rangeFrom, rangeTo) =>
+			inv.from("goods_receipt").select("id, empenho_id").in("empenho_id", chunk).not("definitive_at", "is", null).order("id").range(rangeFrom, rangeTo)
+		)
+		const receiptItems = await readAllPagesIn(
+			"os itens recebidos",
+			receipts.map((r) => r.id),
+			(chunk, rangeFrom, rangeTo) =>
+				inv.from("goods_receipt_item").select("id, receipt_id, received_qty_base").in("receipt_id", chunk).order("id").range(rangeFrom, rangeTo)
+		)
+		const empenhoByReceipt = new Map(receipts.map((r) => [r.id, r.empenho_id]))
 		const receivedByEmpenho = new Map<string, number>()
-		if (receiptIds.length > 0) {
-			const { data: items } = await inv.from("goods_receipt_item").select("receipt_id, received_qty_base").in("receipt_id", receiptIds)
-			const empenhoByReceipt = new Map((receipts ?? []).map((r) => [r.id, r.empenho_id]))
-			for (const item of items ?? []) {
-				const empenhoId = empenhoByReceipt.get(item.receipt_id)
-				if (!empenhoId) continue
-				receivedByEmpenho.set(empenhoId, (receivedByEmpenho.get(empenhoId) ?? 0) + Number(item.received_qty_base))
-			}
+		for (const item of receiptItems) {
+			const empenhoId = empenhoByReceipt.get(item.receipt_id)
+			if (!empenhoId) continue
+			receivedByEmpenho.set(empenhoId, (receivedByEmpenho.get(empenhoId) ?? 0) + Number(item.received_qty_base))
 		}
 
 		return list.map((empenho) => {
