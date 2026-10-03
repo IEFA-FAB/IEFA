@@ -46,13 +46,14 @@ async function loadRequirements(purchaseItemId: string): Promise<GpcRequirement[
 	if (rows.length === 0) return []
 
 	// Título só para a mensagem — o veredito não depende dele.
-	const { data: attributes, error: _attributesError } = await gs1()
+	const { data: attributes, error: attributesError } = await gs1()
 		.from("gpc_attribute")
 		.select("attribute_code, attribute_title")
 		.in(
 			"attribute_code",
 			rows.map((row) => row.attribute_code)
 		)
+	if (attributesError) console.error("[loadRequirements] títulos GPC não lidos:", attributesError.message)
 	const titleByCode = new Map<string, string>()
 	for (const attribute of attributes ?? []) {
 		titleByCode.set(attribute.attribute_code, attribute.attribute_title)

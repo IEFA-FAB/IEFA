@@ -315,7 +315,12 @@ export const applyCreditBatchFn = createServerFn({ method: "POST" })
 				const { error } = await finance().from("budget_credit").upsert(payload, { onConflict: "unit_id,ug,nd,ptres,fonte,competencia" })
 				if (error) throw new Error(`Erro ao aplicar crédito: ${publicDbMessage(error)}`)
 
-				await si.from("import_batch").update({ status: "applied", applied_rows: payload.length, applied_at: snapshotAt }).eq("id", data.batchId)
+				// Sem o status, o lote seguiria "a aplicar" e poderia ser aplicado de novo.
+				const { error: statusError } = await si
+					.from("import_batch")
+					.update({ status: "applied", applied_rows: payload.length, applied_at: snapshotAt })
+					.eq("id", data.batchId)
+				if (statusError) throw new Error(`Crédito aplicado, mas o lote não foi marcado como aplicado: ${publicDbMessage(statusError)}`)
 				return { applied: payload.length, competencia }
 			},
 			// O lote identifica o alvo; as linhas de crédito que ele gravou carregam

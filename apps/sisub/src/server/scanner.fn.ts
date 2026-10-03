@@ -58,7 +58,9 @@ export const fetchScannerProfileFn = createServerFn({ method: "GET" })
 			.eq("user_id", userId)
 			.eq("kitchen_id", data.kitchenId)
 			.maybeSingle()
-		// De propósito: sem o perfil salvo, o leitor funciona com o padrão; a conferência não para por isso.
+		// De propósito: sem o perfil salvo, o leitor funciona com o padrão; a conferência não para por
+		// isso. O log diz por que o prefixo/sufixo configurado não valeu.
+		if (error) console.error("[fetchScannerProfileFn] perfil não lido, usando o padrão:", error.message)
 		if (error || !row) return DEFAULT_SCANNER_PROFILE
 		return {
 			maxKeyIntervalMs: Number(row.max_key_interval_ms),

@@ -246,7 +246,8 @@ async function loadActivityLineNames(codes: readonly string[]): Promise<Map<stri
 	const names = new Map<string, string>()
 	if (numeric.length === 0) return names
 	const { data, error } = await comprasGov().from("compras_material_classe").select("codigo_classe, nome_classe").in("codigo_classe", numeric)
-	if (error) throw new Error(`Erro ao ler as classes do CATMAT: ${publicDbMessage(error)}`)
+	// Só o nome exibido do ramo: sem ele a tela mostra o código, e a lista de contratações carrega.
+	if (error) console.error("[loadActivityLineNames] nomes das classes do CATMAT não lidos:", error.message)
 	for (const row of data ?? []) names.set(String(row.codigo_classe), String(row.nome_classe))
 	return names
 }

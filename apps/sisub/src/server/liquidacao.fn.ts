@@ -34,6 +34,7 @@ import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { withSensitiveAudit } from "@/lib/audit.server"
 import { publicDbMessage } from "@/lib/db-error-message"
+import { readAllPagesIn } from "@/lib/read-all-pages"
 import { type LiquidacaoLinkInput, liquidacaoLinkProblems, type ReceiptForLiquidacao } from "@/lib/invoice-gate"
 import { selectColumns } from "@/lib/select-columns"
 import { getServerClient } from "@/lib/supabase.server"
@@ -152,26 +153,8 @@ export const suggestLiquidacaoFromReceiptFn = createServerFn({ method: "GET" })
 	.validator(z.object({ receiptId: z.uuid() }))
 	.handler(async ({ data }) => {
 		const inv = inventory()
-		// Só a cozinha do recebimento é lida antes do guard — o resto (valores,
-		// empenho, NF-e) fica atrás dele. Devolver "não encontrado" x "existe"
-		// para quem não tem escopo é um oráculo barato, mas é um oráculo.
-		const { data: receiptScope, error: scopeError } = await inv.from("goods_receipt").select("kitchen_id").eq("id", data.receiptId).maybeSingle()
-		if (scopeError) throw new Error(`Erro ao carregar o recebimento: ${publicDbMessage(scopeError)}`)
-		if (!receiptScope) throw new Error("Recebimento não encontrado")
-
-		const kitchenDb = getServerClient("kitchen")
-		const { data: kitchenRow, error: kitchenError } = await kitchenDb
-			.from("kitchen")
-			.select("unit_id, purchase_unit_id")
-			.eq("id", receiptScope.kitchen_id)
-			.maybeSingle()
-		if (kitchenError) throw new Error(`Erro ao carregar a cozinha do recebimento: ${publicDbMessage(kitchenError)}`)
-		// Quem empenha e liquida é a unidade COMPRADORA: inverter a precedência
-		// autorizaria contra a unidade errada. Ver `resolvePurchaseUnitId`.
-		const unitId = resolvePurchaseUnitId({ unitId: kitchenRow?.unit_id ?? null, purchaseUnitId: kitchenRow?.purchase_unit_id ?? null })
-		if (unitId == null) throw new Error("Cozinha do recebimento não tem unidade vinculada")
-		await requireUnitScope(1, unitId)
-
+		// Uma leitura só; o que vem dela (valores, empenho, NF-e) só sai depois do guard. Devolver
+		// "não encontrado" x "existe" para quem não tem escopo é um oráculo barato, mas é um oráculo.
 		const { data: receipt, error: receiptError } = await inv
 			.from("goods_receipt")
 			.select("id, kitchen_id, status, definitive_at, empenho_id, nfe_document_id")
@@ -179,6 +162,19 @@ export const suggestLiquidacaoFromReceiptFn = createServerFn({ method: "GET" })
 			.maybeSingle()
 		if (receiptError) throw new Error(`Erro ao carregar o recebimento: ${publicDbMessage(receiptError)}`)
 		if (!receipt) throw new Error("Recebimento não encontrado")
+
+		const kitchenDb = getServerClient("kitchen")
+		const { data: kitchenRow, error: kitchenError } = await kitchenDb
+			.from("kitchen")
+			.select("unit_id, purchase_unit_id")
+			.eq("id", receipt.kitchen_id)
+			.maybeSingle()
+		if (kitchenError) throw new Error(`Erro ao carregar a cozinha do recebimento: ${publicDbMessage(kitchenError)}`)
+		// Quem empenha e liquida é a unidade COMPRADORA: inverter a precedência
+		// autorizaria contra a unidade errada. Ver `resolvePurchaseUnitId`.
+		const unitId = resolvePurchaseUnitId({ unitId: kitchenRow?.unit_id ?? null, purchaseUnitId: kitchenRow?.purchase_unit_id ?? null })
+		if (unitId == null) throw new Error("Cozinha do recebimento não tem unidade vinculada")
+		await requireUnitScope(1, unitId)
 
 		// Itens que não se leem dariam liquidação sugerida de R$ 0,00 com cara de cálculo.
 		const { data: items, error: itemsError } = await inv.from("goods_receipt_item").select("received_qty_base, unit_cost").eq("receipt_id", data.receiptId)
@@ -561,11 +557,16 @@ export const fetchPagamentoPanelFn = createServerFn({ method: "GET" })
 			}
 		}
 
-		// prazo médio: liquidação → primeiro pagamento, por fornecedor
-		const { data: pagamentos, error: pagamentosError } = await fin.from("pagamento").select("liquidacao_id, data").eq("unit_id", data.unitId).limit(500)
-		if (pagamentosError) throw new Error(`Erro ao ler os pagamentos: ${publicDbMessage(pagamentosError)}`)
+		// prazo médio: liquidação → primeiro pagamento, por fornecedor. Os pagamentos DAS liquidações
+		// listadas, todos: o `limit(500)` sem ordem da unidade inteira dava amostra arbitrária, e o
+		// "primeiro pagamento" podia ser um posterior.
+		const pagamentos = await readAllPagesIn(
+			"os pagamentos",
+			liquidacoes.map((l) => l.id),
+			(chunk, from, to) => fin.from("pagamento").select("id, liquidacao_id, data").in("liquidacao_id", chunk).order("id").range(from, to)
+		)
 		const firstPagamentoByLiquidacao = new Map<string, string>()
-		for (const pag of pagamentos ?? []) {
+		for (const pag of pagamentos) {
 			const current = firstPagamentoByLiquidacao.get(pag.liquidacao_id)
 			if (!current || pag.data < current) firstPagamentoByLiquidacao.set(pag.liquidacao_id, pag.data)
 		}
@@ -781,11 +782,12 @@ export const registerDeductionRemittanceFn = createServerFn({ method: "POST" })
 				if (error) throw new Error(`Erro ao registrar o recolhimento: ${publicDbMessage(error)}`)
 				if ((updated ?? []).length === 0) {
 					// Leitura só para o texto da recusa: se falhar, a mensagem sai genérica, e a recusa vale igual.
-					const { data: now, error: _nowError } = await finance()
+					const { data: now, error: nowError } = await finance()
 						.from("liquidacao_deduction")
 						.select("paid_on, document_number")
 						.eq("id", data.deductionId)
 						.maybeSingle()
+					if (nowError) console.error("[registerDeductionRemittanceFn] recolhimento anterior não lido:", nowError.message)
 					throw new Error(
 						deductionRemittanceProblem({ paidOn: now?.paid_on ?? "outra data", documentNumber: now?.document_number ?? null }) ??
 							"Esta retenção já foi recolhida; o registro não é sobrescrito."

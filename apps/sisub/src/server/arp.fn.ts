@@ -380,9 +380,12 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
 
 		// ── 2. Buscar os itens do anexo quantitativo para fazer o match por catmat ──
 
-		const { data: quantityEstimateItems } = quantityEstimateId
+		// Falha aqui não é "anexo sem itens": o update abaixo desligaria todo item da ARP do anexo e
+		// apagaria a medida deles.
+		const { data: quantityEstimateItems, error: quantityEstimateItemsError } = quantityEstimateId
 			? await supabase.from("quantity_estimate_item").select("id, catmat_item_codigo, measure_unit").eq("quantity_estimate_id", quantityEstimateId)
-			: { data: [] as Array<{ id: string; catmat_item_codigo: number | null; measure_unit: string | null }> }
+			: { data: [] as Array<{ id: string; catmat_item_codigo: number | null; measure_unit: string | null }>, error: null }
+		if (quantityEstimateItemsError) throw new Error(`Erro ao ler os itens do anexo quantitativo: ${publicDbMessage(quantityEstimateItemsError)}`)
 
 		const catmatToQuantityEstimateItemId = new Map<number, string>()
 		// `2_consultarARPItem` não traz unidade de fornecimento; a medida vem do
@@ -644,7 +647,16 @@ export const fetchArpForQuantityEstimateFn = createServerFn({ method: "GET" })
 		// leitura exige nível 1 NA unidade dona do anexo.
 		await requireUnitScope(1, await resolveQuantityEstimateUnit(supabase, data.quantityEstimateId))
 
-		const { data: arp, error: arpError } = await supabase.from("arp").select("*").eq("quantity_estimate_id", data.quantityEstimateId).maybeSingle()
+		// `quantity_estimate_id` não é único em `arp` (duas atas do mesmo pregão, ou uma manual e uma
+		// importada): a tela mostra a mais recente, e `maybeSingle` sozinho daria erro de várias linhas.
+		const { data: arp, error: arpError } = await supabase
+			.from("arp")
+			.select("*")
+			.eq("quantity_estimate_id", data.quantityEstimateId)
+			.order("created_at", { ascending: false })
+			.order("id")
+			.limit(1)
+			.maybeSingle()
 		if (arpError) throw new Error(`Erro ao carregar a ARP do anexo: ${publicDbMessage(arpError)}`)
 
 		if (!arp) return null
@@ -1000,8 +1012,8 @@ export const fetchArpExecutionFn = createServerFn({ method: "GET" })
 			financeClient.from("empenho_item").select("empenho_id, value").in("empenho_id", empenhoIds),
 			financeClient.from("v_empenho_saldo").select("empenho_id, valor_liquidado, valor_pago, saldo_a_liquidar").in("empenho_id", empenhoIds),
 		])
-		if (activeError || allItemsError || saldoError)
-			throw new Error(`Erro ao ler a execução dos empenhos: ${(activeError ?? allItemsError ?? saldoError)?.message}`)
+		const executionError = activeError ?? allItemsError ?? saldoError
+		if (executionError) throw new Error(`Erro ao ler a execução dos empenhos: ${publicDbMessage(executionError)}`)
 		const activeIds = new Set((active ?? []).map((row) => row.id))
 		const totalByEmpenho = new Map<string, number>()
 		for (const row of allItems ?? []) {
