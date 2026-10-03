@@ -43,12 +43,14 @@ const core = () => getServerClient("core")
  */
 async function assertCanonicalUnit(ingredientId: string | null) {
 	if (!ingredientId) return
-	const { data: ing } = await kitchen().from("ingredient").select("description, measure_unit").eq("id", ingredientId).single()
+	const { data: ing, error: ingError } = await kitchen().from("ingredient").select("description, measure_unit").eq("id", ingredientId).maybeSingle()
+	if (ingError) throw new Error(`Erro ao carregar o insumo: ${publicDbMessage(ingError)}`)
 	if (!ing?.measure_unit)
 		throw new Error(
 			`Insumo "${ing?.description ?? ingredientId}" sem unidade de medida — corrija na fila de revisão (/global/review-queues) antes de movimentar estoque`
 		)
-	const { data: unit } = await core().from("measure_unit").select("code").eq("code", ing.measure_unit).maybeSingle()
+	const { data: unit, error: unitError } = await core().from("measure_unit").select("code").eq("code", ing.measure_unit).maybeSingle()
+	if (unitError) throw new Error(`Erro ao carregar a unidade de medida: ${publicDbMessage(unitError)}`)
 	if (!unit) {
 		throw new Error(
 			`Insumo "${ing.description}" tem unidade "${ing.measure_unit}" fora do catálogo canônico — resolva na fila de revisão (/global/review-queues) antes de movimentar estoque`
@@ -224,7 +226,8 @@ export const fetchStockSettingsFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive() }))
 	.handler(async ({ data }) => {
 		await requireStorageForKitchen(1, data.kitchenId)
-		const { data: row } = await inventory().from("kitchen_stock_settings").select("*").eq("kitchen_id", data.kitchenId).maybeSingle()
+		const { data: row, error: rowError } = await inventory().from("kitchen_stock_settings").select("*").eq("kitchen_id", data.kitchenId).maybeSingle()
+		if (rowError) throw new Error(`Erro ao carregar a configuração de estoque da cozinha: ${publicDbMessage(rowError)}`)
 		return {
 			segregation: (row?.segregation ?? "dual") as "strict" | "dual",
 			adjustmentApprovalValue: Number(row?.adjustment_approval_value ?? 500),
@@ -392,7 +395,12 @@ export const createAdjustmentFn = createServerFn({ method: "POST" })
 			// exigir aprovação (outro ajuste do autor lançou no meio), o documento vai
 			// para a fila COM a exigência gravada — monotônica: depois de 24 h ela
 			// não some sozinha.
-			const { data: nowRequires } = await inv.rpc("adjustment_requires_approval", { p_adjustment_id: doc.id })
+			// Dentro da recuperação: lançar aqui abandonaria o documento em rascunho. Sem a leitura, a
+			// exigência é gravada mesmo assim (falha FECHADA): sem ela, quando a regra viva deixasse de
+			// exigir, o próprio autor aprovaria o ajuste — a fuga que a marca monotônica existe para barrar.
+			const { data: nowRequires, error: requiresError } = await inv.rpc("adjustment_requires_approval", { p_adjustment_id: doc.id })
+			// biome-ignore lint/suspicious/noConsole: server-side — a recuperação grava a exigência por precaução, e o log diz por quê
+			if (requiresError) console.error("[createAdjustmentFn] alçada não relida na recuperação; exigindo aprovação:", requiresError.message)
 			// SÓ se o documento ainda está em rascunho. O erro pode ter vindo depois
 			// do COMMIT — o deadline de fetch do `@iefa/supabase-kit` existe
 			// justamente para cortar resposta lenta — e aí o documento já está
@@ -403,7 +411,7 @@ export const createAdjustmentFn = createServerFn({ method: "POST" })
 				.update({
 					status: "pending_approval",
 					notes: operatorNote ? `${operatorNote}\n\n${failureNote}` : failureNote,
-					...(nowRequires === true ? { approval_required: true } : {}),
+					...(requiresError != null || nowRequires === true ? { approval_required: true } : {}),
 				})
 				.eq("id", doc.id)
 				.eq("status", "draft")
@@ -495,7 +503,8 @@ export const rejectAdjustmentFn = createServerFn({ method: "POST" })
 	.validator(z.object({ adjustmentId: z.uuid(), reason: z.string().min(5) }))
 	.handler(async ({ data }) => {
 		const inv = inventory()
-		const { data: doc } = await inv.from("stock_adjustment").select("kitchen_id, status").eq("id", data.adjustmentId).maybeSingle()
+		const { data: doc, error: docError } = await inv.from("stock_adjustment").select("kitchen_id, status").eq("id", data.adjustmentId).maybeSingle()
+		if (docError) throw new Error(`Erro ao carregar o ajuste: ${publicDbMessage(docError)}`)
 		if (!doc) throw new Error("Ajuste não encontrado")
 		const { userId } = await requireStorageForKitchen(3, Number(doc.kitchen_id))
 		if (doc.status === "posted") throw new Error("Ajuste já lançado")
@@ -532,11 +541,12 @@ export const completeAdjustmentEvidenceFn = createServerFn({ method: "POST" })
 	)
 	.handler(async ({ data }) => {
 		const inv = inventory()
-		const { data: item } = await inv
+		const { data: item, error: itemError } = await inv
 			.from("stock_adjustment_item")
 			.select("id, adjustment_id, stock_adjustment!inner(kitchen_id)")
 			.eq("id", data.adjustmentItemId)
 			.maybeSingle()
+		if (itemError) throw new Error(`Erro ao carregar o item do ajuste: ${publicDbMessage(itemError)}`)
 		if (!item) throw new Error("Item de ajuste não encontrado")
 		const kitchenId = Number((item as { stock_adjustment: { kitchen_id: number } }).stock_adjustment.kitchen_id)
 		await requireStorageForKitchen(2, kitchenId)
@@ -598,7 +608,8 @@ export const quarantineLotFn = createServerFn({ method: "POST" })
 	.validator(z.object({ lotId: z.uuid(), reason: z.string().min(5).max(300) }))
 	.handler(async ({ data }) => {
 		const inv = inventory()
-		const { data: lot } = await inv.from("stock_lot").select("id, kitchen_id, quarantined_at").eq("id", data.lotId).maybeSingle()
+		const { data: lot, error: lotError } = await inv.from("stock_lot").select("id, kitchen_id, quarantined_at").eq("id", data.lotId).maybeSingle()
+		if (lotError) throw new Error(`Erro ao carregar o lote: ${publicDbMessage(lotError)}`)
 		if (!lot) throw new Error("Lote não encontrado")
 		const { userId } = await requireStorageForKitchen(2, Number(lot.kitchen_id))
 		if (lot.quarantined_at != null) throw new Error("Lote já está em quarentena")
@@ -619,7 +630,8 @@ export const releaseQuarantineFn = createServerFn({ method: "POST" })
 	.validator(z.object({ lotId: z.uuid(), reason: z.string().min(5).max(300) }))
 	.handler(async ({ data }) => {
 		const inv = inventory()
-		const { data: lot } = await inv.from("stock_lot").select("id, kitchen_id, quarantined_at").eq("id", data.lotId).maybeSingle()
+		const { data: lot, error: lotError } = await inv.from("stock_lot").select("id, kitchen_id, quarantined_at").eq("id", data.lotId).maybeSingle()
+		if (lotError) throw new Error(`Erro ao carregar o lote: ${publicDbMessage(lotError)}`)
 		if (!lot) throw new Error("Lote não encontrado")
 		await requireStorageForKitchen(3, Number(lot.kitchen_id))
 		if (lot.quarantined_at == null) throw new Error("Lote não está em quarentena")
@@ -648,7 +660,8 @@ export const splitLotFn = createServerFn({ method: "POST" })
 	)
 	.handler(async ({ data }) => {
 		const inv = inventory()
-		const { data: lot } = await inv.from("stock_lot").select("id, kitchen_id").eq("id", data.lotId).maybeSingle()
+		const { data: lot, error: lotError } = await inv.from("stock_lot").select("id, kitchen_id").eq("id", data.lotId).maybeSingle()
+		if (lotError) throw new Error(`Erro ao carregar o lote: ${publicDbMessage(lotError)}`)
 		if (!lot) throw new Error("Lote não encontrado")
 		const { userId } = await requireStorageForKitchen(2, Number(lot.kitchen_id))
 

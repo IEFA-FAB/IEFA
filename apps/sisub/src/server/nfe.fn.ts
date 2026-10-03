@@ -20,6 +20,7 @@ import { requireAuthWithPermission } from "@/lib/auth.server"
 import { publicDbMessage } from "@/lib/db-error-message"
 import { purchaseUnitIdOfKitchen } from "@/lib/kitchen-purchase-unit.server"
 import { nfeOwnershipProblem } from "@/lib/nfe-ownership"
+import { readAllPagesIn } from "@/lib/read-all-pages"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 
@@ -33,7 +34,8 @@ const procurement = () => getServerClient("procurement")
 /** Autentica, resolve a cozinha do documento e aplica o guard escopado. */
 async function requireStorageForDocument(level: 1 | 2, nfeDocumentId: string): Promise<{ userId: string }> {
 	const base = await requireAuthWithPermission("storage", level)
-	const { data: doc } = await inventory().from("nfe_document").select("kitchen_id").eq("id", nfeDocumentId).maybeSingle()
+	const { data: doc, error: docError } = await inventory().from("nfe_document").select("kitchen_id").eq("id", nfeDocumentId).maybeSingle()
+	if (docError) throw new Error(`Erro ao carregar a NF-e: ${publicDbMessage(docError)}`)
 	if (!doc) throw new Error("NF-e não encontrada")
 	await requireStorageForKitchen(level, doc.kitchen_id != null ? Number(doc.kitchen_id) : null)
 	return { userId: base.userId }
@@ -293,7 +295,12 @@ export const createNfeFromAccessKeyFn = createServerFn({ method: "POST" })
 		const inv = inventory()
 		const unitId = await purchaseUnitIdOfKitchen(data.kitchenId)
 
-		const { data: existing } = await inv.from("nfe_document").select("id, status, kitchen_id, unit_id").eq("access_key", parsed.key).maybeSingle()
+		const { data: existing, error: existingError } = await inv
+			.from("nfe_document")
+			.select("id, status, kitchen_id, unit_id")
+			.eq("access_key", parsed.key)
+			.maybeSingle()
+		if (existingError) throw new Error(`Erro ao carregar a NF-e pela chave: ${publicDbMessage(existingError)}`)
 		if (existing) {
 			// Nota já conhecida. As mesmas travas de `claimNfeForKitchenFn`: sem elas, ler a chave
 			// de uma nota de OUTRA unidade (ela está impressa no DANFE) bastava para assumi-la, e
@@ -488,15 +495,14 @@ export const listNfeDocumentsFn = createServerFn({ method: "GET" })
 		const documents = (docs ?? []) as NfeDocumentRow[]
 		if (documents.length === 0) return []
 
-		const { data: items } = await inv
-			.from("nfe_item")
-			.select("nfe_document_id, match_status")
-			.in(
-				"nfe_document_id",
-				documents.map((d) => d.id)
-			)
+		// 50 notas de 30 itens já passam de 1000 linhas: paginada, para a contagem por situação não cortar.
+		const items = await readAllPagesIn(
+			"os itens das notas",
+			documents.map((d) => d.id),
+			(chunk, from, to) => inv.from("nfe_item").select("id, nfe_document_id, match_status").in("nfe_document_id", chunk).order("id").range(from, to)
+		)
 		const counts = new Map<string, Record<string, number>>()
-		for (const item of items ?? []) {
+		for (const item of items) {
 			const acc = counts.get(item.nfe_document_id) ?? {}
 			acc[item.match_status] = (acc[item.match_status] ?? 0) + 1
 			counts.set(item.nfe_document_id, acc)
@@ -511,9 +517,11 @@ export const fetchNfeDocumentFn = createServerFn({ method: "GET" })
 		await requireStorageForDocument(1, data.nfeDocumentId)
 		const inv = inventory()
 
-		const { data: doc, error } = await inv.from("nfe_document").select("*").eq("id", data.nfeDocumentId).single()
-		if (error || !doc) throw new Error("NF-e não encontrada")
-		const { data: items } = await inv.from("nfe_item").select("*").eq("nfe_document_id", data.nfeDocumentId).order("n_item")
+		const { data: doc, error } = await inv.from("nfe_document").select("*").eq("id", data.nfeDocumentId).maybeSingle()
+		if (error) throw new Error(`Erro ao carregar a NF-e: ${publicDbMessage(error)}`)
+		if (!doc) throw new Error("NF-e não encontrada")
+		const { data: items, error: itemsError } = await inv.from("nfe_item").select("*").eq("nfe_document_id", data.nfeDocumentId).order("n_item")
+		if (itemsError) throw new Error(`Erro ao carregar os itens da NF-e: ${publicDbMessage(itemsError)}`)
 		return { ...doc, items: (items ?? []) as NfeItemRow[] } as NfeDocumentRow & { items: NfeItemRow[] }
 	})
 
