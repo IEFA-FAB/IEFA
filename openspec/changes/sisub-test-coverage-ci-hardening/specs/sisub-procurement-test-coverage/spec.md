@@ -13,7 +13,7 @@ As funções que calculam necessidades de compra MUST ter testes cobrindo agrega
 
 #### Scenario: Item excluído de procurement é ignorado
 - **WHEN** `excluded_from_procurement` está ativo em um item de menu
-- **THEN** `fetchProcurementNeedsFn` MUST NOT incluir seus ingredientes no total
+- **THEN** `fetchProcurementNeeds` MUST NOT incluir seus ingredientes no total
 
 ### Requirement: Ciclo de vida de ATA tem cobertura de integração
 O ciclo de vida de ATA MUST ser testado desde criação até listagem, detalhes, status e soft delete.

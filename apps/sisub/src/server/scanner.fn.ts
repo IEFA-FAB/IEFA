@@ -29,7 +29,7 @@ export interface ScannerProfile {
 	gsSubstitute: string | null
 }
 
-/** Default de fábrica do perfil do leitor. */
+/** Default de fábrica: o valor que o `GtinScannerField` usava embutido. */
 export const DEFAULT_SCANNER_PROFILE: ScannerProfile = {
 	maxKeyIntervalMs: 80,
 	minLength: 8,

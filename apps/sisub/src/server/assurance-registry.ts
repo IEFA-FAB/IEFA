@@ -294,6 +294,12 @@ export const ASSURANCE_REGISTRY = {
 	updateFrozenPreparationFn: { require: "none" },
 	deleteFrozenPreparationFn: { require: "none" },
 
+	// ── gtin-specification.fn.ts
+	verifyGtinAgainstPurchaseItemFn: { require: "none" },
+
+	// ── gtin.fn.ts
+	attachGtinToIngredientItemFn: { require: "none" },
+
 	// ── ingredients.fn.ts
 	setIngredientNutrientsFn: { require: "none" },
 	setIngredientNutritionReferenceFn: { require: "none" },
@@ -479,7 +485,6 @@ export const ASSURANCE_REGISTRY = {
 	removeMenuItemFn: { require: "none" },
 	restoreMenuItemFn: { require: "none" },
 	updateHeadcountFn: { require: "none" },
-	updateSubstitutionsFn: { require: "none" },
 
 	// ── policies.fn.ts
 	createPolicyFn: {

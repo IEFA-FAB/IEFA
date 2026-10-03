@@ -42,10 +42,9 @@ src/components/
     │   ├── DayCard.tsx, MealButton.tsx, BulkMealSelector.tsx, ...
     │   └── DayCardSkeleton.tsx
     ├── messhall/
-    │   ├── PresenceTable.tsx, FiscalDialog.tsx, EvaluationDialog.tsx, ...
-    │   └── PresenceTableSkeleton.tsx
+    │   └── PresenceTable.tsx, FiscalDialog.tsx, EvaluationDialog.tsx, ...
     ├── local/
-    │   ├── PresenceTable.tsx, ProcurementTable.tsx, QRAutoCheckinCard.tsx
+    │   ├── PresenceTable.tsx, QRAutoCheckinCard.tsx
     │   └── planning/
     ├── global/
     │   ├── IngredientForm.tsx, PermissionsManager.tsx, ...
@@ -153,7 +152,7 @@ hooks/
 ├── auth/       # useAuth, useProfile — dados da sessão autenticada
 ├── business/   # useFiscalOps, useExportCSV — lógica de negócio
 ├── data/       # useRecipes, useArranchamento, usePlanning, ... — React Query
-└── ui/         # useTheme, useUserSync — estado de interface
+└── ui/         # useTheme — estado de interface
 ```
 
 **Regra:** hooks de `data/` chamam server functions via `useQuery`/`useMutation`. Nunca chamam Supabase diretamente (isso é responsabilidade das server functions).

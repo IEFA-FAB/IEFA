@@ -57,25 +57,6 @@ export interface ModuleChatMessage {
 	createdAt: Date
 }
 
-// ── Stream events ───────────────────────────────────────────────────────────
-
-/** Observability metadata carried on every terminal SSE event (done / error). */
-export interface StreamMeta {
-	model: string
-	latency_ms: number
-	input_tokens?: number
-	output_tokens?: number
-}
-
-export type ModuleStreamEvent =
-	| { type: "text_delta"; delta: string }
-	| { type: "tool_call_start"; id: string; name: string }
-	| { type: "tool_call_delta"; id: string; arguments_delta: string }
-	| { type: "tool_call_done"; id: string; name: string; arguments: Record<string, unknown> }
-	| { type: "tool_result"; id: string; name: string; result: unknown; isError?: boolean }
-	| { type: "done"; meta: StreamMeta }
-	| { type: "error"; message: string; meta?: StreamMeta }
-
 // ── Config ──────────────────────────────────────────────────────────────────
 
 export interface SuggestedPrompt {
