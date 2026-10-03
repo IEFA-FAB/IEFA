@@ -52,9 +52,20 @@ export function A4Sheet({
 					// ONDE sem isto.
 					aria-label={`${bloco.label}${highlight.includes(bloco.id) ? ", alterado neste turno" : ""}${withFinding.has(bloco.id) ? ", apontado na conferência" : ""}`}
 				>
-					{bloco.lines.map((linha, i) => (
-						<SheetLine key={`${bloco.id}-${i}`} linha={linha} onEdit={onEdit} />
-					))}
+					{bloco.id === "signatario" ? (
+						// Art. 40 §§ 4º e 5º: a linha maior termina na margem direita e a menor fica
+						// centralizada em relação a ela — um bloco encostado à direita, centrado por dentro.
+						// Centrar na página, como antes, deixava a assinatura no meio da folha.
+						<div className="flex justify-end">
+							<div>
+								{bloco.lines.map((linha, i) => (
+									<SheetLine key={`${bloco.id}-${i}`} linha={linha} onEdit={onEdit} />
+								))}
+							</div>
+						</div>
+					) : (
+						bloco.lines.map((linha, i) => <SheetLine key={`${bloco.id}-${i}`} linha={linha} onEdit={onEdit} />)
+					)}
 				</section>
 			))}
 		</div>
@@ -80,23 +91,33 @@ function blockSpacing(id: string): string {
 	}
 }
 
+/** Largura da coluna do rótulo: o texto começa a 2,5 cm da margem (art. 20, II, a). */
+const MARKER_COLUMN_CM = 2.5
+
 /**
- * Art. 20, II, a c/c art. 39: o número do parágrafo fica NA margem esquerda e o texto
- * começa a 2,5 cm dela — recuo pendente, não recuo de primeira linha. O `textIndent`
- * negativo devolve a primeira linha à margem, e o número ocupa uma caixa de 2,5 cm
- * (`LineContent`) para o texto da primeira linha alinhar com o das seguintes. Parágrafo sem
- * número (carta, parágrafo único) começa a 2,5 cm só na primeira linha.
- *
- * Só a linha numerada recua para a margem. Antes a regra valia para todo recuo de 2,5 cm,
- * e o fecho de cortesia (art. 30, I: "iniciando-se a 2,5 cm da margem") saía colado nela.
+ * Art. 20, II, a c/c art. 39: o número do parágrafo fica NA margem esquerda, o texto começa
+ * a 2,5 cm dela e as linhas seguintes voltam à margem — é o desenho do modelo do Anexo XIV e
+ * o que o próprio SIGADAER imprime. O mesmo vale para os rótulos da ementa ("Assunto:",
+ * "Referência:"), como no Anexo XV, com a diferença de que ali as linhas quebradas ficam na
+ * coluna (`hanging`). O rótulo ocupa uma caixa de pelo menos 2,5 cm (`LineContent`): mínima,
+ * não fixa, porque com fonte de reserva mais larga a caixa cresce em vez de sobrepor o texto.
+ * Parágrafo sem número começa a 2,5 cm só na primeira linha; os demais recuos (item, alínea,
+ * fecho de cortesia — art. 30, I) deslocam a linha inteira.
  */
-function indent(linha: Line): React.CSSProperties | undefined {
-	if (!linha.indentCm) return undefined
-	if (linha.indentFirstLine) return { textIndent: `${linha.indentCm}cm` }
-	return { paddingLeft: `${linha.indentCm}cm`, textIndent: markerOf(linha) ? `-${linha.indentCm}cm` : undefined }
+function lineStyle(linha: Line): React.CSSProperties | undefined {
+	const style: React.CSSProperties = {}
+	if (linha.gapBefore) style.marginTop = "0.42cm"
+	if (markerOf(linha) && linha.hanging) {
+		style.paddingLeft = `${MARKER_COLUMN_CM}cm`
+		style.textIndent = `-${MARKER_COLUMN_CM}cm`
+	} else if (!markerOf(linha) && linha.indentCm) {
+		if (linha.indentFirstLine) style.textIndent = `${linha.indentCm}cm`
+		else style.paddingLeft = `${linha.indentCm}cm`
+	}
+	return Object.keys(style).length > 0 ? style : undefined
 }
 
-/** O número só vira caixa se ainda abre o texto: o despacho decisório põe a decisão na frente. */
+/** O rótulo só vira caixa se ainda abre o texto: o despacho decisório põe a decisão na frente. */
 function markerOf(linha: Line): string | undefined {
 	return linha.marker && linha.text.startsWith(`${linha.marker} `) ? linha.marker : undefined
 }
@@ -106,7 +127,9 @@ function LineContent({ linha }: { linha: Line }) {
 	const body = marker ? linha.text.slice(marker.length + 1) : linha.text
 	return (
 		<>
-			{marker && <span style={{ display: "inline-block", width: `${linha.indentCm ?? 2.5}cm`, textIndent: 0 }}>{marker}</span>}
+			{/* O espaço vai DENTRO da caixa, e inquebrável: fora dela a justificação o esticaria,
+			    e sem ele quem copia o texto da folha recebia "1.Em". */}
+			{marker && <span style={{ display: "inline-block", minWidth: `${MARKER_COLUMN_CM}cm`, textIndent: 0 }}>{`${marker}\u00a0`}</span>}
 			{linha.bold ? <strong>{body}</strong> : body}
 		</>
 	)
@@ -140,7 +163,7 @@ function SheetLine({ linha, onEdit }: { linha: Line; onEdit?: (target: EditTarge
 			<EditableLine
 				line={linha}
 				className={alignment}
-				style={indent(linha)}
+				style={lineStyle(linha)}
 				onCommit={(value) => {
 					if (linha.edit) onEdit(linha.edit.target, value)
 				}}
@@ -149,7 +172,7 @@ function SheetLine({ linha, onEdit }: { linha: Line; onEdit?: (target: EditTarge
 	}
 
 	return (
-		<p className={alignment} style={indent(linha)}>
+		<p className={alignment} style={lineStyle(linha)}>
 			{conteudo}
 		</p>
 	)
