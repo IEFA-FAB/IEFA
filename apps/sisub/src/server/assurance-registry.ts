@@ -485,7 +485,6 @@ export const ASSURANCE_REGISTRY = {
 	removeMenuItemFn: { require: "none" },
 	restoreMenuItemFn: { require: "none" },
 	updateHeadcountFn: { require: "none" },
-	updateSubstitutionsFn: { require: "none" },
 
 	// ── policies.fn.ts
 	createPolicyFn: {

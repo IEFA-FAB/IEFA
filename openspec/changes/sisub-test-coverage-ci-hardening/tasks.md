@@ -47,7 +47,7 @@
 - [ ] 5.1 [sisub] **PARCIAL** — Adicionar testes para `calculateAtaNeedsFn()` com agregação, repetição, `portion_yield`, arredondamento e ordenação
   - Feito: `apps/sisub/src/test/operations/ata.operations.test.ts:200` ("agrega net_quantity × (headcount/portion_yield) × repetitions", 150 × 2 × 2 = 600) e `src/test/unit/demand-math.test.ts` (`scaleIngredientQuantity`, rendimento 0/nulo → 1, paridade aquisição × datado).
   - Falta: **arredondamento** (quantidade fracionária/casas decimais) e **ordenação** do resultado.
-- [ ] 5.2 [sisub] **PARCIAL** — Adicionar testes para `fetchProcurementNeedsFn()` ignorar itens excluídos e menus deletados
+- [ ] 5.2 [sisub] **PARCIAL** — Adicionar testes para a operation `fetchProcurementNeeds()` (a server fn `fetchProcurementNeedsFn` saiu como código morto) ignorar itens excluídos e menus deletados
   - Feito: `apps/sisub/src/test/operations/procurement.operations.test.ts:46` (agregação, com `excludedFromProcurement: 0` na fixture) e `:68` (intervalo vazio → `[]`).
   - Falta: o caso positivo dos dois filtros — item com `excluded_from_procurement = 1` e `daily_menu`/`menu_item` com `deleted_at` NÃO podem entrar na necessidade. Hoje nada quebra se o `WHERE` cair.
 - [x] 5.3 [sisub] Adicionar teste de integração para `createAtaFn()` persistir lista, cozinhas, seleções e itens — `apps/sisub/src/test/operations/ata.operations.test.ts:74` ("createAta persiste lista + cozinhas + seleções + itens; fetchAtaDetails faz round-trip aninhado")

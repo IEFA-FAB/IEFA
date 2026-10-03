@@ -40,7 +40,7 @@ src/
 │   ├── auth/               # Hooks de autenticação (useAuth, useProfile)
 │   ├── data/               # Hooks de data fetching (useMessHalls, useMealForecast)
 │   ├── business/           # Hooks de lógica de negócio (useFiscalOps, useEvalConfig)
-│   └── ui/                 # Hooks de UI/UX (useTheme, useUserSync)
+│   └── ui/                 # Hooks de UI/UX (useTheme)
 │
 ├── lib/                     # Pure functions & helpers (zero dependencies)
 │   ├── fiscal.ts           # Helpers para fiscal/presence

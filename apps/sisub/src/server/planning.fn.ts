@@ -21,11 +21,9 @@ import {
 	restoreMenuItem,
 	UpdateHeadcountSchema,
 	UpdateMenuItemSchema,
-	UpdateSubstitutionsSchema,
 	UpsertDailyMenuSchema,
 	updateHeadcount,
 	updateMenuItem,
-	updateSubstitutions,
 	upsertDailyMenu,
 } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
@@ -52,7 +50,5 @@ export const updateHeadcountFn = createServerFn({ method: "POST" }).validator(Up
 
 // Legacy alias kept for backward compat
 export const updateDailyMenuFn = updateHeadcountFn
-
-export const updateSubstitutionsFn = createServerFn({ method: "POST" }).validator(UpdateSubstitutionsSchema).handler(requireAuthThenRun(updateSubstitutions))
 
 export const fetchTrashItemsFn = createServerFn({ method: "GET" }).validator(GetTrashItemsSchema).handler(requireAuthThenRun(getTrashItems))
