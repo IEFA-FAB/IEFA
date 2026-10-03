@@ -1,4 +1,4 @@
 {
   "extends": "@iefa/tsconfig/library.json",
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts", "scripts/**/*.ts"]
 }

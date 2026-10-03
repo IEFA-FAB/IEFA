@@ -21,11 +21,11 @@
   },
   "scripts": {
     "generate": "bun run db:types",
-    "db:link": "bunx supabase link --project-ref jgigqdpdjgnnuwajtayh",
-    "db:types": "bunx supabase gen types typescript --project-id jgigqdpdjgnnuwajtayh --schema sisub,iefa,journal,forms,rumaer,core,access_control,kitchen,procurement,finance,compras_gov_integration,nutrition_reference,inventory,siafi_integration,gs1_integration,assignment_selection,sucont,alpha,documents > ./src/generated.ts",
+    "db:link": "bun run scripts/supabase-schemas.ts link",
+    "db:types": "bun run scripts/supabase-schemas.ts types",
     "db:push": "bunx supabase db push",
-    "db:pull": "bunx supabase db pull --schema sisub,iefa,journal,forms,rumaer,core,access_control,kitchen,procurement,finance,compras_gov_integration,nutrition_reference,inventory,siafi_integration,gs1_integration,assignment_selection,sucont,alpha,documents",
-    "db:diff": "bunx supabase db diff --schema sisub,iefa,journal,forms,rumaer,core,access_control,kitchen,procurement,finance,compras_gov_integration,nutrition_reference,inventory,siafi_integration,gs1_integration,assignment_selection,sucont,alpha,documents",
+    "db:pull": "bun run scripts/supabase-schemas.ts pull",
+    "db:diff": "bun run scripts/supabase-schemas.ts diff",
     "db:reset": "bunx supabase db reset",
     "db:migrations": "bunx supabase migration list",
     "db:repair:applied": "bunx supabase migration repair --status applied",
@@ -33,7 +33,7 @@
     "db:drizzle:pull": "bunx drizzle-kit pull && bun run scripts/patch-drizzle-pull.ts",
     "audit:rls": "bun run scripts/audit-rls.ts",
     "lint": "biome check .",
-    "test": "bun test --no-env-file $(find src -name '*.test.ts' -print)",
+    "test": "bun test --no-env-file $(find src scripts -name '*.test.ts' -print)",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

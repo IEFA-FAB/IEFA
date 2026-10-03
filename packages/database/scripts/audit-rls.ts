@@ -57,33 +57,13 @@
  */
 
 import postgres from "postgres"
+import { SUPABASE_SCHEMAS } from "./supabase-schemas.ts"
 
 /**
  * Espelha `alter role authenticator set pgrst.db_schemas` da última migration. É lido
  * do banco quando o role permite; esta lista é o fallback e serve de documentação.
  */
-const FALLBACK_EXPOSED_SCHEMAS = [
-	"public",
-	"sisub",
-	"iefa",
-	"journal",
-	"forms",
-	"rumaer",
-	"core",
-	"access_control",
-	"kitchen",
-	"procurement",
-	"finance",
-	"compras_gov_integration",
-	"inventory",
-	"siafi_integration",
-	"gs1_integration",
-	"nutrition_reference",
-	"assignment_selection",
-	"sucont",
-	"alpha",
-	"documents",
-]
+const FALLBACK_EXPOSED_SCHEMAS = ["public", ...SUPABASE_SCHEMAS]
 
 type Severity = "error" | "warn"
 
