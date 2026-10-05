@@ -694,7 +694,9 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 						<Button
 							variant="outline"
 							size="sm"
-							disabled={isDuplicating}
+							// A variante sai do que está GRAVADO: com edição ainda não salva, ela não levaria o que está na tela.
+							disabled={isDuplicating || contentSignature !== savedSignatureRef.current}
+							title={contentSignature !== savedSignatureRef.current ? "Espere o salvamento automático para duplicar." : undefined}
 							onClick={() => duplicateVariant(templateId, { onSuccess: (created) => navigate(editorLink(created.id)) })}
 						>
 							<Copy className="size-4 mr-2" />

@@ -346,9 +346,11 @@ function eventMealValues(meal: TemplateEventMeal, index: number) {
 		})),
 		sortOrder: index,
 		// Ausente = não mexe no efetivo gravado (quem renomeia a refeição não precisa reenviá-lo);
-		// `null` = limpa. Na inserção, ausente vira nulo. A procedência segue a mesma regra.
+		// `null` = limpa. Na inserção, ausente vira nulo.
 		...(meal.baseHeadcount !== undefined && { baseHeadcount: meal.baseHeadcount }),
-		...(meal.sourceTemplateId !== undefined && { sourceTemplateId: meal.sourceTemplateId }),
+		// Procedência: só um id grava. `null` não apaga a gravada: modelo de IA manda `null` em todo
+		// opcional, e dentro de array o `dropUnexpectedNulls` não chega; na inserção vira nulo.
+		...(meal.sourceTemplateId != null && { sourceTemplateId: meal.sourceTemplateId }),
 	}
 }
 

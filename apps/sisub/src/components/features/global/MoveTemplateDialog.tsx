@@ -65,7 +65,7 @@ function MoveTemplateForm({
 				<Button
 					type="button"
 					disabled={isPending || folderId === template.folder_id}
-					onClick={() => move({ templateId: template.id, folderId }, { onSuccess: () => onClose() })}
+					onClick={() => move({ templateId: template.id, folderId, expectedFolderId: template.folder_id }, { onSuccess: () => onClose() })}
 				>
 					{isPending && <Loader2 className="size-4 mr-2 animate-spin" />}
 					Mover

@@ -31,6 +31,7 @@ import {
 	setTemplateFolder,
 	sizeOriginOnDay,
 	updateHeadcount,
+	updateTemplateFolder,
 } from "@iefa/sisub-domain"
 import { afterAll, afterEach, beforeAll, beforeEach, expect, test } from "vitest"
 import { type AnyClient, fullAccessCtx, makeSeeder, type Seeder, setupIntegration, uid } from "@/test/operations-fixtures"
@@ -1042,6 +1043,11 @@ describeSupabaseIntegration("templates operations (regressão)", () => {
 
 		// Ordem gravada: almoço criado depois fica depois; subir troca.
 		await moveTemplateFolder(db, ctx, { folderId: almoco.id, delta: -1 })
+		// Editar a pasta confere o que a tela viu.
+		await updateTemplateFolder(db, ctx, { folderId: almoco.id, description: "Almoços", expected: { name: almoco.name, description: null } })
+		await expect(
+			updateTemplateFolder(db, ctx, { folderId: almoco.id, description: "Outra", expected: { name: almoco.name, description: null } })
+		).rejects.toThrow(/Outra pessoa mudou/)
 		const children = (await listTemplateFolders(db, ctx, { templateType: "event" })).filter((f) => f.parent_id === padrao.id)
 		expect(children.map((f) => f.id)).toEqual([almoco.id, coquetel.id])
 
@@ -1075,7 +1081,9 @@ describeSupabaseIntegration("templates operations (regressão)", () => {
 		expect((await getTemplate(db, ctx, { templateId: first.id })).name).toBe(`${name} (restaurado)`)
 
 		// Mover para a pasta vazia e esvaziar libera a remoção.
-		for (const id of [first.id, v1.id, v2.id, sameName.id]) await setTemplateFolder(db, ctx, { templateId: id, folderId: null })
+		// Mover confere a pasta que a tela viu: quem viu outra é recusado.
+		await expect(setTemplateFolder(db, ctx, { templateId: first.id, folderId: null, expectedFolderId: almoco.id })).rejects.toThrow(/já mudou/)
+		for (const id of [first.id, v1.id, v2.id, sameName.id]) await setTemplateFolder(db, ctx, { templateId: id, folderId: null, expectedFolderId: coquetel.id })
 		await deleteTemplateFolder(db, ctx, { folderId: almoco.id })
 		expect((await listTemplateFolders(db, ctx, { templateType: "event" })).some((f) => f.id === almoco.id)).toBe(false)
 	})

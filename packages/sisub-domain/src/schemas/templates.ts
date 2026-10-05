@@ -102,8 +102,8 @@ export const TemplateEventMealSchema = z.object({
 	baseHeadcount: z.number().int().positive().max(MAX_EVENT_MEAL_HEADCOUNT).nullish(),
 	/**
 	 * Modelo de onde a refeição foi copiada (composição do evento da cozinha, adaptação). Só
-	 * procedência: editar o modelo não muda a cópia. Ausente = não mexe no que está gravado;
-	 * `null` = sem procedência. Modelo que a cozinha não enxerga é gravado como nulo.
+	 * procedência: editar o modelo não muda a cópia. Ausente ou `null` = não mexe no que está
+	 * gravado (na refeição nova, sem procedência). Modelo que a cozinha não enxerga não é gravado.
 	 */
 	sourceTemplateId: UuidSchema.nullish(),
 })

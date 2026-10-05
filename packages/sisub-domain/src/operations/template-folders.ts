@@ -10,7 +10,7 @@
  */
 
 import { menuTemplateFolderInKitchen, menuTemplateInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
-import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm"
+import { and, asc, eq, isNull, sql } from "drizzle-orm"
 import { requireAnyPermission, requirePermission } from "../guards/require-permission.ts"
 import {
 	type CreateTemplateFolder,
@@ -91,15 +91,44 @@ export function firstFreeName(base: string, taken: ReadonlySet<string>, suffix: 
 	return `${trimmed} (${suffix} ${crypto.randomUUID().slice(0, 8)})`
 }
 
-/** Nomes (chave) dos modelos ativos de uma pasta. */
-export async function fetchTakenTemplateNames(db: FolderDb, folderId: string, exceptTemplateId?: string): Promise<Set<string>> {
+/**
+ * Nomes (chave) dos modelos ativos de uma pasta. `folderId` nulo = os modelos globais "sem pasta"
+ * do tipo informado (sem índice ali, mas a variante também não deve repetir nome).
+ */
+export async function fetchTakenTemplateNames(
+	db: FolderDb,
+	folderId: string | null,
+	opts: { exceptTemplateId?: string; templateType?: string } = {}
+): Promise<Set<string>> {
 	const rows = await runQuery("FETCH_FAILED", () =>
 		db
 			.select({ id: menuTemplateInKitchen.id, name: menuTemplateInKitchen.name })
 			.from(menuTemplateInKitchen)
-			.where(and(eq(menuTemplateInKitchen.folderId, folderId), isNull(menuTemplateInKitchen.deletedAt)))
+			.where(
+				and(
+					isNull(menuTemplateInKitchen.deletedAt),
+					folderId
+						? eq(menuTemplateInKitchen.folderId, folderId)
+						: and(
+								isNull(menuTemplateInKitchen.folderId),
+								isNull(menuTemplateInKitchen.kitchenId),
+								opts.templateType ? eq(menuTemplateInKitchen.templateType, opts.templateType) : undefined
+							)
+				)
+			)
 	)
-	return new Set(rows.filter((r) => r.id !== exceptTemplateId).map((r) => folderNameKey(r.name)))
+	return new Set(rows.filter((r) => r.id !== opts.exceptTemplateId).map((r) => folderNameKey(r.name)))
+}
+
+/** A pasta existe e não foi removida. */
+export async function isActiveTemplateFolder(db: FolderDb, folderId: string): Promise<boolean> {
+	const row = await runQuery("FETCH_FAILED", () =>
+		db.query.menuTemplateFolderInKitchen.findFirst({
+			columns: { id: true },
+			where: and(eq(menuTemplateFolderInKitchen.id, folderId), isNull(menuTemplateFolderInKitchen.deletedAt)),
+		})
+	)
+	return row != null
 }
 
 async function fetchActiveFolder(db: FolderDb, folderId: string) {
@@ -206,19 +235,42 @@ export async function createTemplateFolder(db: SisubDb, ctx: UserContext, input:
 	})
 }
 
+/**
+ * Renomeia ou redescreve uma pasta. Pasta é registro compartilhado da SDAB: a gravação confere, na
+ * mesma instrução, o nome e a descrição que a tela viu (`expected`). Se outra pessoa mudou antes,
+ * recusa em vez de sobrescrever em silêncio (`EDIT-SAFETY.md`).
+ */
 export async function updateTemplateFolder(db: SisubDb, ctx: UserContext, input: UpdateTemplateFolder): Promise<TemplateFolderWire> {
 	requirePermission(ctx, "global", 2)
 	await fetchActiveFolder(db, input.folderId)
 	const updates: Partial<typeof menuTemplateFolderInKitchen.$inferInsert> = {}
 	if (input.name !== undefined) updates.name = input.name
 	if (input.description !== undefined) updates.description = input.description?.trim() || null
+	if (Object.keys(updates).length === 0) {
+		const [row] = await runQuery("FETCH_FAILED", () => db.select().from(menuTemplateFolderInKitchen).where(eq(menuTemplateFolderInKitchen.id, input.folderId)))
+		if (!row) throw new NotFoundError("menu_template_folder", input.folderId)
+		return toWire<TemplateFolderWire>(row)
+	}
 	try {
 		const [row] = await runQuery("UPDATE_FAILED", () =>
-			Object.keys(updates).length > 0
-				? db.update(menuTemplateFolderInKitchen).set(updates).where(eq(menuTemplateFolderInKitchen.id, input.folderId)).returning()
-				: db.select().from(menuTemplateFolderInKitchen).where(eq(menuTemplateFolderInKitchen.id, input.folderId))
+			db
+				.update(menuTemplateFolderInKitchen)
+				.set(updates)
+				.where(
+					and(
+						eq(menuTemplateFolderInKitchen.id, input.folderId),
+						isNull(menuTemplateFolderInKitchen.deletedAt),
+						eq(menuTemplateFolderInKitchen.name, input.expected.name),
+						input.expected.description == null
+							? isNull(menuTemplateFolderInKitchen.description)
+							: eq(menuTemplateFolderInKitchen.description, input.expected.description)
+					)
+				)
+				.returning()
 		)
-		if (!row) throw new NotFoundError("menu_template_folder", input.folderId)
+		if (!row) {
+			throw new DomainError("TEMPLATE_FOLDER_CHANGED", "Outra pessoa mudou esta pasta depois que você abriu. Feche, confira o que ela gravou e edite de novo.")
+		}
 		return toWire<TemplateFolderWire>(row)
 	} catch (error) {
 		if (isDuplicateFolderName(error)) throw new DomainError("TEMPLATE_FOLDER_DUPLICATE", `Já existe uma pasta "${input.name}" neste nível.`)
@@ -321,39 +373,24 @@ export async function setTemplateFolder(db: SisubDb, ctx: UserContext, input: Se
 		throw new DomainError("TEMPLATE_FOLDER_ONLY_GLOBAL", "Só modelo do catálogo global fica em pasta.")
 	}
 	try {
-		await runQuery("UPDATE_FAILED", () =>
+		// Confere a pasta que a tela viu: se outra pessoa já moveu o modelo, não o arrasta de volta.
+		const moved = await runQuery("UPDATE_FAILED", () =>
 			db
 				.update(menuTemplateInKitchen)
 				.set({ folderId: input.folderId })
-				.where(eq(menuTemplateInKitchen.id, input.templateId))
-				.then(() => undefined)
+				.where(
+					and(
+						eq(menuTemplateInKitchen.id, input.templateId),
+						input.expectedFolderId == null ? isNull(menuTemplateInKitchen.folderId) : eq(menuTemplateInKitchen.folderId, input.expectedFolderId)
+					)
+				)
+				.returning({ id: menuTemplateInKitchen.id })
 		)
+		if (moved.length === 0) {
+			throw new DomainError("TEMPLATE_FOLDER_CHANGED", "Outra pessoa já mudou este modelo de pasta. Recarregue o catálogo e mova de novo, se ainda for o caso.")
+		}
 	} catch (error) {
 		if (isTemplateNameTakenInFolder(error)) throw templateNameTakenError(template.name ?? "")
 		throw error
 	}
-}
-
-/** Pastas pelo id, para quem precisa do caminho ("Padrão B › Coquetel") sem a árvore inteira. */
-export async function fetchFolderPaths(db: FolderDb, folderIds: readonly string[]): Promise<Map<string, string>> {
-	const ids = [...new Set(folderIds)]
-	if (ids.length === 0) return new Map()
-	const rows = await runQuery("FETCH_FAILED", () =>
-		db
-			.select({ id: menuTemplateFolderInKitchen.id, name: menuTemplateFolderInKitchen.name, parentId: menuTemplateFolderInKitchen.parentId })
-			.from(menuTemplateFolderInKitchen)
-			.where(inArray(menuTemplateFolderInKitchen.id, ids))
-	)
-	const parentIds = rows.flatMap((r) => (r.parentId ? [r.parentId] : []))
-	const parents =
-		parentIds.length > 0
-			? await runQuery("FETCH_FAILED", () =>
-					db
-						.select({ id: menuTemplateFolderInKitchen.id, name: menuTemplateFolderInKitchen.name })
-						.from(menuTemplateFolderInKitchen)
-						.where(inArray(menuTemplateFolderInKitchen.id, parentIds))
-				)
-			: []
-	const parentName = new Map(parents.map((p) => [p.id, p.name]))
-	return new Map(rows.map((r) => [r.id, r.parentId ? `${parentName.get(r.parentId) ?? "?"} › ${r.name}` : r.name]))
 }

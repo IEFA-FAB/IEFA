@@ -74,6 +74,7 @@ import {
 	fetchTakenTemplateNames,
 	firstFreeName,
 	folderNameKey,
+	isActiveTemplateFolder,
 	isTemplateNameTakenInFolder,
 	templateNameTakenError,
 } from "./template-folders.ts"
@@ -583,7 +584,16 @@ function buildTemplateMealRows(templateId: string, meals: TemplateMeal[]): (type
 	}))
 }
 
-export async function createTemplate(db: SisubDb, ctx: UserContext, input: CreateTemplate): Promise<MenuTemplate> {
+/**
+ * `extra`: colunas que só o próprio domínio grava na criação (classificação de lanche da variante),
+ * na mesma transação do modelo. Não é entrada de tela nem de tool.
+ */
+export async function createTemplate(
+	db: SisubDb,
+	ctx: UserContext,
+	input: CreateTemplate,
+	extra: Partial<Pick<typeof menuTemplateInKitchen.$inferInsert, keyof ReturnType<typeof snackClassificationForCopy>>> = {}
+): Promise<MenuTemplate> {
 	// kitchenId ausente = template GLOBAL (plano da SDAB) → exige global:2, não kitchen:2.
 	requireAssetWriteForScope(ctx, input.kitchenId ?? null)
 
@@ -612,6 +622,7 @@ export async function createTemplate(db: SisubDb, ctx: UserContext, input: Creat
 						templateType: input.templateType,
 						expectedMonthlyOccurrences: input.expectedMonthlyOccurrences ?? null,
 						folderId: input.folderId ?? null,
+						...extra,
 					})
 					.returning()
 			)
@@ -804,7 +815,8 @@ export async function forkTemplate(db: SisubDb, ctx: UserContext, input: ForkTem
 		)
 		if (!newTemplate) throw new DomainError("INSERT_FAILED", "no row returned")
 
-		if (eventContent) await writeEventMeals(tx, newTemplate.id, eventContent.eventMeals)
+		// A procedência que a origem tinha pode ser de um cardápio que o destino não enxerga.
+		if (eventContent) await writeEventMeals(tx, newTemplate.id, await sanitizeMealSources(tx, targetKitchenId, eventContent.eventMeals))
 
 		if (forkedSourceItems.length > 0) {
 			const forkedItems = forkedSourceItems.map((item) => ({
@@ -1199,13 +1211,16 @@ export async function restoreTemplate(db: SisubDb, ctx: UserContext, input: Rest
 
 	// Na pasta, duas opções não têm o mesmo nome. Se outra ocupou o nome enquanto este estava na
 	// lixeira, ele volta como "… (restaurado)" em vez de a restauração falhar.
-	const taken = row.folderId ? await fetchTakenTemplateNames(db, row.folderId, row.id) : null
+	// A pasta pode ter sido removida enquanto o modelo estava na lixeira: ele volta "sem pasta",
+	// em vez de ficar preso a uma pasta que nenhuma tela mostra.
+	const folderId = row.folderId && (await isActiveTemplateFolder(db, row.folderId)) ? row.folderId : null
+	const taken = folderId ? await fetchTakenTemplateNames(db, folderId, { exceptTemplateId: row.id }) : null
 	const name = taken?.has(folderNameKey(row.name)) ? firstFreeName(row.name ?? "", taken, "restaurado") : undefined
 
 	await runQuery("RESTORE_FAILED", () =>
 		db
 			.update(menuTemplateInKitchen)
-			.set({ deletedAt: null, ...(name !== undefined && { name }) })
+			.set({ deletedAt: null, folderId, ...(name !== undefined && { name }) })
 			.where(eq(menuTemplateInKitchen.id, input.templateId))
 			.then(() => undefined)
 	)
@@ -1779,43 +1794,21 @@ export async function duplicateTemplateAsVariant(db: SisubDb, ctx: UserContext, 
 	const eventMeals = content.eventMeals.map((m) => ({ ...m, baseHeadcount: null, sourceTemplateId: null }))
 	const items = content.items.map((i) => ({ ...i, headcountOverride: undefined }))
 
-	const taken = source.folderId
-		? await fetchTakenTemplateNames(db, source.folderId)
-		: new Set(
-				(
-					await runQuery("FETCH_FAILED", () =>
-						db
-							.select({ name: menuTemplateInKitchen.name })
-							.from(menuTemplateInKitchen)
-							.where(
-								and(
-									isNull(menuTemplateInKitchen.kitchenId),
-									isNull(menuTemplateInKitchen.folderId),
-									isNull(menuTemplateInKitchen.deletedAt),
-									eq(menuTemplateInKitchen.templateType, source.templateType)
-								)
-							)
-					)
-				).map((r) => folderNameKey(r.name))
-			)
-	const created = await createTemplate(db, ctx, {
-		name: firstFreeName(source.name ?? "Modelo", taken, "cópia"),
-		description: source.description ?? undefined,
-		kitchenId: null,
-		templateType: source.templateType,
-		eventMeals,
-		items,
-		...(source.folderId && { folderId: source.folderId }),
-	})
-
-	if (source.snackFamily != null) {
-		await runQuery("UPDATE_FAILED", () =>
-			db
-				.update(menuTemplateInKitchen)
-				.set(snackClassificationForCopy(source))
-				.where(eq(menuTemplateInKitchen.id, created.id))
-				.then(() => undefined)
-		)
-	}
-	return created
+	const taken = await fetchTakenTemplateNames(db, source.folderId, { templateType: source.templateType })
+	// Classificação de lanche no mesmo insert: em dois passos, uma falha no segundo deixava a
+	// variante gravada sem classificação, e repetir criava a "(cópia 2)".
+	return createTemplate(
+		db,
+		ctx,
+		{
+			name: firstFreeName(source.name ?? "Modelo", taken, "cópia"),
+			description: source.description ?? undefined,
+			kitchenId: null,
+			templateType: source.templateType,
+			eventMeals,
+			items,
+			...(source.folderId && { folderId: source.folderId }),
+		},
+		source.snackFamily != null ? snackClassificationForCopy(source) : {}
+	)
 }

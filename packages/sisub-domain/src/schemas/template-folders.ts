@@ -33,6 +33,8 @@ export const UpdateTemplateFolderSchema = z.object({
 	name: FolderNameSchema.optional(),
 	/** `null` limpa; ausente não mexe. */
 	description: FolderDescriptionSchema.nullable().optional(),
+	/** Nome e descrição que a tela viu: se mudaram no banco, a gravação é recusada. */
+	expected: z.object({ name: z.string(), description: z.string().nullable() }),
 })
 export type UpdateTemplateFolder = z.infer<typeof UpdateTemplateFolderSchema>
 
@@ -52,5 +54,7 @@ export type DeleteTemplateFolder = z.infer<typeof DeleteTemplateFolderSchema>
 export const SetTemplateFolderSchema = z.object({
 	templateId: UuidSchema,
 	folderId: UuidSchema.nullable(),
+	/** Pasta em que a tela viu o modelo (`null` = sem pasta). */
+	expectedFolderId: UuidSchema.nullable(),
 })
 export type SetTemplateFolder = z.infer<typeof SetTemplateFolderSchema>

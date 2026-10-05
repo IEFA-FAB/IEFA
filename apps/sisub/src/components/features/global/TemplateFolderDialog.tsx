@@ -49,7 +49,17 @@ function TemplateFolderForm({ state, onClose }: { state: TemplateFolderDialogSta
 		const trimmed = name.trim()
 		if (!trimmed) return
 		const done = { onSuccess: () => onClose() }
-		if (state.mode === "edit") update({ folderId: state.folder.id, name: trimmed, description: description.trim() || null }, done)
+		if (state.mode === "edit")
+			update(
+				{
+					folderId: state.folder.id,
+					name: trimmed,
+					description: description.trim() || null,
+					// O que a tela viu: se outra pessoa mudou a pasta antes, o servidor recusa.
+					expected: { name: state.folder.name, description: state.folder.description },
+				},
+				done
+			)
 		else create({ templateType: state.templateType, parentId: state.parent?.id, name: trimmed, description: description.trim() || undefined }, done)
 	}
 

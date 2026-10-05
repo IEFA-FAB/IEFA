@@ -143,7 +143,10 @@ export function ComposeEventForm({ kitchenId, templateIds, listLink, editorLink 
 							<Button type="button" variant="outline" onClick={() => navigate(listLink)}>
 								Cancelar
 							</Button>
-							<Button type="submit" disabled={isPending || isLoading || !name.trim() || totalMeals === 0}>
+							<Button
+								type="submit" // Modelo que não carregou ficaria de fora do evento em silêncio: não monta sem todos.
+								disabled={isPending || isLoading || failed > 0 || !name.trim() || totalMeals === 0}
+							>
 								{isPending && <Loader2 className="size-4 mr-2 animate-spin" />}
 								Montar evento
 							</Button>
