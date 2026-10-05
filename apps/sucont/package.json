@@ -47,7 +47,7 @@
     "clsx": "^2.1.1",
     "html-to-image": "^1.11.13",
     "lucide-react": "^1.47.0",
-    "motion": "^13.4.0",
+    "motion": "^13.4.4",
     "nitro": "^3.0.260903-beta",
     "papaparse": "^5.7.0",
     "react": "^19.3.0",
