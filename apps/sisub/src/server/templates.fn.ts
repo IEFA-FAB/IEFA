@@ -14,12 +14,16 @@ import {
 	ApplyTemplateSchema,
 	applyEventTemplate,
 	applyTemplate,
+	ComposeOccasionMenuSchema,
 	CreateBlankTemplateSchema,
 	CreateTemplateSchema,
+	composeOccasionMenu,
 	createBlankTemplate,
 	createTemplate,
 	DeleteTemplateSchema,
+	DuplicateTemplateAsVariantSchema,
 	deleteTemplate,
+	duplicateTemplateAsVariant,
 	ForkTemplateSchema,
 	forkTemplate,
 	GetTemplateSchema,
@@ -65,6 +69,14 @@ export const createTemplateFn = createServerFn({ method: "POST" }).validator(Cre
 export const createBlankTemplateFn = createServerFn({ method: "POST" }).validator(CreateBlankTemplateSchema).handler(requireAuthThenRun(createBlankTemplate))
 
 export const forkTemplateFn = createServerFn({ method: "POST" }).validator(ForkTemplateSchema).handler(requireAuthThenRun(forkTemplate))
+
+/** Monta um evento da cozinha a partir de modelos (composição, não herança). */
+export const composeOccasionMenuFn = createServerFn({ method: "POST" }).validator(ComposeOccasionMenuSchema).handler(requireAuthThenRun(composeOccasionMenu))
+
+/** Outra opção do mesmo formato, na mesma pasta do catálogo global. */
+export const duplicateTemplateAsVariantFn = createServerFn({ method: "POST" })
+	.validator(DuplicateTemplateAsVariantSchema)
+	.handler(requireAuthThenRun(duplicateTemplateAsVariant))
 
 export const saveTemplateEditFn = createServerFn({ method: "POST" }).validator(SaveTemplateEditSchema).handler(requireAuthThenRun(saveTemplateEdit))
 

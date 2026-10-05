@@ -30,13 +30,17 @@ import { MAX_RECOMMENDED_PROPORTION } from "../schemas/common.ts"
 import {
 	type ApplyEventTemplate,
 	type ApplyTemplate,
+	type ComposeOccasionMenu,
 	type CreateBlankTemplate,
 	type CreateTemplate,
 	type DeleteTemplate,
+	type DuplicateTemplateAsVariant,
 	type ForkTemplate,
 	type GetTemplate,
 	isOccasionTemplateType,
 	type ListTemplates,
+	MAX_EVENT_MEALS,
+	MAX_GLOBAL_EVENT_MEALS,
 	type RestoreTemplate,
 	type SaveTemplateEdit,
 	type TemplateEventMeal,
@@ -65,6 +69,14 @@ import {
 	wrapLooseSupportItems,
 	writeEventMeals,
 } from "./template-event-meals.ts"
+import {
+	assertTemplateFolderFits,
+	fetchTakenTemplateNames,
+	firstFreeName,
+	folderNameKey,
+	isTemplateNameTakenInFolder,
+	templateNameTakenError,
+} from "./template-folders.ts"
 import { fetchTemplateMealsSafe, type TemplateMealRow } from "./template-meals.ts"
 
 // ── Wire contract (snake_case aninhado, idêntico ao que o PostgREST devolvia) ──
@@ -458,6 +470,42 @@ export function assertProportionCaps(templateType: string | null, items: readonl
 }
 
 /**
+ * Modelo GLOBAL de evento é uma variante: uma refeição. O café da manhã do Padrão B e o almoço do
+ * Padrão B não são servidos juntos; guardá-los num modelo só fazia "aplicar o café" pôr no dia as
+ * cinco refeições, e a cozinha herdar e podar em vez de compor o evento que vai servir. Evento da
+ * cozinha e apoio (o kit de duas partes do Bordo C) seguem com várias.
+ */
+export function assertGlobalEventSingleMeal(kitchenId: number | null, templateType: string | null, meals: readonly unknown[] | undefined): void {
+	if (kitchenId != null || templateType !== "event" || meals === undefined || meals.length <= MAX_GLOBAL_EVENT_MEALS) return
+	throw new DomainError(
+		"GLOBAL_EVENT_SINGLE_MEAL",
+		"Modelo global de evento tem uma refeição só: cada formato (café da manhã, brunch, almoço, coquetel, jantar) é um modelo, na pasta dele. A cozinha junta os modelos ao montar o evento."
+	)
+}
+
+/**
+ * Procedência que o template não pode citar vira nula, em vez de recusar o salvamento inteiro: o
+ * cardápio de uma cozinha só cita modelo global ou dela mesma. Modelo inexistente também.
+ */
+async function sanitizeMealSources(db: Pick<SisubDb, "select">, templateKitchenId: number | null, meals: TemplateEventMeal[]): Promise<TemplateEventMeal[]> {
+	const ids = [...new Set(meals.flatMap((m) => (m.sourceTemplateId ? [m.sourceTemplateId] : [])))]
+	if (ids.length === 0) return meals
+	const rows = await runQuery("FETCH_FAILED", () =>
+		db
+			.select({ id: menuTemplateInKitchen.id, kitchenId: menuTemplateInKitchen.kitchenId })
+			.from(menuTemplateInKitchen)
+			.where(inArray(menuTemplateInKitchen.id, ids))
+	)
+	const visible = new Set(rows.filter((r) => r.kitchenId === null || r.kitchenId === templateKitchenId).map((r) => r.id))
+	return meals.map((m) => (m.sourceTemplateId && !visible.has(m.sourceTemplateId) ? { ...m, sourceTemplateId: null } : m))
+}
+
+/** Refeições copiadas guardam de onde vieram: a procedência que já tinham, senão o modelo copiado. */
+function withSource(meals: readonly TemplateEventMeal[], sourceTemplateId: string): TemplateEventMeal[] {
+	return meals.map((m) => ({ ...m, sourceTemplateId: m.sourceTemplateId ?? sourceTemplateId }))
+}
+
+/**
  * Padrão de lanche: toda refeição fica no horário de sistema "Lanches de Bordo/Apoio", que é
  * onde o pedido aceito entra na produção. O horário que vier é descartado.
  */
@@ -545,50 +593,59 @@ export async function createTemplate(db: SisubDb, ctx: UserContext, input: Creat
 	const eventMeals = wrapped?.eventMeals ?? input.eventMeals ?? []
 	// Item de evento ou apoio sai daqui com o `mealTypeId` da refeição dele.
 	const items = resolveEventContent(input.templateType, eventMeals, wrapped?.items ?? input.items ?? [])
+	assertGlobalEventSingleMeal(input.kitchenId ?? null, input.templateType, eventMeals)
 	assertRelativeOnlyForGlobal(input.kitchenId ?? null, { items, meals, eventMeals, expectedMonthlyOccurrences: input.expectedMonthlyOccurrences })
 	assertProportionCaps(input.templateType, items)
 	await assertTemplateContentInScope(db, input.kitchenId ?? null, items, meals, eventMeals)
+	if (input.folderId) await assertTemplateFolderFits(db, input.folderId, { kitchenId: input.kitchenId ?? null, templateType: input.templateType })
+	const sourcedEventMeals = await sanitizeMealSources(db, input.kitchenId ?? null, eventMeals)
 
-	const created = await db.transaction(async (tx) => {
-		const [newTemplate] = await runQuery("INSERT_FAILED", () =>
-			tx
-				.insert(menuTemplateInKitchen)
-				.values({
-					name: input.name,
-					description: input.description ?? null,
-					kitchenId: input.kitchenId ?? null,
-					templateType: input.templateType,
-					expectedMonthlyOccurrences: input.expectedMonthlyOccurrences ?? null,
-				})
-				.returning()
-		)
-		if (!newTemplate) throw new DomainError("INSERT_FAILED", "no row returned")
-
-		// Refeições antes dos itens: o item cita a refeição pela FK.
-		if (eventMeals.length > 0) await writeEventMeals(tx, newTemplate.id, eventMeals)
-
-		if (items.length > 0) {
-			// `update_template` e `create_template` são tools de MCP, e o vocabulário de
-			// grupo deixou de estar no schema que o modelo lê: sem isto ele inventa uma
-			// chave plausível e o item nasce fora do conjunto da refeição.
-			await assertItemGroupsInSet(tx, routineGroupPairs(items))
-			await runQuery("INSERT_ITEMS_FAILED", () =>
+	const created = await db
+		.transaction(async (tx) => {
+			const [newTemplate] = await runQuery("INSERT_FAILED", () =>
 				tx
-					.insert(menuTemplateItemsInKitchen)
-					.values(buildTemplateItemRows(newTemplate.id, items))
-					.then(() => undefined)
+					.insert(menuTemplateInKitchen)
+					.values({
+						name: input.name,
+						description: input.description ?? null,
+						kitchenId: input.kitchenId ?? null,
+						templateType: input.templateType,
+						expectedMonthlyOccurrences: input.expectedMonthlyOccurrences ?? null,
+						folderId: input.folderId ?? null,
+					})
+					.returning()
 			)
-		}
-		if (meals.length > 0) {
-			await runQuery("INSERT_MEALS_FAILED", () =>
-				tx
-					.insert(menuTemplateMealInKitchen)
-					.values(buildTemplateMealRows(newTemplate.id, meals))
-					.then(() => undefined)
-			)
-		}
-		return newTemplate
-	})
+			if (!newTemplate) throw new DomainError("INSERT_FAILED", "no row returned")
+
+			// Refeições antes dos itens: o item cita a refeição pela FK.
+			if (sourcedEventMeals.length > 0) await writeEventMeals(tx, newTemplate.id, sourcedEventMeals)
+
+			if (items.length > 0) {
+				// `update_template` e `create_template` são tools de MCP, e o vocabulário de
+				// grupo deixou de estar no schema que o modelo lê: sem isto ele inventa uma
+				// chave plausível e o item nasce fora do conjunto da refeição.
+				await assertItemGroupsInSet(tx, routineGroupPairs(items))
+				await runQuery("INSERT_ITEMS_FAILED", () =>
+					tx
+						.insert(menuTemplateItemsInKitchen)
+						.values(buildTemplateItemRows(newTemplate.id, items))
+						.then(() => undefined)
+				)
+			}
+			if (meals.length > 0) {
+				await runQuery("INSERT_MEALS_FAILED", () =>
+					tx
+						.insert(menuTemplateMealInKitchen)
+						.values(buildTemplateMealRows(newTemplate.id, meals))
+						.then(() => undefined)
+				)
+			}
+			return newTemplate
+		})
+		.catch((error: unknown) => {
+			if (isTemplateNameTakenInFolder(error)) throw templateNameTakenError(input.name)
+			throw error
+		})
 
 	return toWire<MenuTemplate>(created)
 }
@@ -596,6 +653,7 @@ export async function createTemplate(db: SisubDb, ctx: UserContext, input: Creat
 export async function createBlankTemplate(db: SisubDb, ctx: UserContext, input: CreateBlankTemplate): Promise<MenuTemplate> {
 	requireAssetWriteForScope(ctx, input.kitchenId ?? null)
 	assertRelativeOnlyForGlobal(input.kitchenId ?? null, { expectedMonthlyOccurrences: input.expectedMonthlyOccurrences })
+	if (input.folderId) await assertTemplateFolderFits(db, input.folderId, { kitchenId: input.kitchenId ?? null, templateType: input.templateType })
 
 	const [created] = await runQuery("INSERT_FAILED", () =>
 		db
@@ -606,9 +664,13 @@ export async function createBlankTemplate(db: SisubDb, ctx: UserContext, input: 
 				kitchenId: input.kitchenId ?? null,
 				templateType: input.templateType,
 				expectedMonthlyOccurrences: input.expectedMonthlyOccurrences ?? null,
+				folderId: input.folderId ?? null,
 			})
 			.returning()
-	)
+	).catch((error: unknown) => {
+		if (isTemplateNameTakenInFolder(error)) throw templateNameTakenError(input.name)
+		throw error
+	})
 	if (!created) throw new DomainError("INSERT_FAILED", "no row returned")
 	return toWire<MenuTemplate>(created)
 }
@@ -694,10 +756,12 @@ export async function forkTemplate(db: SisubDb, ctx: UserContext, input: ForkTem
 	const eventContent = isOccasion
 		? (() => {
 				const normalized = normalizeStoredEventContent(eventMealsAsInput(sourceEventMeals), sourceEventItems, mealTypeNames, source.templateType)
-				const remapped = remapEventMealIds(normalized.eventMeals, normalized.items)
+				const remapped = remapEventMealIds(withSource(normalized.eventMeals, input.sourceTemplateId), normalized.items)
 				return keepsAbsolutes ? remapped : { ...remapped, eventMeals: remapped.eventMeals.map((m) => ({ ...m, baseHeadcount: null })) }
 			})()
 		: null
+	// Copiar PARA o catálogo global segue a regra do modelo: evento de uma refeição só.
+	assertGlobalEventSingleMeal(targetKitchenId, source.templateType, eventContent?.eventMeals)
 	const forkedSourceItems = eventContent?.items ?? sourceItems
 
 	// A cópia herda as referências da origem — e elas precisam caber no DESTINO, pela mesma
@@ -808,7 +872,10 @@ async function applyTemplateContent(tx: TemplateTx, templateId: string, input: U
 	if (Object.keys(updates).length > 0) {
 		const [updated] = await runQuery("UPDATE_FAILED", () =>
 			tx.update(menuTemplateInKitchen).set(updates).where(eq(menuTemplateInKitchen.id, templateId)).returning()
-		)
+		).catch((error: unknown) => {
+			if (isTemplateNameTakenInFolder(error)) throw templateNameTakenError(input.name ?? "")
+			throw error
+		})
 		row = updated
 	} else {
 		const [current] = await runQuery("FETCH_FAILED", () => tx.select().from(menuTemplateInKitchen).where(eq(menuTemplateInKitchen.id, templateId)).limit(1))
@@ -841,6 +908,8 @@ async function applyTemplateContent(tx: TemplateTx, templateId: string, input: U
 	}
 	// Padrão de lanche: as refeições ficam no horário de sistema, onde o pedido aceito produz.
 	if (row.snackFamily != null && sentEventMeals !== undefined) sentEventMeals = await pinSnackStandardMeals(tx, sentEventMeals)
+	assertGlobalEventSingleMeal(row.kitchenId, row.templateType, sentEventMeals)
+	if (sentEventMeals !== undefined) sentEventMeals = await sanitizeMealSources(tx, row.kitchenId, sentEventMeals)
 
 	// Refeições do evento/apoio, se fornecidas — antes dos itens, que citam a refeição pela FK.
 	const newEventMeals = sentEventMeals
@@ -976,7 +1045,7 @@ export async function saveTemplateEdit(db: SisubDb, ctx: UserContext, input: Sav
 						"Esta cozinha já tem a cópia deste evento: envie eventMeals e items juntos, ou edite a cópia diretamente."
 					)
 				}
-				return applyTemplateContent(tx, existingFork.id, { ...input, ...remapEventMealIds(input.eventMeals, input.items) })
+				return applyTemplateContent(tx, existingFork.id, { ...input, ...remapEventMealIds(withSource(input.eventMeals, input.templateId), input.items) })
 			}
 			return applyTemplateContent(tx, existingFork.id, input)
 		}
@@ -1004,7 +1073,7 @@ export async function saveTemplateEdit(db: SisubDb, ctx: UserContext, input: Sav
 					)
 			: undefined
 		const forkContent = forkEventContent
-			? remapEventMealIds(forkEventContent.eventMeals, forkEventContent.items)
+			? remapEventMealIds(withSource(forkEventContent.eventMeals, input.templateId), forkEventContent.items)
 			: { eventMeals: input.eventMeals, items: sourceItems }
 
 		// Efetivo por (dia + refeição) do global: não existe (o global é relativo). Só o que a cozinha mandou.
@@ -1057,7 +1126,7 @@ async function fetchSlotNamesOfUnplacedItems(
 }
 
 /** Itens gravados de um template no formato de entrada — o conteúdo que o fork copia quando a edição não trouxe itens. */
-async function readSourceItems(tx: TemplateTx, templateId: string): Promise<TemplateItem[]> {
+async function readSourceItems(tx: TemplateTx | SisubDb, templateId: string): Promise<TemplateItem[]> {
 	const rows = await tx
 		.select({
 			dayOfWeek: menuTemplateItemsInKitchen.dayOfWeek,
@@ -1118,7 +1187,7 @@ export async function deleteTemplate(db: SisubDb, ctx: UserContext, input: Delet
 export async function restoreTemplate(db: SisubDb, ctx: UserContext, input: RestoreTemplate): Promise<void> {
 	const row = await runQuery("FETCH_FAILED", () =>
 		db.query.menuTemplateInKitchen.findFirst({
-			columns: { id: true, kitchenId: true, deletedAt: true },
+			columns: { id: true, kitchenId: true, deletedAt: true, folderId: true, name: true },
 			where: eq(menuTemplateInKitchen.id, input.templateId),
 		})
 	)
@@ -1128,10 +1197,15 @@ export async function restoreTemplate(db: SisubDb, ctx: UserContext, input: Rest
 
 	requireAssetWriteForScope(ctx, row.kitchenId)
 
+	// Na pasta, duas opções não têm o mesmo nome. Se outra ocupou o nome enquanto este estava na
+	// lixeira, ele volta como "… (restaurado)" em vez de a restauração falhar.
+	const taken = row.folderId ? await fetchTakenTemplateNames(db, row.folderId, row.id) : null
+	const name = taken?.has(folderNameKey(row.name)) ? firstFreeName(row.name ?? "", taken, "restaurado") : undefined
+
 	await runQuery("RESTORE_FAILED", () =>
 		db
 			.update(menuTemplateInKitchen)
-			.set({ deletedAt: null })
+			.set({ deletedAt: null, ...(name !== undefined && { name }) })
 			.where(eq(menuTemplateInKitchen.id, input.templateId))
 			.then(() => undefined)
 	)
@@ -1439,6 +1513,19 @@ export async function applyEventTemplate(
 	const unknownMeal = (input.headcounts ?? []).find((h) => !eventMeals.some((m) => m.id === h.occasionMealId))
 	if (unknownMeal) throw new DomainError("EVENT_MEAL_NOT_FOUND", `refeição ${unknownMeal.occasionMealId} não existe neste cardápio`)
 	const appliedHeadcount = new Map((input.headcounts ?? []).map((h) => [h.occasionMealId, h.headcount]))
+	// Horário desta aplicação: o formato não fixa o horário (o coquetel vai ao almoço ou à noite).
+	const unknownSlotMeal = (input.slots ?? []).find((s) => !eventMeals.some((m) => m.id === s.occasionMealId))
+	if (unknownSlotMeal) throw new DomainError("EVENT_MEAL_NOT_FOUND", `refeição ${unknownSlotMeal.occasionMealId} não existe neste cardápio`)
+	const slotOutOfScope = (
+		await findOutOfScopeRefs(
+			db,
+			input.kitchenId,
+			[],
+			(input.slots ?? []).map((s) => s.mealTypeId)
+		)
+	).mealTypeIds[0]
+	if (slotOutOfScope) throw new NotFoundError("meal_type", slotOutOfScope)
+	const appliedSlot = new Map((input.slots ?? []).map((s) => [s.occasionMealId, s.mealTypeId]))
 	const eventMealBases = new Map(eventMeals.map((m) => [m.id, appliedHeadcount.has(m.id) ? (appliedHeadcount.get(m.id) ?? null) : m.base_headcount]))
 	// Demanda de cada item resolvida AQUI, antes de juntar refeições do mesmo horário: cada item
 	// mede pela própria refeição (pax, senão % do efetivo dela, senão o efetivo cheio). Resolver
@@ -1459,13 +1546,14 @@ export async function applyEventTemplate(
 	let itemsSkipped = 0
 	const itemsByMealType = new Map<string, typeof templateItems>()
 	for (const item of templateItems) {
-		if (!item.mealTypeId || !item.recipeId) {
+		const mealTypeId = (item.eventMealId != null ? appliedSlot.get(item.eventMealId) : undefined) ?? item.mealTypeId
+		if (!mealTypeId || !item.recipeId) {
 			itemsSkipped++
 			continue
 		}
-		const bucket = itemsByMealType.get(item.mealTypeId) ?? []
+		const bucket = itemsByMealType.get(mealTypeId) ?? []
 		bucket.push(item)
-		itemsByMealType.set(item.mealTypeId, bucket)
+		itemsByMealType.set(mealTypeId, bucket)
 	}
 	// Evento com duas refeições no mesmo horário (coquetel e jantar, os dois à noite) cai num
 	// cardápio do dia só: as refeições entram na ordem do evento, e a preparação repetida vira um
@@ -1579,4 +1667,155 @@ export async function applyEventTemplate(
 	})
 
 	return { menusCreated, itemsCreated, itemsSkipped, itemsAlreadyApplied, datesProcessed: dates }
+}
+
+/**
+ * Refeições e itens gravados de um evento ou apoio, prontos para virar conteúdo de OUTRO
+ * template: arrumados pela regra de colocação (item sem refeição vai para a do horário) e com ids
+ * novos. `originalMealIds[i]` é o id que a refeição `eventMeals[i]` tinha na origem — é por ele que
+ * o chamador casa o que veio na entrada (horário escolhido para a refeição X).
+ */
+async function readOccasionContentForCopy(
+	db: SisubDb,
+	templateId: string,
+	templateType: string | null
+): Promise<{ eventMeals: TemplateEventMeal[]; items: TemplateItem[]; originalMealIds: string[] }> {
+	const storedMeals = eventMealsAsInput((await fetchEventMeals(db, [templateId])).get(templateId) ?? [])
+	const storedItems = await readSourceItems(db, templateId)
+	const mealTypeNames = await fetchSlotNamesOfUnplacedItems(db, storedMeals, storedItems)
+	const normalized = normalizeStoredEventContent(storedMeals, storedItems, mealTypeNames, templateType)
+	const remapped = remapEventMealIds(normalized.eventMeals, normalized.items)
+	return { ...remapped, originalMealIds: normalized.eventMeals.map((m) => m.id) }
+}
+
+/**
+ * Monta um evento da cozinha a partir de modelos — a composição que substitui "adaptar o padrão e
+ * desmarcar refeições". Cada refeição de cada modelo escolhido entra copiada no evento novo, com os
+ * grupos, as preparações e as proporções, no horário escolhido (o sugerido pelo modelo, se nenhum),
+ * e guarda de qual modelo veio. Do modelo global não vem pax nem efetivo (o número é da cozinha);
+ * de cardápio da própria cozinha, vem.
+ *
+ * Copia em vez de referenciar: editar o modelo depois não muda o que a cozinha planejou comprar.
+ */
+export async function composeOccasionMenu(db: SisubDb, ctx: UserContext, input: ComposeOccasionMenu): Promise<MenuTemplate> {
+	requireKitchen(ctx, 2, input.kitchenId)
+
+	const eventMeals: TemplateEventMeal[] = []
+	const items: TemplateItem[] = []
+	for (const source of input.sources) {
+		const template = await validateTemplateAccess(db, source.templateId, input.kitchenId)
+		if (template.template_type !== "event") {
+			throw new DomainError("COMPOSE_ONLY_EVENTS", `"${template.name ?? source.templateId}" não é um evento: só modelos de evento entram na montagem.`)
+		}
+		const keepsAbsolutes = template.kitchen_id !== null
+		const content = await readOccasionContentForCopy(db, source.templateId, template.template_type)
+		const slotByOriginal = new Map((source.slots ?? []).map((s) => [s.occasionMealId, s.mealTypeId]))
+		const unknownSlot = [...slotByOriginal.keys()].find((id) => !content.originalMealIds.includes(id))
+		if (unknownSlot) throw new DomainError("EVENT_MEAL_NOT_FOUND", `refeição ${unknownSlot} não existe em "${template.name ?? source.templateId}"`)
+
+		content.eventMeals.forEach((meal, index) => {
+			const slot = slotByOriginal.get(content.originalMealIds[index] ?? "")
+			eventMeals.push({
+				...meal,
+				mealTypeId: slot ?? meal.mealTypeId,
+				baseHeadcount: keepsAbsolutes ? (meal.baseHeadcount ?? null) : null,
+				sourceTemplateId: meal.sourceTemplateId ?? source.templateId,
+			})
+		})
+		for (const item of content.items) items.push({ ...item, headcountOverride: keepsAbsolutes ? item.headcountOverride : undefined })
+	}
+
+	if (eventMeals.length === 0) {
+		throw new DomainError("COMPOSE_WITHOUT_MEALS", "Os modelos escolhidos ainda não têm refeição. Escolha modelos já montados pela SDAB.")
+	}
+	if (eventMeals.length > MAX_EVENT_MEALS) {
+		throw new DomainError("COMPOSE_TOO_MANY_MEALS", `Um evento tem no máximo ${MAX_EVENT_MEALS} refeições; os modelos escolhidos somam ${eventMeals.length}.`)
+	}
+
+	return createTemplate(db, ctx, {
+		name: input.name,
+		description: input.description || undefined,
+		kitchenId: input.kitchenId,
+		templateType: "event",
+		eventMeals,
+		items,
+	})
+}
+
+/**
+ * Outra opção do mesmo formato: cópia de um modelo global na mesma pasta, com o primeiro nome livre
+ * ("Brunch Padrão B (cópia)"). Duas opções na mesma pasta precisam de nomes diferentes, e a SDAB
+ * renomeia a cópia depois. Classificação de lanche vem junto, fora do pedido.
+ */
+export async function duplicateTemplateAsVariant(db: SisubDb, ctx: UserContext, input: DuplicateTemplateAsVariant): Promise<MenuTemplate> {
+	requireAssetWriteForScope(ctx, null)
+	const source = await runQuery("FETCH_FAILED", () =>
+		db.query.menuTemplateInKitchen.findFirst({
+			columns: {
+				id: true,
+				kitchenId: true,
+				name: true,
+				description: true,
+				templateType: true,
+				folderId: true,
+				deletedAt: true,
+				snackFamily: true,
+				snackClass: true,
+				snackVariant: true,
+				requiresGalley: true,
+				requiresOven: true,
+				shelfLifeHours: true,
+			},
+			where: eq(menuTemplateInKitchen.id, input.templateId),
+		})
+	)
+	if (!source || source.deletedAt != null) throw new NotFoundError("menu_template", input.templateId)
+	if (source.kitchenId != null || !isOccasionTemplateType(source.templateType)) {
+		throw new DomainError("VARIANT_ONLY_GLOBAL_OCCASIONS", "Duplicar como variante vale para eventos e cardápios de apoio do catálogo global.")
+	}
+
+	const content = await readOccasionContentForCopy(db, source.id, source.templateType)
+	// Variante é irmã, não cópia adaptada: sem procedência e sem número absoluto (o global não tem).
+	const eventMeals = content.eventMeals.map((m) => ({ ...m, baseHeadcount: null, sourceTemplateId: null }))
+	const items = content.items.map((i) => ({ ...i, headcountOverride: undefined }))
+
+	const taken = source.folderId
+		? await fetchTakenTemplateNames(db, source.folderId)
+		: new Set(
+				(
+					await runQuery("FETCH_FAILED", () =>
+						db
+							.select({ name: menuTemplateInKitchen.name })
+							.from(menuTemplateInKitchen)
+							.where(
+								and(
+									isNull(menuTemplateInKitchen.kitchenId),
+									isNull(menuTemplateInKitchen.folderId),
+									isNull(menuTemplateInKitchen.deletedAt),
+									eq(menuTemplateInKitchen.templateType, source.templateType)
+								)
+							)
+					)
+				).map((r) => folderNameKey(r.name))
+			)
+	const created = await createTemplate(db, ctx, {
+		name: firstFreeName(source.name ?? "Modelo", taken, "cópia"),
+		description: source.description ?? undefined,
+		kitchenId: null,
+		templateType: source.templateType,
+		eventMeals,
+		items,
+		...(source.folderId && { folderId: source.folderId }),
+	})
+
+	if (source.snackFamily != null) {
+		await runQuery("UPDATE_FAILED", () =>
+			db
+				.update(menuTemplateInKitchen)
+				.set(snackClassificationForCopy(source))
+				.where(eq(menuTemplateInKitchen.id, created.id))
+				.then(() => undefined)
+		)
+	}
+	return created
 }

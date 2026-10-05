@@ -329,6 +329,7 @@ export async function replaceDayWithTemplate(
 			kitchenId: input.kitchenId,
 			dates: [input.date],
 			headcounts: input.headcounts,
+			slots: input.slots,
 		})
 		return { removed: ids.length, itemsCreated: applied.itemsCreated, menusCreated: applied.menusCreated }
 	})

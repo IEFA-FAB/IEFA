@@ -37,6 +37,8 @@ export interface TemplateEventMealRow {
 	sort_order: number
 	/** Efetivo da refeição (kits, no apoio); a porcentagem das preparações incide sobre ele. */
 	base_headcount: number | null
+	/** Modelo de onde a refeição foi copiada (montagem, adaptação); nulo = criada aqui. */
+	source_template_id: string | null
 }
 
 export type MenuTemplateWithItems = MenuTemplate & {

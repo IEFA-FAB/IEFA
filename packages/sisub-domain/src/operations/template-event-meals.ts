@@ -30,6 +30,8 @@ export type TemplateEventMealWire = {
 	sort_order: number
 	/** Efetivo da refeição; nulo = só o pax do item conta. */
 	base_headcount: number | null
+	/** Modelo de onde a refeição foi copiada; nulo = criada aqui. */
+	source_template_id: string | null
 }
 
 /** Contagem gravada no jsonb: só inteiro não negativo conta; o resto é ausência. */
@@ -76,6 +78,7 @@ export async function fetchEventMeals(db: EventMealDb, templateIds: string[]): P
 			groups: parseGroups(row.groups),
 			sort_order: row.sortOrder,
 			base_headcount: row.baseHeadcount,
+			source_template_id: row.sourceTemplateId,
 		}
 		const list = byTemplate.get(row.menuTemplateId)
 		if (list) list.push(wire)
@@ -118,7 +121,14 @@ export function eventItemBase(
 
 /** Refeições gravadas no formato de entrada — para quem precisa copiá-las ou revalidar itens contra elas. */
 export function eventMealsAsInput(meals: readonly TemplateEventMealWire[]): TemplateEventMeal[] {
-	return meals.map((m) => ({ id: m.id, name: m.name, mealTypeId: m.meal_type_id, groups: m.groups, baseHeadcount: m.base_headcount }))
+	return meals.map((m) => ({
+		id: m.id,
+		name: m.name,
+		mealTypeId: m.meal_type_id,
+		groups: m.groups,
+		baseHeadcount: m.base_headcount,
+		sourceTemplateId: m.source_template_id,
+	}))
 }
 
 /**
@@ -336,8 +346,9 @@ function eventMealValues(meal: TemplateEventMeal, index: number) {
 		})),
 		sortOrder: index,
 		// Ausente = não mexe no efetivo gravado (quem renomeia a refeição não precisa reenviá-lo);
-		// `null` = limpa. Na inserção, ausente vira nulo.
+		// `null` = limpa. Na inserção, ausente vira nulo. A procedência segue a mesma regra.
 		...(meal.baseHeadcount !== undefined && { baseHeadcount: meal.baseHeadcount }),
+		...(meal.sourceTemplateId !== undefined && { sourceTemplateId: meal.sourceTemplateId }),
 	}
 }
 

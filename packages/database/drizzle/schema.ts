@@ -719,8 +719,10 @@ export const menuTemplateEventMealInKitchen = kitchen.table("menu_template_event
 	sortOrder: smallint("sort_order").default(0).notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	baseHeadcount: integer("base_headcount"),
+	sourceTemplateId: uuid("source_template_id"),
 }, (table) => [
 	index("menu_template_event_meal_meal_type_id_fk_idx").using("btree", table.mealTypeId.asc().nullsLast()),
+	index("menu_template_event_meal_source_template_id_fk_idx").using("btree", table.sourceTemplateId.asc().nullsLast()),
 	index("menu_template_event_meal_template_idx").using("btree", table.menuTemplateId.asc().nullsLast(), table.sortOrder.asc().nullsLast()),
 	foreignKey({
 			columns: [table.mealTypeId],
@@ -732,6 +734,11 @@ export const menuTemplateEventMealInKitchen = kitchen.table("menu_template_event
 			foreignColumns: [menuTemplateInKitchen.id],
 			name: "menu_template_event_meal_menu_template_id_fkey"
 		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.sourceTemplateId],
+			foreignColumns: [menuTemplateInKitchen.id],
+			name: "menu_template_event_meal_source_template_id_fkey"
+		}).onDelete("set null"),
 	check("menu_template_event_meal_base_headcount_check", sql`(base_headcount IS NULL) OR (base_headcount > 0)`),
 	check("menu_template_event_meal_groups_is_array", sql`jsonb_typeof(groups) = 'array'::text`),
 	check("menu_template_event_meal_name_not_blank", sql`btrim(name) <> ''::text`),
@@ -2550,6 +2557,58 @@ export const ingredientReviewInKitchen = kitchen.table("ingredient_review", {
 		}).onDelete("cascade"),
 ]);
 
+export const menuTemplateInKitchen = kitchen.table("menu_template", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	name: text(),
+	description: text(),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	kitchenId: bigint("kitchen_id", { mode: "number" }),
+	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
+	baseTemplateId: uuid("base_template_id"),
+	templateType: text("template_type").default('weekly').notNull(),
+	expectedMonthlyOccurrences: smallint("expected_monthly_occurrences"),
+	snackFamily: text("snack_family"),
+	snackClass: text("snack_class"),
+	snackVariant: text("snack_variant"),
+	requiresGalley: boolean("requires_galley").default(false).notNull(),
+	requiresOven: boolean("requires_oven").default(false).notNull(),
+	reviewedAt: date("reviewed_at"),
+	shelfLifeHours: smallint("shelf_life_hours"),
+	orderable: boolean().default(false).notNull(),
+	folderId: uuid("folder_id"),
+}, (table) => [
+	index("menu_template_base_template_id_fk_idx").using("btree", table.baseTemplateId.asc().nullsLast()),
+	index("menu_template_folder_id_fk_idx").using("btree", table.folderId.asc().nullsLast()),
+	uniqueIndex("menu_template_folder_model_name").using("btree", sql`folder_id`, sql`lower(btrim(name))`).where(sql`((folder_id IS NOT NULL) AND (deleted_at IS NULL))`),
+	index("menu_template_kitchen_id_fk_idx").using("btree", table.kitchenId.asc().nullsLast()),
+	index("menu_template_kitchen_lineage_idx").using("btree", table.kitchenId.asc().nullsLast(), table.baseTemplateId.asc().nullsLast()).where(sql`((base_template_id IS NOT NULL) AND (deleted_at IS NULL))`),
+	foreignKey({
+			columns: [table.baseTemplateId],
+			foreignColumns: [table.id],
+			name: "menu_template_base_template_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.folderId],
+			foreignColumns: [menuTemplateFolderInKitchen.id],
+			name: "menu_template_folder_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.kitchenId],
+			foreignColumns: [kitchenInKitchen.id],
+			name: "menu_template_kitchen_id_fkey"
+		}),
+	check("menu_template_expected_monthly_occurrences_check", sql`(expected_monthly_occurrences IS NULL) OR (expected_monthly_occurrences > 0)`),
+	check("menu_template_global_without_occurrences", sql`(kitchen_id IS NOT NULL) OR (expected_monthly_occurrences IS NULL)`),
+	check("menu_template_shelf_life_hours_check", sql`(shelf_life_hours IS NULL) OR ((shelf_life_hours >= 1) AND (shelf_life_hours <= 720))`),
+	check("menu_template_snack_apoio_class_check", sql`(snack_family IS DISTINCT FROM 'apoio'::text) OR (snack_class = ANY (ARRAY['A'::text, 'B'::text]))`),
+	check("menu_template_snack_class_check", sql`(snack_class IS NULL) OR (snack_class = ANY (ARRAY['A'::text, 'B'::text, 'C'::text]))`),
+	check("menu_template_snack_complete_check", sql`((snack_family IS NULL) AND (snack_class IS NULL) AND (snack_variant IS NULL) AND (orderable = false)) OR ((snack_family IS NOT NULL) AND (snack_class IS NOT NULL) AND (snack_variant IS NOT NULL) AND (template_type = 'apoio'::text))`),
+	check("menu_template_snack_family_check", sql`(snack_family IS NULL) OR (snack_family = ANY (ARRAY['bordo'::text, 'apoio'::text]))`),
+	check("menu_template_snack_variant_check", sql`(snack_variant IS NULL) OR (snack_variant = ANY (ARRAY['lanche'::text, 'refeicao'::text]))`),
+	check("menu_template_template_type_check", sql`template_type = ANY (ARRAY['weekly'::text, 'event'::text, 'apoio'::text])`),
+]);
+
 export const menuItemsInKitchen = kitchen.table("menu_items", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
@@ -2614,50 +2673,6 @@ export const menuItemsInKitchen = kitchen.table("menu_items", {
 	check("menu_items_execution_review_needs_add", sql`(execution_reviewed_at IS NULL) OR (added_in_execution_at IS NOT NULL)`),
 	check("menu_items_origin_template_type_check", sql`origin_template_type = ANY (ARRAY['weekly'::text, 'event'::text, 'apoio'::text])`),
 	check("menu_items_recommended_proportion_range", sql`(recommended_proportion IS NULL) OR ((recommended_proportion >= (0)::numeric) AND (recommended_proportion <= (1000)::numeric))`),
-]);
-
-export const menuTemplateInKitchen = kitchen.table("menu_template", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	name: text(),
-	description: text(),
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	kitchenId: bigint("kitchen_id", { mode: "number" }),
-	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
-	baseTemplateId: uuid("base_template_id"),
-	templateType: text("template_type").default('weekly').notNull(),
-	expectedMonthlyOccurrences: smallint("expected_monthly_occurrences"),
-	snackFamily: text("snack_family"),
-	snackClass: text("snack_class"),
-	snackVariant: text("snack_variant"),
-	requiresGalley: boolean("requires_galley").default(false).notNull(),
-	requiresOven: boolean("requires_oven").default(false).notNull(),
-	reviewedAt: date("reviewed_at"),
-	shelfLifeHours: smallint("shelf_life_hours"),
-	orderable: boolean().default(false).notNull(),
-}, (table) => [
-	index("menu_template_base_template_id_fk_idx").using("btree", table.baseTemplateId.asc().nullsLast()),
-	index("menu_template_kitchen_id_fk_idx").using("btree", table.kitchenId.asc().nullsLast()),
-	index("menu_template_kitchen_lineage_idx").using("btree", table.kitchenId.asc().nullsLast(), table.baseTemplateId.asc().nullsLast()).where(sql`((base_template_id IS NOT NULL) AND (deleted_at IS NULL))`),
-	foreignKey({
-			columns: [table.baseTemplateId],
-			foreignColumns: [table.id],
-			name: "menu_template_base_template_id_fkey"
-		}),
-	foreignKey({
-			columns: [table.kitchenId],
-			foreignColumns: [kitchenInKitchen.id],
-			name: "menu_template_kitchen_id_fkey"
-		}),
-	check("menu_template_expected_monthly_occurrences_check", sql`(expected_monthly_occurrences IS NULL) OR (expected_monthly_occurrences > 0)`),
-	check("menu_template_global_without_occurrences", sql`(kitchen_id IS NOT NULL) OR (expected_monthly_occurrences IS NULL)`),
-	check("menu_template_shelf_life_hours_check", sql`(shelf_life_hours IS NULL) OR ((shelf_life_hours >= 1) AND (shelf_life_hours <= 720))`),
-	check("menu_template_snack_apoio_class_check", sql`(snack_family IS DISTINCT FROM 'apoio'::text) OR (snack_class = ANY (ARRAY['A'::text, 'B'::text]))`),
-	check("menu_template_snack_class_check", sql`(snack_class IS NULL) OR (snack_class = ANY (ARRAY['A'::text, 'B'::text, 'C'::text]))`),
-	check("menu_template_snack_complete_check", sql`((snack_family IS NULL) AND (snack_class IS NULL) AND (snack_variant IS NULL) AND (orderable = false)) OR ((snack_family IS NOT NULL) AND (snack_class IS NOT NULL) AND (snack_variant IS NOT NULL) AND (template_type = 'apoio'::text))`),
-	check("menu_template_snack_family_check", sql`(snack_family IS NULL) OR (snack_family = ANY (ARRAY['bordo'::text, 'apoio'::text]))`),
-	check("menu_template_snack_variant_check", sql`(snack_variant IS NULL) OR (snack_variant = ANY (ARRAY['lanche'::text, 'refeicao'::text]))`),
-	check("menu_template_template_type_check", sql`template_type = ANY (ARRAY['weekly'::text, 'event'::text, 'apoio'::text])`),
 ]);
 
 export const frozenPreparationInKitchen = kitchen.table("frozen_preparation", {
@@ -4297,6 +4312,28 @@ export const reconciliationDecisionInFinance = finance.table("reconciliation_dec
 	unique("reconciliation_decision_key").on(table.unitId, table.documentoTipo, table.numeroDocumento),
 	check("reconciliation_decision_decisao_check", sql`decisao = ANY (ARRAY['adotado_siafi'::text, 'mantido_local'::text])`),
 	check("reconciliation_decision_documento_tipo_check", sql`documento_tipo = ANY (ARRAY['ne'::text, 'ns'::text, 'ob'::text])`),
+]);
+
+export const menuTemplateFolderInKitchen = kitchen.table("menu_template_folder", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	templateType: text("template_type").notNull(),
+	parentId: uuid("parent_id"),
+	name: text().notNull(),
+	description: text(),
+	sortOrder: smallint("sort_order").default(0).notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
+}, (table) => [
+	index("menu_template_folder_parent_id_fk_idx").using("btree", table.parentId.asc().nullsLast()),
+	uniqueIndex("menu_template_folder_sibling_name").using("btree", sql`template_type`, sql`COALESCE(parent_id, '00000000-0000-0000-0000-000000000000'::uui`, sql`lower(btrim(name))`).where(sql`(deleted_at IS NULL)`),
+	foreignKey({
+			columns: [table.parentId],
+			foreignColumns: [table.id],
+			name: "menu_template_folder_parent_id_fkey"
+		}),
+	check("menu_template_folder_name_check", sql`(length(btrim(name)) >= 1) AND (length(btrim(name)) <= 120)`),
+	check("menu_template_folder_not_own_parent", sql`parent_id IS DISTINCT FROM id`),
+	check("menu_template_folder_template_type_check", sql`template_type = ANY (ARRAY['event'::text, 'apoio'::text])`),
 ]);
 
 export const recipesInKitchen = kitchen.table("recipes", {

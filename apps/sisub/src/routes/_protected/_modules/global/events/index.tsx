@@ -29,6 +29,7 @@ function GlobalEventsPage() {
 			emptyMessage="Nenhum evento modelo cadastrado."
 			emptyHint="Crie um evento para que as cozinhas possam adaptá-lo."
 			newLink={{ to: "/global/events/new" }}
+			newInFolderLink={(folderId) => ({ to: "/global/events/new", search: { folderId } })}
 			editorLink={(eventId) => ({ to: "/global/events/$eventId", params: { eventId } })}
 		/>
 	)

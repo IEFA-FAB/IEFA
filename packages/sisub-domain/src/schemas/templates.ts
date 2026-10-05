@@ -100,8 +100,22 @@ export const TemplateEventMealSchema = z.object({
 	 * objeto vive dentro de array exposto a modelo (`eventMeals`).
 	 */
 	baseHeadcount: z.number().int().positive().max(MAX_EVENT_MEAL_HEADCOUNT).nullish(),
+	/**
+	 * Modelo de onde a refeição foi copiada (composição do evento da cozinha, adaptação). Só
+	 * procedência: editar o modelo não muda a cópia. Ausente = não mexe no que está gravado;
+	 * `null` = sem procedência. Modelo que a cozinha não enxerga é gravado como nulo.
+	 */
+	sourceTemplateId: UuidSchema.nullish(),
 })
 export type TemplateEventMeal = z.infer<typeof TemplateEventMealSchema>
+
+/**
+ * Modelo GLOBAL de evento é uma variante: no máximo uma refeição. O café da manhã do Padrão B e
+ * o almoço do Padrão B não são servidos juntos; cada um é um modelo, e a cozinha compõe o evento
+ * real escolhendo os modelos. Evento da cozinha e apoio (o kit de duas partes do Bordo C)
+ * continuam com várias.
+ */
+export const MAX_GLOBAL_EVENT_MEALS = 1
 
 /** Efetivo base por (dia + refeição) do template. headcount_override do item é exceção. */
 export const TemplateMealSchema = z.object({
@@ -121,6 +135,8 @@ export const CreateTemplateSchema = z.object({
 	meals: z.array(TemplateMealSchema).optional(),
 	/** Só em evento. A ordem do array é a ordem das refeições no evento. */
 	eventMeals: z.array(TemplateEventMealSchema).max(MAX_EVENT_MEALS).optional(),
+	/** Pasta do catálogo global (só modelo global de evento ou apoio). */
+	folderId: UuidSchema.optional(),
 })
 export type CreateTemplate = z.infer<typeof CreateTemplateSchema>
 
@@ -130,6 +146,8 @@ export const CreateBlankTemplateSchema = z.object({
 	kitchenId: KitchenIdSchema.nullable().optional(),
 	templateType: TemplateTypeSchema,
 	expectedMonthlyOccurrences: ExpectedMonthlyOccurrencesSchema.nullable().optional(),
+	/** Pasta do catálogo global (só modelo global de evento ou apoio). */
+	folderId: UuidSchema.optional(),
 })
 export type CreateBlankTemplate = z.infer<typeof CreateBlankTemplateSchema>
 
@@ -140,7 +158,8 @@ export const ForkTemplateSchema = z.object({
 	description: z.string().optional(),
 	/**
 	 * Evento e apoio: as refeições do modelo que a cópia leva, com os itens delas. Ausente = todas.
-	 * Um padrão de evento tem seis formatos de serviço e o evento real usa um ou dois.
+	 * Serve a quem copia um evento da cozinha (o coquetel sem o jantar) ou um kit de duas partes; o
+	 * modelo global de evento tem uma refeição só.
 	 */
 	occasionMealIds: z.array(UuidSchema).min(1).max(MAX_EVENT_MEALS).optional(),
 })
@@ -239,5 +258,45 @@ export const ApplyEventTemplateSchema = z.object({
 		.array(z.object({ occasionMealId: UuidSchema, headcount: z.number().int().positive().max(MAX_EVENT_MEAL_HEADCOUNT).nullable() }))
 		.max(MAX_EVENT_MEALS)
 		.optional(),
+	/**
+	 * Horário desta aplicação por refeição do cardápio. Formato de serviço não é horário: o coquetel
+	 * pode ir ao almoço ou à noite. Vence o horário da refeição e não é gravado nela; ausente = o
+	 * da refeição.
+	 */
+	slots: z
+		.array(z.object({ occasionMealId: UuidSchema, mealTypeId: UuidSchema }))
+		.max(MAX_EVENT_MEALS)
+		.optional(),
 })
 export type ApplyEventTemplate = z.infer<typeof ApplyEventTemplateSchema>
+
+/**
+ * Monta um evento da cozinha a partir de modelos (globais ou dela): cada refeição de cada modelo
+ * escolhido entra como refeição do evento novo, copiada, com a procedência. É a composição que
+ * substitui "adaptar o padrão e desmarcar refeições": café do Padrão A com almoço do Padrão B.
+ */
+export const ComposeOccasionMenuSchema = z.object({
+	kitchenId: KitchenIdSchema,
+	name: z.string().trim().min(1).max(200),
+	description: z.string().trim().max(2000).optional(),
+	sources: z
+		.array(
+			z.object({
+				templateId: UuidSchema,
+				/** Horário de cada refeição copiada; ausente = o sugerido pelo modelo. */
+				slots: z
+					.array(z.object({ occasionMealId: UuidSchema, mealTypeId: UuidSchema }))
+					.max(MAX_EVENT_MEALS)
+					.optional(),
+			})
+		)
+		.min(1)
+		.max(MAX_EVENT_MEALS),
+})
+export type ComposeOccasionMenu = z.infer<typeof ComposeOccasionMenuSchema>
+
+/** Outra opção do mesmo formato: cópia do modelo global na mesma pasta, com o primeiro nome livre. */
+export const DuplicateTemplateAsVariantSchema = z.object({
+	templateId: UuidSchema,
+})
+export type DuplicateTemplateAsVariant = z.infer<typeof DuplicateTemplateAsVariantSchema>

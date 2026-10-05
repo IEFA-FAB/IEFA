@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { CalendarPlus, Loader2, Plus, X } from "lucide-react"
@@ -7,9 +8,11 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { mealTypesQueryOptions } from "@/hooks/data/useMealTypes"
 import { useApplyEventTemplate, useTemplate } from "@/hooks/data/useTemplates"
 import { hasInvalidHeadcount, occasionHeadcountDraft, occasionHeadcountRows, occasionHeadcountsPayload } from "@/lib/apply-headcounts"
 import { ApplyHeadcountFields, OCCASION_HEADCOUNT_PENDING_HINT } from "./ApplyHeadcountFields"
+import { OccasionSlotFields, occasionSlotsPayload } from "./OccasionSlotFields"
 
 interface ApplyEventDialogProps {
 	open: boolean
@@ -39,6 +42,11 @@ export function ApplyEventDialog({ open, onClose, templateId, templateName, temp
 	const occasionMeals = template?.id === templateId ? template.event_meals : []
 	const isGlobalTemplate = template?.id === templateId && template.kitchen_id == null
 	const [headcountDraft, setHeadcountDraft] = useState<Record<string, string>>({})
+	// Horário desta aplicação por refeição: o cardápio só sugere (formato não é horário).
+	const [slotDraft, setSlotDraft] = useState<Record<string, string>>({})
+	const { data: mealTypes } = useQuery({ ...mealTypesQueryOptions(kitchenId), enabled: open })
+	// Padrão de lanche fica no horário de sistema e não chega aqui; apoio comum e evento escolhem.
+	const slotRows = occasionMeals.map((m) => ({ id: m.id, label: m.name, suggestedMealTypeId: m.meal_type_id }))
 	const [draftTemplateId, setDraftTemplateId] = useState<string | null>(null)
 	// Preenche ao chegar o cardápio (ajuste durante o render, não em efeito).
 	if (open && template?.id === templateId && draftTemplateId !== templateId) {
@@ -53,6 +61,7 @@ export function ApplyEventDialog({ open, onClose, templateId, templateName, temp
 		setDraftDate("")
 		setDraftTemplateId(null)
 		setHeadcountDraft({})
+		setSlotDraft({})
 	}
 
 	const typeLabel = templateType === "event" ? "evento" : "apoio"
@@ -66,7 +75,7 @@ export function ApplyEventDialog({ open, onClose, templateId, templateName, temp
 	const handleApply = () => {
 		if (dates.length === 0 || isHeadcountInvalid) return
 		applyEvent(
-			{ templateId, kitchenId, dates, headcounts: occasionHeadcountsPayload(occasionMeals, headcountDraft) },
+			{ templateId, kitchenId, dates, headcounts: occasionHeadcountsPayload(occasionMeals, headcountDraft), slots: occasionSlotsPayload(slotRows, slotDraft) },
 			{
 				onSuccess: () => handleClose(),
 			}
@@ -97,6 +106,14 @@ export function ApplyEventDialog({ open, onClose, templateId, templateName, temp
 							</Button>
 						</div>
 					</div>
+
+					<OccasionSlotFields
+						idPrefix="event-slot"
+						rows={slotRows}
+						mealTypes={mealTypes}
+						value={slotDraft}
+						onChange={(mealId, mealTypeId) => setSlotDraft((prev) => ({ ...prev, [mealId]: mealTypeId }))}
+					/>
 
 					<ApplyHeadcountFields
 						idPrefix="event-headcount"

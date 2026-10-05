@@ -63,6 +63,7 @@ export function EventMealDialog({
 	templateType = "event",
 	allowBase = true,
 	lockedSlotName = null,
+	isSuggestedSlot = false,
 }: {
 	open: boolean
 	onOpenChange: (open: boolean) => void
@@ -80,6 +81,8 @@ export function EventMealDialog({
 	allowBase?: boolean
 	/** Padrão de lanche: o horário é o de sistema, e o campo só o mostra. */
 	lockedSlotName?: string | null
+	/** Modelo global: o horário é sugestão; quem decide é a cozinha, ao aplicar ou montar o evento. */
+	isSuggestedSlot?: boolean
 }) {
 	const isSupportMenu = templateType === "apoio"
 	const [name, setName] = useState("")
@@ -134,6 +137,8 @@ export function EventMealDialog({
 			groups: resolved,
 			// Sem o campo (global, padrão de lanche), o efetivo que já estava fica como estava.
 			base_headcount: allowBase ? parseEventMealHeadcount(baseHeadcount) : meal.base_headcount,
+			// Editar a refeição não apaga de qual modelo ela veio.
+			source_template_id: meal.source_template_id,
 		})
 		onOpenChange(false)
 	}
@@ -169,7 +174,7 @@ export function EventMealDialog({
 					</Field>
 
 					<Field>
-						<FieldLabel htmlFor="event-meal-slot">Servida no horário de</FieldLabel>
+						<FieldLabel htmlFor="event-meal-slot">{isSuggestedSlot ? "Horário sugerido" : "Servida no horário de"}</FieldLabel>
 						{lockedSlotName != null ? (
 							<>
 								<Input id="event-meal-slot" value={lockedSlotName} readOnly disabled />
@@ -190,8 +195,9 @@ export function EventMealDialog({
 									</SelectContent>
 								</Select>
 								<FieldDescription>
-									Ao aplicar {isSupportMenu ? "o apoio" : "o evento"} no calendário, as preparações desta refeição entram no cardápio deste horário, somadas à
-									rotina do dia.
+									{isSuggestedSlot
+										? "Formato não é horário: o coquetel pode ir ao almoço ou à noite. A cozinha escolhe o horário ao aplicar ou montar o evento; este vem preenchido."
+										: `Ao aplicar ${isSupportMenu ? "o apoio" : "o evento"} no calendário, as preparações desta refeição entram no cardápio deste horário, somadas à rotina do dia.`}
 								</FieldDescription>
 							</>
 						)}

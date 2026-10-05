@@ -34,6 +34,7 @@ function GlobalSupportMenusPage() {
 			emptyMessage="Nenhum cardápio de apoio modelo cadastrado."
 			emptyHint="Crie um cardápio de apoio para que as cozinhas possam adaptá-lo."
 			newLink={{ to: "/global/support-menus/new" }}
+			newInFolderLink={(folderId) => ({ to: "/global/support-menus/new", search: { folderId } })}
 			editorLink={(supportMenuId) => ({ to: "/global/support-menus/$supportMenuId", params: { supportMenuId } })}
 		/>
 	)

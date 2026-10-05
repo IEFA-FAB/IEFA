@@ -1,14 +1,19 @@
+import { useQuery } from "@tanstack/react-query"
 import { AlertTriangle } from "lucide-react"
 import { useEffect, useState } from "react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field"
-import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { SearchableSelect } from "@/components/ui/searchable-select"
+import { mealTypesQueryOptions } from "@/hooks/data/useMealTypes"
 import { useReplaceDayWithTemplate } from "@/hooks/data/usePlanningAdjustments"
+import { useTemplateFolders } from "@/hooks/data/useTemplateFolders"
 import { useApplyEventTemplate, useMenuTemplates, useTemplate } from "@/hooks/data/useTemplates"
 import { hasInvalidHeadcount, occasionHeadcountDraft, occasionHeadcountRows, occasionHeadcountsPayload } from "@/lib/apply-headcounts"
+import { catalogFolderPath } from "@/lib/template-catalog-tree"
 import { ApplyHeadcountFields, OCCASION_HEADCOUNT_PENDING_HINT } from "./ApplyHeadcountFields"
+import { OccasionSlotFields, occasionSlotsPayload } from "./OccasionSlotFields"
 
 /**
  * Põe um evento ou apoio NESTE dia, direto do agendamento — o evento que surgiu, a viagem que
@@ -40,19 +45,33 @@ export function DayOccasionDialog({
 	// Efetivo por refeição digitado (texto do campo) e o cardápio de onde ele foi preenchido.
 	const [headcountDraft, setHeadcountDraft] = useState<Record<string, string>>({})
 	const [draftTemplateId, setDraftTemplateId] = useState<string | null>(null)
+	// Horário de cada refeição neste dia: o cardápio só sugere (o coquetel vai ao almoço ou à noite).
+	const [slotDraft, setSlotDraft] = useState<Record<string, string>>({})
+	const { data: mealTypes } = useQuery({ ...mealTypesQueryOptions(kitchenId), enabled: open })
+	const { data: eventFolders } = useTemplateFolders(open ? "event" : null)
+	const { data: supportFolders } = useTemplateFolders(open ? "apoio" : null)
 
 	useEffect(() => {
 		if (open) {
 			setTemplateId("")
 			setDraftTemplateId(null)
 			setHeadcountDraft({})
+			setSlotDraft({})
 		}
 	}, [open])
 
 	const occasions = (templates ?? []).filter((t) => (t.template_type === "event" || t.template_type === "apoio") && t.snack_family == null)
-	const events = occasions.filter((t) => t.template_type === "event")
-	const apoios = occasions.filter((t) => t.template_type === "apoio")
 	const selected = occasions.find((t) => t.id === templateId)
+	// São dezenas de modelos com nomes que começam igual: combobox com busca, e o caminho da pasta
+	// ("Padrão B › Coquetel") na segunda linha e na busca.
+	const options = occasions
+		.map((t) => {
+			const kind = t.template_type === "event" ? "Evento" : "Cardápio de apoio"
+			const path = t.kitchen_id == null ? catalogFolderPath(t.template_type === "event" ? eventFolders : supportFolders, t.folder_id) : null
+			const hint = t.kitchen_id == null ? `${kind} · modelo da SDAB${path ? ` · ${path}` : ""}` : `${kind} · desta cozinha`
+			return { value: t.id, label: t.name ?? kind, hint, keywords: path ?? undefined }
+		})
+		.toSorted((a, b) => a.hint.localeCompare(b.hint, "pt-BR") || a.label.localeCompare(b.label, "pt-BR"))
 	const isReplace = mode === "replace"
 	const isPending = isApplying || isReplacing
 
@@ -69,13 +88,15 @@ export function DayOccasionDialog({
 		setHeadcountDraft(occasionHeadcountDraft(template.event_meals, template.kitchen_id == null))
 	}
 	const isHeadcountInvalid = hasInvalidHeadcount(headcountDraft)
+	const slotRows = occasionMeals.map((m) => ({ id: m.id, label: m.name, suggestedMealTypeId: m.meal_type_id }))
 
 	const submit = () => {
 		if (!templateId || isHeadcountInvalid) return
 		const done = { onSuccess: () => onOpenChange(false) }
 		const headcounts = occasionHeadcountsPayload(occasionMeals, headcountDraft)
-		if (isReplace) replaceDay({ kitchenId, date, templateId, headcounts }, done)
-		else applyEvent({ kitchenId, templateId, dates: [date], headcounts }, done)
+		const slots = occasionSlotsPayload(slotRows, slotDraft)
+		if (isReplace) replaceDay({ kitchenId, date, templateId, headcounts, slots }, done)
+		else applyEvent({ kitchenId, templateId, dates: [date], headcounts, slots }, done)
 	}
 
 	return (
@@ -99,35 +120,17 @@ export function DayOccasionDialog({
 
 				<Field>
 					<FieldLabel htmlFor="day-occasion">{isReplace ? "Cardápio de contingência" : "Evento ou cardápio de apoio"}</FieldLabel>
-					<Select value={templateId} onValueChange={(value) => setTemplateId(value ?? "")}>
-						<SelectTrigger id="day-occasion">
-							<SelectValue>{selected?.name ?? "Escolha…"}</SelectValue>
-						</SelectTrigger>
-						<SelectContent>
-							{events.length > 0 && (
-								<SelectGroup>
-									<SelectLabel>Eventos</SelectLabel>
-									{events.map((t) => (
-										<SelectItem key={t.id} value={t.id}>
-											{t.name}
-											{t.kitchen_id == null ? " (modelo global)" : ""}
-										</SelectItem>
-									))}
-								</SelectGroup>
-							)}
-							{apoios.length > 0 && (
-								<SelectGroup>
-									<SelectLabel>Cardápios de Apoio</SelectLabel>
-									{apoios.map((t) => (
-										<SelectItem key={t.id} value={t.id}>
-											{t.name}
-											{t.kitchen_id == null ? " (modelo global)" : ""}
-										</SelectItem>
-									))}
-								</SelectGroup>
-							)}
-						</SelectContent>
-					</Select>
+					<SearchableSelect
+						id="day-occasion"
+						value={templateId || null}
+						onValueChange={(value) => {
+							setTemplateId(value ?? "")
+							setSlotDraft({})
+						}}
+						options={options}
+						placeholder="Escolha…"
+						searchPlaceholder="Buscar por nome ou pasta…"
+					/>
 					<FieldDescription>
 						{isReplace
 							? "Tenha um cardápio de apoio de contingência pronto (refeição fria, sem cocção) para escolher aqui na hora."
@@ -135,6 +138,16 @@ export function DayOccasionDialog({
 					</FieldDescription>
 					{occasions.length === 0 && <p className="text-sm text-muted-foreground">Nenhum evento ou cardápio de apoio cadastrado para esta cozinha.</p>}
 				</Field>
+
+				{templateId && (
+					<OccasionSlotFields
+						idPrefix="day-occasion-slot"
+						rows={slotRows}
+						mealTypes={mealTypes}
+						value={slotDraft}
+						onChange={(mealId, mealTypeId) => setSlotDraft((prev) => ({ ...prev, [mealId]: mealTypeId }))}
+					/>
+				)}
 
 				{templateId && (
 					<ApplyHeadcountFields
