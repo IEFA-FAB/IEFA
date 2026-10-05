@@ -25,6 +25,7 @@ function EventsPage() {
 			description="Cardápios de refeições especiais que compõem o anexo quantitativo do TR da unidade."
 			newLink={{ to: "/kitchen/$kitchenId/events/new", params: { kitchenId } }}
 			forkLink={(forkFrom) => ({ to: "/kitchen/$kitchenId/events/new", params: { kitchenId }, search: { forkFrom } })}
+			composeLink={(ids) => ({ to: "/kitchen/$kitchenId/events/new", params: { kitchenId }, search: { compose: ids.join(",") } })}
 			editorLink={(eventId) => ({ to: "/kitchen/$kitchenId/events/$eventId", params: { kitchenId, eventId } })}
 		/>
 	)

@@ -774,6 +774,15 @@ export const ASSURANCE_REGISTRY = {
 	restoreTemplateFn: { require: "none" },
 	applyEventTemplateFn: { require: "none" },
 	applyTemplateFn: { require: "none" },
+	composeOccasionMenuFn: { require: "none" },
+	duplicateTemplateAsVariantFn: { require: "none" },
+
+	// ── template-folders.fn.ts (organização do catálogo global; nenhuma regra deriva da pasta)
+	createTemplateFolderFn: { require: "none" },
+	updateTemplateFolderFn: { require: "none" },
+	moveTemplateFolderFn: { require: "none" },
+	deleteTemplateFolderFn: { require: "none" },
+	setTemplateFolderFn: { require: "none" },
 
 	// ── training.fn.ts
 	resetTrainingScopeFn: {

@@ -45,13 +45,25 @@ export type EventMealDraft = {
 	 * como no cardápio semanal; `null` = só o pax da preparação conta.
 	 */
 	base_headcount: number | null
+	/**
+	 * Modelo de onde a refeição foi copiada (montagem do evento, adaptação). Só procedência:
+	 * mostra "de Padrão B › Coquetel" e não muda nada na conta. Ausente = refeição criada aqui.
+	 */
+	source_template_id?: string | null
 }
 
 /** Nome da refeição com que o apoio nasce — o mesmo que o servidor dá ao embrulhar itens soltos. */
 export const SUPPORT_KIT_MEAL_NAME = DEFAULT_SUPPORT_MEAL_NAME
 
 /** Forma gravada (leitura do template). */
-type EventMealRow = { id: string; name: string; meal_type_id: string; groups: OccasionGroup[]; base_headcount?: number | null }
+type EventMealRow = {
+	id: string
+	name: string
+	meal_type_id: string
+	groups: OccasionGroup[]
+	base_headcount?: number | null
+	source_template_id?: string | null
+}
 type TemplateItemRow = {
 	meal_type_id: string | null
 	event_meal_id?: string | null
@@ -90,6 +102,7 @@ export function eventDraftFrom(
 		meal_type_id: m.meal_type_id,
 		groups: eventMealGroupsOrDefault(m.groups, fallbackGroups),
 		base_headcount: m.base_headcount ?? null,
+		source_template_id: m.source_template_id ?? null,
 	}))
 	// Regra de colocação compartilhada com o servidor (`placeStoredEventItems`): o nome da
 	// refeição reconstruída é o do horário no evento e "Kit" no apoio, como no servidor.
@@ -167,6 +180,8 @@ export function eventMealsPayload(meals: readonly EventMealDraft[], { allowBase 
 			...(g.maxItems != null && { maxItems: g.maxItems }),
 		})),
 		baseHeadcount: allowBase ? m.base_headcount : null,
+		// Ausente no rascunho = não mexe no que está gravado.
+		...(m.source_template_id !== undefined && { sourceTemplateId: m.source_template_id }),
 	}))
 }
 
@@ -198,21 +213,94 @@ export function countItemsLeavingComposition(items: readonly TemplateItemDraft[]
 /**
  * Grava a edição de uma refeição (nova ou existente) no rascunho.
  *
- * Item em grupo que a composição nova não tem vai para "Sem grupo" em vez de ficar numa chave
- * órfã: o servidor confere o grupo do item de evento contra a composição da refeição e
- * recusaria o salvamento inteiro. "Sem grupo" é coluna visível — o item continua na tela
- * para ser recolocado.
+ * - Grupo RENOMEADO para um rótulo de outra identidade (não só caixa, acento ou espaço) troca de
+ *   chave, e as preparações dele vão junto. Manter a chave antiga fazia "Sobremesas" renomeado para
+ *   "Frios e ovos" seguir como `sobremesa`: aplicado no mesmo dia que outro cardápio, a Mussarela
+ *   caía na coluna de sobremesas dele. Mesmo rótulo → mesma chave em qualquer modelo.
+ * - Item em grupo que a composição nova não tem vai para "Sem grupo" em vez de ficar numa chave
+ *   órfã: o servidor confere o grupo do item contra a composição da refeição e recusaria o
+ *   salvamento inteiro. "Sem grupo" é coluna visível — o item continua na tela para ser recolocado.
  */
 export function upsertEventMeal(
 	meals: readonly EventMealDraft[],
 	items: readonly TemplateItemDraft[],
 	meal: EventMealDraft
 ): { meals: EventMealDraft[]; items: TemplateItemDraft[] } {
-	const exists = meals.some((m) => m.id === meal.id)
-	const nextMeals = exists ? meals.map((m) => (m.id === meal.id ? meal : m)) : [...meals, meal]
-	const keys = new Set(meal.groups.map((g) => g.key))
-	const nextItems = items.map((i) => (i.meal_type_id === meal.id && i.item_group != null && !keys.has(i.item_group) ? { ...i, item_group: null } : i))
+	const previous = meals.find((m) => m.id === meal.id)
+	const rekeyed = rekeyRenamedGroups(previous?.groups ?? [], meal.groups)
+	const finalMeal = { ...meal, groups: rekeyed.groups }
+	const nextMeals = previous ? meals.map((m) => (m.id === meal.id ? finalMeal : m)) : [...meals, finalMeal]
+	const keys = new Set(finalMeal.groups.map((g) => g.key))
+	const nextItems = items.map((i) => {
+		if (i.meal_type_id !== meal.id || i.item_group == null) return i
+		const moved = rekeyed.renamed.get(i.item_group) ?? i.item_group
+		if (!keys.has(moved)) return { ...i, item_group: null }
+		return moved === i.item_group ? i : { ...i, item_group: moved }
+	})
 	return { meals: nextMeals, items: nextItems }
+}
+
+/** Chave livre: a pedida, ou com sufixo numérico se outra coluna da refeição já a usa. */
+function uniqueGroupKey(key: string, taken: ReadonlySet<string>): string {
+	if (!taken.has(key)) return key
+	for (let n = 2; n < 100; n++) {
+		const candidate = `${key.slice(0, 36)}_${n}`
+		if (!taken.has(candidate)) return candidate
+	}
+	return `${key.slice(0, 30)}_${crypto.randomUUID().slice(0, 8)}`
+}
+
+/**
+ * Grupos da composição com a chave de quem mudou de identidade recalculada pelo rótulo novo.
+ * `renamed` leva chave antiga → nova, para as preparações acompanharem.
+ */
+export function rekeyRenamedGroups(
+	previous: readonly OccasionGroup[],
+	next: readonly OccasionGroup[]
+): { groups: OccasionGroup[]; renamed: Map<string, string> } {
+	const previousLabel = new Map(previous.map((g) => [g.key, g.label]))
+	const changed = (g: OccasionGroup) => {
+		const before = previousLabel.get(g.key)
+		return before !== undefined && labelIdentity(before) !== labelIdentity(g.label)
+	}
+	// Chaves que ficam: as de quem não mudou de identidade. As novas não podem colidir com elas.
+	const taken = new Set(next.filter((g) => !changed(g)).map((g) => g.key))
+	const renamed = new Map<string, string>()
+	const groups = next.map((g) => {
+		if (!changed(g)) return g
+		const key = uniqueGroupKey(eventGroupKeyFor(g.label, taken), taken)
+		taken.add(key)
+		if (key !== g.key) renamed.set(g.key, key)
+		return { ...g, key }
+	})
+	return { groups, renamed }
+}
+
+/**
+ * Refeições de um modelo prontas para entrar noutro cardápio ("Adicionar refeição de um modelo"):
+ * lidas pela mesma regra de abrir o editor, com ids novos (o id da refeição é chave primária) e a
+ * procedência. Do modelo global não vem pax nem efetivo: o número é da cozinha.
+ */
+export function mealsFromModel(
+	model: { id: string; kitchen_id: number | null; event_meals: readonly EventMealRow[]; items: readonly TemplateItemRow[] },
+	templateType: OccasionMenuType = "event"
+): { meals: EventMealDraft[]; items: TemplateItemDraft[] } {
+	const draft = eventDraftFrom(model.event_meals, model.items, templateType)
+	const isGlobal = model.kitchen_id == null
+	const nextId = new Map(draft.meals.map((m) => [m.id, crypto.randomUUID()]))
+	return {
+		meals: draft.meals.map((m) => ({
+			...m,
+			id: nextId.get(m.id) ?? m.id,
+			base_headcount: isGlobal ? null : m.base_headcount,
+			source_template_id: m.source_template_id ?? model.id,
+		})),
+		items: draft.items.map((i) => ({
+			...i,
+			meal_type_id: nextId.get(i.meal_type_id) ?? i.meal_type_id,
+			headcount_override: isGlobal ? null : (i.headcount_override ?? null),
+		})),
+	}
 }
 
 /** Tira a refeição do evento, com os itens dela. */

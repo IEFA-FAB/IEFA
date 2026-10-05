@@ -72,10 +72,14 @@ Arquivos de teste citados:
 
 ### GC-AGD-08 — "Surgiu um evento"
 - **Realidade:** solenidade marcada com pouca antecedência.
-- **O sistema precisa:** o evento entra no dia somando à rotina, cada refeição do evento no seu horário,
-  com o efetivo e a % de cada preparação.
-- **UX:** no dia → "Aplicar evento ou apoio" (ou, no editor do evento, "Aplicar ao Calendário").
-- **Cobertura:** `E2E › evento que surgiu…` · `TPL › evento: a porcentagem da preparação incide sobre o efetivo…`
+- **O sistema precisa:** o evento entra no dia somando à rotina, cada refeição do evento no horário que a
+  cozinha escolher (o do cardápio vem sugerido: coquetel pode ir ao almoço ou à noite), com o efetivo e a
+  % de cada preparação. Modelo da SDAB aplicado direto põe só a variante dele (o café Padrão B não traz
+  almoço nem jantar).
+- **UX:** no dia → "Aplicar evento ou apoio" (busca por nome ou pasta, "Padrão B › Coquetel"), horário e
+  efetivo por refeição (ou, no editor do evento, "Aplicar ao Calendário").
+- **Cobertura:** `E2E › evento que surgiu…` · `TPL › evento: a porcentagem da preparação incide sobre o efetivo…` ·
+  `TPL › aplicar ao dia: o horário escolhido vence o da refeição…`
 
 ### GC-AGD-09 — "Faltou luz antes do evento: troca só o cardápio do evento"
 - **Realidade:** o evento continua, mas sem cocção; a rotina do dia é outro problema.

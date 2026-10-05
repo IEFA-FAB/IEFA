@@ -22,6 +22,8 @@ interface OccasionMenuFormProps {
 	kitchenId: number | null
 	/** Modelo global a adaptar para a cozinha. Só faz sentido com `kitchenId`. */
 	forkFrom?: string
+	/** Pasta do catálogo global onde o modelo nasce. Só faz sentido no global. */
+	folderId?: string
 	listLink: LinkOptions
 	editorLink: (templateId: string) => LinkOptions
 }
@@ -32,10 +34,10 @@ interface OccasionMenuFormProps {
  *
  * A adaptação de um modelo GLOBAL leva preparações, grupos e proporções; efetivo, pax e
  * ocorrências por mês ficam para a cozinha preencher (o global só tem quantidade relativa). A
- * cópia de um cardápio de cozinha leva tudo. Nos dois casos dá para escolher quais refeições
- * levar: um padrão de evento tem seis formatos de serviço e o evento real usa um ou dois.
+ * cópia de um cardápio de cozinha leva tudo. Com mais de uma refeição na origem (evento da
+ * cozinha, kit de duas partes), dá para escolher quais levar; o modelo global de evento tem uma só.
  */
-export function OccasionMenuForm({ templateType, kitchenId, forkFrom, listLink, editorLink }: OccasionMenuFormProps) {
+export function OccasionMenuForm({ templateType, kitchenId, forkFrom, folderId, listLink, editorLink }: OccasionMenuFormProps) {
 	const navigate = useNavigate()
 	const queryClient = useQueryClient()
 	const copy = OCCASION_MENU_COPY[templateType]
@@ -107,6 +109,7 @@ export function OccasionMenuForm({ templateType, kitchenId, forkFrom, listLink, 
 					description: description.trim() || undefined,
 					kitchenId,
 					templateType,
+					...(isGlobal && folderId ? { folderId } : {}),
 					// Ocorrências por mês são da cozinha: o modelo global não as tem.
 					...(isSupportMenu && !isGlobal ? { expectedMonthlyOccurrences: parseMonthlyOccurrences(occurrences) } : {}),
 				},
@@ -187,7 +190,7 @@ export function OccasionMenuForm({ templateType, kitchenId, forkFrom, listLink, 
 										{isSourceGlobal ? "Global · SDAB" : "Cozinha"}
 									</Badge>
 								</div>
-								{sourceMeals.length > 0 && (
+								{sourceMeals.length > 1 && (
 									<Field className="mt-4">
 										<FieldLabel>Refeições que a cópia leva</FieldLabel>
 										<div className="space-y-1.5">
@@ -235,7 +238,9 @@ export function OccasionMenuForm({ templateType, kitchenId, forkFrom, listLink, 
 						<p className="text-sm text-muted-foreground">
 							{copy.explainer}{" "}
 							{isGlobal
-								? "Modelos do catálogo global ficam disponíveis para todas as cozinhas adaptarem."
+								? templateType === "event"
+									? "No catálogo global, cada modelo de evento é UMA opção de um formato (o café da manhã do Padrão B, o coquetel do Padrão A): uma refeição só. A cozinha junta os modelos ao montar o evento dela."
+									: "Modelos do catálogo global ficam disponíveis para todas as cozinhas adaptarem."
 								: `${copy.article === "o" ? "O" : "A"} ${copy.noun} poderá ser ${copy.article === "o" ? "selecionado" : "selecionada"} na composição dos anexos quantitativos do TR.`}
 						</p>
 					</div>

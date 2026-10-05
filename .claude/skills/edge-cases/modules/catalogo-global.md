@@ -4,10 +4,11 @@ Menu: **Catálogo Global → Modelos de cardápio** (Eventos Modelo, Cardápios 
 Ler exige `global:1`; editar exige `global:2`. Na cozinha, o modelo se ADAPTA (cópia local).
 
 ### CG-EVT-01 — "A cozinha adapta um evento modelo"
-- **O sistema precisa:** a cópia chega com as refeições que a cozinha escolheu, os grupos (com a
-  quantidade de preparações esperada) e a % de cada preparação, **sem** efetivo, pax nem ocorrências:
-  o número é da cozinha. O nome já vem preenchido com o do modelo.
-- **UX:** Eventos → "Modelos Globais da SDAB" → "Adaptar" → marca as refeições → "Criar Adaptação".
+- **O sistema precisa:** a cópia chega com a refeição do modelo, os grupos (com a quantidade de
+  preparações esperada) e a % de cada preparação, **sem** efetivo, pax nem ocorrências: o número é da
+  cozinha. A refeição guarda de qual modelo veio. Modelo global de evento tem uma refeição só (é uma
+  variante); escolher refeições ao copiar vale para evento da cozinha e kit de duas partes.
+- **UX:** Eventos → "Modelos da SDAB" (árvore de pastas) → marca o modelo → "Montar evento".
 - **Cobertura:** `e2e/tests/global-catalog-events.spec.ts` · `templates.operations.test.ts › forkTemplate
   de evento escolhendo as refeições…` · `› forkTemplate de apoio global leva o kit e as porções por kit…`
 
@@ -29,12 +30,41 @@ Ler exige `global:1`; editar exige `global:2`. Na cozinha, o modelo se ADAPTA (c
 - **Cobertura:** `templates.summary.test.ts › modelo global só com quantidade relativa` ·
   `templates.operations.test.ts › modelo global recusa pax e ocorrências`
 
-### CG-PAD-01 — "A cozinha adapta o Padrão B só para um coquetel"
-- **Realidade:** o padrão de evento da SDAB tem café, brunch, almoço, coquetel e jantar; o evento real é só o coquetel.
-- **O sistema precisa:** adaptar levando só a refeição escolhida; o grupo "Salgados 4 a 6" avisa quando
-  a cozinha põe 3, sem impedir salvar.
-- **Cobertura:** `templates.operations.test.ts › forkTemplate de evento escolhendo as refeições…`. Aviso
-  de contagem na tela: **LACUNA** de e2e.
+### CG-PAD-01 — "O evento real junta café do Padrão A com almoço do Padrão B"
+- **Realidade:** café, brunch, almoço, coquetel e jantar de um padrão são VARIANTES, não um conjunto: o
+  café Padrão B não é servido com o almoço Padrão B. As nutricionistas tinham cadastrado as cinco num
+  modelo só, e aplicar "o café" punha as cinco no dia (corrigido em 2026-10-05, migration 20261005130000).
+- **O sistema precisa:** um modelo global de evento por variante (uma refeição; a segunda é recusada);
+  a cozinha monta o evento escolhendo modelos de pastas diferentes, cada um vira uma refeição copiada,
+  com procedência e o horário escolhido; editar o modelo depois não muda o evento. O grupo "Salgados 4
+  a 6" avisa quando a cozinha põe 3, sem impedir salvar.
+- **UX:** Eventos → "Modelos da SDAB" → marca os modelos → "Montar evento" → horário de cada refeição;
+  no editor do evento, "Refeição de um modelo" acrescenta outra.
+- **Cobertura:** `templates.operations.test.ts › montar evento: café de um padrão + almoço de outro…` ·
+  `› evento global é uma variante…`. Aviso de contagem na tela: **LACUNA** de e2e.
+
+### CG-ORG-01 — "A SDAB organiza o catálogo do jeito dela"
+- **Realidade:** Eventos em padrão → formato (Café da Manhã, Brunch, Almoço, Coquetel, Jantar, nessa
+  ordem); Apoio em família → classe. A ordem não é alfabética e muda sem deploy.
+- **O sistema precisa:** pastas de dois níveis com nome, descrição e ordem da SDAB; pasta só remove
+  vazia; modelo sem pasta aparece em "Sem pasta", nunca some. A pasta não vira regra (Lanche de Apoio C é
+  classificado como Bordo C, D9).
+- **Cobertura:** `templates.operations.test.ts › pastas do catálogo…` · `template-catalog-tree.test.ts`.
+
+### CG-ORG-02 — "Duas opções de brunch na mesma pasta"
+- **Realidade:** a SDAB cadastrou o brunch Padrão B duas vezes, por engano; pode haver duas opções de
+  verdade, mas com nomes diferentes.
+- **O sistema precisa:** nome único entre os modelos ativos da pasta (índice no banco + mensagem);
+  "Duplicar como variante" escolhe o primeiro nome livre; restaurar com o nome tomado volta como
+  "(restaurado)".
+- **Cobertura:** `templates.operations.test.ts › pastas do catálogo…`.
+
+### CG-EVT-04 — "Editor do modelo aberto enquanto ele muda por fora"
+- **Realidade:** `saveTemplateEdit` não confere a versão que a tela viu (`menu_template` não tem
+  `updated_at`); o autosave de uma tela velha regrava o conteúdo inteiro.
+- **O sistema precisa:** recusar gravar sobre versão superada, como a preparação (`EDIT-SAFETY.md`).
+- **Cobertura:** **LACUNA**. A migration 20261005130000 foi aplicada sem edição em curso; uma tela velha
+  que tentasse regravar as refeições movidas cai em `EVENT_MEAL_ID_TAKEN`.
 
 ### CG-TIP-01 — "Tipo de refeição global de teste aparecendo para todas as cozinhas"
 - **Realidade:** fixture `[TEST] Refeição …` vazada de suíte de integração aparece nos seletores de horário.

@@ -1011,15 +1011,27 @@ export {
 	sortFefo,
 	sufficiency,
 } from "./stock-math.ts"
+export {
+	createTemplateFolder,
+	deleteTemplateFolder,
+	listTemplateFolders,
+	moveTemplateFolder,
+	setTemplateFolder,
+	type TemplateFolderWire,
+	updateTemplateFolder,
+} from "./template-folders.ts"
 export { assertNoGlobalTemplates } from "./template-quantity-scope.ts"
 export {
 	applyEventTemplate,
 	applyTemplate,
+	assertGlobalEventSingleMeal,
 	assertProportionCaps,
 	assertRelativeOnlyForGlobal,
+	composeOccasionMenu,
 	createBlankTemplate,
 	createTemplate,
 	deleteTemplate,
+	duplicateTemplateAsVariant,
 	forkTemplate,
 	getTemplate,
 	getTemplateItems,

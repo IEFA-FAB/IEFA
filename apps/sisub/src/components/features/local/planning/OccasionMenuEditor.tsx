@@ -3,8 +3,9 @@ import { getBrasiliaToday } from "@iefa/sisub-domain/civil-date"
 import { MAX_EVENT_MEALS } from "@iefa/sisub-domain/schemas"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { type LinkOptions, useNavigate } from "@tanstack/react-router"
-import { AlertTriangle, CalendarPlus, GitFork, ListChecks, Loader2, Plus, Save, Users } from "lucide-react"
+import { AlertTriangle, CalendarPlus, Copy, GitFork, Layers, ListChecks, Loader2, Plus, Save, Users } from "lucide-react"
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react"
+import { AddModelMealDialog } from "@/components/features/local/planning/AddModelMealDialog"
 import { ApplyEventDialog } from "@/components/features/local/planning/ApplyEventDialog"
 import { EventMealCard } from "@/components/features/local/planning/EventMealCard"
 import { EventMealDialog } from "@/components/features/local/planning/EventMealDialog"
@@ -29,7 +30,8 @@ import { useTemplateRecipeVersions } from "@/hooks/business/useTemplateRecipeVer
 import { mealTypesQueryOptions } from "@/hooks/data/useMealTypes"
 import { useRecipes } from "@/hooks/data/useRecipes"
 import { useSetSnackClassification, useSnackMealType } from "@/hooks/data/useSnackRequests"
-import { useSaveTemplateEdit, useTemplate } from "@/hooks/data/useTemplates"
+import { useDuplicateTemplateAsVariant, useTemplateFolders } from "@/hooks/data/useTemplateFolders"
+import { useMenuTemplates, useSaveTemplateEdit, useTemplate } from "@/hooks/data/useTemplates"
 import {
 	applyHeadcountToEventMeals,
 	countEventMealHeadcountTargets,
@@ -38,6 +40,7 @@ import {
 	eventDraftFrom,
 	eventItemsPayload,
 	eventMealsPayload,
+	mealsFromModel,
 	moveEventMeal,
 	newEventMeal,
 	newSupportKitMeal,
@@ -63,6 +66,7 @@ import {
 } from "@/lib/occasion-menu"
 import { queryKeys } from "@/lib/query-keys"
 import { replaceRecipeVersions } from "@/lib/recipe-versions"
+import { catalogFolderPath } from "@/lib/template-catalog-tree"
 import type { TemplateItemDraft } from "@/types/domain/planning"
 
 /**
@@ -231,6 +235,7 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 	const [highlightedKey, setHighlightedKey] = useState<string | null>(null)
 	const [headcountOpen, setHeadcountOpen] = useState(false)
 	const [applyOpen, setApplyOpen] = useState(false)
+	const [modelMealOpen, setModelMealOpen] = useState(false)
 	/** Refeição do evento no diálogo: nova (ainda fora do rascunho) ou existente. */
 	// `open` à parte do conteúdo: fechar mantém refeição e modo até a animação terminar — sem
 	// isso o título trocava para "Editar refeição" enquanto o diálogo de uma NOVA saía da tela.
@@ -260,6 +265,22 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 		}),
 		[name, description, occurrences, isSupportMenu, allowAbsolutes]
 	)
+
+	// Modelo global de evento é uma variante: uma refeição. Outra opção é outro modelo na pasta.
+	const isGlobalEvent = editContext.scope === "global" && templateType === "event"
+	// Evento da cozinha monta-se com refeições de modelos (composição, não herança).
+	const canAddModelMeal = editContext.scope === "kitchen" && templateType === "event" && !willFork
+	const { mutate: duplicateVariant, isPending: isDuplicating } = useDuplicateTemplateAsVariant()
+	// Procedência das refeições: o nome e a pasta do modelo de onde vieram.
+	const { data: scopeTemplates } = useMenuTemplates(kitchenId)
+	const { data: folders } = useTemplateFolders(kitchenId !== null ? templateType : null)
+	const originLabel = (sourceTemplateId: string | null | undefined) => {
+		if (!sourceTemplateId) return null
+		const source = scopeTemplates?.find((t) => t.id === sourceTemplateId)
+		if (!source) return "modelo removido"
+		const path = source.kitchen_id == null ? catalogFolderPath(folders, source.folder_id) : null
+		return path ? `${path} · ${source.name}` : (source.name ?? "modelo")
+	}
 
 	const payloadItems = useMemo(() => eventItemsPayload(items, eventMeals, { allowItemHeadcount: allowMealAbsolutes }), [items, eventMeals, allowMealAbsolutes])
 	const payloadEventMeals = useMemo(() => eventMealsPayload(eventMeals, { allowBase: allowMealAbsolutes }), [eventMeals, allowMealAbsolutes])
@@ -548,6 +569,20 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 		setSelectedKeys((prev) => new Set([...prev].filter((key) => !items.some((i) => i.meal_type_id === meal.id && menuItemKey(i) === key))))
 	}
 
+	const handleAddFromModel = (model: Parameters<typeof mealsFromModel>[0]) => {
+		const added = mealsFromModel(model, "event")
+		if (added.meals.length === 0) {
+			toast.info("Esse modelo ainda não tem refeição.")
+			return
+		}
+		if (eventMeals.length + added.meals.length > MAX_EVENT_MEALS) {
+			toast.error(`Um evento tem no máximo ${MAX_EVENT_MEALS} refeições.`)
+			return
+		}
+		dispatch({ type: "SET_EVENT_CONTENT", meals: [...eventMeals, ...added.meals], items: [...items, ...added.items] })
+		toast.success(`${added.meals.length === 1 ? "Refeição acrescentada" : `${added.meals.length} refeições acrescentadas`}. Informe o efetivo desta cozinha.`)
+	}
+
 	const handleSave = () => {
 		if (!name.trim()) return
 		if (hasSnackIssues) {
@@ -653,6 +688,19 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 						<Button variant="outline" size="sm" disabled={totalRecipes === 0} onClick={() => setApplyOpen(true)}>
 							<CalendarPlus className="size-4 mr-2" />
 							Aplicar ao Calendário
+						</Button>
+					)}
+					{editContext.scope === "global" && (
+						<Button
+							variant="outline"
+							size="sm"
+							// A variante sai do que está GRAVADO: com edição ainda não salva, ela não levaria o que está na tela.
+							disabled={isDuplicating || contentSignature !== savedSignatureRef.current}
+							title={contentSignature !== savedSignatureRef.current ? "Espere o salvamento automático para duplicar." : undefined}
+							onClick={() => duplicateVariant(templateId, { onSuccess: (created) => navigate(editorLink(created.id)) })}
+						>
+							<Copy className="size-4 mr-2" />
+							Duplicar como variante
 						</Button>
 					)}
 					<Button type="button" variant="outline" size="sm" onClick={() => navigate(listLink)}>
@@ -803,17 +851,36 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 						<ListChecks className="size-4 sm:mr-2" />
 						<span className="hidden sm:inline">{selectionMode ? "Sair da seleção" : "Selecionar"}</span>
 					</Button>
-					<Button
-						type="button"
-						size="sm"
-						// Teto do schema: a refeição a mais faria o servidor recusar o cardápio inteiro.
-						disabled={eventMeals.length >= MAX_EVENT_MEALS}
-						onClick={openNewMeal}
-					>
-						<Plus />
-						Nova refeição
-					</Button>
+					{canAddModelMeal && (
+						<Button type="button" size="sm" variant="outline" disabled={eventMeals.length >= MAX_EVENT_MEALS} onClick={() => setModelMealOpen(true)}>
+							<Layers />
+							Refeição de um modelo
+						</Button>
+					)}
+					{/* Modelo global de evento tem uma refeição: outra opção é outro modelo ("Duplicar como variante"). */}
+					{!(isGlobalEvent && eventMeals.length >= 1) && (
+						<Button
+							type="button"
+							size="sm"
+							// Teto do schema: a refeição a mais faria o servidor recusar o cardápio inteiro.
+							disabled={eventMeals.length >= MAX_EVENT_MEALS}
+							onClick={openNewMeal}
+						>
+							<Plus />
+							Nova refeição
+						</Button>
+					)}
 				</div>
+				{isGlobalEvent && eventMeals.length > 1 && (
+					<Alert variant="destructive">
+						<AlertTriangle className="size-4" />
+						<AlertTitle>Modelo com mais de uma refeição</AlertTitle>
+						<AlertDescription>
+							Modelo global de evento é uma opção de um formato só. Deixe aqui uma refeição e crie as outras como modelos nas pastas delas; sem isso, o
+							salvamento é recusado.
+						</AlertDescription>
+					</Alert>
+				)}
 
 				{/* Refeições do cardápio: cada uma com a própria composição */}
 				{eventMeals.length > 0 ? (
@@ -826,6 +893,7 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 									key={meal.id}
 									meal={meal}
 									mealTypeName={slotName(meal.meal_type_id)}
+									originLabel={kitchenId !== null ? originLabel(meal.source_template_id) : null}
 									items={boardItems}
 									isFirst={index === 0}
 									isLast={index === eventMeals.length - 1}
@@ -879,6 +947,8 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 				allowBase={allowMealAbsolutes}
 				// Padrão de lanche: o horário é o de sistema, fixado pelo servidor ao salvar.
 				lockedSlotName={isSnackStandard ? (snackMealType?.name ?? SNACK_MEAL_TYPE_NAME) : null}
+				// No modelo global o horário é sugestão: a cozinha escolhe ao aplicar ou montar.
+				isSuggestedSlot={editContext.scope === "global" && !isSnackStandard}
 			/>
 
 			<MenuHeadcountDialog
@@ -915,6 +985,16 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 				onSelect={handleSelectRecipes}
 				multiSelect
 			/>
+
+			{canAddModelMeal && kitchenId !== null && (
+				<AddModelMealDialog
+					open={modelMealOpen}
+					onOpenChange={setModelMealOpen}
+					kitchenId={kitchenId}
+					currentTemplateId={templateId}
+					onPick={handleAddFromModel}
+				/>
+			)}
 
 			{kitchenId !== null && (
 				<ApplyEventDialog

@@ -99,7 +99,11 @@ export function SnackStandardPanel({ draft, onChange, isKitchenTemplate, energyT
 									C
 								</ToggleGroupItem>
 							</ToggleGroup>
-							{draft.family === "apoio" && <FieldDescription>Lanche de Apoio só tem as classes A e B.</FieldDescription>}
+							{draft.family === "apoio" && (
+								<FieldDescription>
+									Lanche de Apoio tem as classes A e B. A Classe C de apoio é a mesma do Lanche de Bordo C: classifique-a como Lanche de Bordo, classe C.
+								</FieldDescription>
+							)}
 						</Field>
 						<Field className="md:w-auto">
 							<FieldLabel>Variante</FieldLabel>

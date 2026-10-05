@@ -15,10 +15,12 @@ import {
 	groupSuggestionsFor,
 	isGroupCountInverted,
 	isSuggestionPresent,
+	mealsFromModel,
 	moveEventMeal,
 	newEventMeal,
 	newSupportKitMeal,
 	parseGroupItemCount,
+	rekeyRenamedGroups,
 	removeEventMeal,
 	resolveGroupKeys,
 	SUPPORT_KIT_MEAL_NAME,
@@ -294,5 +296,87 @@ describe("quantidade de preparações por grupo", () => {
 		])
 		// Sem número, o payload não leva as chaves.
 		expect(eventMealsPayload([coquetel])[0]?.groups[0]).toEqual({ key: "entrada", label: "Entradas" })
+	})
+})
+
+describe("chave do grupo acompanha o rótulo", () => {
+	test("grupo renomeado para outra identidade troca de chave e leva as preparações", () => {
+		const brunch: EventMealDraft = {
+			id: "brunch",
+			name: "Brunch",
+			meal_type_id: JANTAR,
+			groups: [
+				{ key: "sobremesa", label: "Sobremesas" },
+				{ key: "bebida", label: "Bebidas" },
+			],
+			base_headcount: null,
+		}
+		const items = [draft("brunch", "mussarela", "sobremesa"), draft("brunch", "suco", "bebida"), draft("gala", "r3", "sobremesa")]
+		const renamed = { ...brunch, groups: [{ key: "sobremesa", label: "Frios e ovos" }, brunch.groups[1] as EventMealDraft["groups"][number]] }
+
+		const next = upsertEventMeal([brunch, gala], items, renamed)
+		expect(next.meals[0]?.groups.map((g) => g.key)).toEqual(["frios_e_ovos", "bebida"])
+		expect(next.items.map((i) => i.item_group)).toEqual(["frios_e_ovos", "bebida", "sobremesa"])
+	})
+
+	test("só caixa, acento ou espaço não troca a chave", () => {
+		const { groups, renamed } = rekeyRenamedGroups([{ key: "fruta", label: "frutas" }], [{ key: "fruta", label: " Frutas " }])
+		expect(groups[0]?.key).toBe("fruta")
+		expect(renamed.size).toBe(0)
+	})
+
+	test("mesmo rótulo dá a mesma chave em modelos diferentes; sugestão vence a derivada", () => {
+		const a = rekeyRenamedGroups([{ key: "entrada", label: "Entradas" }], [{ key: "entrada", label: "Volantes" }])
+		const b = rekeyRenamedGroups([{ key: "prato_principal", label: "Prato principal" }], [{ key: "prato_principal", label: "Volantes" }])
+		expect(a.groups[0]?.key).toBe("volante")
+		expect(b.groups[0]?.key).toBe("volante")
+	})
+
+	test("chave nova não colide com a de outro grupo da refeição", () => {
+		const { groups } = rekeyRenamedGroups(
+			[
+				{ key: "entrada", label: "Entradas" },
+				{ key: "volante", label: "Volantes" },
+			],
+			[
+				{ key: "entrada", label: "Volantes" },
+				{ key: "volante", label: "Volantes de sobremesa" },
+			]
+		)
+		expect(new Set(groups.map((g) => g.key)).size).toBe(2)
+	})
+})
+
+describe("refeições de um modelo", () => {
+	test("modelo global: ids novos, procedência, sem pax nem efetivo", () => {
+		const { meals, items } = mealsFromModel({
+			id: "modelo-coquetel",
+			kitchen_id: null,
+			event_meals: [{ ...coquetel, base_headcount: 300 }],
+			items: [{ meal_type_id: JANTAR, event_meal_id: "coquetel", recipe_id: "canape", item_group: "volante", headcount_override: 40 }],
+		})
+		expect(meals).toHaveLength(1)
+		expect(meals[0]?.id).not.toBe("coquetel")
+		expect(meals[0]?.source_template_id).toBe("modelo-coquetel")
+		expect(meals[0]?.base_headcount).toBeNull()
+		expect(items[0]?.meal_type_id).toBe(meals[0]?.id)
+		expect(items[0]?.headcount_override).toBeNull()
+	})
+
+	test("cardápio da cozinha: mantém o número e a procedência que a refeição já tinha", () => {
+		const { meals, items } = mealsFromModel({
+			id: "evento-local",
+			kitchen_id: 7,
+			event_meals: [{ ...gala, source_template_id: "modelo-jantar" }],
+			items: [{ meal_type_id: JANTAR, event_meal_id: "gala", recipe_id: "file", item_group: "prato_principal", headcount_override: 120 }],
+		})
+		expect(meals[0]?.base_headcount).toBe(200)
+		expect(meals[0]?.source_template_id).toBe("modelo-jantar")
+		expect(items[0]?.headcount_override).toBe(120)
+	})
+
+	test("procedência vai no payload; ausente não vai", () => {
+		expect(eventMealsPayload([{ ...coquetel, source_template_id: "m" }])[0]).toMatchObject({ sourceTemplateId: "m" })
+		expect(eventMealsPayload([coquetel])[0]).not.toHaveProperty("sourceTemplateId")
 	})
 })

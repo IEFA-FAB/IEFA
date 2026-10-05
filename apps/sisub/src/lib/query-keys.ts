@@ -87,6 +87,8 @@ export const queryKeys = {
 		items: (templateId: string | null) => ["template_items", templateId] as const,
 		detail: (templateId: string | null) => ["template", templateId] as const,
 		deleted: (kitchenId: number | null) => ["deleted_templates", kitchenId] as const,
+		/** Sob o prefixo `menu_templates`: mexer em modelo (mover, criar) também refaz a árvore. */
+		folders: (templateType: "event" | "apoio") => ["menu_templates", "folders", templateType] as const,
 	},
 
 	mealTypes: {

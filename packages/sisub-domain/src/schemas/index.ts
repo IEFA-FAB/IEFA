@@ -712,11 +712,31 @@ export {
 	SnackVariantSchema,
 } from "./snack.ts"
 export type {
+	CreateTemplateFolder,
+	DeleteTemplateFolder,
+	ListTemplateFolders,
+	MoveTemplateFolder,
+	SetTemplateFolder,
+	UpdateTemplateFolder,
+} from "./template-folders.ts"
+export {
+	CreateTemplateFolderSchema,
+	DeleteTemplateFolderSchema,
+	ListTemplateFoldersSchema,
+	MAX_TEMPLATE_FOLDER_DEPTH,
+	MoveTemplateFolderSchema,
+	OccasionTemplateTypeSchema,
+	SetTemplateFolderSchema,
+	UpdateTemplateFolderSchema,
+} from "./template-folders.ts"
+export type {
 	ApplyEventTemplate,
 	ApplyTemplate,
+	ComposeOccasionMenu,
 	CreateBlankTemplate,
 	CreateTemplate,
 	DeleteTemplate,
+	DuplicateTemplateAsVariant,
 	ForkTemplate,
 	GetTemplate,
 	ListTemplates,
@@ -731,9 +751,11 @@ export type {
 export {
 	ApplyEventTemplateSchema,
 	ApplyTemplateSchema,
+	ComposeOccasionMenuSchema,
 	CreateBlankTemplateSchema,
 	CreateTemplateSchema,
 	DeleteTemplateSchema,
+	DuplicateTemplateAsVariantSchema,
 	ForkTemplateSchema,
 	GetTemplateSchema,
 	isOccasionTemplateType,
@@ -741,6 +763,7 @@ export {
 	MAX_EVENT_MEAL_GROUPS,
 	MAX_EVENT_MEAL_HEADCOUNT,
 	MAX_EVENT_MEALS,
+	MAX_GLOBAL_EVENT_MEALS,
 	OCCASION_TEMPLATE_TYPES,
 	RestoreTemplateSchema,
 	SaveTemplateEditSchema,

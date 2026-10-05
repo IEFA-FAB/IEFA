@@ -1,14 +1,18 @@
-import { Link, type LinkOptions } from "@tanstack/react-router"
-import { CalendarRange, Edit, GitFork, Plus, Sandwich, Trash2 } from "lucide-react"
+import { Link, type LinkOptions, useNavigate } from "@tanstack/react-router"
+import { CalendarRange, Edit, GitFork, Layers, Plus, Sandwich, Trash2 } from "lucide-react"
+import { useState } from "react"
 import { usePBAC } from "@/auth/pbac"
 import { QueryErrorState } from "@/components/features/shared/QueryErrorState"
+import { TemplateCatalogTree } from "@/components/features/shared/TemplateCatalogTree"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { useTemplateFolders } from "@/hooks/data/useTemplateFolders"
 import { useDeleteTemplate, useMenuTemplates } from "@/hooks/data/useTemplates"
 import { OCCASION_MENU_COPY, type OccasionMenuType } from "@/lib/occasion-menu"
+import { catalogFolderPath } from "@/lib/template-catalog-tree"
 import { SnackStandardBadges } from "./SnackStandardBadges"
 
 interface KitchenOccasionMenuListProps {
@@ -18,15 +22,21 @@ interface KitchenOccasionMenuListProps {
 	newLink: LinkOptions
 	/** Criação a partir de um modelo global (`?forkFrom=`). */
 	forkLink: (sourceTemplateId: string) => LinkOptions
+	/** Evento montado a partir de modelos (`?compose=`). Só evento. */
+	composeLink?: (templateIds: readonly string[]) => LinkOptions
 	editorLink: (templateId: string) => LinkOptions
 }
 
 /**
- * Eventos ou apoios de uma cozinha, com os modelos globais da SDAB disponíveis para adaptar —
- * o mesmo arranjo dos cardápios semanais. O modelo global não tem ocorrências por mês (é
- * quantidade da cozinha), então a coluna só aparece na lista da cozinha.
+ * Eventos ou apoios de uma cozinha, com os modelos da SDAB na árvore de pastas dela. No evento, a
+ * cozinha marca os modelos e MONTA o evento (café do Padrão A + almoço do Padrão B); no apoio,
+ * adapta um kit. O modelo global não tem ocorrências por mês (é quantidade da cozinha), então a
+ * coluna só aparece na lista da cozinha.
  */
-export function KitchenOccasionMenuList({ templateType, kitchenId, description, newLink, forkLink, editorLink }: KitchenOccasionMenuListProps) {
+export function KitchenOccasionMenuList({ templateType, kitchenId, description, newLink, forkLink, composeLink, editorLink }: KitchenOccasionMenuListProps) {
+	const navigate = useNavigate()
+	const { data: folders } = useTemplateFolders(templateType)
+	const [chosen, setChosen] = useState<ReadonlySet<string>>(new Set())
 	const copy = OCCASION_MENU_COPY[templateType]
 	const isSupportMenu = templateType === "apoio"
 	const Icon = isSupportMenu ? Sandwich : CalendarRange
@@ -43,6 +53,21 @@ export function KitchenOccasionMenuList({ templateType, kitchenId, description, 
 	// globais e locais, misturados.
 	const globalTemplates = templates?.filter((t) => t.kitchen_id === null && t.template_type === templateType) ?? []
 	const localTemplates = templates?.filter((t) => t.kitchen_id !== null && t.template_type === templateType) ?? []
+	// Pasta do modelo de origem da cópia local ("Lanche de Bordo › Classe A"): a cópia não tem pasta.
+	const sourcePath = (baseTemplateId: string | null) => {
+		if (!baseTemplateId) return null
+		const base = templates?.find((t) => t.id === baseTemplateId)
+		return catalogFolderPath(folders, base?.folder_id ?? null)
+	}
+	// Montar evento: a cozinha marca os modelos e junta numa tela só. Ordem = a da marcação.
+	const canCompose = !isSupportMenu && canWrite && !!composeLink
+	const toggleChosen = (id: string, checked: boolean) =>
+		setChosen((prev) => {
+			const next = new Set(prev)
+			if (checked) next.add(id)
+			else next.delete(id)
+			return next
+		})
 
 	const handleDelete = (id: string, name: string) => {
 		const pronoun = copy.article === "o" ? "Ele" : "Ela"
@@ -99,49 +124,45 @@ export function KitchenOccasionMenuList({ templateType, kitchenId, description, 
 									Somente leitura · disponíveis para adaptar
 								</Badge>
 							</div>
-							<div className="rounded-md border">
-								<Table>
-									<TableHeader>
-										<TableRow>
-											<TableHead>Nome</TableHead>
-											<TableHead>Descrição</TableHead>
-											<TableHead className="w-28 text-center">Preparações</TableHead>
-											{canWrite && <TableHead className="w-32 text-right">Ação</TableHead>}
-										</TableRow>
-									</TableHeader>
-									<TableBody>
-										{globalTemplates.map((template) => (
-											<TableRow key={template.id}>
-												<TableCell>
-													<p className="text-subheading">{template.name}</p>
-													{isSupportMenu && <SnackStandardBadges template={template} />}
-												</TableCell>
-												<TableCell className="text-sm text-muted-foreground">{template.description || "—"}</TableCell>
-												<TableCell className="text-center">
-													<Badge variant="secondary" className="font-mono text-xs">
-														{template.recipe_count || 0}
-													</Badge>
-												</TableCell>
-												{canWrite && (
-													<TableCell className="text-right">
-														<Button
-															size="sm"
-															variant="outline"
-															nativeButton={false}
-															render={
-																<Link {...forkLink(template.id)}>
-																	<GitFork className="size-3.5 mr-1.5" />
-																	Adaptar
-																</Link>
-															}
-														/>
-													</TableCell>
-												)}
-											</TableRow>
-										))}
-									</TableBody>
-								</Table>
-							</div>
+							{canCompose && (
+								<div className="flex flex-wrap items-center gap-2 mb-3">
+									<p className="text-sm text-muted-foreground flex-1 min-w-60">
+										Marque os modelos que o evento vai servir — um por refeição, de qualquer padrão — e monte o evento.
+									</p>
+									{chosen.size > 0 && (
+										<Button variant="ghost" size="sm" onClick={() => setChosen(new Set())}>
+											Limpar
+										</Button>
+									)}
+									<Button size="sm" disabled={chosen.size === 0} onClick={() => composeLink && navigate(composeLink([...chosen]))}>
+										<Layers className="size-4 mr-2" />
+										Montar evento{chosen.size > 0 ? ` (${chosen.size})` : ""}
+									</Button>
+								</div>
+							)}
+							<TemplateCatalogTree
+								templateType={templateType}
+								folders={folders}
+								templates={globalTemplates}
+								selection={canCompose ? { selectedIds: chosen, onChange: toggleChosen } : undefined}
+								templateActions={
+									canWrite && isSupportMenu
+										? (template) => (
+												<Button
+													size="xs"
+													variant="outline"
+													nativeButton={false}
+													render={
+														<Link {...forkLink(template.id)} onClick={(e) => e.stopPropagation()}>
+															<GitFork className="size-3.5 mr-1.5" />
+															Adaptar
+														</Link>
+													}
+												/>
+											)
+										: undefined
+								}
+							/>
 						</div>
 					)}
 
@@ -212,7 +233,7 @@ export function KitchenOccasionMenuList({ templateType, kitchenId, description, 
 													{template.base_template_id ? (
 														<Badge variant="secondary" className="text-xs gap-1 font-normal">
 															<GitFork className="size-3" />
-															Adaptado da SDAB
+															{sourcePath(template.base_template_id) ?? "Adaptado da SDAB"}
 														</Badge>
 													) : (
 														<span className="text-xs text-muted-foreground">Local</span>

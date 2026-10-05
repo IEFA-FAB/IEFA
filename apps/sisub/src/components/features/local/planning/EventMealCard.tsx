@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, Clock, Pencil, Plus, Trash2, Users } from "lucide-react"
+import { ArrowDown, ArrowUp, Clock, Layers, Pencil, Plus, Trash2, Users } from "lucide-react"
 import { type BoardArrangement, type BoardItem, MealGroupBoard } from "@/components/features/local/planning/MealGroupBoard"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -24,6 +24,7 @@ import type { ProportionMode } from "@/lib/occasion-menu"
 export function EventMealCard({
 	meal,
 	mealTypeName,
+	originLabel = null,
 	items,
 	isFirst,
 	isLast,
@@ -45,6 +46,8 @@ export function EventMealCard({
 	meal: EventMealDraft
 	/** Nome do horário no calendário; `null` quando o tipo de refeição não carregou (ou saiu do escopo). */
 	mealTypeName: string | null
+	/** De qual modelo a refeição veio ("Padrão B › Coquetel"); `null` = criada aqui. */
+	originLabel?: string | null
 	items: BoardItem[]
 	isFirst: boolean
 	isLast: boolean
@@ -83,6 +86,12 @@ export function EventMealCard({
 							{mealTypeName ?? "Horário indisponível"}
 						</Badge>
 						{items.length > 0 && <Badge variant="secondary">{items.length}</Badge>}
+						{originLabel && (
+							<Badge variant="outline">
+								<Layers />
+								de {originLabel}
+							</Badge>
+						)}
 					</div>
 				</CardTitle>
 				<CardAction>
