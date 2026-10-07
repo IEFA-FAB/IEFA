@@ -1,5 +1,5 @@
 import { Link, type LinkOptions, useNavigate } from "@tanstack/react-router"
-import { CalendarRange, Edit, GitFork, Layers, Plus, Sandwich, Trash2 } from "lucide-react"
+import { CalendarRange, Edit, GitFork, Layers, Plus, Printer, Sandwich, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { usePBAC } from "@/auth/pbac"
 import { QueryErrorState } from "@/components/features/shared/QueryErrorState"
@@ -25,6 +25,8 @@ interface KitchenOccasionMenuListProps {
 	/** Evento montado a partir de modelos (`?compose=`). Só evento. */
 	composeLink?: (templateIds: readonly string[]) => LinkOptions
 	editorLink: (templateId: string) => LinkOptions
+	/** Folha impressa do modelo (desta cozinha ou global) — aberta também a quem só lê. */
+	printLink: (templateId: string) => LinkOptions
 }
 
 /**
@@ -33,9 +35,18 @@ interface KitchenOccasionMenuListProps {
  * adapta um kit. O modelo global não tem ocorrências por mês (é quantidade da cozinha), então a
  * coluna só aparece na lista da cozinha.
  */
-export function KitchenOccasionMenuList({ templateType, kitchenId, description, newLink, forkLink, composeLink, editorLink }: KitchenOccasionMenuListProps) {
+export function KitchenOccasionMenuList({
+	templateType,
+	kitchenId,
+	description,
+	newLink,
+	forkLink,
+	composeLink,
+	editorLink,
+	printLink,
+}: KitchenOccasionMenuListProps) {
 	const navigate = useNavigate()
-	const { data: folders } = useTemplateFolders(templateType)
+	const { data: folders, isLoading: foldersLoading } = useTemplateFolders(templateType)
 	const [chosen, setChosen] = useState<ReadonlySet<string>>(new Set())
 	const copy = OCCASION_MENU_COPY[templateType]
 	const isSupportMenu = templateType === "apoio"
@@ -80,6 +91,27 @@ export function KitchenOccasionMenuList({ templateType, kitchenId, description, 
 			deleteTemplate(id)
 		}
 	}
+
+	const printButton = (templateId: string, size: "icon" | "icon-xs") => (
+		<Tooltip>
+			<TooltipTrigger
+				render={
+					<Button
+						aria-label="Imprimir"
+						size={size}
+						variant="ghost"
+						nativeButton={false}
+						render={
+							<Link {...printLink(templateId)} onClick={(e) => e.stopPropagation()}>
+								<Printer className="size-4" />
+							</Link>
+						}
+					/>
+				}
+			></TooltipTrigger>
+			<TooltipContent>Imprimir / baixar PDF</TooltipContent>
+		</Tooltip>
+	)
 
 	const occurrencesCell = (value: number | null) => (
 		<TableCell className="text-center">
@@ -143,25 +175,27 @@ export function KitchenOccasionMenuList({ templateType, kitchenId, description, 
 							<TemplateCatalogTree
 								templateType={templateType}
 								folders={folders}
+								foldersLoading={foldersLoading}
 								templates={globalTemplates}
 								selection={canCompose ? { selectedIds: chosen, onChange: toggleChosen } : undefined}
-								templateActions={
-									canWrite && isSupportMenu
-										? (template) => (
-												<Button
-													size="xs"
-													variant="outline"
-													nativeButton={false}
-													render={
-														<Link {...forkLink(template.id)} onClick={(e) => e.stopPropagation()}>
-															<GitFork className="size-3.5 mr-1.5" />
-															Adaptar
-														</Link>
-													}
-												/>
-											)
-										: undefined
-								}
+								templateActions={(template) => (
+									<>
+										{printButton(template.id, "icon-xs")}
+										{canWrite && isSupportMenu && (
+											<Button
+												size="xs"
+												variant="outline"
+												nativeButton={false}
+												render={
+													<Link {...forkLink(template.id)} onClick={(e) => e.stopPropagation()}>
+														<GitFork className="size-3.5 mr-1.5" />
+														Adaptar
+													</Link>
+												}
+											/>
+										)}
+									</>
+								)}
 							/>
 						</div>
 					)}
@@ -218,7 +252,7 @@ export function KitchenOccasionMenuList({ templateType, kitchenId, description, 
 											<TableHead>Origem</TableHead>
 											{isSupportMenu && <TableHead className="w-32 text-center">Ocorrências/mês</TableHead>}
 											<TableHead className="w-28 text-center">Preparações</TableHead>
-											{canWrite && <TableHead className="w-32 text-right">Ações</TableHead>}
+											<TableHead className="w-32 text-right">Ações</TableHead>
 										</TableRow>
 									</TableHeader>
 									<TableBody>
@@ -245,46 +279,49 @@ export function KitchenOccasionMenuList({ templateType, kitchenId, description, 
 														{template.recipe_count || 0}
 													</Badge>
 												</TableCell>
-												{canWrite && (
-													<TableCell className="text-right">
-														<div className="flex items-center justify-end gap-1">
-															<Tooltip>
-																<TooltipTrigger
-																	render={
-																		<Button
-																			aria-label="Editar"
-																			size="icon"
-																			variant="ghost"
-																			nativeButton={false}
-																			render={
-																				<Link {...editorLink(template.id)}>
-																					<Edit className="size-4" />
-																				</Link>
-																			}
-																		/>
-																	}
-																></TooltipTrigger>
-																<TooltipContent>Editar</TooltipContent>
-															</Tooltip>
-															<Tooltip>
-																<TooltipTrigger
-																	render={
-																		<Button
-																			aria-label="Remover"
-																			size="icon"
-																			variant="ghost"
-																			onClick={() => handleDelete(template.id, template.name ?? "")}
-																			disabled={isDeleting}
-																		>
-																			<Trash2 className="size-4 text-destructive" />
-																		</Button>
-																	}
-																></TooltipTrigger>
-																<TooltipContent>Remover</TooltipContent>
-															</Tooltip>
-														</div>
-													</TableCell>
-												)}
+												<TableCell className="text-right">
+													<div className="flex items-center justify-end gap-1">
+														{printButton(template.id, "icon")}
+														{canWrite && (
+															<>
+																<Tooltip>
+																	<TooltipTrigger
+																		render={
+																			<Button
+																				aria-label="Editar"
+																				size="icon"
+																				variant="ghost"
+																				nativeButton={false}
+																				render={
+																					<Link {...editorLink(template.id)}>
+																						<Edit className="size-4" />
+																					</Link>
+																				}
+																			/>
+																		}
+																	></TooltipTrigger>
+																	<TooltipContent>Editar</TooltipContent>
+																</Tooltip>
+																<Tooltip>
+																	<TooltipTrigger
+																		render={
+																			<Button
+																				aria-label="Remover"
+																				size="icon"
+																				variant="ghost"
+																				onClick={() => handleDelete(template.id, template.name ?? "")}
+																				disabled={isDeleting}
+																			>
+																				<Trash2 className="size-4 text-destructive" />
+																			</Button>
+																		}
+																	></TooltipTrigger>
+																	<TooltipContent>Remover</TooltipContent>
+																</Tooltip>
+															</>
+														)}
+													</div>
+												</TableCell>
 											</TableRow>
 										))}
 									</TableBody>

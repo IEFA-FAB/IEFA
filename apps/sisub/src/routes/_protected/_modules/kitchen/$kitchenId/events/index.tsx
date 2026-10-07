@@ -27,6 +27,7 @@ function EventsPage() {
 			forkLink={(forkFrom) => ({ to: "/kitchen/$kitchenId/events/new", params: { kitchenId }, search: { forkFrom } })}
 			composeLink={(ids) => ({ to: "/kitchen/$kitchenId/events/new", params: { kitchenId }, search: { compose: ids.join(",") } })}
 			editorLink={(eventId) => ({ to: "/kitchen/$kitchenId/events/$eventId", params: { kitchenId, eventId } })}
+			printLink={(eventId) => ({ to: "/kitchen/$kitchenId/events/print/$eventId", params: { kitchenId, eventId } })}
 		/>
 	)
 }

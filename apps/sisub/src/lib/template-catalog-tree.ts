@@ -64,8 +64,9 @@ export function catalogFolderPath(folders: readonly CatalogFolder[] | null | und
 }
 
 /**
- * Monta as linhas visíveis. `expanded` = ids abertos; `null` = tudo aberto (a tela abre assim, como
- * nas imagens da SDAB). Subpasta de pai que não veio na lista sobe para a raiz.
+ * Monta as linhas visíveis. `expanded` = ids abertos; `null` = tudo aberto (só para listar destinos,
+ * como em `catalogFolderOptions` — a árvore da tela abre fechada, ver `catalog-open-folders`).
+ * Subpasta de pai que não veio na lista sobe para a raiz.
  */
 export function buildCatalogTree<T extends CatalogTemplate>(input: {
 	folders: readonly CatalogFolder[] | null | undefined

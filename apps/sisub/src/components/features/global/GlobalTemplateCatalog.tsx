@@ -14,6 +14,7 @@ import {
 	MoreHorizontal,
 	Pencil,
 	Plus,
+	Printer,
 	RefreshCcw,
 	Trash2,
 } from "lucide-react"
@@ -32,8 +33,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useDeleteTemplateFolder, useDuplicateTemplateAsVariant, useMoveTemplateFolder, useTemplateFolders } from "@/hooks/data/useTemplateFolders"
 import { useDeletedTemplates, useDeleteTemplate, useRestoreTemplate } from "@/hooks/data/useTemplates"
+import { revealOpenFolders } from "@/lib/catalog-open-folders"
 import type { OccasionMenuType } from "@/lib/occasion-menu"
 import { queryKeys } from "@/lib/query-keys"
+import { UNFILED_CATALOG_FOLDER_ID } from "@/lib/template-catalog-tree"
 import { fetchMenuTemplatesFn } from "@/server/templates.fn"
 import type { TemplateWithItemCounts } from "@/types/domain/planning"
 
@@ -52,6 +55,8 @@ interface GlobalTemplateCatalogProps {
 	/** Novo modelo já dentro de uma pasta (evento e apoio). */
 	newInFolderLink?: (folderId: string) => LinkOptions
 	editorLink: (templateId: string) => LinkOptions
+	/** Folha impressa (evento e apoio) — aberta também a quem só lê o catálogo. */
+	printLink?: (templateId: string) => LinkOptions
 }
 
 /**
@@ -71,13 +76,21 @@ export function GlobalTemplateCatalog({
 	newLink,
 	newInFolderLink,
 	editorLink,
+	printLink,
 }: GlobalTemplateCatalogProps) {
 	const navigate = useNavigate()
 	// Ocorrências por mês não têm coluna: são quantidade da cozinha, e o modelo global não as tem.
 	const isSupportMenu = templateType === "apoio"
 	// Evento e apoio ficam em pastas da SDAB; o semanal segue em lista.
 	const occasionType = templateType === "weekly" ? null : templateType
-	const { data: folders, isError: foldersError } = useTemplateFolders(occasionType)
+	const { data: folders, isError: foldersError, isLoading: foldersLoading } = useTemplateFolders(occasionType)
+	// Abre a pasta (e a pasta-mãe) onde algo vai entrar: numa pasta fechada, o que entrou sumiria da tela.
+	const revealFolder = (folderId: string | null) => {
+		if (!occasionType) return
+		if (!folderId) return revealOpenFolders(occasionType, [UNFILED_CATALOG_FOLDER_ID])
+		const parentId = folders?.find((f) => f.id === folderId)?.parent_id ?? null
+		revealOpenFolders(occasionType, [parentId, folderId])
+	}
 	const [folderDialog, setFolderDialog] = useState<TemplateFolderDialogState | null>(null)
 	const [moving, setMoving] = useState<{ id: string; name: string | null; folder_id: string | null } | null>(null)
 	const { mutate: moveFolder } = useMoveTemplateFolder()
@@ -123,6 +136,32 @@ export function GlobalTemplateCatalog({
 	}
 
 	const templateActions = (template: TemplateWithItemCounts) => (
+		<>
+			{printLink && (
+				<Tooltip>
+					<TooltipTrigger
+						render={
+							<Button
+								aria-label="Imprimir"
+								size="icon-xs"
+								variant="ghost"
+								nativeButton={false}
+								render={
+									<Link {...printLink(template.id)} onClick={(e) => e.stopPropagation()}>
+										<Printer className="size-4" />
+									</Link>
+								}
+							/>
+						}
+					></TooltipTrigger>
+					<TooltipContent>Imprimir / baixar PDF</TooltipContent>
+				</Tooltip>
+			)}
+			{canWrite && editActions(template)}
+		</>
+	)
+
+	const editActions = (template: TemplateWithItemCounts) => (
 		<>
 			<Tooltip>
 				<TooltipTrigger
@@ -183,7 +222,12 @@ export function GlobalTemplateCatalog({
 				</DropdownMenuTrigger>
 				<DropdownMenuContent align="end">
 					{newInFolderLink && (
-						<DropdownMenuItem onClick={() => navigate(newInFolderLink(folder.id))}>
+						<DropdownMenuItem
+							onClick={() => {
+								revealFolder(folder.id)
+								navigate(newInFolderLink(folder.id))
+							}}
+						>
 							<Plus />
 							Novo modelo aqui
 						</DropdownMenuItem>
@@ -259,9 +303,11 @@ export function GlobalTemplateCatalog({
 						<TemplateCatalogTree
 							templateType={occasionType}
 							folders={folders}
+							foldersLoading={foldersLoading}
 							templates={templates ?? []}
-							onOpenTemplate={canWrite ? (t) => navigate(editorLink(t.id)) : undefined}
-							templateActions={canWrite ? templateActions : undefined}
+							// Quem só lê abre a folha impressa; quem escreve, o editor.
+							onOpenTemplate={canWrite ? (t) => navigate(editorLink(t.id)) : printLink ? (t) => navigate(printLink(t.id)) : undefined}
+							templateActions={canWrite || printLink ? templateActions : undefined}
 							folderActions={canWrite ? folderActions : undefined}
 						/>
 					</>
@@ -357,8 +403,8 @@ export function GlobalTemplateCatalog({
 				)}
 			</div>
 
-			<TemplateFolderDialog state={folderDialog} onClose={() => setFolderDialog(null)} />
-			<MoveTemplateDialog template={moving} folders={folders} onClose={() => setMoving(null)} />
+			<TemplateFolderDialog state={folderDialog} onClose={() => setFolderDialog(null)} onCreated={revealFolder} />
+			<MoveTemplateDialog template={moving} folders={folders} onClose={() => setMoving(null)} onMoved={revealFolder} />
 
 			{canWrite && (deletedError || (deleted && deleted.length > 0)) && (
 				<div className="space-y-3">
@@ -391,7 +437,12 @@ export function GlobalTemplateCatalog({
 												{item.deleted_at ? format(new Date(item.deleted_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR }) : "—"}
 											</TableCell>
 											<TableCell className="text-right">
-												<Button size="sm" variant="outline" onClick={() => restoreTemplate(item.id)} disabled={isRestoring}>
+												<Button
+													size="sm"
+													variant="outline"
+													onClick={() => restoreTemplate(item.id, { onSuccess: () => revealFolder(item.folder_id) })}
+													disabled={isRestoring}
+												>
 													<RefreshCcw className="size-3.5 mr-1.5" />
 													Restaurar
 												</Button>

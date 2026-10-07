@@ -16,16 +16,20 @@ export type TemplateFolderDialogState =
 interface TemplateFolderDialogProps {
 	state: TemplateFolderDialogState | null
 	onClose: () => void
+	/** Envio da criação de subpasta, com a pasta-mãe — para a árvore abrir onde ela vai entrar. Roda no envio, não no sucesso. */
+	onCreated?: (parentId: string | null) => void
 }
 
 /**
  * Pasta do catálogo global. A pasta só organiza: o nome e a descrição são da SDAB ("Padrão B —
  * Institucional/Intermediário", "Opções de maior elaboração.") e o sistema não tira regra deles.
  */
-export function TemplateFolderDialog({ state, onClose }: TemplateFolderDialogProps) {
+export function TemplateFolderDialog({ state, onClose, onCreated }: TemplateFolderDialogProps) {
 	return (
 		<Dialog open={state != null} onOpenChange={(open) => !open && onClose()}>
-			<DialogContent className="sm:max-w-md">{state && <TemplateFolderForm key={formKey(state)} state={state} onClose={onClose} />}</DialogContent>
+			<DialogContent className="sm:max-w-md">
+				{state && <TemplateFolderForm key={formKey(state)} state={state} onClose={onClose} onCreated={onCreated} />}
+			</DialogContent>
 		</Dialog>
 	)
 }
@@ -34,7 +38,15 @@ function formKey(state: TemplateFolderDialogState): string {
 	return state.mode === "edit" ? `edit:${state.folder.id}` : `create:${state.parent?.id ?? "root"}`
 }
 
-function TemplateFolderForm({ state, onClose }: { state: TemplateFolderDialogState; onClose: () => void }) {
+function TemplateFolderForm({
+	state,
+	onClose,
+	onCreated,
+}: {
+	state: TemplateFolderDialogState
+	onClose: () => void
+	onCreated?: (parentId: string | null) => void
+}) {
 	const initial = state.mode === "edit" ? state.folder : null
 	const [name, setName] = useState(initial?.name ?? "")
 	const [description, setDescription] = useState(initial?.description ?? "")
@@ -60,7 +72,12 @@ function TemplateFolderForm({ state, onClose }: { state: TemplateFolderDialogSta
 				},
 				done
 			)
-		else create({ templateType: state.templateType, parentId: state.parent?.id, name: trimmed, description: description.trim() || undefined }, done)
+		else {
+			// Abre a pasta-mãe já no envio: o callback de `mutate` não roda se o diálogo fechar antes
+			// da resposta, e a subpasta nasceria escondida numa pasta fechada.
+			if (state.parent) onCreated?.(state.parent.id)
+			create({ templateType: state.templateType, parentId: state.parent?.id, name: trimmed, description: description.trim() || undefined }, done)
+		}
 	}
 
 	return (

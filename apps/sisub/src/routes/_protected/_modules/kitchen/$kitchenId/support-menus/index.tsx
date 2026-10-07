@@ -27,6 +27,7 @@ function SupportMenusPage() {
 			newLink={{ to: "/kitchen/$kitchenId/support-menus/new", params: { kitchenId } }}
 			forkLink={(forkFrom) => ({ to: "/kitchen/$kitchenId/support-menus/new", params: { kitchenId }, search: { forkFrom } })}
 			editorLink={(supportMenuId) => ({ to: "/kitchen/$kitchenId/support-menus/$supportMenuId", params: { kitchenId, supportMenuId } })}
+			printLink={(supportMenuId) => ({ to: "/kitchen/$kitchenId/support-menus/print/$supportMenuId", params: { kitchenId, supportMenuId } })}
 		/>
 	)
 }

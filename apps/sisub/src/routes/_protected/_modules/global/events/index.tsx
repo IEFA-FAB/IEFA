@@ -31,6 +31,7 @@ function GlobalEventsPage() {
 			newLink={{ to: "/global/events/new" }}
 			newInFolderLink={(folderId) => ({ to: "/global/events/new", search: { folderId } })}
 			editorLink={(eventId) => ({ to: "/global/events/$eventId", params: { eventId } })}
+			printLink={(eventId) => ({ to: "/global/events/print/$eventId", params: { eventId } })}
 		/>
 	)
 }

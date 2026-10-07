@@ -11,17 +11,19 @@ interface MoveTemplateDialogProps {
 	template: { id: string; name: string | null; folder_id: string | null } | null
 	folders: readonly CatalogFolder[] | undefined
 	onClose: () => void
+	/** Depois de mover, com a pasta de destino (`null` = sem pasta). */
+	onMoved?: (folderId: string | null) => void
 }
 
 /**
  * "Mover para…": escolhe a pasta do modelo. Combobox com busca porque os caminhos começam igual
  * ("Padrão B › Café da Manhã", "Padrão B › Coquetel") e o typeahead do Select casa pelo começo.
  */
-export function MoveTemplateDialog({ template, folders, onClose }: MoveTemplateDialogProps) {
+export function MoveTemplateDialog({ template, folders, onClose, onMoved }: MoveTemplateDialogProps) {
 	return (
 		<Dialog open={template != null} onOpenChange={(open) => !open && onClose()}>
 			<DialogContent className="sm:max-w-md">
-				{template && <MoveTemplateForm key={template.id} template={template} folders={folders} onClose={onClose} />}
+				{template && <MoveTemplateForm key={template.id} template={template} folders={folders} onClose={onClose} onMoved={onMoved} />}
 			</DialogContent>
 		</Dialog>
 	)
@@ -31,10 +33,12 @@ function MoveTemplateForm({
 	template,
 	folders,
 	onClose,
+	onMoved,
 }: {
 	template: NonNullable<MoveTemplateDialogProps["template"]>
 	folders: MoveTemplateDialogProps["folders"]
 	onClose: () => void
+	onMoved?: (folderId: string | null) => void
 }) {
 	const [folderId, setFolderId] = useState<string | null>(template.folder_id)
 	const { mutate: move, isPending } = useSetTemplateFolder()
@@ -65,7 +69,17 @@ function MoveTemplateForm({
 				<Button
 					type="button"
 					disabled={isPending || folderId === template.folder_id}
-					onClick={() => move({ templateId: template.id, folderId, expectedFolderId: template.folder_id }, { onSuccess: () => onClose() })}
+					onClick={() =>
+						move(
+							{ templateId: template.id, folderId, expectedFolderId: template.folder_id },
+							{
+								onSuccess: () => {
+									onMoved?.(folderId)
+									onClose()
+								},
+							}
+						)
+					}
 				>
 					{isPending && <Loader2 className="size-4 mr-2 animate-spin" />}
 					Mover

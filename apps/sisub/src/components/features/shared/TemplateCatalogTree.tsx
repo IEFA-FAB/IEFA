@@ -1,8 +1,9 @@
 import { CalendarRange, Folder, FolderOpen, Sandwich } from "lucide-react"
-import { type ReactNode, useState } from "react"
+import { type ReactNode, useSyncExternalStore } from "react"
 import { SnackStandardBadges } from "@/components/features/local/planning/SnackStandardBadges"
 import { Badge } from "@/components/ui/badge"
 import { TREE_LEAF_TONE, TREE_MUTED_TONE, TreeRow, treeFolderTone } from "@/components/ui/tree-row"
+import { getOpenFolders, getServerOpenFolders, subscribeOpenFolders, toggleOpenFolder } from "@/lib/catalog-open-folders"
 import { cn } from "@/lib/cn"
 import { buildCatalogTree, type CatalogFolder, type CatalogTreeRow } from "@/lib/template-catalog-tree"
 import type { TemplateWithItemCounts } from "@/types/domain/planning"
@@ -21,26 +22,35 @@ interface TemplateCatalogTreeProps {
 	selection?: { selectedIds: ReadonlySet<string>; onChange: (templateId: string, checked: boolean) => void }
 	/** Clique no modelo (abrir o editor). */
 	onOpenTemplate?: (template: TemplateWithItemCounts) => void
+	/** Pastas ainda carregando: sem elas todo modelo cairia em "Sem pasta" e a árvore pularia ao chegarem. */
+	foldersLoading?: boolean
 }
 
 /**
  * Catálogo global de eventos ou cardápios de apoio em árvore: pastas da SDAB (padrão → formato;
- * família → classe) e os modelos dentro delas. Abre tudo expandido, como a SDAB desenhou; a mesma
- * linha (`TreeRow`) das árvores de insumos e preparações.
+ * família → classe) e os modelos dentro delas. Abre com as pastas fechadas — pedido da SDAB: o
+ * catálogo cresceu, e aberto ele virava uma lista longa em que o padrão procurado se perdia ("Sem
+ * pasta" abre aberto: ver `catalog-open-folders`). A
+ * mesma linha (`TreeRow`) das árvores de insumos e preparações.
  */
-export function TemplateCatalogTree({ templateType, folders, templates, templateActions, folderActions, selection, onOpenTemplate }: TemplateCatalogTreeProps) {
-	// `null` = tudo aberto. Recolher guarda o que ficou aberto.
-	const [expanded, setExpanded] = useState<ReadonlySet<string> | null>(null)
-	const rows = buildCatalogTree({ folders, templates, expanded })
+export function TemplateCatalogTree({
+	templateType,
+	folders,
+	templates,
+	templateActions,
+	folderActions,
+	selection,
+	onOpenTemplate,
+	foldersLoading = false,
+}: TemplateCatalogTreeProps) {
+	// Pastas abertas: começa tudo fechado; o que o usuário abre vale até fechar a aba (`catalog-open-folders`).
+	// A chave é só o tipo: o catálogo global e a lista de cada cozinha mostram as MESMAS pastas da SDAB.
+	const opened = useSyncExternalStore(subscribeOpenFolders, () => getOpenFolders(templateType), getServerOpenFolders)
+	const rows = buildCatalogTree({ folders, templates, expanded: opened })
 	const LeafIcon = templateType === "apoio" ? Sandwich : CalendarRange
+	const toggle = (id: string) => toggleOpenFolder(templateType, id)
 
-	const toggle = (id: string) =>
-		setExpanded((current) => {
-			const open = new Set(current ?? rows.filter((r) => r.type === "folder").map((r) => r.id))
-			if (open.has(id)) open.delete(id)
-			else open.add(id)
-			return open
-		})
+	if (foldersLoading) return <div className="rounded-md border p-8 text-center text-sm text-muted-foreground">Carregando pastas…</div>
 
 	return (
 		<div className="rounded-md border" role="tree" aria-label={templateType === "apoio" ? "Cardápios de apoio por pasta" : "Eventos por pasta"}>
