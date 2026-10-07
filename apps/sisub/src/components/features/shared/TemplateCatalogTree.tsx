@@ -22,6 +22,8 @@ interface TemplateCatalogTreeProps {
 	selection?: { selectedIds: ReadonlySet<string>; onChange: (templateId: string, checked: boolean) => void }
 	/** Clique no modelo (abrir o editor). */
 	onOpenTemplate?: (template: TemplateWithItemCounts) => void
+	/** Pastas ainda carregando: sem elas todo modelo cairia em "Sem pasta" e a árvore pularia ao chegarem. */
+	foldersLoading?: boolean
 }
 
 /**
@@ -31,13 +33,24 @@ interface TemplateCatalogTreeProps {
  * pasta" abre aberto: ver `catalog-open-folders`). A
  * mesma linha (`TreeRow`) das árvores de insumos e preparações.
  */
-export function TemplateCatalogTree({ templateType, folders, templates, templateActions, folderActions, selection, onOpenTemplate }: TemplateCatalogTreeProps) {
+export function TemplateCatalogTree({
+	templateType,
+	folders,
+	templates,
+	templateActions,
+	folderActions,
+	selection,
+	onOpenTemplate,
+	foldersLoading = false,
+}: TemplateCatalogTreeProps) {
 	// Pastas abertas: começa tudo fechado; o que o usuário abre vale até fechar a aba (`catalog-open-folders`).
 	// A chave é só o tipo: o catálogo global e a lista de cada cozinha mostram as MESMAS pastas da SDAB.
 	const opened = useSyncExternalStore(subscribeOpenFolders, () => getOpenFolders(templateType), getServerOpenFolders)
 	const rows = buildCatalogTree({ folders, templates, expanded: opened })
 	const LeafIcon = templateType === "apoio" ? Sandwich : CalendarRange
 	const toggle = (id: string) => toggleOpenFolder(templateType, id)
+
+	if (foldersLoading) return <div className="rounded-md border p-8 text-center text-sm text-muted-foreground">Carregando pastas…</div>
 
 	return (
 		<div className="rounded-md border" role="tree" aria-label={templateType === "apoio" ? "Cardápios de apoio por pasta" : "Eventos por pasta"}>

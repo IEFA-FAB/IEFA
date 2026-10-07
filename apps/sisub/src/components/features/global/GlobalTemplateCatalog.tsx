@@ -79,7 +79,7 @@ export function GlobalTemplateCatalog({
 	const isSupportMenu = templateType === "apoio"
 	// Evento e apoio ficam em pastas da SDAB; o semanal segue em lista.
 	const occasionType = templateType === "weekly" ? null : templateType
-	const { data: folders, isError: foldersError } = useTemplateFolders(occasionType)
+	const { data: folders, isError: foldersError, isLoading: foldersLoading } = useTemplateFolders(occasionType)
 	// Abre a pasta (e a pasta-mãe) onde algo vai entrar: numa pasta fechada, o que entrou sumiria da tela.
 	const revealFolder = (folderId: string | null) => {
 		if (!occasionType) return
@@ -273,6 +273,7 @@ export function GlobalTemplateCatalog({
 						<TemplateCatalogTree
 							templateType={occasionType}
 							folders={folders}
+							foldersLoading={foldersLoading}
 							templates={templates ?? []}
 							onOpenTemplate={canWrite ? (t) => navigate(editorLink(t.id)) : undefined}
 							templateActions={canWrite ? templateActions : undefined}

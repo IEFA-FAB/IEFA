@@ -2,7 +2,7 @@ import type { EditScope, SetSnackClassification } from "@iefa/sisub-domain"
 import { getBrasiliaToday } from "@iefa/sisub-domain/civil-date"
 import { MAX_EVENT_MEALS } from "@iefa/sisub-domain/schemas"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { type LinkOptions, useNavigate } from "@tanstack/react-router"
+import { Link, type LinkOptions, useNavigate } from "@tanstack/react-router"
 import { AlertTriangle, CalendarPlus, Copy, GitFork, Layers, ListChecks, Loader2, Plus, Printer, Save, Users } from "lucide-react"
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react"
 import { AddModelMealDialog } from "@/components/features/local/planning/AddModelMealDialog"
@@ -588,7 +588,10 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 
 	/** `afterSave`: o que fazer com o id gravado (o do fork, se houve) — no lugar de trocar a rota para o editor dele. */
 	const handleSave = (afterSave?: (savedId: string) => void) => {
-		if (!name.trim()) return
+		if (!name.trim()) {
+			toast.error(`Dê um nome ${copy.article === "o" ? "ao" : "à"} ${copy.noun} antes de salvar.`)
+			return
+		}
 		if (hasSnackIssues) {
 			toast.error("Corrija os campos do padrão de lanche antes de salvar.")
 			return
@@ -672,10 +675,14 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 	const namePlaceholder = copy.namePlaceholder.split(",")[0]
 	// Mesmo critério do "Duplicar como variante": o que está na tela ainda não foi gravado.
 	const hasPendingChanges = contentSignature !== savedSignatureRef.current
-	const handlePrint = () => {
-		if (!hasPendingChanges) return void navigate(printLink(templateId))
-		if (!name.trim()) return void toast.error(`Dê um nome ${copy.article === "o" ? "ao" : "à"} ${copy.noun} antes de imprimir.`)
-		handleSave((savedId) => navigate(printLink(savedId)))
+	/**
+	 * Com edição pendente, salva e só então abre a folha. No fork, a rota do editor passa antes para
+	 * a cópia (como no Salvar): voltar da folha reabriria o modelo global, e salvar ali gravaria o
+	 * conteúdo do global por cima da cópia.
+	 */
+	const printAfterSave = (savedId: string) => {
+		if (savedId === templateId) return void navigate(printLink(savedId))
+		void navigate({ ...editorLink(savedId), replace: true }).then(() => navigate(printLink(savedId)))
 	}
 	// Padrão de lanche: a refeição nova nasce no horário de sistema (o diálogo trava o horário e não oferece outro).
 	const openNewMeal = () => setMealDialog({ meal: newEventMeal("", isSnackStandard ? (snackMealType?.id ?? "") : "", templateType), isNew: true, open: true })
@@ -693,19 +700,38 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 				<div className="flex items-center gap-2">
 					<AutoSaveStatus status={saveStatus} onRetry={() => handleSave()} />
 					<RecipeVersionUpdateButton outdated={outdated} onApply={handleUpdateVersions} />
-					{/* A folha lê o que está GRAVADO: com edição pendente, salva antes e abre a folha do que foi
-					    gravado (no fork, a da cópia nova). Sair pelo guarda descartaria a edição. */}
+					{/* A folha lê o que está GRAVADO: com edição pendente, o clique salva antes e abre a folha do
+					    que foi gravado. Link de verdade, para abrir em outra aba quando não há pendência. */}
 					<Tooltip>
 						<TooltipTrigger
 							render={
-								<Button type="button" variant="outline" size="sm" disabled={isSaving} onClick={handlePrint}>
-									<Printer className="size-4 sm:mr-2" />
-									<span className="hidden sm:inline">Imprimir</span>
-								</Button>
+								<Button
+									nativeButton={false}
+									type="button"
+									variant="outline"
+									size="sm"
+									render={
+										<Link
+											{...printLink(templateId)}
+											onClick={(e) => {
+												if (!hasPendingChanges) return
+												e.preventDefault()
+												handleSave(printAfterSave)
+											}}
+										>
+											<Printer className="size-4 sm:mr-2" />
+											<span className="hidden sm:inline">Imprimir</span>
+										</Link>
+									}
+								/>
 							}
 						></TooltipTrigger>
 						<TooltipContent>
-							{hasPendingChanges ? "Salvar e imprimir / baixar PDF" : `Imprimir / baixar PDF ${copy.article === "o" ? "do" : "da"} ${copy.noun}`}
+							{!hasPendingChanges
+								? `Imprimir / baixar PDF ${copy.article === "o" ? "do" : "da"} ${copy.noun}`
+								: willFork
+									? "Salvar a cópia desta cozinha e imprimir"
+									: "Salvar e imprimir / baixar PDF"}
 						</TooltipContent>
 					</Tooltip>
 					{/* Aplicar é materializar no calendário de UMA cozinha — não existe no catálogo.

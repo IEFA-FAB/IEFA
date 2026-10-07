@@ -145,11 +145,11 @@ export function OccasionMenuPrint({ templateId, templateType, scope, date, onDat
 	}
 
 	const shownHeader: PrintHeader = { ...header, title }
-	// O título não vai para o armazenamento: o guardado (em `header`) é o do semanal. Entre abas vale
-	// o último que gravou, como na folha do semanal.
+	// O título não vai para o armazenamento: o guardado é o do semanal, relido na hora — esta folha
+	// não edita esse campo, e a do semanal aberta em outra aba pode tê-lo mudado.
 	const persistHeader = (next: PrintHeader) => {
 		setTitle(next.title)
-		const stored = { ...next, title: header.title }
+		const stored = { ...next, title: loadHeader(storageScope, organizationName).title }
 		setHeader(stored)
 		saveHeader(storageScope, stored)
 	}

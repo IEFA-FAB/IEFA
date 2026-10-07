@@ -35,7 +35,7 @@ interface KitchenOccasionMenuListProps {
  */
 export function KitchenOccasionMenuList({ templateType, kitchenId, description, newLink, forkLink, composeLink, editorLink }: KitchenOccasionMenuListProps) {
 	const navigate = useNavigate()
-	const { data: folders } = useTemplateFolders(templateType)
+	const { data: folders, isLoading: foldersLoading } = useTemplateFolders(templateType)
 	const [chosen, setChosen] = useState<ReadonlySet<string>>(new Set())
 	const copy = OCCASION_MENU_COPY[templateType]
 	const isSupportMenu = templateType === "apoio"
@@ -143,6 +143,7 @@ export function KitchenOccasionMenuList({ templateType, kitchenId, description, 
 							<TemplateCatalogTree
 								templateType={templateType}
 								folders={folders}
+								foldersLoading={foldersLoading}
 								templates={globalTemplates}
 								selection={canCompose ? { selectedIds: chosen, onChange: toggleChosen } : undefined}
 								templateActions={
