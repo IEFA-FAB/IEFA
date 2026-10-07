@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { TREE_LEAF_TONE, TREE_MUTED_TONE, TreeRow, treeFolderTone } from "@/components/ui/tree-row"
 import { getOpenFolders, getServerOpenFolders, subscribeOpenFolders, toggleOpenFolder } from "@/lib/catalog-open-folders"
 import { cn } from "@/lib/cn"
-import { buildCatalogTree, type CatalogFolder, type CatalogTreeRow, UNFILED_CATALOG_FOLDER_ID } from "@/lib/template-catalog-tree"
+import { buildCatalogTree, type CatalogFolder, type CatalogTreeRow } from "@/lib/template-catalog-tree"
 import type { TemplateWithItemCounts } from "@/types/domain/planning"
 
 export type CatalogFolderRow = Extract<CatalogTreeRow<TemplateWithItemCounts>, { type: "folder" }>
@@ -27,24 +27,17 @@ interface TemplateCatalogTreeProps {
 /**
  * Catálogo global de eventos ou cardápios de apoio em árvore: pastas da SDAB (padrão → formato;
  * família → classe) e os modelos dentro delas. Abre com as pastas fechadas — pedido da SDAB: o
- * catálogo cresceu, e aberto ele virava uma lista longa em que o padrão procurado se perdia. A
+ * catálogo cresceu, e aberto ele virava uma lista longa em que o padrão procurado se perdia ("Sem
+ * pasta" abre aberto: ver `catalog-open-folders`). A
  * mesma linha (`TreeRow`) das árvores de insumos e preparações.
  */
 export function TemplateCatalogTree({ templateType, folders, templates, templateActions, folderActions, selection, onOpenTemplate }: TemplateCatalogTreeProps) {
 	// Pastas abertas: começa tudo fechado; o que o usuário abre vale até fechar a aba (`catalog-open-folders`).
 	// A chave é só o tipo: o catálogo global e a lista de cada cozinha mostram as MESMAS pastas da SDAB.
 	const opened = useSyncExternalStore(subscribeOpenFolders, () => getOpenFolders(templateType), getServerOpenFolders)
-	// Catálogo sem pasta nenhuma (lista carregada e vazia): tudo está em "Sem pasta", que fica
-	// aberto — fechado, o catálogo pareceria vazio. Enquanto as pastas carregam (`undefined`), não.
-	const onlyUnfiled = folders != null && folders.length === 0
-	const expanded = onlyUnfiled ? new Set([...opened, UNFILED_CATALOG_FOLDER_ID]) : opened
-	const rows = buildCatalogTree({ folders, templates, expanded })
+	const rows = buildCatalogTree({ folders, templates, expanded: opened })
 	const LeafIcon = templateType === "apoio" ? Sandwich : CalendarRange
-
-	const toggle = (id: string) => {
-		if (onlyUnfiled && id === UNFILED_CATALOG_FOLDER_ID) return
-		toggleOpenFolder(templateType, id)
-	}
+	const toggle = (id: string) => toggleOpenFolder(templateType, id)
 
 	return (
 		<div className="rounded-md border" role="tree" aria-label={templateType === "apoio" ? "Cardápios de apoio por pasta" : "Eventos por pasta"}>

@@ -72,16 +72,12 @@ function TemplateFolderForm({
 				},
 				done
 			)
-		else
-			create(
-				{ templateType: state.templateType, parentId: state.parent?.id, name: trimmed, description: description.trim() || undefined },
-				{
-					onSuccess: () => {
-						if (state.parent) onCreated?.(state.parent.id)
-						onClose()
-					},
-				}
-			)
+		else {
+			// Abre a pasta-mãe já no envio: o callback de `mutate` não roda se o diálogo fechar antes
+			// da resposta, e a subpasta nasceria escondida numa pasta fechada.
+			if (state.parent) onCreated?.(state.parent.id)
+			create({ templateType: state.templateType, parentId: state.parent?.id, name: trimmed, description: description.trim() || undefined }, done)
+		}
 	}
 
 	return (

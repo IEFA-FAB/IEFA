@@ -32,7 +32,7 @@ import { useRecipes } from "@/hooks/data/useRecipes"
 import { useSnackMealType } from "@/hooks/data/useSnackRequests"
 import { useTemplate } from "@/hooks/data/useTemplates"
 import { buildPreparationEntries, type CardapioPrintOptions, describeAllergens, type PreparationEntry, type PreparationSource } from "@/lib/cardapio-print"
-import { isSnackStandard, OCCASION_MENU_COPY, type OccasionMenuType, SNACK_MEAL_TYPE_NAME } from "@/lib/occasion-menu"
+import { OCCASION_MENU_COPY, type OccasionMenuType, SNACK_MEAL_TYPE_NAME } from "@/lib/occasion-menu"
 import { buildOccasionPrintMeals, OCCASION_PRINT_TITLE, type OccasionPrintMeal, occasionPrintSubtitle } from "@/lib/occasion-print"
 import { describeRecipeVersion } from "@/lib/recipe-versions"
 
@@ -107,9 +107,9 @@ export function OccasionMenuPrint({ templateId, templateType, scope, date, onDat
 	)
 	const { digestsById, pending: ingredientsPending, isError: digestsError, retry: retryDigests } = usePreparationDigests(originIds, options.ingredients)
 
-	// Sem os horários, a folha sairia sem eles — ou, no padrão de lanche, com o horário gravado em vez
-	// do de sistema. Só enquanto CARREGA: em erro, imprime com o que houver.
-	const slotsPending = mealTypesPending || (template != null && isSupportMenu && isSnackStandard(template) && snackMealTypePending)
+	// Sem os horários, a folha sairia sem eles — ou, no apoio, sem o de sistema dos lanches (padrão de
+	// lanche, ou apoio que deixou de ser). Só enquanto CARREGA: em erro, imprime com o que houver.
+	const slotsPending = mealTypesPending || (isSupportMenu && snackMealTypePending)
 	const printBlocked = ingredientsPending || slotsPending
 
 	// A cópia de impressão só existe no cliente — createPortal exige `document`.
@@ -145,11 +145,11 @@ export function OccasionMenuPrint({ templateId, templateType, scope, date, onDat
 	}
 
 	const shownHeader: PrintHeader = { ...header, title }
-	// O título não vai para o armazenamento: o guardado é o do semanal, relido na hora — a folha do
-	// semanal aberta em outra aba pode tê-lo mudado depois que esta carregou.
+	// O título não vai para o armazenamento: o guardado (em `header`) é o do semanal. Entre abas vale
+	// o último que gravou, como na folha do semanal.
 	const persistHeader = (next: PrintHeader) => {
 		setTitle(next.title)
-		const stored = { ...next, title: loadHeader(storageScope, organizationName).title }
+		const stored = { ...next, title: header.title }
 		setHeader(stored)
 		saveHeader(storageScope, stored)
 	}

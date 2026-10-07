@@ -1,14 +1,19 @@
 /**
  * Pastas abertas da árvore do catálogo de eventos e de apoios, por tipo de catálogo.
  *
- * A árvore abre com tudo fechado (pedido da SDAB). Guardar o aberto só no estado do componente
+ * As pastas da SDAB abrem fechadas (pedido da SDAB); "Sem pasta" não é pasta dela — é o resto, no
+ * fim — e abre aberto: sem isso, um catálogo ainda sem pastas (ou cujas pastas não carregaram)
+ * pareceria vazio. Guardar o aberto só no estado do componente
  * fechava tudo de novo a cada ida ao editor e volta; aqui ele vive em memória enquanto a aba
  * estiver aberta — sem armazenamento local, que exigiria entrada nova na Política de Cookies.
  */
 
+import { UNFILED_CATALOG_FOLDER_ID } from "@/lib/template-catalog-tree"
+
 type Listener = () => void
 
-const EMPTY: ReadonlySet<string> = new Set()
+/** Aberto antes de o usuário mexer. Referência estável: é o snapshot do `useSyncExternalStore`. */
+const INITIAL: ReadonlySet<string> = new Set([UNFILED_CATALOG_FOLDER_ID])
 const openByCatalog = new Map<string, ReadonlySet<string>>()
 const listeners = new Set<Listener>()
 
@@ -23,12 +28,12 @@ export function subscribeOpenFolders(listener: Listener): () => void {
 }
 
 export function getOpenFolders(catalog: string): ReadonlySet<string> {
-	return openByCatalog.get(catalog) ?? EMPTY
+	return openByCatalog.get(catalog) ?? INITIAL
 }
 
-/** Valor do servidor (SSR): tudo fechado. */
+/** Valor do servidor (SSR): o inicial. */
 export function getServerOpenFolders(): ReadonlySet<string> {
-	return EMPTY
+	return INITIAL
 }
 
 export function toggleOpenFolder(catalog: string, folderId: string) {

@@ -272,8 +272,7 @@ export function GlobalTemplateCatalog({
 						{foldersError && <p className="text-sm text-destructive mb-2">Não foi possível carregar as pastas; os modelos aparecem em "Sem pasta".</p>}
 						<TemplateCatalogTree
 							templateType={occasionType}
-							// Pastas que não vieram (erro): o catálogo sai inteiro em "Sem pasta", aberto.
-							folders={folders ?? (foldersError ? [] : undefined)}
+							folders={folders}
 							templates={templates ?? []}
 							onOpenTemplate={canWrite ? (t) => navigate(editorLink(t.id)) : undefined}
 							templateActions={canWrite ? templateActions : undefined}
