@@ -70,14 +70,14 @@
     }
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.14",
+    "@biomejs/biome": "^2.5.15",
     "@commitlint/cli": "^21.2.3",
     "@commitlint/config-conventional": "^21.2.3",
     "@shadcn/lint": "0.2.0",
     "commitizen": "^4.3.2",
     "cz-git": "^1.14.0",
     "husky": "^9.1.7",
-    "knip": "^6.37.0",
+    "knip": "^6.39.0",
     "oxlint": "1.85.0",
     "react-doctor": "^0.9.14",
     "turbo": "^2.11.2"
