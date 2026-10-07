@@ -46,7 +46,7 @@
     "@opentelemetry/semantic-conventions": "^1.43.0",
     "@paper-design/shaders-react": "^0.0.81",
     "@supabase/ssr": "^0.12.7",
-    "@supabase/supabase-js": "^2.116.0",
+    "@supabase/supabase-js": "^2.117.2",
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/ai": "^0.63.0",
     "@tanstack/ai-client": "^0.36.0",

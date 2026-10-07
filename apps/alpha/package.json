@@ -31,7 +31,7 @@
     "@langchain/langgraph": "^1.4.16",
     "@langchain/langgraph-checkpoint-postgres": "^1.0.5",
     "@langchain/openai": "^1.5.13",
-    "@supabase/supabase-js": "^2.116.0",
+    "@supabase/supabase-js": "^2.117.2",
     "fflate": "^0.8.3",
     "hono": "^4.13.7",
     "pg": "^8.23.0",
