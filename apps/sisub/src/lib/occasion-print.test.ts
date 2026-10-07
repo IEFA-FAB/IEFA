@@ -157,6 +157,21 @@ describe("buildOccasionPrintMeals", () => {
 		expect(plain.slotName).toBe("Almoço")
 	})
 
+	test("padrão de lanche não imprime kits nem pax: vêm do pedido", () => {
+		const [meal] = buildOccasionPrintMeals(
+			template({
+				snack_family: "apoio",
+				snack_class: "A",
+				event_meals: [{ id: "meal-1", name: "Kit", meal_type_id: "slot-almoco", sort_order: 0, base_headcount: 40, groups: [] }],
+				items: [item("r-1", "Suco", { meal_type_id: "slot-almoco", headcount_override: 40, recommended_proportion: 100 })],
+			}),
+			"apoio",
+			slotNameOf
+		)
+		expect(meal.base).toBeNull()
+		expect(meal.groups[0].entries[0].demand).toBe("1 por kit")
+	})
+
 	test("refeição sem preparação sai sem grupos (a folha mostra que está vazia)", () => {
 		const meals = buildOccasionPrintMeals(
 			template({ event_meals: [{ id: "meal-1", name: "Brunch", meal_type_id: "slot-almoco", sort_order: 0, base_headcount: null, groups: [] }] }),

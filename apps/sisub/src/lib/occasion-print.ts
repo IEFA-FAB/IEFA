@@ -85,7 +85,8 @@ export function buildOccasionPrintMeals(
 			recipeId: item.recipe_id,
 			name: nameById.get(item.recipe_id) ?? "Preparação sem nome",
 			main: isMainDish(item.item_group),
-			demand: formatOccasionDemand(item, templateType),
+			// Padrão de lanche: os kits vêm do pedido — só as porções por kit dizem algo (o editor nem mostra o pax).
+			demand: formatOccasionDemand(isSnack ? { recommended_proportion: item.recommended_proportion } : item, templateType),
 		})
 		const groups: OccasionPrintGroup[] = meal.groups.map((g) => ({
 			key: g.key,
@@ -101,7 +102,7 @@ export function buildOccasionPrintMeals(
 			id: meal.id,
 			name: meal.name,
 			slotName: slot && slot.localeCompare(meal.name.trim(), "pt-BR", { sensitivity: "base" }) !== 0 ? slot : null,
-			base: formatOccasionBase(meal.base_headcount, templateType),
+			base: isSnack ? null : formatOccasionBase(meal.base_headcount, templateType),
 			groups: groups.filter((g) => g.entries.length > 0),
 		}
 	})

@@ -16,7 +16,7 @@ export type TemplateFolderDialogState =
 interface TemplateFolderDialogProps {
 	state: TemplateFolderDialogState | null
 	onClose: () => void
-	/** Pasta criada, com a pasta-mãe (`null` = raiz) — para a árvore abrir onde ela entrou. */
+	/** Envio da criação de subpasta, com a pasta-mãe — para a árvore abrir onde ela vai entrar. Roda no envio, não no sucesso. */
 	onCreated?: (parentId: string | null) => void
 }
 

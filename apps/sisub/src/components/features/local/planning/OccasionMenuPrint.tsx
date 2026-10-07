@@ -58,15 +58,17 @@ interface OccasionMenuPrintProps {
 	onDateChange: (date: string | undefined) => void
 	editorLink: LinkOptions
 	listLink: LinkOptions
+	/** Quem só lê (nível 1) não abre o editor: o "voltar" leva à listagem. */
+	canEdit: boolean
 }
 
 type OccasionPrintOptions = Pick<CardapioPrintOptions, "showMethod" | "ingredients">
 
-export function OccasionMenuPrint({ templateId, templateType, scope, date, onDateChange, editorLink, listLink }: OccasionMenuPrintProps) {
+export function OccasionMenuPrint({ templateId, templateType, scope, date, onDateChange, editorLink, listLink, canEdit }: OccasionMenuPrintProps) {
 	const copy = OCCASION_MENU_COPY[templateType]
 	const isSupportMenu = templateType === "apoio"
 	const kitchenId = scope.kind === "kitchen" ? scope.kitchenId : null
-	const { data: template, isLoading } = useTemplate(templateId)
+	const { data: template, isLoading, isFetching: templateFetching } = useTemplate(templateId)
 
 	// Versão das fichas na lista de preparações, como no semanal.
 	const { data: catalog } = useRecipes({ kitchen_id: kitchenId })
@@ -110,7 +112,9 @@ export function OccasionMenuPrint({ templateId, templateType, scope, date, onDat
 	// Sem os horários, a folha sairia sem eles — ou, no apoio, sem o de sistema dos lanches (padrão de
 	// lanche, ou apoio que deixou de ser). Só enquanto CARREGA: em erro, imprime com o que houver.
 	const slotsPending = mealTypesPending || (isSupportMenu && snackMealTypePending)
-	const printBlocked = ingredientsPending || slotsPending
+	// "Salvar e imprimir" chega aqui com o cache de antes do salvamento ainda sendo refeito: imprimir
+	// nesse meio sairia a versão velha.
+	const printBlocked = ingredientsPending || slotsPending || templateFetching
 
 	// A cópia de impressão só existe no cliente — createPortal exige `document`.
 	const [mounted, setMounted] = useState(false)
@@ -212,9 +216,9 @@ export function OccasionMenuPrint({ templateId, templateType, scope, date, onDat
 					size="sm"
 					nativeButton={false}
 					render={
-						<Link {...editorLink}>
+						<Link {...(canEdit ? editorLink : listLink)}>
 							<ArrowLeft className="size-4 mr-2" />
-							Voltar ao editor
+							{canEdit ? "Voltar ao editor" : `Voltar para ${copy.plural.toLowerCase()}`}
 						</Link>
 					}
 				/>

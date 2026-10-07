@@ -327,15 +327,20 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 	 * Depois que o conteúdo foi gravado (e o template existe com o id definitivo — o fork cria
 	 * outro), grava a classificação de lanche se ela mudou. A falha é avisada pelo hook e deixa o
 	 * editor com alteração pendente, para o guarda de saída e o próximo salvamento cobrarem.
+	 * `onDone` roda quando o gravado está completo (conteúdo + classificação) — não roda se a
+	 * classificação falhar: a folha sairia com a classificação velha.
 	 */
 	const persistSnackClassification = useCallback(
-		(saved: {
-			id: string
-			contentSignature: string
-			snackSignature: string
-			snackPayload: SetSnackClassification["classification"]
-			itemsSignature: string
-		}) => {
+		(
+			saved: {
+				id: string
+				contentSignature: string
+				snackSignature: string
+				snackPayload: SetSnackClassification["classification"]
+				itemsSignature: string
+			},
+			onDone?: () => void
+		) => {
 			savedItemsSignatureRef.current = saved.itemsSignature
 			// Id diferente = o salvamento caiu numa CÓPIA da cozinha (fork novo OU fork que já
 			// existia). Escrever a classificação do template aberto ali sobrescreveria a do
@@ -348,10 +353,12 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 				if (isSupportMenu && saved.snackSignature !== savedSnackSignatureRef.current) {
 					toast.info("A cópia da cozinha mantém a própria classificação de padrão de lanche — ajuste-a na cópia, se precisar.")
 				}
+				onDone?.()
 				return
 			}
 			if (!isSupportMenu || saved.snackSignature === savedSnackSignatureRef.current) {
 				queryClient.invalidateQueries({ queryKey: queryKeys.snackRequests.standardEnergy(saved.id) })
+				onDone?.()
 				return
 			}
 			setSnackClassification(
@@ -359,6 +366,7 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 				{
 					onSuccess: () => {
 						savedSnackSignatureRef.current = saved.snackSignature
+						onDone?.()
 					},
 					// Marca o editor como pendente (assinatura que nunca casa) para o guarda de saída
 					// e o próximo salvamento cobrarem a classificação que não foi gravada.
@@ -614,10 +622,12 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 				onSuccess: (result) => {
 					setSaveStatus("saved")
 					savedSignatureRef.current = contentSignature
-					persistSnackClassification({ id: result?.template?.id ?? templateId, contentSignature, snackSignature, snackPayload, itemsSignature })
 					const savedId = result?.template?.id
-					if (afterSave) afterSave(savedId ?? templateId)
-					else if (savedId && savedId !== templateId) {
+					persistSnackClassification(
+						{ id: savedId ?? templateId, contentSignature, snackSignature, snackPayload, itemsSignature },
+						afterSave ? () => afterSave(savedId ?? templateId) : undefined
+					)
+					if (!afterSave && savedId && savedId !== templateId) {
 						navigate({ ...editorLink(savedId), replace: true })
 					}
 				},

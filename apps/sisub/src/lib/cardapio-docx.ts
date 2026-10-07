@@ -326,7 +326,6 @@ function buildOccasionMeal(meal: OccasionDocxData["meals"][number]): (Table | Pa
 }
 
 export function buildOccasionDocument(data: OccasionDocxData): Document {
-	const [s0, s1, s2, s3] = data.signatures
 	return new Document({
 		sections: [
 			{
@@ -340,7 +339,7 @@ export function buildOccasionDocument(data: OccasionDocxData): Document {
 					new Paragraph({ spacing: { after: 160 }, children: [] }),
 					...(data.meals.length === 0 ? [line("Nenhuma refeição cadastrada.", { size: 18 })] : data.meals.flatMap(buildOccasionMeal)),
 					new Paragraph({ spacing: { after: 160 }, children: [] }),
-					buildSignatures([s0, s1, s2, s3].filter((sig): sig is CardapioDocxSignature => sig != null)),
+					buildSignatures(data.signatures),
 					...buildPreparations(data.preparations),
 				],
 			},

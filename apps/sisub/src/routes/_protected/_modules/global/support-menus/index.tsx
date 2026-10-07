@@ -36,6 +36,7 @@ function GlobalSupportMenusPage() {
 			newLink={{ to: "/global/support-menus/new" }}
 			newInFolderLink={(folderId) => ({ to: "/global/support-menus/new", search: { folderId } })}
 			editorLink={(supportMenuId) => ({ to: "/global/support-menus/$supportMenuId", params: { supportMenuId } })}
+			printLink={(supportMenuId) => ({ to: "/global/support-menus/print/$supportMenuId", params: { supportMenuId } })}
 		/>
 	)
 }

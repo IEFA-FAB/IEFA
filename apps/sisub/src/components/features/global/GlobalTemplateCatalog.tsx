@@ -14,6 +14,7 @@ import {
 	MoreHorizontal,
 	Pencil,
 	Plus,
+	Printer,
 	RefreshCcw,
 	Trash2,
 } from "lucide-react"
@@ -54,6 +55,8 @@ interface GlobalTemplateCatalogProps {
 	/** Novo modelo já dentro de uma pasta (evento e apoio). */
 	newInFolderLink?: (folderId: string) => LinkOptions
 	editorLink: (templateId: string) => LinkOptions
+	/** Folha impressa (evento e apoio) — aberta também a quem só lê o catálogo. */
+	printLink?: (templateId: string) => LinkOptions
 }
 
 /**
@@ -73,6 +76,7 @@ export function GlobalTemplateCatalog({
 	newLink,
 	newInFolderLink,
 	editorLink,
+	printLink,
 }: GlobalTemplateCatalogProps) {
 	const navigate = useNavigate()
 	// Ocorrências por mês não têm coluna: são quantidade da cozinha, e o modelo global não as tem.
@@ -132,6 +136,32 @@ export function GlobalTemplateCatalog({
 	}
 
 	const templateActions = (template: TemplateWithItemCounts) => (
+		<>
+			{printLink && (
+				<Tooltip>
+					<TooltipTrigger
+						render={
+							<Button
+								aria-label="Imprimir"
+								size="icon-xs"
+								variant="ghost"
+								nativeButton={false}
+								render={
+									<Link {...printLink(template.id)} onClick={(e) => e.stopPropagation()}>
+										<Printer className="size-4" />
+									</Link>
+								}
+							/>
+						}
+					></TooltipTrigger>
+					<TooltipContent>Imprimir / baixar PDF</TooltipContent>
+				</Tooltip>
+			)}
+			{canWrite && editActions(template)}
+		</>
+	)
+
+	const editActions = (template: TemplateWithItemCounts) => (
 		<>
 			<Tooltip>
 				<TooltipTrigger
@@ -275,8 +305,9 @@ export function GlobalTemplateCatalog({
 							folders={folders}
 							foldersLoading={foldersLoading}
 							templates={templates ?? []}
-							onOpenTemplate={canWrite ? (t) => navigate(editorLink(t.id)) : undefined}
-							templateActions={canWrite ? templateActions : undefined}
+							// Quem só lê abre a folha impressa; quem escreve, o editor.
+							onOpenTemplate={canWrite ? (t) => navigate(editorLink(t.id)) : printLink ? (t) => navigate(printLink(t.id)) : undefined}
+							templateActions={canWrite || printLink ? templateActions : undefined}
 							folderActions={canWrite ? folderActions : undefined}
 						/>
 					</>
@@ -406,7 +437,12 @@ export function GlobalTemplateCatalog({
 												{item.deleted_at ? format(new Date(item.deleted_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR }) : "—"}
 											</TableCell>
 											<TableCell className="text-right">
-												<Button size="sm" variant="outline" onClick={() => restoreTemplate(item.id)} disabled={isRestoring}>
+												<Button
+													size="sm"
+													variant="outline"
+													onClick={() => restoreTemplate(item.id, { onSuccess: () => revealFolder(item.folder_id) })}
+													disabled={isRestoring}
+												>
 													<RefreshCcw className="size-3.5 mr-1.5" />
 													Restaurar
 												</Button>

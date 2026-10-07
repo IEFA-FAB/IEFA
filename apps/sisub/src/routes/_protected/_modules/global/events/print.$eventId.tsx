@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
-import { requirePermission } from "@/auth/pbac"
+import { requirePermission, usePBAC } from "@/auth/pbac"
 import { OccasionMenuPrint } from "@/components/features/local/planning/OccasionMenuPrint"
 import { useCrumbLabel } from "@/components/layout/crumb-label"
 import { useTemplate } from "@/hooks/data/useTemplates"
@@ -23,6 +23,7 @@ function GlobalEventPrintPage() {
 	const navigate = useNavigate({ from: Route.fullPath })
 	const { data: template } = useTemplate(eventId)
 	useCrumbLabel(template?.name)
+	const { can } = usePBAC()
 
 	return (
 		<OccasionMenuPrint
@@ -33,6 +34,7 @@ function GlobalEventPrintPage() {
 			onDateChange={(next) => void navigate({ search: next ? { date: next } : {}, replace: true })}
 			editorLink={{ to: "/global/events/$eventId", params: { eventId } }}
 			listLink={{ to: "/global/events" }}
+			canEdit={can("global", 2)}
 		/>
 	)
 }

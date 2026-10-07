@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
-import { requirePermission } from "@/auth/pbac"
+import { requirePermission, usePBAC } from "@/auth/pbac"
 import { OccasionMenuPrint } from "@/components/features/local/planning/OccasionMenuPrint"
 import { useCrumbLabel } from "@/components/layout/crumb-label"
 import { useTemplate } from "@/hooks/data/useTemplates"
@@ -23,6 +23,7 @@ function GlobalSupportMenuPrintPage() {
 	const navigate = useNavigate({ from: Route.fullPath })
 	const { data: template } = useTemplate(supportMenuId)
 	useCrumbLabel(template?.name)
+	const { can } = usePBAC()
 
 	return (
 		<OccasionMenuPrint
@@ -33,6 +34,7 @@ function GlobalSupportMenuPrintPage() {
 			onDateChange={(next) => void navigate({ search: next ? { date: next } : {}, replace: true })}
 			editorLink={{ to: "/global/support-menus/$supportMenuId", params: { supportMenuId } }}
 			listLink={{ to: "/global/support-menus" }}
+			canEdit={can("global", 2)}
 		/>
 	)
 }
