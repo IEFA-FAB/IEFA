@@ -130,6 +130,33 @@ describe("buildOccasionPrintMeals", () => {
 		expect(meal.groups[0].entries[0].demand).toBe("2 por kit")
 	})
 
+	test("padrão de lanche imprime o horário de sistema dos lanches, como o editor mostra", () => {
+		const names = (id: string) => (id === "slot-lanche" ? "Lanches de Bordo/Apoio" : slotNameOf(id))
+		const [meal] = buildOccasionPrintMeals(
+			template({
+				snack_family: "bordo",
+				snack_class: "B",
+				event_meals: [{ id: "meal-1", name: "Kit", meal_type_id: "slot-almoco", sort_order: 0, base_headcount: null, groups: [] }],
+				items: [item("r-1", "Suco", { meal_type_id: "slot-almoco", recommended_proportion: 100 })],
+			}),
+			"apoio",
+			names,
+			"slot-lanche"
+		)
+		expect(meal.slotName).toBe("Lanches de Bordo/Apoio")
+		// Apoio comum fica no horário gravado.
+		const [plain] = buildOccasionPrintMeals(
+			template({
+				event_meals: [{ id: "meal-1", name: "Kit", meal_type_id: "slot-almoco", sort_order: 0, base_headcount: null, groups: [] }],
+				items: [item("r-1", "Suco", { meal_type_id: "slot-almoco" })],
+			}),
+			"apoio",
+			names,
+			"slot-lanche"
+		)
+		expect(plain.slotName).toBe("Almoço")
+	})
+
 	test("refeição sem preparação sai sem grupos (a folha mostra que está vazia)", () => {
 		const meals = buildOccasionPrintMeals(
 			template({ event_meals: [{ id: "meal-1", name: "Brunch", meal_type_id: "slot-almoco", sort_order: 0, base_headcount: null, groups: [] }] }),

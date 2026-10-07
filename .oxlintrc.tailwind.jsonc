@@ -81,7 +81,7 @@
         "apps/sisub/src/components/features/local/snack-requests/SnackLabels.tsx",
         "apps/sisub/src/components/features/local/planning/WeeklyMenuPrint.tsx",
         "apps/sisub/src/components/features/local/planning/OccasionMenuPrint.tsx",
-        "apps/sisub/src/components/features/local/planning/CardapioPrintParts.tsx",
+        "apps/sisub/src/components/features/local/planning/MenuPrintParts.tsx",
         "apps/sisub/src/components/features/shared/RecipeTechnicalSheetPrint.tsx"
       ],
       "rules": {

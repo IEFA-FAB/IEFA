@@ -286,7 +286,7 @@ function entryParagraph(e: { name: string; main: boolean; demand: string | null 
 }
 
 function buildOccasionMeal(meal: OccasionDocxData["meals"][number]): (Table | Paragraph)[] {
-	const heading = [meal.name.toUpperCase(), meal.slotName ? `(${meal.slotName})` : null, meal.base ? `· ${meal.base}` : null].filter(Boolean).join(" ")
+	const heading = [meal.name, meal.slotName ? `(${meal.slotName})` : null, meal.base ? `· ${meal.base}` : null].filter(Boolean).join(" ")
 	const head = new TableRow({
 		tableHeader: true,
 		children: [
@@ -294,6 +294,7 @@ function buildOccasionMeal(meal: OccasionDocxData["meals"][number]): (Table | Pa
 				borders: cellBorders,
 				columnSpan: 2,
 				shading: { fill: "EEEEEE" },
+				// Nome da refeição como está no banco, igual à folha impressa.
 				children: [new Paragraph({ children: [new TextRun({ text: heading, bold: true, size: 18 })] })],
 			}),
 		],

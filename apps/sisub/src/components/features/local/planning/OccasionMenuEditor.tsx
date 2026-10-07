@@ -668,6 +668,8 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 	}
 
 	const namePlaceholder = copy.namePlaceholder.split(",")[0]
+	// Mesmo critério do "Duplicar como variante": o que está na tela ainda não foi gravado.
+	const hasPendingChanges = contentSignature !== savedSignatureRef.current
 	// Padrão de lanche: a refeição nova nasce no horário de sistema (o diálogo trava o horário e não oferece outro).
 	const openNewMeal = () => setMealDialog({ meal: newEventMeal("", isSnackStandard ? (snackMealType?.id ?? "") : "", templateType), isNew: true, open: true })
 	/** Ligar o padrão de lanche leva as refeições para o horário de sistema, como o servidor fará. */
@@ -684,26 +686,38 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 				<div className="flex items-center gap-2">
 					<AutoSaveStatus status={saveStatus} onRetry={handleSave} />
 					<RecipeVersionUpdateButton outdated={outdated} onApply={handleUpdateVersions} />
-					{/* A folha lê o que está GRAVADO: com edição pendente ela sairia sem o que está na tela. */}
+					{/* A folha lê o que está GRAVADO: com edição pendente ela sairia sem o que está na tela, e
+					    sair pelo guarda ("sair sem salvar") descartaria a edição. Espera o salvamento. */}
 					<Tooltip>
 						<TooltipTrigger
 							render={
-								<Button
-									nativeButton={false}
-									type="button"
-									variant="outline"
-									size="sm"
-									render={
-										<Link {...printLink(templateId)}>
-											<Printer className="size-4 sm:mr-2" />
-											<span className="hidden sm:inline">Imprimir</span>
-										</Link>
-									}
-								/>
+								hasPendingChanges ? (
+									<Button type="button" variant="outline" size="sm" disabled>
+										<Printer className="size-4 sm:mr-2" />
+										<span className="hidden sm:inline">Imprimir</span>
+									</Button>
+								) : (
+									<Button
+										nativeButton={false}
+										type="button"
+										variant="outline"
+										size="sm"
+										render={
+											<Link {...printLink(templateId)}>
+												<Printer className="size-4 sm:mr-2" />
+												<span className="hidden sm:inline">Imprimir</span>
+											</Link>
+										}
+									/>
+								)
 							}
 						></TooltipTrigger>
 						<TooltipContent>
-							Imprimir / baixar PDF {copy.article === "o" ? "do" : "da"} {copy.noun}
+							{hasPendingChanges
+								? willFork
+									? "Salve a cópia desta cozinha para imprimir o que está na tela."
+									: "Espere o salvamento automático para imprimir."
+								: `Imprimir / baixar PDF ${copy.article === "o" ? "do" : "da"} ${copy.noun}`}
 						</TooltipContent>
 					</Tooltip>
 					{/* Aplicar é materializar no calendário de UMA cozinha — não existe no catálogo.

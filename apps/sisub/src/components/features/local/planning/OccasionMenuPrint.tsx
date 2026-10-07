@@ -6,23 +6,26 @@ import { ArrowLeft, FileText, Loader2, Printer } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 import { createPortal } from "react-dom"
 import {
-	CARDAPIO_DOCUMENT_CSS,
-	CardapioFooter,
-	CardapioHeader,
 	DEFAULT_HEADER,
+	DigestsErrorNotice,
 	IngredientsModeSelect,
 	loadHeader,
+	MENU_PRINT_DOCUMENT_CSS,
+	MenuPrintFooter,
+	MenuPrintHeader,
 	PreparationList,
 	type PrintHeader,
 	type PrintScope,
 	printStorageScope,
 	type SignatureBlock,
 	saveHeader,
-	useCardapioOrganization,
-} from "@/components/features/local/planning/CardapioPrintParts"
+	useDocxExport,
+	useMenuPrintOrganization,
+	usePreparationDigests,
+} from "@/components/features/local/planning/MenuPrintParts"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
-import { toast } from "@/components/ui/toast"
+import { Input } from "@/components/ui/input"
 import { useTemplateRecipeVersions } from "@/hooks/business/useTemplateRecipeVersions"
 import { mealTypesQueryOptions } from "@/hooks/data/useMealTypes"
 import { useRecipes } from "@/hooks/data/useRecipes"
@@ -31,10 +34,7 @@ import { useTemplate } from "@/hooks/data/useTemplates"
 import { buildPreparationEntries, type CardapioPrintOptions, describeAllergens, type PreparationEntry, type PreparationSource } from "@/lib/cardapio-print"
 import { OCCASION_MENU_COPY, type OccasionMenuType, SNACK_MEAL_TYPE_NAME } from "@/lib/occasion-menu"
 import { buildOccasionPrintMeals, OCCASION_PRINT_TITLE, type OccasionPrintMeal, occasionPrintSubtitle } from "@/lib/occasion-print"
-import { queryKeys } from "@/lib/query-keys"
 import { describeRecipeVersion } from "@/lib/recipe-versions"
-import { importChunkOrNull, recoverIfStaleChunk } from "@/lib/recover-stale-chunk"
-import { fetchRecipeIngredientDigestsFn } from "@/server/recipes.fn"
 
 /**
  * OccasionMenuPrint — visão imprimível / "baixar PDF" de um evento ou cardápio de apoio, irmã de
@@ -79,10 +79,10 @@ export function OccasionMenuPrint({ templateId, templateType, scope, date, onDat
 	const { data: snackMealType } = useSnackMealType(isSupportMenu)
 
 	const storageScope = printStorageScope(scope)
-	const organizationName = useCardapioOrganization(scope)
+	const organizationName = useMenuPrintOrganization(scope)
 	const [header, setHeader] = useState<PrintHeader>(DEFAULT_HEADER)
 	const [title, setTitle] = useState(OCCASION_PRINT_TITLE[templateType])
-	const [isExporting, setIsExporting] = useState(false)
+	const { isExporting, exportDocx } = useDocxExport()
 	const [options, setOptions] = useState<OccasionPrintOptions>({ showMethod: true, ingredients: "none" })
 
 	// Cabeçalho só no cliente (localStorage) — evita divergência de hidratação no SSR.
@@ -94,7 +94,7 @@ export function OccasionMenuPrint({ templateId, templateType, scope, date, onDat
 		if (!template) return []
 		const slotNameOf = (mealTypeId: string) =>
 			mealTypes?.find((mt) => mt.id === mealTypeId)?.name ?? (snackMealType?.id === mealTypeId ? (snackMealType.name ?? SNACK_MEAL_TYPE_NAME) : null)
-		return buildOccasionPrintMeals(template, templateType, slotNameOf)
+		return buildOccasionPrintMeals(template, templateType, slotNameOf, snackMealType?.id ?? null)
 	}, [template, templateType, mealTypes, snackMealType])
 
 	// Só as fichas que saem na folha: as das preparações colocadas numa refeição.
@@ -105,16 +105,7 @@ export function OccasionMenuPrint({ templateId, templateType, scope, date, onDat
 		],
 		[template, printedRecipeIds]
 	)
-	const wantsIngredients = options.ingredients !== "none"
-	const digestsQuery = useQuery({
-		queryKey: queryKeys.recipes.ingredientDigests(originIds),
-		queryFn: () => fetchRecipeIngredientDigestsFn({ data: { recipeIds: originIds } }),
-		enabled: wantsIngredients && originIds.length > 0,
-		staleTime: 5 * 60 * 1000,
-	})
-	const digestsById = useMemo(() => (digestsQuery.data ? new Map(digestsQuery.data.map((d) => [d.recipe_id, d])) : undefined), [digestsQuery.data])
-	// Sem os ingredientes, a folha sairia sem a informação pedida — segura a impressão até chegar.
-	const ingredientsPending = wantsIngredients && originIds.length > 0 && digestsQuery.isPending
+	const { digestsById, pending: ingredientsPending, isError: digestsError, retry: retryDigests } = usePreparationDigests(originIds, options.ingredients)
 
 	// A cópia de impressão só existe no cliente — createPortal exige `document`.
 	const [mounted, setMounted] = useState(false)
@@ -149,10 +140,10 @@ export function OccasionMenuPrint({ templateId, templateType, scope, date, onDat
 	}
 
 	const shownHeader: PrintHeader = { ...header, title }
-	// O título não vai para o armazenamento: o guardado é o do semanal.
+	// O título não vai para o armazenamento: o guardado (em `header`) é o do semanal.
 	const persistHeader = (next: PrintHeader) => {
 		setTitle(next.title)
-		const stored = { ...next, title: loadHeader(storageScope, organizationName).title }
+		const stored = { ...next, title: header.title }
 		setHeader(stored)
 		saveHeader(storageScope, stored)
 	}
@@ -180,19 +171,9 @@ export function OccasionMenuPrint({ templateId, templateType, scope, date, onDat
 	const parsedDate = date ? parseISO(date) : null
 	const dateLabel = parsedDate && !Number.isNaN(parsedDate.getTime()) ? format(parsedDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR }).toUpperCase() : ""
 
-	// Import dinâmico — a lib `docx` é pesada e só carrega ao exportar.
-	const handleDownloadDocx = async () => {
-		if (isExporting) return
-		setIsExporting(true)
-		// Página indo embora (chunk obsoleto): não reabilita o botão — ver WeeklyMenuPrint.
-		let reloading = false
-		try {
-			const docx = await importChunkOrNull(() => import("@/lib/cardapio-docx"))
-			if (!docx) {
-				reloading = true
-				return
-			}
-			await docx.downloadOccasionDocx(
+	const handleDownloadDocx = () =>
+		exportDocx((docx) =>
+			docx.downloadOccasionDocx(
 				{
 					organization: header.organization,
 					section: header.section,
@@ -212,18 +193,7 @@ export function OccasionMenuPrint({ templateId, templateType, scope, date, onDat
 				},
 				`${title} - ${template.name ?? copy.noun}`
 			)
-		} catch (err) {
-			if (recoverIfStaleChunk(err, "docx-export")) {
-				reloading = true
-				return
-			}
-			// biome-ignore lint/suspicious/noConsole: intentional — surface DOCX export failure
-			console.error("Falha ao gerar DOCX:", err)
-			toast.error("Não foi possível gerar o DOCX. Tente novamente.")
-		} finally {
-			if (!reloading) setIsExporting(false)
-		}
-	}
+		)
 
 	return (
 		<div>
@@ -246,13 +216,7 @@ export function OccasionMenuPrint({ templateId, templateType, scope, date, onDat
 					<label htmlFor="occasion-date" className="text-xs text-muted-foreground">
 						Data:
 					</label>
-					<input
-						id="occasion-date"
-						type="date"
-						value={date ?? ""}
-						onChange={(e) => onDateChange(e.target.value || undefined)}
-						className="h-9 rounded-none border border-input bg-background px-2 text-sm"
-					/>
+					<Input id="occasion-date" type="date" className="w-40" value={date ?? ""} onChange={(e) => onDateChange(e.target.value || undefined)} />
 					<Button variant="outline" size="sm" onClick={handleDownloadDocx} disabled={isExporting || ingredientsPending}>
 						{isExporting ? <Loader2 className="size-4 mr-2 animate-spin" /> : <FileText className="size-4 mr-2" />}
 						Baixar DOCX
@@ -275,14 +239,7 @@ export function OccasionMenuPrint({ templateId, templateType, scope, date, onDat
 					Mostrar modo de preparo
 				</label>
 				<IngredientsModeSelect value={options.ingredients} onChange={(ingredients) => setOptions((prev) => ({ ...prev, ingredients }))} />
-				{digestsQuery.isError && (
-					<span className="flex items-center gap-2 text-destructive">
-						Não foi possível carregar os ingredientes — a folha sai sem eles.
-						<Button variant="outline" size="sm" onClick={() => void digestsQuery.refetch()}>
-							Tentar de novo
-						</Button>
-					</span>
-				)}
+				{digestsError && <DigestsErrorNotice onRetry={retryDigests} />}
 			</div>
 
 			{/* Documento — cópia editável, na tela */}
@@ -325,10 +282,10 @@ interface OccasionDocumentProps {
 function OccasionDocument({ header, subtitle, dateLabel, meals, preparations, editable = false, onSignatureChange, onHeaderChange }: OccasionDocumentProps) {
 	return (
 		<div className="cardapio-doc cardapio-occasion">
-			<CardapioHeader header={header} editable={editable} onSignatureChange={onSignatureChange} onHeaderChange={onHeaderChange}>
+			<MenuPrintHeader header={header} editable={editable} onSignatureChange={onSignatureChange} onHeaderChange={onHeaderChange}>
 				{subtitle && <div className="cardapio-week">{subtitle}</div>}
 				{dateLabel && <div className="cardapio-week">{dateLabel}</div>}
-			</CardapioHeader>
+			</MenuPrintHeader>
 
 			{meals.length === 0 ? (
 				<p className="cardapio-empty">Nenhuma refeição cadastrada.</p>
@@ -381,7 +338,7 @@ function OccasionDocument({ header, subtitle, dateLabel, meals, preparations, ed
 				))
 			)}
 
-			<CardapioFooter header={header} editable={editable} onSignatureChange={onSignatureChange} />
+			<MenuPrintFooter header={header} editable={editable} onSignatureChange={onSignatureChange} />
 			<PreparationList preparations={preparations} />
 		</div>
 	)
@@ -390,7 +347,7 @@ function OccasionDocument({ header, subtitle, dateLabel, meals, preparations, ed
 // ─── CSS de impressão ──────────────────────────────────────────────────────
 
 /** Retrato e letra maior que a do semanal: sem a grade de sete dias, a folha tem espaço. */
-const PRINT_CSS = `${CARDAPIO_DOCUMENT_CSS}
+const PRINT_CSS = `${MENU_PRINT_DOCUMENT_CSS}
 .cardapio-occasion { max-width: 820px; font-size: 10px; }
 .cardapio-occasion .cardapio-occasion-meal { margin-bottom: 8px; break-inside: avoid; page-break-inside: avoid; }
 .cardapio-occasion .cardapio-occasion-meal thead th { text-align: left; font-size: 10px; padding: 3px 4px; }

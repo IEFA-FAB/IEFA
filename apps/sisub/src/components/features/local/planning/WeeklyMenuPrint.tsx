@@ -6,24 +6,26 @@ import { ArrowLeft, FileText, Loader2, Printer } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 import { createPortal } from "react-dom"
 import {
-	CARDAPIO_DOCUMENT_CSS,
-	CardapioFooter,
-	CardapioHeader,
 	DEFAULT_HEADER,
+	DigestsErrorNotice,
 	IngredientsModeSelect,
 	loadHeader,
+	MENU_PRINT_DOCUMENT_CSS,
+	MenuPrintFooter,
+	MenuPrintHeader,
 	PreparationList,
 	type PrintHeader,
 	type PrintScope,
 	printStorageScope,
 	type SignatureBlock,
 	saveHeader,
-	useCardapioOrganization,
-} from "@/components/features/local/planning/CardapioPrintParts"
+	useDocxExport,
+	useMenuPrintOrganization,
+	usePreparationDigests,
+} from "@/components/features/local/planning/MenuPrintParts"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
-import { toast } from "@/components/ui/toast"
 import { useTemplateRecipeVersions } from "@/hooks/business/useTemplateRecipeVersions"
 import { useMealTypeGroups } from "@/hooks/data/useMenuGroups"
 import { useRecipes } from "@/hooks/data/useRecipes"
@@ -44,10 +46,8 @@ import {
 import { menuItemGroupLabel, menuItemGroupOrder } from "@/lib/menu-item-groups"
 import { queryKeys } from "@/lib/query-keys"
 import { describeRecipeVersion } from "@/lib/recipe-versions"
-import { importChunkOrNull, recoverIfStaleChunk } from "@/lib/recover-stale-chunk"
 import { WEEKDAYS } from "@/lib/weekdays"
 import { fetchMealTypesFn } from "@/server/meal-types.fn"
-import { fetchRecipeIngredientDigestsFn } from "@/server/recipes.fn"
 import type { MenuTemplateWithItems } from "@/types/domain/planning"
 
 /**
@@ -124,12 +124,12 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 	const storageScope = printStorageScope(scope)
 	// Nome da OM impresso no topo: default do cabeçalho; o usuário ainda pode sobrescrever inline
 	// (persistido por escopo no localStorage).
-	const organizationName = useCardapioOrganization(scope)
+	const organizationName = useMenuPrintOrganization(scope)
 
 	// Datas só são resolvidas no cliente (evita divergência de hidratação no SSR).
 	const [weekStart, setWeekStart] = useState<Date | null>(null)
 	const [header, setHeader] = useState<PrintHeader>(DEFAULT_HEADER)
-	const [isExporting, setIsExporting] = useState(false)
+	const { isExporting, exportDocx } = useDocxExport()
 	const [options, setOptions] = useState<CardapioPrintOptions>(DEFAULT_PRINT_OPTIONS)
 	const updateOptions = (patch: Partial<CardapioPrintOptions>) => setOptions((prev) => ({ ...prev, ...patch }))
 
@@ -148,17 +148,7 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 
 	// Só as fichas que saem na folha: ingrediente de ficha oculta seria busca (e espera) à toa.
 	const originIds = useMemo(() => [...new Set(printedItems.flatMap((i) => (i.recipe_origin?.id ? [i.recipe_origin.id] : [])))], [printedItems])
-	const wantsIngredients = options.ingredients !== "none"
-	const digestsQuery = useQuery({
-		queryKey: queryKeys.recipes.ingredientDigests(originIds),
-		queryFn: () => fetchRecipeIngredientDigestsFn({ data: { recipeIds: originIds } }),
-		enabled: wantsIngredients && originIds.length > 0,
-		staleTime: 5 * 60 * 1000,
-	})
-	const digestsById = useMemo(() => (digestsQuery.data ? new Map(digestsQuery.data.map((d) => [d.recipe_id, d])) : undefined), [digestsQuery.data])
-	// Sem os ingredientes, a folha sairia sem a informação pedida — segura a impressão até chegar.
-	// Só enquanto CARREGA: em erro a impressão volta (sem ingredientes) e a barra oferece de novo.
-	const ingredientsPending = wantsIngredients && originIds.length > 0 && digestsQuery.isPending
+	const { digestsById, pending: ingredientsPending, isError: digestsError, retry: retryDigests } = usePreparationDigests(originIds, options.ingredients)
 	// A cópia de impressão só existe no cliente — createPortal exige `document`.
 	const [mounted, setMounted] = useState(false)
 	useEffect(() => setMounted(true), [])
@@ -316,23 +306,8 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 	const weekInputValue = weekStart ? format(weekStart, "yyyy-MM-dd") : ""
 
 	// Export .docx (Word): reaproveita os mesmos dados/ordem da grade do print.
-	// Import dinâmico — a lib `docx` é pesada e só carrega ao exportar.
-	const handleDownloadDocx = async () => {
-		if (isExporting) return
-		setIsExporting(true)
-		// Sinaliza que a página está indo embora — o `finally` usa isso para NÃO
-		// reabilitar o botão. Reabilitar convidaria um segundo clique, e é ele que
-		// queimaria o último slot de MAX_RELOADS antes do reload chegar.
-		let reloading = false
-		try {
-			// `null` = chunk obsoleto e o recovery já agendou o hard-reload (ver
-			// importChunkOrNull). Alertar de falha numa página que está saindo só
-			// confunde o usuário e polui o Faro — então sai quieto.
-			const docx = await importChunkOrNull(() => import("@/lib/cardapio-docx"))
-			if (!docx) {
-				reloading = true
-				return
-			}
+	const handleDownloadDocx = () =>
+		exportDocx(async (docx) => {
 			const columns = WEEKDAYS.map((d) => {
 				const date = dayDate(d.num)
 				return { label: d.label, date: date ? format(date, "dd/MM") : null }
@@ -370,21 +345,7 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 				},
 				`${header.title} - ${template.name ?? "cardapio"}`
 			)
-		} catch (err) {
-			// Outro feitio do chunk obsoleto: o import REJEITA (nenhum listener deu
-			// preventDefault) e o erro é capturado aqui, sem chegar em window. Tenta
-			// o hard-reload antes de tratar como falha de feature.
-			if (recoverIfStaleChunk(err, "docx-export")) {
-				reloading = true
-				return
-			}
-			// biome-ignore lint/suspicious/noConsole: intentional — surface DOCX export failure
-			console.error("Falha ao gerar DOCX:", err)
-			toast.error("Não foi possível gerar o DOCX. Tente novamente.")
-		} finally {
-			if (!reloading) setIsExporting(false)
-		}
-	}
+		})
 
 	return (
 		<div>
@@ -477,14 +438,7 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 						</span>
 					)}
 				</div>
-				{digestsQuery.isError && (
-					<span className="flex items-center gap-2 text-destructive">
-						Não foi possível carregar os ingredientes — a folha sai sem eles.
-						<Button variant="outline" size="sm" onClick={() => void digestsQuery.refetch()}>
-							Tentar de novo
-						</Button>
-					</span>
-				)}
+				{digestsError && <DigestsErrorNotice onRetry={retryDigests} />}
 			</div>
 
 			{/* Documento — cópia editável, na tela */}
@@ -576,9 +530,9 @@ function CardapioDocument({
 }: CardapioDocumentProps) {
 	return (
 		<div className="cardapio-doc">
-			<CardapioHeader header={header} editable={editable} onSignatureChange={onSignatureChange} onHeaderChange={onHeaderChange}>
+			<MenuPrintHeader header={header} editable={editable} onSignatureChange={onSignatureChange} onHeaderChange={onHeaderChange}>
 				<div className="cardapio-week">{weekLabel}</div>
-			</CardapioHeader>
+			</MenuPrintHeader>
 
 			{/* Grade refeição × dia */}
 			<table className="cardapio-grid">
@@ -640,7 +594,7 @@ function CardapioDocument({
 				</div>
 			)}
 
-			<CardapioFooter header={header} editable={editable} onSignatureChange={onSignatureChange} />
+			<MenuPrintFooter header={header} editable={editable} onSignatureChange={onSignatureChange} />
 			<PreparationList preparations={preparations} />
 		</div>
 	)
@@ -648,7 +602,7 @@ function CardapioDocument({
 
 // ─── CSS de impressão ──────────────────────────────────────────────────────
 
-const PRINT_CSS = `${CARDAPIO_DOCUMENT_CSS}
+const PRINT_CSS = `${MENU_PRINT_DOCUMENT_CSS}
 @media print {
 	@page { size: A4 landscape; margin: 6mm; }
 }

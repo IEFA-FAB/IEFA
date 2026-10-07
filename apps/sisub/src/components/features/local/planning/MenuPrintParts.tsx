@@ -1,7 +1,13 @@
-import { type ReactNode, useMemo } from "react"
+import { useQuery } from "@tanstack/react-query"
+import { type ReactNode, useMemo, useState } from "react"
+import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { toast } from "@/components/ui/toast"
 import { useUserKitchens } from "@/hooks/data/useKitchens"
 import { describeAllergens, INGREDIENTS_MODE_LABELS, INGREDIENTS_MODES, type IngredientsMode, type PreparationEntry } from "@/lib/cardapio-print"
+import { queryKeys } from "@/lib/query-keys"
+import { importChunkOrNull, recoverIfStaleChunk } from "@/lib/recover-stale-chunk"
+import { fetchRecipeIngredientDigestsFn } from "@/server/recipes.fn"
 
 /**
  * Peças comuns às folhas impressas de cardápio — semanal (`WeeklyMenuPrint`) e evento/apoio
@@ -99,7 +105,7 @@ export function saveHeader(scope: string, header: PrintHeader) {
  * Nome da OM impresso no topo: unidade da cozinha (padrão canônico do app), ou a SDAB no modelo
  * global. Serve de default do cabeçalho; o usuário ainda pode sobrescrever inline.
  */
-export function useCardapioOrganization(scope: PrintScope): string {
+export function useMenuPrintOrganization(scope: PrintScope): string {
 	const { data: kitchens } = useUserKitchens()
 	return useMemo(() => {
 		if (scope.kind === "global") return GLOBAL_ORGANIZATION
@@ -107,6 +113,82 @@ export function useCardapioOrganization(scope: PrintScope): string {
 		const om = kitchen?.unit?.display_name?.trim() || kitchen?.unit?.code?.trim() || kitchen?.display_name?.trim()
 		return om ? om.toUpperCase() : ""
 	}, [kitchens, scope])
+}
+
+// ─── Dados da folha ────────────────────────────────────────────────────────
+
+/**
+ * Ingredientes das fichas da folha (`originIds` = só as que saem nela: ficha oculta seria busca e
+ * espera à toa), buscados só quando a opção pede.
+ */
+export function usePreparationDigests(originIds: string[], mode: IngredientsMode) {
+	const wantsIngredients = mode !== "none"
+	const query = useQuery({
+		queryKey: queryKeys.recipes.ingredientDigests(originIds),
+		queryFn: () => fetchRecipeIngredientDigestsFn({ data: { recipeIds: originIds } }),
+		enabled: wantsIngredients && originIds.length > 0,
+		staleTime: 5 * 60 * 1000,
+	})
+	const digestsById = useMemo(() => (query.data ? new Map(query.data.map((d) => [d.recipe_id, d])) : undefined), [query.data])
+	return {
+		digestsById,
+		// Sem os ingredientes, a folha sairia sem a informação pedida — segura a impressão até chegar.
+		// Só enquanto CARREGA: em erro a impressão volta (sem ingredientes) e a barra oferece de novo.
+		pending: wantsIngredients && originIds.length > 0 && query.isPending,
+		isError: query.isError,
+		retry: () => void query.refetch(),
+	}
+}
+
+type DocxModule = typeof import("@/lib/cardapio-docx")
+
+/**
+ * Export .docx. Import dinâmico — a lib `docx` é pesada e só carrega ao exportar — com a
+ * recuperação de chunk obsoleto: nesse caso a página recarrega e o botão NÃO reabilita (um
+ * segundo clique queimaria o último slot de MAX_RELOADS antes do reload chegar), e a falha não é
+ * alertada (numa página que está saindo, só confunde e polui o Faro).
+ */
+export function useDocxExport() {
+	const [isExporting, setIsExporting] = useState(false)
+	const exportDocx = async (write: (docx: DocxModule) => Promise<void>) => {
+		if (isExporting) return
+		setIsExporting(true)
+		let reloading = false
+		try {
+			// `null` = chunk obsoleto e o recovery já agendou o hard-reload (ver importChunkOrNull).
+			const docx = await importChunkOrNull(() => import("@/lib/cardapio-docx"))
+			if (!docx) {
+				reloading = true
+				return
+			}
+			await write(docx)
+		} catch (err) {
+			// Outro feitio do chunk obsoleto: o import REJEITA (nenhum listener deu preventDefault) e o
+			// erro é capturado aqui, sem chegar em window. Tenta o hard-reload antes de tratar como falha.
+			if (recoverIfStaleChunk(err, "docx-export")) {
+				reloading = true
+				return
+			}
+			// biome-ignore lint/suspicious/noConsole: intentional — surface DOCX export failure
+			console.error("Falha ao gerar DOCX:", err)
+			toast.error("Não foi possível gerar o DOCX. Tente novamente.")
+		} finally {
+			if (!reloading) setIsExporting(false)
+		}
+	}
+	return { isExporting, exportDocx }
+}
+
+/** Aviso da barra de opções quando os ingredientes não vieram. */
+export function DigestsErrorNotice({ onRetry }: { onRetry: () => void }) {
+	return (
+		<span className="flex items-center gap-2 text-destructive">
+			Não foi possível carregar os ingredientes — a folha sai sem eles.
+			<Button variant="outline" size="sm" onClick={onRetry}>
+				Tentar de novo
+			</Button>
+		</span>
+	)
 }
 
 // ─── Opções de impressão ───────────────────────────────────────────────────
@@ -154,7 +236,7 @@ function SignatureSlot({ idx, header, editable, onSignatureChange }: HeaderEditi
 }
 
 /** Topo da folha: duas assinaturas nas pontas e OM/seção/título no meio; `children` vem sob o título. */
-export function CardapioHeader({
+export function MenuPrintHeader({
 	header,
 	editable = false,
 	onSignatureChange,
@@ -182,7 +264,7 @@ export function CardapioHeader({
 }
 
 /** Assinaturas de baixo — antes da lista de preparações, para saírem na mesma folha do cardápio. */
-export function CardapioFooter({ header, editable = false, onSignatureChange }: Omit<HeaderEditing, "onHeaderChange"> & { header: PrintHeader }) {
+export function MenuPrintFooter({ header, editable = false, onSignatureChange }: Omit<HeaderEditing, "onHeaderChange"> & { header: PrintHeader }) {
 	return (
 		<footer className="cardapio-footer">
 			<div className="cardapio-sign">
@@ -282,7 +364,7 @@ export function SignatureField({ block, onChange }: { block: SignatureBlock; onC
 // ─── CSS do documento + impressão ──────────────────────────────────────────
 
 /** CSS do documento, sem o `@page`: o semanal sai em paisagem, evento e apoio em retrato. */
-export const CARDAPIO_DOCUMENT_CSS = `
+export const MENU_PRINT_DOCUMENT_CSS = `
 .cardapio-doc {
 	background: #fff;
 	color: #000;

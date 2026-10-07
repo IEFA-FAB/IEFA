@@ -63,14 +63,19 @@ export function formatOccasionBase(base: number | null | undefined, templateType
  * ordem dela) e as preparações deles. A colocação dos itens é a do editor (`eventDraftFrom`):
  * item sem refeição vai para a do mesmo horário, grupo que a composição perdeu vira "Sem grupo".
  * Grupo vazio não sai — a folha diz o que se serve, não o que se planejou servir.
+ *
+ * Padrão de lanche: as refeições ficam no horário de sistema dos lanches (`snackSlotId`), como o
+ * editor mostra e o servidor fixa ao salvar — gravado antes disso, o horário podia ser outro.
  */
 export function buildOccasionPrintMeals(
 	template: PrintableTemplate,
 	templateType: OccasionMenuType,
-	slotNameOf: (mealTypeId: string) => string | null
+	slotNameOf: (mealTypeId: string) => string | null,
+	snackSlotId: string | null = null
 ): OccasionPrintMeal[] {
+	const isSnack = templateType === "apoio" && isSnackStandard(template)
 	// Padrão de lanche gravado antes da proporção única guardava as porções por kit no pax.
-	const stored = templateType === "apoio" && isSnackStandard(template) ? template.items.map(withLegacySnackPortions) : template.items
+	const stored = isSnack ? template.items.map(withLegacySnackPortions) : template.items
 	const draft = eventDraftFrom(template.event_meals, stored, templateType)
 	const nameById = new Map(template.items.flatMap((i) => (i.recipe_id ? [[i.recipe_id, i.recipe_origin?.name?.trim() || "Preparação sem nome"] as const] : [])))
 
@@ -91,7 +96,7 @@ export function buildOccasionPrintMeals(
 		// Com composição, o que ficou fora dela é "Sem grupo"; sem composição (kit simples), é a lista.
 		groups.push({ key: null, label: meal.groups.length > 0 ? "Sem grupo" : null, entries: ungrouped })
 
-		const slot = slotNameOf(meal.meal_type_id)?.trim() || null
+		const slot = slotNameOf(isSnack && snackSlotId ? snackSlotId : meal.meal_type_id)?.trim() || null
 		return {
 			id: meal.id,
 			name: meal.name,

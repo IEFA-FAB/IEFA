@@ -1,11 +1,15 @@
 import { CalendarRange, Folder, FolderOpen, Sandwich } from "lucide-react"
-import { type ReactNode, useState } from "react"
+import { type ReactNode, useSyncExternalStore } from "react"
 import { SnackStandardBadges } from "@/components/features/local/planning/SnackStandardBadges"
 import { Badge } from "@/components/ui/badge"
 import { TREE_LEAF_TONE, TREE_MUTED_TONE, TreeRow, treeFolderTone } from "@/components/ui/tree-row"
+import { getOpenFolders, getServerOpenFolders, subscribeOpenFolders, toggleOpenFolder } from "@/lib/catalog-open-folders"
 import { cn } from "@/lib/cn"
-import { buildCatalogTree, type CatalogFolder, type CatalogTreeRow } from "@/lib/template-catalog-tree"
+import { buildCatalogTree, type CatalogFolder, type CatalogTreeRow, UNFILED_CATALOG_FOLDER_ID } from "@/lib/template-catalog-tree"
 import type { TemplateWithItemCounts } from "@/types/domain/planning"
+
+/** Marca de "Sem pasta" fechado pelo usuário quando o catálogo não tem pasta (lá ele abre aberto). */
+const UNFILED_CLOSED_MARK = `${UNFILED_CATALOG_FOLDER_ID}:fechado`
 
 export type CatalogFolderRow = Extract<CatalogTreeRow<TemplateWithItemCounts>, { type: "folder" }>
 
@@ -30,18 +34,17 @@ interface TemplateCatalogTreeProps {
  * mesma linha (`TreeRow`) das árvores de insumos e preparações.
  */
 export function TemplateCatalogTree({ templateType, folders, templates, templateActions, folderActions, selection, onOpenTemplate }: TemplateCatalogTreeProps) {
-	// Pastas abertas pelo usuário; começa vazio (tudo fechado).
-	const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set())
+	// Pastas abertas: começa tudo fechado; o que o usuário abre vale até fechar a aba (`catalog-open-folders`).
+	const opened = useSyncExternalStore(subscribeOpenFolders, () => getOpenFolders(templateType), getServerOpenFolders)
+	// Sem pasta nenhuma (catálogo ainda sem pastas, ou a busca delas falhou), tudo está em "Sem
+	// pasta": ele abre aberto — fechado, o catálogo pareceria vazio — até o usuário fechá-lo.
+	const hasFolders = (folders?.length ?? 0) > 0
+	const unfiledForcedOpen = !hasFolders && !opened.has(UNFILED_CLOSED_MARK)
+	const expanded = unfiledForcedOpen ? new Set([...opened, UNFILED_CATALOG_FOLDER_ID]) : opened
 	const rows = buildCatalogTree({ folders, templates, expanded })
 	const LeafIcon = templateType === "apoio" ? Sandwich : CalendarRange
 
-	const toggle = (id: string) =>
-		setExpanded((current) => {
-			const open = new Set(current)
-			if (open.has(id)) open.delete(id)
-			else open.add(id)
-			return open
-		})
+	const toggle = (id: string) => toggleOpenFolder(templateType, !hasFolders && id === UNFILED_CATALOG_FOLDER_ID ? UNFILED_CLOSED_MARK : id)
 
 	return (
 		<div className="rounded-md border" role="tree" aria-label={templateType === "apoio" ? "Cardápios de apoio por pasta" : "Eventos por pasta"}>

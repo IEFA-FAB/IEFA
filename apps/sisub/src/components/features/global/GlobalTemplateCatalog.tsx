@@ -32,6 +32,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useDeleteTemplateFolder, useDuplicateTemplateAsVariant, useMoveTemplateFolder, useTemplateFolders } from "@/hooks/data/useTemplateFolders"
 import { useDeletedTemplates, useDeleteTemplate, useRestoreTemplate } from "@/hooks/data/useTemplates"
+import { revealOpenFolders } from "@/lib/catalog-open-folders"
 import type { OccasionMenuType } from "@/lib/occasion-menu"
 import { queryKeys } from "@/lib/query-keys"
 import { fetchMenuTemplatesFn } from "@/server/templates.fn"
@@ -78,6 +79,12 @@ export function GlobalTemplateCatalog({
 	// Evento e apoio ficam em pastas da SDAB; o semanal segue em lista.
 	const occasionType = templateType === "weekly" ? null : templateType
 	const { data: folders, isError: foldersError } = useTemplateFolders(occasionType)
+	// Abre a pasta (e a pasta-mãe) onde algo vai entrar: numa pasta fechada, o que entrou sumiria da tela.
+	const revealFolder = (folderId: string | null) => {
+		if (!occasionType || !folderId) return
+		const parentId = folders?.find((f) => f.id === folderId)?.parent_id ?? null
+		revealOpenFolders(occasionType, [parentId, folderId])
+	}
 	const [folderDialog, setFolderDialog] = useState<TemplateFolderDialogState | null>(null)
 	const [moving, setMoving] = useState<{ id: string; name: string | null; folder_id: string | null } | null>(null)
 	const { mutate: moveFolder } = useMoveTemplateFolder()
@@ -183,13 +190,23 @@ export function GlobalTemplateCatalog({
 				</DropdownMenuTrigger>
 				<DropdownMenuContent align="end">
 					{newInFolderLink && (
-						<DropdownMenuItem onClick={() => navigate(newInFolderLink(folder.id))}>
+						<DropdownMenuItem
+							onClick={() => {
+								revealFolder(folder.id)
+								navigate(newInFolderLink(folder.id))
+							}}
+						>
 							<Plus />
 							Novo modelo aqui
 						</DropdownMenuItem>
 					)}
 					{row.level === 0 && (
-						<DropdownMenuItem onClick={() => setFolderDialog({ mode: "create", templateType: occasionType, parent: folder })}>
+						<DropdownMenuItem
+							onClick={() => {
+								revealFolder(folder.id)
+								setFolderDialog({ mode: "create", templateType: occasionType, parent: folder })
+							}}
+						>
 							<FolderPlus />
 							Nova subpasta
 						</DropdownMenuItem>
@@ -358,7 +375,7 @@ export function GlobalTemplateCatalog({
 			</div>
 
 			<TemplateFolderDialog state={folderDialog} onClose={() => setFolderDialog(null)} />
-			<MoveTemplateDialog template={moving} folders={folders} onClose={() => setMoving(null)} />
+			<MoveTemplateDialog template={moving} folders={folders} onClose={() => setMoving(null)} onMoved={revealFolder} />
 
 			{canWrite && (deletedError || (deleted && deleted.length > 0)) && (
 				<div className="space-y-3">
