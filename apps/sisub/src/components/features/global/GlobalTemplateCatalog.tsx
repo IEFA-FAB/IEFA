@@ -35,6 +35,7 @@ import { useDeletedTemplates, useDeleteTemplate, useRestoreTemplate } from "@/ho
 import { revealOpenFolders } from "@/lib/catalog-open-folders"
 import type { OccasionMenuType } from "@/lib/occasion-menu"
 import { queryKeys } from "@/lib/query-keys"
+import { UNFILED_CATALOG_FOLDER_ID } from "@/lib/template-catalog-tree"
 import { fetchMenuTemplatesFn } from "@/server/templates.fn"
 import type { TemplateWithItemCounts } from "@/types/domain/planning"
 
@@ -81,7 +82,8 @@ export function GlobalTemplateCatalog({
 	const { data: folders, isError: foldersError } = useTemplateFolders(occasionType)
 	// Abre a pasta (e a pasta-mãe) onde algo vai entrar: numa pasta fechada, o que entrou sumiria da tela.
 	const revealFolder = (folderId: string | null) => {
-		if (!occasionType || !folderId) return
+		if (!occasionType) return
+		if (!folderId) return revealOpenFolders(occasionType, [UNFILED_CATALOG_FOLDER_ID])
 		const parentId = folders?.find((f) => f.id === folderId)?.parent_id ?? null
 		revealOpenFolders(occasionType, [parentId, folderId])
 	}
@@ -201,12 +203,7 @@ export function GlobalTemplateCatalog({
 						</DropdownMenuItem>
 					)}
 					{row.level === 0 && (
-						<DropdownMenuItem
-							onClick={() => {
-								revealFolder(folder.id)
-								setFolderDialog({ mode: "create", templateType: occasionType, parent: folder })
-							}}
-						>
+						<DropdownMenuItem onClick={() => setFolderDialog({ mode: "create", templateType: occasionType, parent: folder })}>
 							<FolderPlus />
 							Nova subpasta
 						</DropdownMenuItem>
@@ -275,7 +272,8 @@ export function GlobalTemplateCatalog({
 						{foldersError && <p className="text-sm text-destructive mb-2">Não foi possível carregar as pastas; os modelos aparecem em "Sem pasta".</p>}
 						<TemplateCatalogTree
 							templateType={occasionType}
-							folders={folders}
+							// Pastas que não vieram (erro): o catálogo sai inteiro em "Sem pasta", aberto.
+							folders={folders ?? (foldersError ? [] : undefined)}
 							templates={templates ?? []}
 							onOpenTemplate={canWrite ? (t) => navigate(editorLink(t.id)) : undefined}
 							templateActions={canWrite ? templateActions : undefined}
@@ -374,7 +372,7 @@ export function GlobalTemplateCatalog({
 				)}
 			</div>
 
-			<TemplateFolderDialog state={folderDialog} onClose={() => setFolderDialog(null)} />
+			<TemplateFolderDialog state={folderDialog} onClose={() => setFolderDialog(null)} onCreated={revealFolder} />
 			<MoveTemplateDialog template={moving} folders={folders} onClose={() => setMoving(null)} onMoved={revealFolder} />
 
 			{canWrite && (deletedError || (deleted && deleted.length > 0)) && (

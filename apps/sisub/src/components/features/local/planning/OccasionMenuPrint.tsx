@@ -32,7 +32,7 @@ import { useRecipes } from "@/hooks/data/useRecipes"
 import { useSnackMealType } from "@/hooks/data/useSnackRequests"
 import { useTemplate } from "@/hooks/data/useTemplates"
 import { buildPreparationEntries, type CardapioPrintOptions, describeAllergens, type PreparationEntry, type PreparationSource } from "@/lib/cardapio-print"
-import { OCCASION_MENU_COPY, type OccasionMenuType, SNACK_MEAL_TYPE_NAME } from "@/lib/occasion-menu"
+import { isSnackStandard, OCCASION_MENU_COPY, type OccasionMenuType, SNACK_MEAL_TYPE_NAME } from "@/lib/occasion-menu"
 import { buildOccasionPrintMeals, OCCASION_PRINT_TITLE, type OccasionPrintMeal, occasionPrintSubtitle } from "@/lib/occasion-print"
 import { describeRecipeVersion } from "@/lib/recipe-versions"
 
@@ -75,8 +75,8 @@ export function OccasionMenuPrint({ templateId, templateType, scope, date, onDat
 
 	// Horários: os da cozinha (no catálogo global, só os genéricos — o nulo é intencional) e o de
 	// sistema dos lanches, que `fetchMealTypes` não devolve.
-	const { data: mealTypes } = useQuery({ ...mealTypesQueryOptions(kitchenId), enabled: true })
-	const { data: snackMealType } = useSnackMealType(isSupportMenu)
+	const { data: mealTypes, isPending: mealTypesPending } = useQuery({ ...mealTypesQueryOptions(kitchenId), enabled: true })
+	const { data: snackMealType, isPending: snackMealTypePending } = useSnackMealType(isSupportMenu)
 
 	const storageScope = printStorageScope(scope)
 	const organizationName = useMenuPrintOrganization(scope)
@@ -106,6 +106,11 @@ export function OccasionMenuPrint({ templateId, templateType, scope, date, onDat
 		[template, printedRecipeIds]
 	)
 	const { digestsById, pending: ingredientsPending, isError: digestsError, retry: retryDigests } = usePreparationDigests(originIds, options.ingredients)
+
+	// Sem os horários, a folha sairia sem eles — ou, no padrão de lanche, com o horário gravado em vez
+	// do de sistema. Só enquanto CARREGA: em erro, imprime com o que houver.
+	const slotsPending = mealTypesPending || (template != null && isSupportMenu && isSnackStandard(template) && snackMealTypePending)
+	const printBlocked = ingredientsPending || slotsPending
 
 	// A cópia de impressão só existe no cliente — createPortal exige `document`.
 	const [mounted, setMounted] = useState(false)
@@ -140,10 +145,11 @@ export function OccasionMenuPrint({ templateId, templateType, scope, date, onDat
 	}
 
 	const shownHeader: PrintHeader = { ...header, title }
-	// O título não vai para o armazenamento: o guardado (em `header`) é o do semanal.
+	// O título não vai para o armazenamento: o guardado é o do semanal, relido na hora — a folha do
+	// semanal aberta em outra aba pode tê-lo mudado depois que esta carregou.
 	const persistHeader = (next: PrintHeader) => {
 		setTitle(next.title)
-		const stored = { ...next, title: header.title }
+		const stored = { ...next, title: loadHeader(storageScope, organizationName).title }
 		setHeader(stored)
 		saveHeader(storageScope, stored)
 	}
@@ -217,12 +223,12 @@ export function OccasionMenuPrint({ templateId, templateType, scope, date, onDat
 						Data:
 					</label>
 					<Input id="occasion-date" type="date" className="w-40" value={date ?? ""} onChange={(e) => onDateChange(e.target.value || undefined)} />
-					<Button variant="outline" size="sm" onClick={handleDownloadDocx} disabled={isExporting || ingredientsPending}>
+					<Button variant="outline" size="sm" onClick={handleDownloadDocx} disabled={isExporting || printBlocked}>
 						{isExporting ? <Loader2 className="size-4 mr-2 animate-spin" /> : <FileText className="size-4 mr-2" />}
 						Baixar DOCX
 					</Button>
-					<Button size="sm" onClick={() => window.print()} disabled={ingredientsPending}>
-						{ingredientsPending ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Printer className="size-4 mr-2" />}
+					<Button size="sm" onClick={() => window.print()} disabled={printBlocked}>
+						{printBlocked ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Printer className="size-4 mr-2" />}
 						Imprimir / Baixar PDF
 					</Button>
 				</div>

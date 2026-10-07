@@ -8,9 +8,6 @@ import { cn } from "@/lib/cn"
 import { buildCatalogTree, type CatalogFolder, type CatalogTreeRow, UNFILED_CATALOG_FOLDER_ID } from "@/lib/template-catalog-tree"
 import type { TemplateWithItemCounts } from "@/types/domain/planning"
 
-/** Marca de "Sem pasta" fechado pelo usuário quando o catálogo não tem pasta (lá ele abre aberto). */
-const UNFILED_CLOSED_MARK = `${UNFILED_CATALOG_FOLDER_ID}:fechado`
-
 export type CatalogFolderRow = Extract<CatalogTreeRow<TemplateWithItemCounts>, { type: "folder" }>
 
 interface TemplateCatalogTreeProps {
@@ -35,16 +32,19 @@ interface TemplateCatalogTreeProps {
  */
 export function TemplateCatalogTree({ templateType, folders, templates, templateActions, folderActions, selection, onOpenTemplate }: TemplateCatalogTreeProps) {
 	// Pastas abertas: começa tudo fechado; o que o usuário abre vale até fechar a aba (`catalog-open-folders`).
+	// A chave é só o tipo: o catálogo global e a lista de cada cozinha mostram as MESMAS pastas da SDAB.
 	const opened = useSyncExternalStore(subscribeOpenFolders, () => getOpenFolders(templateType), getServerOpenFolders)
-	// Sem pasta nenhuma (catálogo ainda sem pastas, ou a busca delas falhou), tudo está em "Sem
-	// pasta": ele abre aberto — fechado, o catálogo pareceria vazio — até o usuário fechá-lo.
-	const hasFolders = (folders?.length ?? 0) > 0
-	const unfiledForcedOpen = !hasFolders && !opened.has(UNFILED_CLOSED_MARK)
-	const expanded = unfiledForcedOpen ? new Set([...opened, UNFILED_CATALOG_FOLDER_ID]) : opened
+	// Catálogo sem pasta nenhuma (lista carregada e vazia): tudo está em "Sem pasta", que fica
+	// aberto — fechado, o catálogo pareceria vazio. Enquanto as pastas carregam (`undefined`), não.
+	const onlyUnfiled = folders != null && folders.length === 0
+	const expanded = onlyUnfiled ? new Set([...opened, UNFILED_CATALOG_FOLDER_ID]) : opened
 	const rows = buildCatalogTree({ folders, templates, expanded })
 	const LeafIcon = templateType === "apoio" ? Sandwich : CalendarRange
 
-	const toggle = (id: string) => toggleOpenFolder(templateType, !hasFolders && id === UNFILED_CATALOG_FOLDER_ID ? UNFILED_CLOSED_MARK : id)
+	const toggle = (id: string) => {
+		if (onlyUnfiled && id === UNFILED_CATALOG_FOLDER_ID) return
+		toggleOpenFolder(templateType, id)
+	}
 
 	return (
 		<div className="rounded-md border" role="tree" aria-label={templateType === "apoio" ? "Cardápios de apoio por pasta" : "Eventos por pasta"}>

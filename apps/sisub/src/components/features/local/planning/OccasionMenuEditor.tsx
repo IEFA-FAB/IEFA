@@ -692,10 +692,13 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 						<TooltipTrigger
 							render={
 								hasPendingChanges ? (
-									<Button type="button" variant="outline" size="sm" disabled>
-										<Printer className="size-4 sm:mr-2" />
-										<span className="hidden sm:inline">Imprimir</span>
-									</Button>
+									// O botão desabilitado não recebe ponteiro: o `span` segura o tooltip que diz por quê.
+									<span className="inline-flex">
+										<Button type="button" variant="outline" size="sm" disabled>
+											<Printer className="size-4 sm:mr-2" />
+											<span className="hidden sm:inline">Imprimir</span>
+										</Button>
+									</span>
 								) : (
 									<Button
 										nativeButton={false}
@@ -716,7 +719,9 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 							{hasPendingChanges
 								? willFork
 									? "Salve a cópia desta cozinha para imprimir o que está na tela."
-									: "Espere o salvamento automático para imprimir."
+									: saveStatus === "error"
+										? "O salvamento falhou: salve de novo para imprimir."
+										: "Espere o salvamento automático para imprimir."
 								: `Imprimir / baixar PDF ${copy.article === "o" ? "do" : "da"} ${copy.noun}`}
 						</TooltipContent>
 					</Tooltip>
