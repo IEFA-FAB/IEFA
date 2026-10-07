@@ -61,7 +61,7 @@
   },
   "devDependencies": {
     "@babel/core": "^8.0.6",
-    "@biomejs/biome": "^2.5.14",
+    "@biomejs/biome": "^2.5.15",
     "@iefa/tsconfig": "workspace:*",
     "@rolldown/plugin-babel": "^0.2.4",
     "@tailwindcss/typography": "^0.5.20",
@@ -75,7 +75,7 @@
     "@vitejs/plugin-react": "^6.1.1",
     "babel-plugin-react-compiler": "^1.0.0",
     "typescript": "^7.0.2",
-    "vite": "^8.3.0",
+    "vite": "^8.3.1",
     "@playwright/test": "^1.63.0"
   },
   "pnpm": {
