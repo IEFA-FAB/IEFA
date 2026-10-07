@@ -27,6 +27,7 @@ function GlobalSupportMenuEditorPage() {
 			editContext={GLOBAL_CONTEXT}
 			listLink={{ to: "/global/support-menus" }}
 			editorLink={(id) => ({ to: "/global/support-menus/$supportMenuId", params: { supportMenuId: id } })}
+			printLink={(id) => ({ to: "/global/support-menus/print/$supportMenuId", params: { supportMenuId: id } })}
 		/>
 	)
 }

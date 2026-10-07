@@ -5,13 +5,26 @@ import { ptBR } from "date-fns/locale"
 import { ArrowLeft, FileText, Loader2, Printer } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 import { createPortal } from "react-dom"
+import {
+	CARDAPIO_DOCUMENT_CSS,
+	CardapioFooter,
+	CardapioHeader,
+	DEFAULT_HEADER,
+	IngredientsModeSelect,
+	loadHeader,
+	PreparationList,
+	type PrintHeader,
+	type PrintScope,
+	printStorageScope,
+	type SignatureBlock,
+	saveHeader,
+	useCardapioOrganization,
+} from "@/components/features/local/planning/CardapioPrintParts"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/components/ui/toast"
 import { useTemplateRecipeVersions } from "@/hooks/business/useTemplateRecipeVersions"
-import { useUserKitchens } from "@/hooks/data/useKitchens"
 import { useMealTypeGroups } from "@/hooks/data/useMenuGroups"
 import { useRecipes } from "@/hooks/data/useRecipes"
 import { useTemplate } from "@/hooks/data/useTemplates"
@@ -23,9 +36,6 @@ import {
 	describeAllergens,
 	formatPrintedDemand,
 	groupPrintColor,
-	INGREDIENTS_MODE_LABELS,
-	INGREDIENTS_MODES,
-	type IngredientsMode,
 	isCommandTableItem,
 	isMainDish,
 	type PreparationEntry,
@@ -68,8 +78,6 @@ import type { MenuTemplateWithItems } from "@/types/domain/planning"
  * prato principal sai em negrito.
  */
 
-type SignatureBlock = { name: string; role: string }
-
 /**
  * Uma preparação dentro de uma célula (refeição × dia) da grade. `demand` é o efetivo fixo do item
  * já formatado ("120 pax"); a porcentagem não sai na folha. `color` é a tinta do grupo, sem `#`.
@@ -79,75 +87,10 @@ type CellEntry = { name: string; group: string | null; main: boolean; sortOrder:
 /** Item da legenda de cores: um por grupo presente na grade, na ordem de leitura. */
 type GroupLegendEntry = { key: string; label: string; color: string }
 
-type PrintHeader = {
-	organization: string
-	section: string
-	title: string
-	signatures: [SignatureBlock, SignatureBlock, SignatureBlock, SignatureBlock]
-}
-
-/**
- * Nome da OM/organização impresso no topo. Antes era hardcoded como EEAR; hoje
- * vem dinâmico do escopo (unidade da cozinha, ou SDAB no cardápio semanal modelo global).
- */
-const GLOBAL_ORGANIZATION = "SUBDIRETORIA DE ADMINISTRAÇÃO DA AERONÁUTICA"
-/** Valor hardcoded legado; migrado p/ o nome dinâmico quando reencontrado no localStorage. */
-const LEGACY_DEFAULT_ORG = "ESCOLA DE ESPECIALISTAS DE AERONÁUTICA"
-
-const DEFAULT_HEADER: PrintHeader = {
-	organization: "",
-	section: "SEÇÃO DE SUBSISTÊNCIA",
-	title: "CARDÁPIO SEMANAL",
-	signatures: [
-		{ name: "", role: "Agente de Controle Interno" },
-		{ name: "", role: "Agente Diretor" },
-		{ name: "", role: "Chefe do Setor de Nutrição da Seção de Subsistência" },
-		{ name: "", role: "Chefe da Seção de Subsistência" },
-	],
-}
-
-function headerStorageKey(scope: string) {
-	return `sisub:cardapio-print-header:${scope}`
-}
-
-/**
- * Carrega o cabeçalho persistido (localStorage), usando `defaultOrg` como nome
- * de organização quando nada foi salvo — ou quando o que ficou salvo é o valor
- * hardcoded legado (EEAR), que migramos para o nome correto da OM/SDAB.
- */
-function loadHeader(scope: string, defaultOrg: string): PrintHeader {
-	const fallback: PrintHeader = { ...DEFAULT_HEADER, organization: defaultOrg }
-	if (typeof window === "undefined") return fallback
-	try {
-		const raw = window.localStorage.getItem(headerStorageKey(scope))
-		if (!raw) return fallback
-		const parsed = JSON.parse(raw) as Partial<PrintHeader>
-		// `== null` (não `!storedOrg`) preserva string vazia intencional — o usuário
-		// pode limpar a OM de propósito para gerar um documento sem cabeçalho de OM.
-		const storedOrg = parsed.organization
-		const organization = storedOrg == null || storedOrg.trim() === LEGACY_DEFAULT_ORG ? defaultOrg : storedOrg
-		return {
-			organization,
-			section: parsed.section ?? DEFAULT_HEADER.section,
-			title: parsed.title ?? DEFAULT_HEADER.title,
-			signatures: (parsed.signatures ?? DEFAULT_HEADER.signatures) as PrintHeader["signatures"],
-		}
-	} catch {
-		return fallback
-	}
-}
-
 /** Extrai o nome exibível de um item do template (snapshot → origem → fallback). */
 function itemRecipeName(item: MenuTemplateWithItems["items"][number]): string {
 	return item.recipe_origin?.name?.trim() || "Preparação sem nome"
 }
-
-/**
- * Escopo de origem do modelo — define de onde vêm os meal types, a chave de
- * persistência do cabeçalho e os destinos de navegação (voltar + ?week=).
- * `kitchen` = cozinha local; `global` = cardápio semanal modelo da SDAB (kitchen_id null).
- */
-export type PrintScope = { kind: "kitchen"; kitchenId: number; kitchenIdStr: string } | { kind: "global" }
 
 interface WeeklyMenuPrintProps {
 	templateId: string
@@ -178,18 +121,10 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 	// Ordem de leitura das colunas impressas: a do conjunto de cada refeição.
 	const { groupsFor, allGroups } = useMealTypeGroups(mealTypeKitchenId, mealTypes)
 
-	const storageScope = scope.kind === "kitchen" ? String(scope.kitchenId) : "global"
-
-	// Nome da OM impresso no topo: unidade da cozinha (padrão canônico do app),
-	// ou a SDAB no plano modelo global. Serve de default do cabeçalho; o usuário
-	// ainda pode sobrescrever inline (persistido por escopo no localStorage).
-	const { data: kitchens } = useUserKitchens()
-	const organizationName = useMemo(() => {
-		if (scope.kind === "global") return GLOBAL_ORGANIZATION
-		const kitchen = kitchens?.find((k) => k.id === scope.kitchenId)
-		const om = kitchen?.unit?.display_name?.trim() || kitchen?.unit?.code?.trim() || kitchen?.display_name?.trim()
-		return om ? om.toUpperCase() : ""
-	}, [kitchens, scope])
+	const storageScope = printStorageScope(scope)
+	// Nome da OM impresso no topo: default do cabeçalho; o usuário ainda pode sobrescrever inline
+	// (persistido por escopo no localStorage).
+	const organizationName = useCardapioOrganization(scope)
 
 	// Datas só são resolvidas no cliente (evita divergência de hidratação no SSR).
 	const [weekStart, setWeekStart] = useState<Date | null>(null)
@@ -257,11 +192,7 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 
 	const persistHeader = (next: PrintHeader) => {
 		setHeader(next)
-		try {
-			window.localStorage.setItem(headerStorageKey(storageScope), JSON.stringify(next))
-		} catch {
-			// localStorage indisponível — mantém apenas em memória.
-		}
+		saveHeader(storageScope, next)
 	}
 
 	const setSignature = (idx: number, patch: Partial<SignatureBlock>) => {
@@ -511,26 +442,7 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 					<Checkbox id="print-group-colors" checked={options.groupColors} onCheckedChange={(checked) => updateOptions({ groupColors: checked === true })} />
 					Cores por grupo
 				</label>
-				<div className="flex items-center gap-2">
-					<span className="text-muted-foreground">Ingredientes:</span>
-					<Select
-						value={options.ingredients}
-						onValueChange={(next) => {
-							if (next && (INGREDIENTS_MODES as readonly string[]).includes(next)) updateOptions({ ingredients: next as IngredientsMode })
-						}}
-					>
-						<SelectTrigger className="w-72" aria-label="Ingredientes na lista de preparações">
-							<SelectValue>{INGREDIENTS_MODE_LABELS[options.ingredients]}</SelectValue>
-						</SelectTrigger>
-						<SelectContent>
-							{INGREDIENTS_MODES.map((mode) => (
-								<SelectItem key={mode} value={mode}>
-									{INGREDIENTS_MODE_LABELS[mode]}
-								</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
-				</div>
+				<IngredientsModeSelect value={options.ingredients} onChange={(ingredients) => updateOptions({ ingredients })} />
 				<div className="flex items-center gap-2">
 					<label htmlFor="print-hide-command-table" className="flex items-center gap-2">
 						<Checkbox
@@ -662,29 +574,11 @@ function CardapioDocument({
 	onSignatureChange,
 	onHeaderChange,
 }: CardapioDocumentProps) {
-	const line = (value: string, className: string, onChange: (v: string) => void) =>
-		editable ? <EditableLine value={value} onChange={onChange} className={className} /> : <div className={className}>{value}</div>
-
-	const signature = (idx: 0 | 1 | 2 | 3) =>
-		editable ? (
-			<SignatureField block={header.signatures[idx]} onChange={(p) => onSignatureChange?.(idx, p)} />
-		) : (
-			<StaticSignature block={header.signatures[idx]} />
-		)
-
 	return (
 		<div className="cardapio-doc">
-			{/* Cabeçalho */}
-			<header className="cardapio-header">
-				<div className="cardapio-sign cardapio-sign-top">{signature(0)}</div>
-				<div className="cardapio-title-block">
-					{line(header.organization, "cardapio-org", (v) => onHeaderChange?.({ ...header, organization: v }))}
-					{line(header.section, "cardapio-section", (v) => onHeaderChange?.({ ...header, section: v }))}
-					{line(header.title, "cardapio-doctitle", (v) => onHeaderChange?.({ ...header, title: v }))}
-					<div className="cardapio-week">{weekLabel}</div>
-				</div>
-				<div className="cardapio-sign cardapio-sign-top cardapio-sign-right">{signature(1)}</div>
-			</header>
+			<CardapioHeader header={header} editable={editable} onSignatureChange={onSignatureChange} onHeaderChange={onHeaderChange}>
+				<div className="cardapio-week">{weekLabel}</div>
+			</CardapioHeader>
 
 			{/* Grade refeição × dia */}
 			<table className="cardapio-grid">
@@ -746,236 +640,16 @@ function CardapioDocument({
 				</div>
 			)}
 
-			{/* Assinaturas — antes da quebra, para saírem na mesma folha do cardápio */}
-			<footer className="cardapio-footer">
-				<div className="cardapio-sign">{signature(2)}</div>
-				<div className="cardapio-sign cardapio-sign-right">{signature(3)}</div>
-			</footer>
-
-			{/* Lista de preparações — começa em folha nova na impressão */}
-			{preparations.length > 0 && (
-				<section className="cardapio-preps">
-					<div className="cardapio-preps-title">LISTA DE PREPARAÇÕES</div>
-					<ul>
-						{preparations.map((p) => (
-							<li key={p.id}>
-								<span className="cardapio-prep-name">
-									{p.name} ({p.version})
-								</span>
-								{(p.prePreparation || p.method) && " — "}
-								{p.prePreparation && (
-									<span className="cardapio-prep-method">
-										<em>Pré-preparo:</em> {p.prePreparation}
-										{p.method ? " " : ""}
-									</span>
-								)}
-								{p.method && <span className="cardapio-prep-method">{p.method}</span>}
-								{p.ingredients && (
-									<div className="cardapio-prep-extra">
-										<em>Ingredientes:</em> {p.ingredients.join(", ")}
-									</div>
-								)}
-								{p.allergens && (
-									<div className="cardapio-prep-extra">
-										<em>Alergênicos:</em> {describeAllergens(p)}
-									</div>
-								)}
-							</li>
-						))}
-					</ul>
-				</section>
-			)}
+			<CardapioFooter header={header} editable={editable} onSignatureChange={onSignatureChange} />
+			<PreparationList preparations={preparations} />
 		</div>
 	)
 }
 
-// ─── Campos editáveis ──────────────────────────────────────────────────────
+// ─── CSS de impressão ──────────────────────────────────────────────────────
 
-function EditableLine({ value, onChange, className }: { value: string; onChange: (v: string) => void; className?: string }) {
-	return (
-		<input
-			value={value}
-			onChange={(e) => onChange(e.target.value)}
-			className={`cardapio-editable ${className ?? ""}`}
-			aria-label="Campo editável do cardápio"
-		/>
-	)
-}
-
-/** Mesmo bloco de assinatura, sem <input> — usado na cópia de impressão. */
-function StaticSignature({ block }: { block: SignatureBlock }) {
-	return (
-		<>
-			<div className="cardapio-sign-line" />
-			<div className="cardapio-sign-name">{block.name}</div>
-			<div className="cardapio-sign-role">{block.role}</div>
-		</>
-	)
-}
-
-function SignatureField({ block, onChange }: { block: SignatureBlock; onChange: (patch: Partial<SignatureBlock>) => void }) {
-	return (
-		<>
-			<span className="cardapio-sign-hint cardapio-no-print">(assinado eletronicamente)</span>
-			<div className="cardapio-sign-line" />
-			<input
-				value={block.name}
-				onChange={(e) => onChange({ name: e.target.value })}
-				placeholder="Nome / Posto"
-				className="cardapio-editable cardapio-sign-name"
-				aria-label="Nome do signatário"
-			/>
-			<input
-				value={block.role}
-				onChange={(e) => onChange({ role: e.target.value })}
-				placeholder="Cargo"
-				className="cardapio-editable cardapio-sign-role"
-				aria-label="Cargo do signatário"
-			/>
-		</>
-	)
-}
-
-// ─── CSS do documento + impressão ──────────────────────────────────────────
-
-const PRINT_CSS = `
-.cardapio-doc {
-	background: #fff;
-	color: #000;
-	font-family: Arial, Helvetica, sans-serif;
-	font-size: 9px;
-	line-height: 1.25;
-	padding: 8px;
-	border: 1px solid #000;
-	max-width: 1200px;
-	margin: 0 auto;
-}
-.cardapio-header {
-	display: grid;
-	grid-template-columns: 1fr 2.2fr 1fr;
-	align-items: end;
-	gap: 8px;
-	margin-bottom: 8px;
-}
-.cardapio-title-block { text-align: center; }
-.cardapio-editable {
-	border: none;
-	background: transparent;
-	text-align: inherit;
-	width: 100%;
-	font: inherit;
-	color: inherit;
-	padding: 1px 2px;
-	outline: none;
-}
-.cardapio-no-print .cardapio-editable,
-.cardapio-doc .cardapio-editable:hover,
-.cardapio-doc .cardapio-editable:focus {
-	background: rgba(0,0,0,0.05);
-}
-.cardapio-org { font-weight: 700; font-size: 11px; text-align: center; }
-.cardapio-section { font-size: 10px; text-align: center; }
-.cardapio-doctitle { font-weight: 700; font-size: 12px; text-align: center; letter-spacing: 0.5px; }
-.cardapio-week { font-size: 9px; margin-top: 2px; font-weight: 600; }
-.cardapio-sign { text-align: center; font-size: 8px; }
-.cardapio-sign-hint { display: block; font-style: italic; font-size: 7px; color: #555; }
-.cardapio-sign-line { border-top: 1px solid #000; margin: 14px 6px 2px; }
-.cardapio-sign-name { text-align: center; font-weight: 700; }
-.cardapio-sign-role { text-align: center; }
-.cardapio-grid {
-	width: 100%;
-	border-collapse: collapse;
-	table-layout: fixed;
-}
-.cardapio-grid th, .cardapio-grid td {
-	border: 1px solid #000;
-	padding: 2px 3px;
-	vertical-align: top;
-	word-break: break-word;
-}
-.cardapio-grid thead th {
-	text-align: center;
-	font-weight: 700;
-	font-size: 8px;
-	background: #eee;
-	vertical-align: middle;
-}
-.cardapio-meal-col {
-	width: 90px;
-	font-weight: 700;
-	font-size: 8px;
-	background: #f4f4f4;
-	text-align: left;
-	vertical-align: middle;
-}
-.cardapio-daynum { font-weight: 400; font-size: 8px; }
-.cardapio-weekend { background: #f4f4f4; }
-.cardapio-dish { font-size: 8px; }
-/* Sem isto o navegador descarta o fundo na impressão e as cores somem do PDF. */
-.cardapio-dish, .cardapio-legend-swatch { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-.cardapio-dish[style] { padding: 0 2px; }
-.cardapio-legend {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 2px 10px;
-	margin-top: 4px;
-	font-size: 8px;
-}
-.cardapio-legend-item { display: inline-flex; align-items: center; gap: 3px; }
-.cardapio-legend-swatch { display: inline-block; width: 10px; height: 8px; border: 1px solid #999; }
-.cardapio-dish-main { font-weight: 700; }
-.cardapio-dish-prop { font-weight: 700; color: #333; }
-.cardapio-base { font-size: 7px; font-style: italic; color: #555; }
-.cardapio-dish + .cardapio-dish { border-top: 1px dotted #bbb; margin-top: 1px; padding-top: 1px; }
-.cardapio-empty { text-align: center; font-style: italic; padding: 12px; }
-.cardapio-preps { margin-top: 8px; }
-.cardapio-preps-title {
-	font-weight: 700;
-	font-size: 9px;
-	text-align: center;
-	background: #eee;
-	border: 1px solid #000;
-	padding: 2px;
-}
-.cardapio-preps ul {
-	list-style: none;
-	margin: 0;
-	padding: 4px 2px;
-	columns: 2;
-	column-gap: 16px;
-}
-.cardapio-preps li { font-size: 8px; margin-bottom: 2px; break-inside: avoid; }
-.cardapio-prep-name { font-weight: 700; }
-.cardapio-prep-extra { margin-top: 1px; }
-.cardapio-footer {
-	display: grid;
-	grid-template-columns: 1fr 1fr;
-	gap: 24px;
-	margin-top: 16px;
-}
-
-/* Cópia de impressão (portal no <body>): existe só para o @media print. */
-.cardapio-print-portal { display: none; }
-
+const PRINT_CSS = `${CARDAPIO_DOCUMENT_CSS}
 @media print {
 	@page { size: A4 landscape; margin: 6mm; }
-	body { background: #fff !important; }
-	/*
-	 * Imprime só a cópia do portal, que é filha direta do <body> e portanto está em
-	 * fluxo normal — nenhum ancestral com overflow para recortá-la, e nenhuma caixa
-	 * posicionada para impedir a fragmentação entre páginas.
-	 */
-	body > *:not(.cardapio-print-portal) { display: none !important; }
-	.cardapio-print-portal { display: block !important; }
-	.cardapio-no-print { display: none !important; }
-	.cardapio-doc { border: none; padding: 0; max-width: none; }
-	.cardapio-editable:hover, .cardapio-editable:focus { background: transparent !important; }
-	/* Cardápio + assinaturas na 1ª folha; modos de preparo começam na seguinte. */
-	.cardapio-preps {
-		break-before: page;
-		page-break-before: always;
-		margin-top: 0;
-	}
-	.cardapio-preps-title { break-after: avoid; page-break-after: avoid; }
 }
 `

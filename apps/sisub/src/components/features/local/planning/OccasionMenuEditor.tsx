@@ -2,8 +2,8 @@ import type { EditScope, SetSnackClassification } from "@iefa/sisub-domain"
 import { getBrasiliaToday } from "@iefa/sisub-domain/civil-date"
 import { MAX_EVENT_MEALS } from "@iefa/sisub-domain/schemas"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { type LinkOptions, useNavigate } from "@tanstack/react-router"
-import { AlertTriangle, CalendarPlus, Copy, GitFork, Layers, ListChecks, Loader2, Plus, Save, Users } from "lucide-react"
+import { Link, type LinkOptions, useNavigate } from "@tanstack/react-router"
+import { AlertTriangle, CalendarPlus, Copy, GitFork, Layers, ListChecks, Loader2, Plus, Printer, Save, Users } from "lucide-react"
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react"
 import { AddModelMealDialog } from "@/components/features/local/planning/AddModelMealDialog"
 import { ApplyEventDialog } from "@/components/features/local/planning/ApplyEventDialog"
@@ -26,6 +26,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { toast } from "@/components/ui/toast"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useTemplateRecipeVersions } from "@/hooks/business/useTemplateRecipeVersions"
 import { mealTypesQueryOptions } from "@/hooks/data/useMealTypes"
 import { useRecipes } from "@/hooks/data/useRecipes"
@@ -170,9 +171,11 @@ interface OccasionMenuEditorProps {
 	listLink: LinkOptions
 	/** Editor de outro template no mesmo contexto — usado quando o salvamento cria a cópia local. */
 	editorLink: (templateId: string) => LinkOptions
+	/** Folha impressa (PDF/DOCX) deste template no mesmo contexto. */
+	printLink: (templateId: string) => LinkOptions
 }
 
-export function OccasionMenuEditor({ templateId, templateType, editContext, listLink, editorLink }: OccasionMenuEditorProps) {
+export function OccasionMenuEditor({ templateId, templateType, editContext, listLink, editorLink, printLink }: OccasionMenuEditorProps) {
 	const navigate = useNavigate()
 	const copy = OCCASION_MENU_COPY[templateType]
 	const isSupportMenu = templateType === "apoio"
@@ -681,6 +684,28 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 				<div className="flex items-center gap-2">
 					<AutoSaveStatus status={saveStatus} onRetry={handleSave} />
 					<RecipeVersionUpdateButton outdated={outdated} onApply={handleUpdateVersions} />
+					{/* A folha lê o que está GRAVADO: com edição pendente ela sairia sem o que está na tela. */}
+					<Tooltip>
+						<TooltipTrigger
+							render={
+								<Button
+									nativeButton={false}
+									type="button"
+									variant="outline"
+									size="sm"
+									render={
+										<Link {...printLink(templateId)}>
+											<Printer className="size-4 sm:mr-2" />
+											<span className="hidden sm:inline">Imprimir</span>
+										</Link>
+									}
+								/>
+							}
+						></TooltipTrigger>
+						<TooltipContent>
+							Imprimir / baixar PDF {copy.article === "o" ? "do" : "da"} {copy.noun}
+						</TooltipContent>
+					</Tooltip>
 					{/* Aplicar é materializar no calendário de UMA cozinha — não existe no catálogo.
 						    Padrão de lanche não entra por aqui: a produção dele nasce do aceite do pedido, e
 						    nele o número do item é porções por KIT, não efetivo do dia. */}

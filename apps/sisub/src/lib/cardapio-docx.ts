@@ -165,15 +165,15 @@ function buildLegend(data: CardapioDocxData): Paragraph[] {
 	]
 }
 
-function buildPreparations(data: CardapioDocxData): Paragraph[] {
-	if (data.preparations.length === 0) return []
+function buildPreparations(preparations: CardapioDocxData["preparations"]): Paragraph[] {
+	if (preparations.length === 0) return []
 	return [
 		new Paragraph({
 			spacing: { before: 240 },
 			alignment: AlignmentType.CENTER,
 			children: [new TextRun({ text: "LISTA DE PREPARAÇÕES", bold: true, size: 18 })],
 		}),
-		...data.preparations.flatMap((p) => [
+		...preparations.flatMap((p) => [
 			new Paragraph({
 				spacing: { after: p.ingredients || p.allergens ? 0 : 40 },
 				children: [
@@ -214,8 +214,7 @@ function signatureCell(sig: CardapioDocxSignature | undefined): TableCell {
 	})
 }
 
-function buildSignatures(data: CardapioDocxData): Table {
-	const s = data.signatures
+function buildSignatures(s: CardapioDocxSignature[]): Table {
 	const pairs: [CardapioDocxSignature | undefined, CardapioDocxSignature | undefined][] = [
 		[s[0], s[1]],
 		[s[2], s[3]],
@@ -240,9 +239,9 @@ export function buildCardapioDocument(data: CardapioDocxData): Document {
 					new Paragraph({ spacing: { after: 160 }, children: [] }),
 					buildGrid(data),
 					...buildLegend(data),
-					...buildPreparations(data),
+					...buildPreparations(data.preparations),
 					new Paragraph({ spacing: { after: 160 }, children: [] }),
-					buildSignatures(data),
+					buildSignatures(data.signatures),
 				],
 			},
 		],
@@ -251,9 +250,110 @@ export function buildCardapioDocument(data: CardapioDocxData): Document {
 
 /** Monta o documento e dispara o download no navegador. */
 export async function downloadCardapioDocx(data: CardapioDocxData, filename: string): Promise<void> {
-	const doc = buildCardapioDocument(data)
+	await downloadDocument(buildCardapioDocument(data), filename, "cardapio-semanal")
+}
+
+// ─── Evento / cardápio de apoio ────────────────────────────────────────────
+
+/**
+ * Evento ou apoio em .docx, espelhando {@link OccasionMenuPrint}: cabeçalho, um bloco por
+ * refeição (nome, horário e efetivo; grupos em linhas), assinaturas e lista de preparações. Em
+ * retrato: sem a grade de sete dias, a folha não precisa da largura.
+ */
+export type OccasionDocxData = {
+	organization: string
+	section: string
+	title: string
+	/** Nome do cardápio (e classificação do padrão de lanche). */
+	subtitle: string
+	/** Data por extenso, ou vazia. */
+	dateLabel: string
+	signatures: CardapioDocxSignature[]
+	/** `label: null` no grupo = kit simples, lista sem coluna de grupo. */
+	meals: {
+		name: string
+		slotName: string | null
+		base: string | null
+		groups: { label: string | null; entries: { name: string; main: boolean; demand: string | null }[] }[]
+	}[]
+	preparations: CardapioDocxData["preparations"]
+}
+
+function entryParagraph(e: { name: string; main: boolean; demand: string | null }) {
+	return new Paragraph({
+		children: [new TextRun({ text: e.name, bold: e.main, size: 18 }), ...(e.demand ? [new TextRun({ text: ` ${e.demand}`, bold: true, size: 18 })] : [])],
+	})
+}
+
+function buildOccasionMeal(meal: OccasionDocxData["meals"][number]): (Table | Paragraph)[] {
+	const heading = [meal.name.toUpperCase(), meal.slotName ? `(${meal.slotName})` : null, meal.base ? `· ${meal.base}` : null].filter(Boolean).join(" ")
+	const head = new TableRow({
+		tableHeader: true,
+		children: [
+			new TableCell({
+				borders: cellBorders,
+				columnSpan: 2,
+				shading: { fill: "EEEEEE" },
+				children: [new Paragraph({ children: [new TextRun({ text: heading, bold: true, size: 18 })] })],
+			}),
+		],
+	})
+	const rows =
+		meal.groups.length === 0
+			? [new TableRow({ children: [new TableCell({ borders: cellBorders, columnSpan: 2, children: [line("Sem preparações", { size: 18 })] })] })]
+			: meal.groups.map((g) =>
+					g.label == null
+						? new TableRow({ children: [new TableCell({ borders: cellBorders, columnSpan: 2, children: g.entries.map(entryParagraph) })] })
+						: new TableRow({
+								children: [
+									new TableCell({
+										borders: cellBorders,
+										width: { size: 25, type: WidthType.PERCENTAGE },
+										shading: { fill: "F4F4F4" },
+										verticalAlign: VerticalAlign.CENTER,
+										children: [new Paragraph({ children: [new TextRun({ text: g.label, bold: true, size: 18 })] })],
+									}),
+									bodyCell(g.entries.map(entryParagraph)),
+								],
+							})
+				)
+	// Larguras em twips (A4 retrato menos as margens): sem elas o Word/LibreOffice divide meio a meio.
+	return [
+		new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, columnWidths: [2600, 8100], rows: [head, ...rows] }),
+		new Paragraph({ spacing: { after: 120 }, children: [] }),
+	]
+}
+
+export function buildOccasionDocument(data: OccasionDocxData): Document {
+	const [s0, s1, s2, s3] = data.signatures
+	return new Document({
+		sections: [
+			{
+				properties: { page: { margin: { top: 500, bottom: 500, left: 600, right: 600 } } },
+				children: [
+					line(data.organization.toUpperCase(), { bold: true, size: 22 }),
+					line(data.section, { size: 18 }),
+					line(data.title, { bold: true, size: 24 }),
+					...(data.subtitle ? [line(data.subtitle, { bold: true, size: 18 })] : []),
+					...(data.dateLabel ? [line(data.dateLabel, { size: 18 })] : []),
+					new Paragraph({ spacing: { after: 160 }, children: [] }),
+					...(data.meals.length === 0 ? [line("Nenhuma refeição cadastrada.", { size: 18 })] : data.meals.flatMap(buildOccasionMeal)),
+					new Paragraph({ spacing: { after: 160 }, children: [] }),
+					buildSignatures([s0, s1, s2, s3].filter((sig): sig is CardapioDocxSignature => sig != null)),
+					...buildPreparations(data.preparations),
+				],
+			},
+		],
+	})
+}
+
+export async function downloadOccasionDocx(data: OccasionDocxData, filename: string): Promise<void> {
+	await downloadDocument(buildOccasionDocument(data), filename, "cardapio")
+}
+
+async function downloadDocument(doc: Document, filename: string, fallback: string): Promise<void> {
 	const blob = await Packer.toBlob(doc)
-	const safe = filename.replace(/[^\p{L}\p{N}\-_ ]/gu, "").trim() || "cardapio-semanal"
+	const safe = filename.replace(/[^\p{L}\p{N}\-_ ]/gu, "").trim() || fallback
 	const url = URL.createObjectURL(blob)
 	const anchor = document.createElement("a")
 	anchor.href = url

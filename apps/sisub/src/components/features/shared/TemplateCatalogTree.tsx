@@ -25,18 +25,19 @@ interface TemplateCatalogTreeProps {
 
 /**
  * Catálogo global de eventos ou cardápios de apoio em árvore: pastas da SDAB (padrão → formato;
- * família → classe) e os modelos dentro delas. Abre tudo expandido, como a SDAB desenhou; a mesma
- * linha (`TreeRow`) das árvores de insumos e preparações.
+ * família → classe) e os modelos dentro delas. Abre com as pastas fechadas — pedido da SDAB: o
+ * catálogo cresceu, e aberto ele virava uma lista longa em que o padrão procurado se perdia. A
+ * mesma linha (`TreeRow`) das árvores de insumos e preparações.
  */
 export function TemplateCatalogTree({ templateType, folders, templates, templateActions, folderActions, selection, onOpenTemplate }: TemplateCatalogTreeProps) {
-	// `null` = tudo aberto. Recolher guarda o que ficou aberto.
-	const [expanded, setExpanded] = useState<ReadonlySet<string> | null>(null)
+	// Pastas abertas pelo usuário; começa vazio (tudo fechado).
+	const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set())
 	const rows = buildCatalogTree({ folders, templates, expanded })
 	const LeafIcon = templateType === "apoio" ? Sandwich : CalendarRange
 
 	const toggle = (id: string) =>
 		setExpanded((current) => {
-			const open = new Set(current ?? rows.filter((r) => r.type === "folder").map((r) => r.id))
+			const open = new Set(current)
 			if (open.has(id)) open.delete(id)
 			else open.add(id)
 			return open
