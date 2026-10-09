@@ -100,3 +100,11 @@ jobs:
         # As mesmas `VITE_*` do passo acima (e que o bake de produção passa como build arg):
         # sem elas o build do PR seria outro artefato, com outro grafo depois do tree-shaking.
         env: *turbo-env
+
+      # Arquivo morto: nenhum entry o alcança, dentro dos `project` de cada workspace no knip.json
+      # (src/, routes/, content/ do docs). Só a categoria `files`, zerada desde o #564; exports e
+      # dependências sem uso (centenas, muitos falsos positivos de runtime) seguem advisory em
+      # `bun run knip`. No fim e com `!cancelled()`: sinal independente, não esconde os de cima.
+      - name: Unused files (knip)
+        if: ${{ !cancelled() }}
+        run: bun run knip:files
