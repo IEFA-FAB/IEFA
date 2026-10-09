@@ -5,6 +5,7 @@ import { ptBR } from "date-fns/locale"
 import {
 	ArrowDown,
 	ArrowUp,
+	ChevronRight,
 	Copy,
 	Edit,
 	FolderInput,
@@ -28,6 +29,7 @@ import { type CatalogFolderRow, TemplateCatalogTree } from "@/components/feature
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -407,53 +409,56 @@ export function GlobalTemplateCatalog({
 			<MoveTemplateDialog template={moving} folders={folders} onClose={() => setMoving(null)} onMoved={revealFolder} />
 
 			{canWrite && (deletedError || (deleted && deleted.length > 0)) && (
-				<div className="space-y-3">
-					<div className="flex items-center gap-2">
-						<Trash2 className="size-4 text-muted-foreground" />
-						<h2 className="text-subheading">Lixeira</h2>
-						{deleted && deleted.length > 0 && (
-							<Badge variant="secondary" className="text-xs">
-								{deleted.length}
-							</Badge>
-						)}
-					</div>
-					{deletedError ? (
-						<QueryErrorState message="Não foi possível carregar a lixeira." onRetry={() => refetchDeleted()} isRetrying={deletedRefetching} />
-					) : (
-						<div className="rounded-md border">
-							<Table>
-								<TableHeader>
-									<TableRow>
-										<TableHead>Nome</TableHead>
-										<TableHead className="w-48">Removido em</TableHead>
-										<TableHead className="w-32 text-right">Ação</TableHead>
-									</TableRow>
-								</TableHeader>
-								<TableBody>
-									{deleted?.map((item) => (
-										<TableRow key={item.id}>
-											<TableCell className="text-muted-foreground">{item.name}</TableCell>
-											<TableCell className="text-sm text-muted-foreground">
-												{item.deleted_at ? format(new Date(item.deleted_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR }) : "—"}
-											</TableCell>
-											<TableCell className="text-right">
-												<Button
-													size="sm"
-													variant="outline"
-													onClick={() => restoreTemplate(item.id, { onSuccess: () => revealFolder(item.folder_id) })}
-													disabled={isRestoring}
-												>
-													<RefreshCcw className="size-3.5 mr-1.5" />
-													Restaurar
-												</Button>
-											</TableCell>
-										</TableRow>
-									))}
-								</TableBody>
-							</Table>
+				// Fechada por padrão: o catálogo é o que se usa no dia a dia, e a lista de removidos
+				// empurrava ele para baixo. O cabeçalho continua visível com a contagem.
+				<Collapsible>
+					<CollapsibleTrigger className="group">
+						<div className="flex items-center gap-2">
+							<ChevronRight className="size-4 text-muted-foreground transition-transform group-data-[panel-open]:rotate-90" aria-hidden="true" />
+							<Trash2 className="size-4 text-muted-foreground" aria-hidden="true" />
+							<h2 className="text-subheading">Lixeira</h2>
+							{deleted && deleted.length > 0 && <Badge variant="secondary">{deleted.length}</Badge>}
 						</div>
-					)}
-				</div>
+					</CollapsibleTrigger>
+					<CollapsibleContent className="mt-3">
+						{deletedError ? (
+							<QueryErrorState message="Não foi possível carregar a lixeira." onRetry={() => refetchDeleted()} isRetrying={deletedRefetching} />
+						) : (
+							<div className="rounded-md border">
+								<Table>
+									<TableHeader>
+										<TableRow>
+											<TableHead>Nome</TableHead>
+											<TableHead className="w-48">Removido em</TableHead>
+											<TableHead className="w-32 text-right">Ação</TableHead>
+										</TableRow>
+									</TableHeader>
+									<TableBody>
+										{deleted?.map((item) => (
+											<TableRow key={item.id}>
+												<TableCell className="text-muted-foreground">{item.name}</TableCell>
+												<TableCell className="text-sm text-muted-foreground">
+													{item.deleted_at ? format(new Date(item.deleted_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR }) : "—"}
+												</TableCell>
+												<TableCell className="text-right">
+													<Button
+														size="sm"
+														variant="outline"
+														onClick={() => restoreTemplate(item.id, { onSuccess: () => revealFolder(item.folder_id) })}
+														disabled={isRestoring}
+													>
+														<RefreshCcw className="size-3.5 mr-1.5" />
+														Restaurar
+													</Button>
+												</TableCell>
+											</TableRow>
+										))}
+									</TableBody>
+								</Table>
+							</div>
+						)}
+					</CollapsibleContent>
+				</Collapsible>
 			)}
 		</div>
 	)
