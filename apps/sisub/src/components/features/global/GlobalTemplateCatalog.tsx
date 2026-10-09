@@ -5,6 +5,7 @@ import { ptBR } from "date-fns/locale"
 import {
 	ArrowDown,
 	ArrowUp,
+	CircleAlert,
 	Copy,
 	Edit,
 	FolderInput,
@@ -18,7 +19,7 @@ import {
 	RefreshCcw,
 	Trash2,
 } from "lucide-react"
-import { useState } from "react"
+import { useState, useSyncExternalStore } from "react"
 import { usePBAC } from "@/auth/pbac"
 import { MoveTemplateDialog } from "@/components/features/global/MoveTemplateDialog"
 import { TemplateFolderDialog, type TemplateFolderDialogState } from "@/components/features/global/TemplateFolderDialog"
@@ -28,12 +29,14 @@ import { type CatalogFolderRow, TemplateCatalogTree } from "@/components/feature
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Collapsible, CollapsibleContent, CollapsibleSectionTrigger } from "@/components/ui/collapsible"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useDeleteTemplateFolder, useDuplicateTemplateAsVariant, useMoveTemplateFolder, useTemplateFolders } from "@/hooks/data/useTemplateFolders"
 import { useDeletedTemplates, useDeleteTemplate, useRestoreTemplate } from "@/hooks/data/useTemplates"
 import { revealOpenFolders } from "@/lib/catalog-open-folders"
+import { isTrashOpen, isTrashOpenOnServer, setTrashOpen, subscribeTrashOpen } from "@/lib/catalog-trash-open"
 import type { OccasionMenuType } from "@/lib/occasion-menu"
 import { queryKeys } from "@/lib/query-keys"
 import { UNFILED_CATALOG_FOLDER_ID } from "@/lib/template-catalog-tree"
@@ -124,6 +127,8 @@ export function GlobalTemplateCatalog({
 	// prática, definitivo.
 	const { data: allDeleted, isError: deletedError, refetch: refetchDeleted, isRefetching: deletedRefetching } = useDeletedTemplates(null, { enabled: canWrite })
 	const deleted = allDeleted?.filter((t) => t.template_type === templateType)
+	// Fechada por padrão; o que o usuário abre vale até fechar a aba (`catalog-trash-open`).
+	const trashOpen = useSyncExternalStore(subscribeTrashOpen, () => isTrashOpen(templateType), isTrashOpenOnServer)
 
 	const handleDelete = (id: string, name: string) => {
 		if (
@@ -131,7 +136,8 @@ export function GlobalTemplateCatalog({
 				`Tem certeza que deseja remover ${nounWithArticle} "${name}"?\n\nO item vai para a lixeira no fim desta página e pode ser restaurado de lá.`
 			)
 		) {
-			deleteTemplate(id)
+			// A lixeira abre fechada; sem abri-la aqui, o item some e não aparece onde o diálogo disse.
+			deleteTemplate(id, { onSuccess: () => setTrashOpen(templateType, true) })
 		}
 	}
 
@@ -407,53 +413,59 @@ export function GlobalTemplateCatalog({
 			<MoveTemplateDialog template={moving} folders={folders} onClose={() => setMoving(null)} onMoved={revealFolder} />
 
 			{canWrite && (deletedError || (deleted && deleted.length > 0)) && (
-				<div className="space-y-3">
-					<div className="flex items-center gap-2">
-						<Trash2 className="size-4 text-muted-foreground" />
-						<h2 className="text-subheading">Lixeira</h2>
-						{deleted && deleted.length > 0 && (
-							<Badge variant="secondary" className="text-xs">
-								{deleted.length}
-							</Badge>
-						)}
-					</div>
-					{deletedError ? (
-						<QueryErrorState message="Não foi possível carregar a lixeira." onRetry={() => refetchDeleted()} isRetrying={deletedRefetching} />
-					) : (
-						<div className="rounded-md border">
-							<Table>
-								<TableHeader>
-									<TableRow>
-										<TableHead>Nome</TableHead>
-										<TableHead className="w-48">Removido em</TableHead>
-										<TableHead className="w-32 text-right">Ação</TableHead>
-									</TableRow>
-								</TableHeader>
-								<TableBody>
-									{deleted?.map((item) => (
-										<TableRow key={item.id}>
-											<TableCell className="text-muted-foreground">{item.name}</TableCell>
-											<TableCell className="text-sm text-muted-foreground">
-												{item.deleted_at ? format(new Date(item.deleted_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR }) : "—"}
-											</TableCell>
-											<TableCell className="text-right">
-												<Button
-													size="sm"
-													variant="outline"
-													onClick={() => restoreTemplate(item.id, { onSuccess: () => revealFolder(item.folder_id) })}
-													disabled={isRestoring}
-												>
-													<RefreshCcw className="size-3.5 mr-1.5" />
-													Restaurar
-												</Button>
-											</TableCell>
+				<Collapsible open={trashOpen} onOpenChange={(open) => setTrashOpen(templateType, open)}>
+					<h2 className="text-subheading">
+						<CollapsibleSectionTrigger>
+							<Trash2 className="size-4 text-muted-foreground" aria-hidden="true" />
+							Lixeira
+							{deleted && deleted.length > 0 && <Badge variant="secondary">{deleted.length}</Badge>}
+							{/* Fechada, a falha ficaria escondida e a lixeira pareceria só vazia. */}
+							{deletedError && (
+								<span className="inline-flex items-center gap-1 text-caption text-destructive">
+									<CircleAlert className="size-3.5" aria-hidden="true" /> não carregou
+								</span>
+							)}
+						</CollapsibleSectionTrigger>
+					</h2>
+					<CollapsibleContent className="mt-3">
+						{deletedError ? (
+							<QueryErrorState message="Não foi possível carregar a lixeira." onRetry={() => refetchDeleted()} isRetrying={deletedRefetching} />
+						) : (
+							<div className="rounded-md border">
+								<Table>
+									<TableHeader>
+										<TableRow>
+											<TableHead>Nome</TableHead>
+											<TableHead className="w-48">Removido em</TableHead>
+											<TableHead className="w-32 text-right">Ação</TableHead>
 										</TableRow>
-									))}
-								</TableBody>
-							</Table>
-						</div>
-					)}
-				</div>
+									</TableHeader>
+									<TableBody>
+										{deleted?.map((item) => (
+											<TableRow key={item.id}>
+												<TableCell className="text-muted-foreground">{item.name}</TableCell>
+												<TableCell className="text-sm text-muted-foreground">
+													{item.deleted_at ? format(new Date(item.deleted_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR }) : "—"}
+												</TableCell>
+												<TableCell className="text-right">
+													<Button
+														size="sm"
+														variant="outline"
+														onClick={() => restoreTemplate(item.id, { onSuccess: () => revealFolder(item.folder_id) })}
+														disabled={isRestoring}
+													>
+														<RefreshCcw className="size-3.5 mr-1.5" />
+														Restaurar
+													</Button>
+												</TableCell>
+											</TableRow>
+										))}
+									</TableBody>
+								</Table>
+							</div>
+						)}
+					</CollapsibleContent>
+				</Collapsible>
 			)}
 		</div>
 	)
