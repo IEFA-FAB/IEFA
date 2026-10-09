@@ -10,12 +10,30 @@ const css = readdirSync(SRC, { recursive: true, encoding: "utf8" })
 	.filter((file) => file.endsWith(".css"))
 	.map((file) => readFileSync(join(SRC, file), "utf8"))
 	.join("\n")
-const ownClasses = [...css.matchAll(/^\s*(?:@utility\s+|\.)((?:text|shadow|bg|border)-[a-z0-9-]+)\s*[{,]/gm)].map((m) => m[1])
+// Classe que abre o seletor (`.text-label {`, `.shadow-hard-sm:hover {`, `@utility text-body {`). Seletor
+// que só reestiliza classe do Tailwind num contexto (`html[data-tenant] .bg-card`) não é classe própria.
+const ownClasses = [...new Set([...css.matchAll(/^\s*(?:@utility\s+|\.)((?:text|shadow|bg|border)-[a-z0-9-]+)(?=[\s,:{])/gm)].map((m) => m[1]))]
 const COLOR_OF_PREFIX: Record<string, string> = {
 	text: "text-muted-foreground",
 	shadow: "shadow-primary/20",
 	bg: "bg-card",
 	border: "border-primary",
+}
+
+// Classe tipográfica: o que ela declara decide o que o `cn` pode tirar antes dela. `@utility`
+// sai no CSS antes do utilitário de uma propriedade só, então precisa tirá-lo; CSS solto em
+// `@layer utilities` já vence no CSS e não tira nada.
+const SAMPLE_OF_PROPERTY: Record<string, string> = {
+	"font-size": "text-sm",
+	"font-weight": "font-medium",
+	"letter-spacing": "tracking-wide",
+	"line-height": "leading-snug",
+}
+function typography(own: string) {
+	const block = css.match(new RegExp(`^\\s*(@utility\\s+|\\.)${own}\\s*\\{([^}]*)\\}`, "m"))
+	if (!block) throw new Error(`bloco de ${own} não achado`)
+	const declared = Object.keys(SAMPLE_OF_PROPERTY).filter((property) => new RegExp(`(^|[;{\\s])${property}\\s*:`).test(block[2]))
+	return { isUtility: block[1].startsWith("@utility"), declared }
 }
 
 describe("cn", () => {
@@ -29,7 +47,10 @@ describe("cn", () => {
 		expect(cn(color, own).split(" ")).toEqual([color, own])
 	})
 
-	it.each(ownClasses.filter((own) => own.startsWith("text-")))("%s substitui tamanho, peso, entrelinha e tracking anteriores", (own) => {
-		expect(cn("text-sm font-medium leading-snug tracking-wide", own)).toBe(own)
+	it.each(ownClasses.filter((own) => own.startsWith("text-")))("%s tira antes de si só o que declara", (own) => {
+		const { isUtility, declared } = typography(own)
+		const samples = Object.entries(SAMPLE_OF_PROPERTY)
+		const kept = samples.filter(([property]) => !isUtility || !declared.includes(property)).map(([, sample]) => sample)
+		expect(cn(...samples.map(([, sample]) => sample), own).split(" ")).toEqual([...kept, own])
 	})
 })
