@@ -139,7 +139,7 @@ export function TrashDrawer({ open, onClose, kitchenId }: TrashDrawerProps) {
 											<Item key={template.id} variant="muted">
 												<ItemHeader>
 													<ItemContent>
-														<ItemTitle className="gap-2">
+														<ItemTitle>
 															{template.name}
 															{template.kitchen_id === null && (
 																<Badge variant="outline" className="text-[10px]">

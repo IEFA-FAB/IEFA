@@ -79,7 +79,7 @@ function EmpenhoRow({ empenho, arpItemId, arpId, canWrite }: { empenho: EmpenhoO
 				<span>{fmtDate(empenho.data_empenho)}</span>
 				<span>{formatQuantityTimesPrice(empenho)}</span>
 				<EmpenhoValue empenho={empenho} />
-				<Badge variant="outline" className="ml-auto text-xs">
+				<Badge variant="outline" className="ml-auto">
 					Anulado
 				</Badge>
 			</div>

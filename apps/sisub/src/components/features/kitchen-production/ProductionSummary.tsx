@@ -29,7 +29,7 @@ export function ProductionSummary({ items }: ProductionSummaryProps) {
 
 				<div className="flex items-center gap-1.5 text-body">
 					<Clock className="size-3.5 text-muted-foreground" />
-					<Badge variant="outline" className="font-mono text-xs">
+					<Badge variant="outline" className="font-mono">
 						{pending}
 					</Badge>
 					<span className="text-muted-foreground">pendentes</span>
@@ -37,7 +37,7 @@ export function ProductionSummary({ items }: ProductionSummaryProps) {
 
 				<div className="flex items-center gap-1.5 text-body">
 					<ChefHat className="size-3.5 text-warning" />
-					<Badge variant="warning" className="font-mono text-xs">
+					<Badge variant="warning" className="font-mono">
 						{inProgress}
 					</Badge>
 					<span className="text-muted-foreground">em andamento</span>
@@ -45,7 +45,7 @@ export function ProductionSummary({ items }: ProductionSummaryProps) {
 
 				<div className="flex items-center gap-1.5 text-body">
 					<CheckCircle2 className="size-3.5 text-success" />
-					<Badge variant="success" className="font-mono text-xs">
+					<Badge variant="success" className="font-mono">
 						{done}
 					</Badge>
 					<span className="text-muted-foreground">concluídas</span>

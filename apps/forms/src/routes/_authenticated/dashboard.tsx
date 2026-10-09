@@ -157,14 +157,14 @@ function QuestionnaireList({
 								<div className="flex items-center gap-2">
 									<CardTitle className="text-base">{q.title}</CardTitle>
 									{tenantId === "forms" && q.tags?.includes("5s") && (
-										<Badge variant="outline" className="text-xs shrink-0">
+										<Badge variant="outline" className="shrink-0">
 											5S
 										</Badge>
 									)}
 								</div>
 								<div className="flex items-center gap-2">
 									{roleBadge && (
-										<Badge variant="outline" className="text-xs shrink-0">
+										<Badge variant="outline" className="shrink-0">
 											{roleBadge}
 										</Badge>
 									)}

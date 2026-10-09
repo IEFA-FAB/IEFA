@@ -755,9 +755,7 @@ function WeeklyMenuEditorPage() {
 							<div className="mt-4 flex items-center gap-2">
 								<GitFork className="size-3.5 text-muted-foreground" />
 								<span className="text-xs text-muted-foreground">Adaptado do plano global da SDAB</span>
-								<Badge variant="outline" className="text-xs">
-									Independente — alterações no original não afetam este cardápio
-								</Badge>
+								<Badge variant="outline">Independente — alterações no original não afetam este cardápio</Badge>
 							</div>
 						)}
 					</CardContent>
@@ -835,7 +833,7 @@ function WeeklyMenuEditorPage() {
 						<TabsTrigger value="overview" className="gap-1.5">
 							<span>Visão Geral</span>
 							{totalRecipes > 0 && (
-								<Badge variant="secondary" className="text-xs ml-1">
+								<Badge variant="secondary" className="ml-1">
 									{totalRecipes}
 								</Badge>
 							)}
@@ -845,11 +843,7 @@ function WeeklyMenuEditorPage() {
 							return (
 								<TabsTrigger key={day.num} value={String(day.num)} className="gap-1">
 									{day.abbr}
-									{count > 0 && (
-										<Badge variant="secondary" className="text-xs">
-											{count}
-										</Badge>
-									)}
+									{count > 0 && <Badge variant="secondary">{count}</Badge>}
 								</TabsTrigger>
 							)
 						})}
@@ -922,11 +916,7 @@ function WeeklyMenuEditorPage() {
 											<div className="flex items-center justify-between px-4 py-3 bg-muted/30">
 												<div className="flex items-center gap-2">
 													<span className="text-subheading">{mealType.name}</span>
-													{boardItems.length > 0 && (
-														<Badge variant="secondary" className="text-xs">
-															{boardItems.length}
-														</Badge>
-													)}
+													{boardItems.length > 0 && <Badge variant="secondary">{boardItems.length}</Badge>}
 												</div>
 												<div className="flex items-center gap-2">
 													<div
@@ -948,7 +938,7 @@ function WeeklyMenuEditorPage() {
 															type="button"
 															size="sm"
 															variant="ghost"
-															className="text-xs h-7 gap-1 text-muted-foreground hover:text-foreground"
+															className="text-xs h-7 text-muted-foreground"
 															onClick={() => handlePaste(day.num, mealType.id)}
 														>
 															<ClipboardPaste className="size-3.5" />
@@ -959,7 +949,7 @@ function WeeklyMenuEditorPage() {
 														type="button"
 														size="sm"
 														variant="ghost"
-														className="text-xs h-7 gap-1 text-muted-foreground hover:text-foreground"
+														className="text-xs h-7 text-muted-foreground"
 														// Primeira coluna do conjunto DESTA refeição: fixar "prato_principal"
 														// criava item fora do conjunto no café e na ceia, numa coluna que
 														// nem botão de adicionar tem.

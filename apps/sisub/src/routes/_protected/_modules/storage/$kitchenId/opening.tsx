@@ -408,7 +408,7 @@ function OpeningBalancePage() {
 													}}
 												/>
 												{line.costSource ? (
-													<Badge variant="outline" className="text-xs" title={line.costReference ?? undefined}>
+													<Badge variant="outline" title={line.costReference ?? undefined}>
 														{OPENING_COST_SOURCE_LABELS[line.costSource as OpeningCostSource]}
 													</Badge>
 												) : line.suggestion ? (

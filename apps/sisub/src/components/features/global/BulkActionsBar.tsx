@@ -160,7 +160,7 @@ export function BulkActionsBar({ selectedNodes, showDeleted, onDone, onClear, ca
 			{/* Barra flutuante */}
 			<div className="sticky bottom-4 z-30 mx-auto w-fit max-w-full">
 				<div className="flex flex-wrap items-center gap-2 rounded-full border bg-background/95 px-3 py-2 shadow-lg backdrop-blur">
-					<Badge variant="secondary" className="gap-1">
+					<Badge variant="secondary">
 						{selectedNodes.length} {selectedNodes.length === 1 ? "selecionado" : "selecionados"}
 					</Badge>
 					{folderCount > 0 && ingredientNodes.length > 0 && (

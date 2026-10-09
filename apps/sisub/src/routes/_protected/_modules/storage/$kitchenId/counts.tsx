@@ -229,7 +229,7 @@ function CountsPage() {
 							{TYPE_LABELS[sheet.count.type] ?? sheet.count.type} · {SCOPE_LABELS[sheet.count.scope] ?? sheet.count.scope}
 							<Badge variant="secondary">{STATUS_LABELS[sheet.count.status] ?? sheet.count.status}</Badge>
 							{sheet.count.round > 1 && <Badge variant="outline">rodada {sheet.count.round}</Badge>}
-							<Badge variant="outline" className="gap-1">
+							<Badge variant="outline">
 								{sheet.reveal ? <Eye className="size-3" /> : <EyeOff className="size-3" />}
 								{sheet.reveal ? "Saldo visível" : "Cega"}
 							</Badge>
@@ -353,17 +353,17 @@ function CountsPage() {
 										<TableCell>
 											{line.description}
 											{line.found && (
-												<Badge variant="outline" className="ml-2 text-xs">
+												<Badge variant="outline" className="ml-2">
 													achado
 												</Badge>
 											)}
 											{line.ownRound && line.entries === 0 && (
-												<Badge variant="outline" className="ml-2 text-xs text-muted-foreground">
+												<Badge variant="outline" className="ml-2 text-muted-foreground">
 													{line.notCountedAccepted ? "aceito como não contado" : "não contado"}
 												</Badge>
 											)}
 											{!line.ownRound && (
-												<Badge variant="outline" className="ml-2 text-xs text-muted-foreground">
+												<Badge variant="outline" className="ml-2 text-muted-foreground">
 													rodada anterior
 												</Badge>
 											)}

@@ -191,7 +191,7 @@ export function AIAssistant({ dataContext }: AIAssistantProps) {
 									type="button"
 									size="icon"
 									aria-label={isStreaming ? "Parar" : "Enviar"}
-									className="w-10 h-10 rounded-full bg-tech-blue text-white hover:bg-tech-blue disabled:opacity-50 disabled:cursor-not-allowed"
+									className="w-10 h-10 rounded-full bg-tech-blue text-white hover:bg-tech-blue disabled:cursor-not-allowed"
 								>
 									{isStreaming ? <X size={16} /> : <Send size={16} className="ml-1" />}
 								</Button>

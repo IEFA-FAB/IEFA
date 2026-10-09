@@ -232,7 +232,7 @@ export function DemandForecastEditor({
 					<p className="text-subheading mb-2">Resumo das Seleções:</p>
 					<div className="flex flex-wrap gap-2">
 						{selections.map((s) => (
-							<Badge key={s.templateId} variant="secondary" className="text-xs">
+							<Badge key={s.templateId} variant="secondary">
 								{s.templateName} × {s.repetitions}
 							</Badge>
 						))}

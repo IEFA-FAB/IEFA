@@ -155,7 +155,7 @@ export function AppShell() {
 						{(!isOnScopeHub || isMobile) && (
 							<>
 								<SidebarTrigger className="size-9 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors" />
-								<Separator orientation="vertical" className="mx-2 h-6 bg-border data-[orientation=vertical]:self-center" />
+								<Separator orientation="vertical" className="mx-2 h-6 data-[orientation=vertical]:self-center" />
 							</>
 						)}
 						{isMobile ? (

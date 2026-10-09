@@ -164,7 +164,7 @@ export function SnackStandardPanel({ draft, onChange, isKitchenTemplate, energyT
 							{issues.reviewedAt ? (
 								<FieldError>{issues.reviewedAt}</FieldError>
 							) : reviewOverdue ? (
-								<Badge variant="warning" className="gap-1">
+								<Badge variant="warning">
 									<AlertTriangle />
 									Revisão trimestral vencida
 								</Badge>

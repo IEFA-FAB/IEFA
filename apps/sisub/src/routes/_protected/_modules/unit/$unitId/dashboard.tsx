@@ -181,7 +181,7 @@ function UnitDashboardPage() {
 				<div className="flex items-center gap-3">
 					<SectionTitle>Itens com saldo crítico nas ARPs</SectionTitle>
 					{lowBalanceItems.length > 0 && (
-						<Badge variant="secondary" className="text-xs">
+						<Badge variant="secondary">
 							{lowBalanceItems.length} {lowBalanceItems.length === 1 ? "item" : "itens"}
 						</Badge>
 					)}
@@ -195,7 +195,7 @@ function UnitDashboardPage() {
 				<div className="flex items-center gap-3">
 					<SectionTitle>Críticos no cardápio de produção</SectionTitle>
 					{criticalMenuItems.length > 0 && (
-						<Badge variant="destructive" className="text-xs">
+						<Badge variant="destructive">
 							{criticalMenuItems.length} {criticalMenuItems.length === 1 ? "alerta" : "alertas"}
 						</Badge>
 					)}

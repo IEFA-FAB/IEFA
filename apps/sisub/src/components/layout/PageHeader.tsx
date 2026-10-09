@@ -45,13 +45,7 @@ export function PageHeader({ title, description, badge, children, onBack, suppre
 					<Tooltip>
 						<TooltipTrigger
 							render={
-								<Button
-									variant="ghost"
-									size="icon"
-									onClick={onBack}
-									aria-label="Voltar"
-									className="mt-0.5 size-7 shrink-0 text-muted-foreground hover:text-foreground"
-								>
+								<Button variant="ghost" size="icon" onClick={onBack} aria-label="Voltar" className="mt-0.5 size-7 shrink-0 text-muted-foreground">
 									<ArrowLeft className="size-4" />
 								</Button>
 							}

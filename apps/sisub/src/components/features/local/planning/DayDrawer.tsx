@@ -532,7 +532,7 @@ function MealSection({
 					<div className="space-y-4">
 						{/* Editable Forecasted Headcount */}
 						<div className="bg-muted/30 p-3 rounded-md">
-							<Field orientation="vertical" className="gap-2">
+							<Field orientation="vertical">
 								<FieldLabel htmlFor={`headcount-${menu.id}`} className="text-caption">
 									Previsão de Comensais
 								</FieldLabel>
