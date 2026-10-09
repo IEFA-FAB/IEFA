@@ -1,15 +1,10 @@
 import { fetchServerSentEvents, useChat } from "@tanstack/ai-react"
-import { type ClassValue, clsx } from "clsx"
 import { Bot, Loader2, MessageSquare, Send, User, X } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { twMerge } from "tailwind-merge"
 import { Button } from "#/components/ui/button"
 import { Input } from "#/components/ui/input"
-
-function cn(...inputs: ClassValue[]) {
-	return twMerge(clsx(inputs))
-}
+import { cn } from "#/lib/utils"
 
 interface AIAssistantProps {
 	// biome-ignore lint/suspicious/noExplicitAny: context carries arbitrary data shape

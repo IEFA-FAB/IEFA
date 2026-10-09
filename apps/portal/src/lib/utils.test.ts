@@ -10,7 +10,13 @@ const css = readdirSync(SRC, { recursive: true, encoding: "utf8" })
 	.filter((file) => file.endsWith(".css"))
 	.map((file) => readFileSync(join(SRC, file), "utf8"))
 	.join("\n")
-const ownClasses = [...css.matchAll(/^\s*(?:@utility\s+|\.)((?:text|shadow)-[a-z0-9-]+)\s*\{/gm)].map((m) => m[1])
+const ownClasses = [...css.matchAll(/^\s*(?:@utility\s+|\.)((?:text|shadow|bg|border)-[a-z0-9-]+)\s*[{,]/gm)].map((m) => m[1])
+const COLOR_OF_PREFIX: Record<string, string> = {
+	text: "text-muted-foreground",
+	shadow: "shadow-primary/20",
+	bg: "bg-card",
+	border: "border-primary",
+}
 
 describe("cn", () => {
 	it("acha as classes próprias do CSS", () => {
@@ -18,8 +24,12 @@ describe("cn", () => {
 	})
 
 	it.each(ownClasses)("mantém %s junto de uma cor", (own) => {
-		const color = own.startsWith("shadow-") ? "shadow-primary/20" : "text-muted-foreground"
+		const color = COLOR_OF_PREFIX[own.split("-")[0]]
 		expect(cn(own, color).split(" ")).toEqual([own, color])
 		expect(cn(color, own).split(" ")).toEqual([color, own])
+	})
+
+	it.each(ownClasses.filter((own) => own.startsWith("text-")))("%s substitui tamanho, peso, entrelinha e tracking anteriores", (own) => {
+		expect(cn("text-sm font-medium leading-snug tracking-wide", own)).toBe(own)
 	})
 })
