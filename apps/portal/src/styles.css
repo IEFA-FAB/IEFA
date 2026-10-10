@@ -76,13 +76,13 @@
   --accent:                var(--gray-200);
   --accent-foreground:     oklch(0.1000 0 0);
 
-  /* Destructive */
-  --destructive:           oklch(0.5771 0.2450 27.33);
+  /* Destructive: escurecido para o texto passar AA também sobre o próprio tint /10 */
+  --destructive:           oklch(0.5100 0.1950 27);
   --destructive-foreground: oklch(1.0000 0 0);
 
   /* Status (aviso informativo, sucesso, atenção): só para estado, nunca decoração.
      O token é a cor do TEXTO; o callout compõe `bg-*/10 border-*/30 text-*`, e o
-     texto passa de 5:1 sobre o próprio tint nos dois temas. */
+     texto passa de 4,5:1 sobre o próprio tint nos dois temas. */
   --info:                  oklch(0.4800 0.1400 255);
   --info-foreground:       oklch(1.0000 0 0);
   --success:               oklch(0.4800 0.1200 150);
@@ -181,8 +181,10 @@
   --accent:                var(--gray-800);
   --accent-foreground:     oklch(0.9671 0 0);
 
-  --destructive:           oklch(0.5771 0.2450 27.33);
-  --destructive-foreground: oklch(1.0000 0 0);
+  /* Mais claro que no tema claro: o vermelho do claro fica abaixo de 4,5:1 sobre o
+     quase-preto. Por isso o foreground escuro. */
+  --destructive:           oklch(0.7000 0.1700 25);
+  --destructive-foreground: oklch(0.1000 0 0);
 
   --info:                  oklch(0.8000 0.1000 250);
   --info-foreground:       oklch(0.1000 0 0);
@@ -239,8 +241,8 @@
     --accent:                var(--gray-800);
     --accent-foreground:     oklch(0.9671 0 0);
 
-    --destructive:           oklch(0.5771 0.2450 27.33);
-    --destructive-foreground: oklch(1.0000 0 0);
+    --destructive:           oklch(0.7000 0.1700 25);
+    --destructive-foreground: oklch(0.1000 0 0);
 
     --info:                  oklch(0.8000 0.1000 250);
     --info-foreground:       oklch(0.1000 0 0);

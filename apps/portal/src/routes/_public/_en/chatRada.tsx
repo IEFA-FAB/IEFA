@@ -6,6 +6,7 @@ import ReactMarkdown from "react-markdown"
 import remarkBreaks from "remark-breaks"
 import remarkGfm from "remark-gfm"
 import { authQueryOptions, getAccessToken } from "@/auth/service"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ModelImagePlaceholder } from "@/components/ui/markdown"
@@ -738,10 +739,10 @@ function ChatRada() {
 					</Button>
 
 					{!isLoggedIn && (
-						<div className="mt-2 flex items-start gap-2 border border-warning/30 bg-warning/5 px-3 py-2">
-							<WarningCircle className="mt-0.5 h-3.5 w-3.5 text-warning shrink-0" />
-							<span className="text-[11px] text-muted-foreground">Não logado. Histórico desativado.</span>
-						</div>
+						<Alert variant="warning" role="note" className="mt-2">
+							<WarningCircle aria-hidden="true" />
+							<AlertDescription className="text-xs">Não logado. Histórico desativado.</AlertDescription>
+						</Alert>
 					)}
 				</div>
 
@@ -848,14 +849,14 @@ function ChatRada() {
 											: "Faça sua pergunta sobre o Regulamento de Administração da Aeronáutica."}
 									</p>
 								</div>
-								<div className="border border-warning/30 bg-warning/5 px-4 py-3 text-left">
-									<p className="text-xs font-semibold text-warning mb-1">Importante</p>
-									<p className="text-xs text-warning leading-relaxed">
+								<Alert variant="warning" role="note">
+									<AlertTitle className="text-xs font-semibold">Importante</AlertTitle>
+									<AlertDescription className="text-xs leading-relaxed">
 										{isLoggedIn
 											? 'O histórico desta conversa é salvo automaticamente por 7 dias. Use "Nova conversa" para mudar de assunto.'
 											: "Você não está logado. Faça login para ativar o histórico de conversas."}
-									</p>
-								</div>
+									</AlertDescription>
+								</Alert>
 							</div>
 						</div>
 					) : (

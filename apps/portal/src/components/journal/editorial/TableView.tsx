@@ -5,6 +5,7 @@ import { ArrowDown, ArrowSeparateVertical, ArrowUp } from "iconoir-react"
 import { useState } from "react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { displaySubmitterName } from "@/lib/journal/profile"
+import { daysSeverityClass } from "@/lib/journal/submission-age"
 import type { EditorialDashboardArticle } from "@/lib/journal/types"
 
 interface TableViewProps {
@@ -118,13 +119,7 @@ export function TableView({ articles }: TableViewProps) {
 										: "-"}
 								</TableCell>
 								<TableCell className="text-right text-sm font-mono">
-									{daysSinceSubmission > 0 ? (
-										<span className={daysSinceSubmission > 14 ? "text-destructive font-semibold" : daysSinceSubmission > 7 ? "text-warning" : "text-success"}>
-											{daysSinceSubmission}d
-										</span>
-									) : (
-										"-"
-									)}
+									{daysSinceSubmission > 0 ? <span className={daysSeverityClass(daysSinceSubmission)}>{daysSinceSubmission}d</span> : "-"}
 								</TableCell>
 							</TableRow>
 						)

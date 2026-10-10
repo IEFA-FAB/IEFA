@@ -8,6 +8,7 @@ import { Calendar, CheckCircle, Download, EditPencil, Group, Page, Upload, Warni
 import { useRef, useState } from "react"
 import { authQueryOptions } from "@/auth/service"
 import { StatusBadge } from "@/components/journal/StatusBadge"
+import { Alert } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { uploadArticleFile } from "@/lib/journal/client"
 import {
@@ -281,32 +282,34 @@ function RevisionResubmit({ articleId, nextVersion }: { articleId: string; nextV
 	}
 
 	return (
-		<div className="p-6 border rounded-lg bg-warning/10 border-warning/30 space-y-4">
-			<div>
-				<h2 className="font-semibold text-lg">Enviar Versão Revisada</h2>
-				<p className="text-sm text-muted-foreground">O editor solicitou revisão. Envie o manuscrito revisado (PDF) para uma nova rodada de avaliação.</p>
-			</div>
-
-			{banner && (
-				<div
-					className={`p-3 border rounded-lg text-sm flex items-center gap-2 ${banner.kind === "success" ? "bg-success/10 border-success/30 text-success" : "bg-destructive/10 border-destructive/30 text-destructive"}`}
-				>
-					{banner.kind === "success" ? <CheckCircle className="size-4" /> : <WarningTriangle className="size-4" />}
-					{banner.text}
+		<Alert variant="warning" role="note">
+			<div className="space-y-4">
+				<div>
+					<h2 className="font-semibold text-lg">Enviar Versão Revisada</h2>
+					<p>O editor solicitou revisão. Envie o manuscrito revisado (PDF) para uma nova rodada de avaliação.</p>
 				</div>
-			)}
 
-			<input ref={inputRef} type="file" accept="application/pdf,.pdf" className="hidden" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-			<div className="flex flex-wrap items-center gap-3">
-				<Button variant="outline" onClick={() => inputRef.current?.click()} disabled={uploading}>
-					<Upload className="size-4 mr-2" />
-					{file ? "Trocar arquivo" : "Selecionar PDF"}
-				</Button>
-				{file && <span className="text-sm text-muted-foreground">{file.name}</span>}
-				<Button onClick={handleSubmit} disabled={uploading || !file}>
-					{uploading ? "Enviando..." : "Enviar Revisão"}
-				</Button>
+				{banner && (
+					<div
+						className={`p-3 border rounded-lg text-sm flex items-center gap-2 ${banner.kind === "success" ? "bg-success/10 border-success/30 text-success" : "bg-destructive/10 border-destructive/30 text-destructive"}`}
+					>
+						{banner.kind === "success" ? <CheckCircle className="size-4" /> : <WarningTriangle className="size-4" />}
+						{banner.text}
+					</div>
+				)}
+
+				<input ref={inputRef} type="file" accept="application/pdf,.pdf" className="hidden" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+				<div className="flex flex-wrap items-center gap-3">
+					<Button variant="outline" onClick={() => inputRef.current?.click()} disabled={uploading}>
+						<Upload className="size-4 mr-2" />
+						{file ? "Trocar arquivo" : "Selecionar PDF"}
+					</Button>
+					{file && <span>{file.name}</span>}
+					<Button onClick={handleSubmit} disabled={uploading || !file}>
+						{uploading ? "Enviando..." : "Enviar Revisão"}
+					</Button>
+				</div>
 			</div>
-		</div>
+		</Alert>
 	)
 }

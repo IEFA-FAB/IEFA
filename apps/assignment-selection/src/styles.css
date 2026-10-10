@@ -1,7 +1,7 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
-@custom-variant dark (&:is(.dark *));
+@custom-variant dark (&:is(.dark *):not(.light, .light *));
 
 /* ============================================================
    assignment-selection — painel de escolha de vagas (CPAINT)
@@ -11,14 +11,16 @@
    que é claro dentro do telão, volta ao claro com `light`.
    ============================================================ */
 
-/* Fundo do telão: gradiente navy e o quase-preto do corpo. Não variam com o tema. */
+/* Fundo do telão (gradiente navy e o quase-preto do corpo) e a terra do mapa. Não
+   variam com o tema. */
 :root {
 	--stage: oklch(0.1876 0.0422 267.69);
 	--stage-mid: oklch(0.1721 0.0324 268.88);
 	--stage-deep: oklch(0.1304 0.0192 269.8);
+	--map-land: oklch(0.929 0.013 255.508);
 }
 
-/* `light` só reverte os tokens: utilitário `dark:` dentro dele ainda casaria. */
+/* `light` reverte os tokens; a variante `dark:` acima também para de casar dentro dele. */
 :root,
 .light {
 	--radius: 0.625rem;
@@ -109,6 +111,7 @@
 	--color-stage: var(--stage);
 	--color-stage-mid: var(--stage-mid);
 	--color-stage-deep: var(--stage-deep);
+	--color-map-land: var(--map-land);
 	--color-border: var(--border);
 	--color-input: var(--input);
 	--color-ring: var(--ring);

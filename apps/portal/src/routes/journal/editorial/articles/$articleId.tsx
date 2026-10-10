@@ -29,10 +29,10 @@ export const Route = createFileRoute("/journal/editorial/articles/$articleId")({
 })
 
 const RECOMMENDATION_LABELS: Record<string, { label: string; className: string }> = {
-	accept: { label: "Aceitar", className: "bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300" },
-	minor_revision: { label: "Revisão Menor", className: "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300" },
-	major_revision: { label: "Revisão Maior", className: "bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-300" },
-	reject: { label: "Rejeitar", className: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300" },
+	accept: { label: "Aceitar", className: "bg-success/10 text-success" },
+	minor_revision: { label: "Revisão Menor", className: "bg-info/10 text-info" },
+	major_revision: { label: "Revisão Maior", className: "bg-warning/10 text-warning" },
+	reject: { label: "Rejeitar", className: "bg-destructive/10 text-destructive" },
 }
 
 const EVENT_LABELS: Record<string, string> = {

@@ -207,22 +207,19 @@ function ReviewSubmission() {
 				</Alert>
 			)}
 
-			<div className="p-4 border rounded-lg bg-info/10 border-info/30 flex flex-wrap items-center justify-between gap-3">
-				<p className="text-sm text-info">
-					📅 Prazo: <strong>{new Date(assignment.due_date).toLocaleDateString("pt-BR")}</strong>
-				</p>
-				{manuscriptUrl && (
-					<a
-						href={manuscriptUrl}
-						target="_blank"
-						rel="noopener noreferrer"
-						className="inline-flex items-center gap-2 text-sm font-medium text-info hover:underline"
-					>
-						<Download className="size-4" />
-						Baixar manuscrito (PDF)
-					</a>
-				)}
-			</div>
+			<Alert variant="info" role="note">
+				<div className="flex flex-wrap items-center justify-between gap-3">
+					<p>
+						📅 Prazo: <strong>{new Date(assignment.due_date).toLocaleDateString("pt-BR")}</strong>
+					</p>
+					{manuscriptUrl && (
+						<a href={manuscriptUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 font-medium hover:underline">
+							<Download className="size-4" />
+							Baixar manuscrito (PDF)
+						</a>
+					)}
+				</div>
+			</Alert>
 
 			{/* Resumo do artigo */}
 			{assignment.article?.abstract_pt && (
@@ -322,28 +319,28 @@ function ReviewSubmission() {
 						description="Pronto para publicação"
 						selected={formData.recommendation === "accept"}
 						onClick={() => updateField("recommendation", "accept")}
-						color="green"
+						tone="success"
 					/>
 					<RecommendationOption
 						label="Revisão Menor"
 						description="Pequenos ajustes necessários"
 						selected={formData.recommendation === "minor_revision"}
 						onClick={() => updateField("recommendation", "minor_revision")}
-						color="blue"
+						tone="info"
 					/>
 					<RecommendationOption
 						label="Revisão Maior"
 						description="Mudanças substanciais necessárias"
 						selected={formData.recommendation === "major_revision"}
 						onClick={() => updateField("recommendation", "major_revision")}
-						color="orange"
+						tone="warning"
 					/>
 					<RecommendationOption
 						label="Rejeitar"
 						description="Não adequado para publicação"
 						selected={formData.recommendation === "reject"}
 						onClick={() => updateField("recommendation", "reject")}
-						color="red"
+						tone="destructive"
 					/>
 				</div>
 			</fieldset>
@@ -451,23 +448,24 @@ function RecommendationOption({
 	description,
 	selected,
 	onClick,
-	color,
+	tone,
 }: {
 	label: string
 	description: string
 	selected: boolean
 	onClick: () => void
-	color: "green" | "blue" | "orange" | "red"
+	tone: "success" | "info" | "warning" | "destructive"
 }) {
-	const colorClasses = {
-		green: selected ? "border-green-500 bg-green-50 dark:bg-green-950" : "border-gray-200 hover:border-green-300",
-		blue: selected ? "border-blue-500 bg-blue-50 dark:bg-blue-950" : "border-gray-200 hover:border-blue-300",
-		orange: selected ? "border-orange-500 bg-orange-50 dark:bg-orange-950" : "border-gray-200 hover:border-orange-300",
-		red: selected ? "border-red-500 bg-red-50 dark:bg-red-950" : "border-gray-200 hover:border-red-300",
+	// Mesmo tom do rótulo da decisão no painel editorial (RECOMMENDATION_LABELS).
+	const toneClasses = {
+		success: selected ? "border-success bg-success/10" : "border-border hover:border-success/50",
+		info: selected ? "border-info bg-info/10" : "border-border hover:border-info/50",
+		warning: selected ? "border-warning bg-warning/10" : "border-border hover:border-warning/50",
+		destructive: selected ? "border-destructive bg-destructive/10" : "border-border hover:border-destructive/50",
 	}
 
 	return (
-		<button type="button" onClick={onClick} className={`p-4 border-2 rounded-lg text-left transition-colors ${colorClasses[color]}`}>
+		<button type="button" onClick={onClick} className={`p-4 border-2 rounded-lg text-left transition-colors ${toneClasses[tone]}`}>
 			<p className="font-semibold mb-1">{label}</p>
 			<p className="text-xs text-muted-foreground">{description}</p>
 		</button>

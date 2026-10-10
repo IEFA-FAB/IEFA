@@ -60,7 +60,7 @@ Referências-chave: **adidas.com** · **greptile.com** · **Vercel Geist** · **
 | `--input` | `--gray-300` | Borda de inputs |
 | `--ring` | `oklch(0.1000 0 0)` | Foco — preto explícito |
 | `--radius` | `0rem` | **Nenhum arredondamento** |
-| `--destructive` | `oklch(0.5771 0.2450 27.33)` | Vermelho — único acento cromático |
+| `--destructive` | `oklch(0.51 0.195 27)` | Vermelho: erro e ação destrutiva (ver §2.4) |
 
 ### 2.3 Tokens Semânticos (Dark)
 
@@ -79,16 +79,20 @@ Referências-chave: **adidas.com** · **greptile.com** · **Vercel Geist** · **
 Cor fora do cinza só comunica **estado**: nunca decora ícone, tile ou seção. Ícone ou tile
 decorativo fica em `bg-muted` + `text-foreground`.
 
-| Token CSS | Light | Dark | Uso |
-|-----------|-------|------|-----|
-| `--info` | `oklch(0.48 0.14 255)` | `oklch(0.80 0.10 250)` | Nota, dica, pendente |
-| `--success` | `oklch(0.48 0.12 150)` | `oklch(0.80 0.13 155)` | Concluído, salvo, no ar |
-| `--warning` | `oklch(0.50 0.11 65)` | `oklch(0.84 0.13 80)` | Atenção, ação pendente do usuário, degradado |
-| `--destructive` | (§2.2) | (§2.2) | Erro, falha, prazo estourado |
+| Token CSS | Light | Dark | Uso | Contraste light (fundo / tint `/10`) | Contraste dark (fundo / tint `/10`) |
+|-----------|-------|------|-----|------|------|
+| `--info` | `oklch(0.48 0.14 255)` | `oklch(0.80 0.10 250)` | Nota, dica, pendente | 6,4 / 5,5 | 11,1 / 9,8 |
+| `--success` | `oklch(0.48 0.12 150)` | `oklch(0.80 0.13 155)` | Concluído, salvo, no ar | 6,0 / 5,2 | 11,6 / 10,2 |
+| `--warning` | `oklch(0.50 0.11 65)` | `oklch(0.84 0.13 80)` | Atenção, ação pendente do usuário, degradado | 6,0 / 5,2 | 12,5 / 10,9 |
+| `--destructive` | `oklch(0.51 0.195 27)` | `oklch(0.70 0.17 25)` | Erro, falha, prazo estourado | 6,1 / 5,2 | 7,2 / 6,5 |
 
-O token é a cor do **texto**. Callout compõe `border-*/30 bg-*/10 text-*` (o texto passa de
-5:1 sobre o tint nos dois temas); callout estático usa `<Alert variant="info|success|warning">`
-com `role="note"`, não `div` com classes repetidas. Paleta crua do Tailwind (`bg-blue-50`,
+Os `*-foreground` são branco no light e `oklch(0.10 0 0)` no dark (≥ 6:1 sobre o token nos dois;
+`destructive-foreground` dá 6,4 no light e 7,2 no dark).
+
+O token é a cor do **texto**. Callout compõe `border-*/30 bg-*/10 text-*` (uma opacidade de tint
+só, `/10`; o texto passa de 4,5:1 sobre ele nos dois temas); callout estático usa
+`<Alert variant="info|success|warning|destructive" role="note">` com o padding do primitivo, não
+`div` com classes repetidas. Paleta crua do Tailwind (`bg-blue-50`,
 `text-green-600`) não entra: o lint de Tailwind conta como dívida.
 
 ---
