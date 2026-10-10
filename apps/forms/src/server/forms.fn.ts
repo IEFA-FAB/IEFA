@@ -7,6 +7,15 @@ import { SELF_VIEWER_MESSAGES, selfViewerGrantRefusal, toFormsAccessError } from
 import { forbidden, requireUser, requireUserId } from "@/lib/auth.server"
 import { enforceWriteRate } from "@/lib/rate-limit.server"
 import {
+	answerValueSchema,
+	isVersionCapReached,
+	MAX_RESPONSE_VERSIONS,
+	observationSchema,
+	omInputSchema,
+	secaoInputSchema,
+	VERSION_CAP_MESSAGE,
+} from "@/lib/response-limits"
+import {
 	buildBindingsFromPolicyInput,
 	filterResponsesByViewerPolicy,
 	isOmScopeable,
@@ -19,15 +28,6 @@ import {
 	type ViewerScopeMode,
 	validateViewerPolicyInput,
 } from "@/lib/response-visibility-policy"
-import {
-	answerValueSchema,
-	isVersionCapReached,
-	MAX_RESPONSE_VERSIONS,
-	observationSchema,
-	omInputSchema,
-	secaoInputSchema,
-	VERSION_CAP_MESSAGE,
-} from "@/lib/response-limits"
 import { getFormsServerClient } from "@/lib/supabase.server"
 import { hasTenantTags, resolveServerTenant, scopeTags } from "@/lib/tenant-scope"
 

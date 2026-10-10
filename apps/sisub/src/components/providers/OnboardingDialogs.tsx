@@ -88,16 +88,14 @@ export function OnboardingDialogs() {
 	}
 
 	return (
-		<>
-			<EvaluationDialog
-				open={shouldShowEvaluationDialog}
-				question={evaluationQuestion}
-				selectedRating={selectedRating}
-				isSubmitting={submitVoteMutation.isPending}
-				onOpenChange={handleEvaluationOpenChange}
-				onSelectRating={(rating) => dispatch({ type: "SET_SELECTED_RATING", value: rating })}
-				onSubmit={handleSubmitVote}
-			/>
-		</>
+		<EvaluationDialog
+			open={shouldShowEvaluationDialog}
+			question={evaluationQuestion}
+			selectedRating={selectedRating}
+			isSubmitting={submitVoteMutation.isPending}
+			onOpenChange={handleEvaluationOpenChange}
+			onSelectRating={(rating) => dispatch({ type: "SET_SELECTED_RATING", value: rating })}
+			onSubmit={handleSubmitVote}
+		/>
 	)
 }

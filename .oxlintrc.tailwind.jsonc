@@ -33,27 +33,57 @@
     // flex, posição). Aparência vem de variante — se o design pede uma que não existe, ela
     // nasce no primitivo, não num `className` repetido em cada tela. Contratos por slot abrem o
     // que o slot existe para receber. Dívida medida pelo baseline.
+    // `tabular-nums` e `font-mono` passam em todo lugar: dizem como o DADO se lê (valor que
+    // alinha em coluna, código, NUP, CNPJ), não como o componente se parece. Contrato substitui
+    // o `allow` geral em vez de somar, por isso eles se repetem em cada um.
     "shadcn/no-restyle": [
       "warn",
       {
-        "allow": ["layout"],
+        "allow": ["layout", "tabular-nums", "font-mono"],
         "contracts": [
           {
-            // Moldura: o respiro interno é decisão da tela.
+            // Moldura: o respiro interno e o tamanho e a cor do texto corrido são decisão da tela;
+            // peso, tracking e família vêm da classe semântica, e fundo, borda e sombra, do primitivo.
             "pattern": "^(Card|Sheet|Dialog|AlertDialog|Drawer|Popover)(Header|Content|Footer)$|^TabsContent$",
-            "allow": ["layout", "spacing"]
+            "allow": ["layout", "spacing", "font-size", "text-color", "tabular-nums", "font-mono"]
           },
           {
-            // Texto (CardTitle, AlertDescription, DropdownMenuLabel…): escala e cor DO TEXTO. Fundo,
-            // borda e anel seguem sendo do primitivo. `text-color` também cobre as classes
-            // semânticas `text-subheading`/`text-hint`…, que o linter lê como cor de texto.
+            // Texto (CardTitle, AlertDescription, DropdownMenuLabel…): escala e cor DO TEXTO, e o
+            // `gap` de quando o título leva ícone. Fundo, borda e anel seguem sendo do primitivo.
+            // `text-color` também cobre as classes semânticas `text-subheading`/`text-hint`…
             "pattern": "(Title|Description|Label)$",
-            "allow": ["layout", "typography", "text-color"]
+            "allow": ["layout", "typography", "text-color", "gap-*", "tabular-nums", "font-mono"]
           },
           {
             // Célula: alinhamento numérico, fonte mono, respiro e cor de status do texto.
             "pattern": "^Table(Cell|Head)$",
-            "allow": ["layout", "spacing", "typography", "text-color"]
+            "allow": ["layout", "spacing", "typography", "text-color", "tabular-nums", "font-mono"]
+          },
+          {
+            // Linha: o fundo marca estado do dado (pendente, vencido, selecionado). O hover é do
+            // primitivo: trocar a cor dele por tela continua sendo dívida.
+            "pattern": "^TableRow$",
+            "allow": ["layout", "bg-color", "tabular-nums", "font-mono"],
+            "deny": ["hover:*"]
+          },
+          {
+            // Esqueleto imita a forma do que vai carregar: avatar redondo, card arredondado.
+            "pattern": "^Skeleton$",
+            "allow": ["layout", "rounded", "rounded-*"]
+          },
+          {
+            // Contêineres de empilhamento: a densidade entre os filhos é decisão da tela.
+            "pattern": "^(FieldGroup|Field|ItemGroup)$|^ScrollArea$",
+            "allow": ["layout", "spacing", "tabular-nums", "font-mono"]
+          },
+          {
+            // Gatilhos sem visual próprio (o wrapper aplica no máximo `cursor-pointer`): o texto que
+            // abre o tooltip ou o colapsável é da tela (sublinhado pontilhado, cor de status, ícone
+            // ao lado). Fundo, borda, padding e anel continuam cobrados: gatilho com cara de botão é
+            // `render={<Button …/>}` ou o primitivo que já existe (`CollapsibleSectionTrigger`).
+            // `SelectTrigger`, `TabsTrigger` e afins têm visual e não entram aqui.
+            "pattern": "^(Tooltip|Popover|HoverCard|Collapsible|Dialog|AlertDialog|Sheet|Drawer|DropdownMenu)Trigger$",
+            "allow": ["layout", "typography", "text-color", "gap-*", "tabular-nums", "font-mono"]
           }
         ]
       }
