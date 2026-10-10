@@ -156,15 +156,15 @@ export function FileUploader({
 			{/* Already-uploaded files (persisted in storage) */}
 			{hasSavedPaths && (
 				<div className="space-y-2">
-					<p className="text-sm font-medium text-green-700 dark:text-green-400">
+					<p className="text-sm font-medium text-success">
 						Arquivo{savedPaths.length > 1 ? "s" : ""} enviado{savedPaths.length > 1 ? "s" : ""}:
 					</p>
 					{savedPaths.map((path, index) => (
-						<div key={path} className="flex items-center gap-2 p-3 border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30">
-							<Page className="size-4 text-green-600 dark:text-green-400 shrink-0" />
+						<div key={path} className="flex items-center gap-2 p-3 border border-success/30 bg-success/10">
+							<Page className="size-4 text-success shrink-0" />
 							<div className="flex-1 min-w-0">
 								<p className="text-sm font-medium truncate">{path.split("/").pop()}</p>
-								<p className="text-xs text-green-600 dark:text-green-400">✓ Salvo no servidor</p>
+								<p className="text-xs text-success">✓ Salvo no servidor</p>
 							</div>
 							<Button
 								type="button"

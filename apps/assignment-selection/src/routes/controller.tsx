@@ -71,13 +71,13 @@ function ControllerPage() {
 	const handleManualUpdate = (id: number, changes: PersonChanges) => run(() => updatePersonFn({ data: { id, changes } }))
 
 	return (
-		<div className="min-h-screen w-full bg-slate-950 p-4 md:p-8">
+		<div className="min-h-screen w-full bg-stage-deep p-4 md:p-8">
 			<div className="mx-auto max-w-6xl">
-				<div className="overflow-hidden rounded-2xl bg-white text-slate-900 shadow-xl">
-					<header className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 px-6 py-4">
+				<div className="overflow-hidden rounded-2xl bg-card text-card-foreground shadow-xl">
+					<header className="flex flex-wrap items-center justify-between gap-4 border-b border-border px-6 py-4">
 						<div>
-							<h1 className="text-2xl font-bold text-slate-800">Painel de Controle</h1>
-							<p className="text-sm text-slate-500">
+							<h1 className="text-2xl font-bold text-foreground">Painel de Controle</h1>
+							<p className="text-sm text-muted-foreground">
 								{data.persons.length} militares · edição {data.editions.find((e) => e.id === editionId)?.name ?? "—"}
 							</p>
 						</div>
@@ -98,9 +98,9 @@ function ControllerPage() {
 							>
 								{isLocked ? <Eye /> : <Lock />} {isLocked ? "Revelar telão" : "Bloquear telão"}
 							</Button>
-							<div className="flex items-center gap-2 border-l border-slate-200 pl-2">
+							<div className="flex items-center gap-2 border-l border-border pl-2">
 								{user?.email && (
-									<span className="hidden max-w-[16ch] truncate text-xs text-slate-400 sm:inline" title={user.email}>
+									<span className="hidden max-w-[16ch] truncate text-xs text-muted-foreground sm:inline" title={user.email}>
 										{user.email}
 									</span>
 								)}
@@ -115,7 +115,7 @@ function ControllerPage() {
 						{/* O operador conduz de costas para a projeção: sem este aviso ele
 							    chamaria e revelaria militares por trás da tela de espera. */}
 						{isLocked && (
-							<div className="flex items-center gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-amber-800">
+							<div className="flex items-center gap-3 rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-warning">
 								<Lock className="size-5 shrink-0" />
 								<p className="text-sm font-semibold">
 									Telão bloqueado — a plateia está vendo a tela de espera. Nada do que for chamado ou revelado aparece até "Revelar telão".
@@ -157,8 +157,10 @@ function ControllerPage() {
 							</Button>
 						</div>
 
-						<details className="group rounded-xl border border-slate-200">
-							<summary className="cursor-pointer select-none px-4 py-3 text-sm font-semibold text-slate-600 hover:bg-slate-50">Edição manual da tabela</summary>
+						<details className="group rounded-xl border border-border">
+							<summary className="cursor-pointer select-none px-4 py-3 text-sm font-semibold text-muted-foreground hover:bg-muted">
+								Edição manual da tabela
+							</summary>
 							<div className="max-h-[60vh] overflow-auto p-3">
 								<ControllerTable persons={data.persons} onUpdate={handleManualUpdate} updatingId={null} />
 							</div>
