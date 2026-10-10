@@ -20,7 +20,7 @@ const buttonVariants = cva(
 				subtle: "text-muted-foreground hover:bg-accent hover:text-foreground dark:hover:bg-accent/50",
 				// Remover item de lista ou linha de tabela: repetido em cada linha, o vermelho só aparece no hover.
 				"subtle-destructive":
-					"text-muted-foreground hover:bg-destructive/10 hover:text-destructive focus-visible:ring-destructive/20 dark:hover:bg-destructive/20",
+					"text-muted-foreground hover:bg-destructive/10 hover:text-destructive focus-visible:border-destructive/40 focus-visible:ring-destructive/20",
 				// `success` e `warning` existem para os estados que hoje viram `emerald-*`
 				// e `amber-*` crus nas features. Sem a variant, a migração não tem destino.
 				success: "bg-success text-success-foreground shadow-xs hover:bg-success/90",

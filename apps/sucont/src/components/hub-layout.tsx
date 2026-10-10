@@ -553,7 +553,7 @@ function NavUser() {
 				{withTooltip(
 					isMobile,
 					"Sair",
-					<Button type="button" onClick={logout} aria-label="Sair" variant="subtle-destructive" size="icon-sm" className="shrink-0 rounded-lg">
+					<Button type="button" onClick={logout} aria-label="Sair" variant="subtle" size="icon-sm" className="shrink-0 rounded-lg">
 						<LogOut className="size-4" />
 					</Button>
 				)}

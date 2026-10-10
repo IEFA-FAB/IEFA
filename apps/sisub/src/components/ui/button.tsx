@@ -18,7 +18,7 @@ const buttonVariants = cva(
 				subtle: "text-muted-foreground hover:bg-muted hover:text-foreground dark:hover:bg-muted/50 aria-expanded:bg-muted aria-expanded:text-foreground",
 				// Remover item de lista ou linha de tabela: repetido em cada linha, o vermelho só aparece no hover.
 				"subtle-destructive":
-					"text-muted-foreground hover:bg-destructive/10 hover:text-destructive focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:hover:bg-destructive/20",
+					"text-muted-foreground hover:bg-destructive/10 hover:text-destructive focus-visible:border-destructive/40 focus-visible:ring-destructive/20",
 				destructive:
 					"bg-destructive/10 hover:bg-destructive/20 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/20 text-destructive focus-visible:border-destructive/40 dark:hover:bg-destructive/30",
 				success: "bg-success text-success-foreground shadow-xs hover:bg-success/90",

@@ -79,11 +79,11 @@ function AuthLayout() {
 					{/* Actions: Voltar + Theme Toggle */}
 					<div className="flex items-center gap-3">
 						<Button
-							variant="ghost"
+							variant="subtle"
 							size="sm"
 							nativeButton={false}
 							render={
-								<Link to="/" className="flex items-center gap-1.5 font-mono text-xs text-muted-foreground">
+								<Link to="/" className="flex items-center font-mono text-xs">
 									<ArrowLeft className="size-3.5" aria-hidden />
 									Início
 								</Link>
