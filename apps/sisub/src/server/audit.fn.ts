@@ -13,10 +13,10 @@
 
 import { ListSensitiveOperationsSchema, listSensitiveOperationNames, listSensitiveOperations, type SensitiveOperationLogEntry } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
-import { requireAuthThenRun } from "@/lib/domain-handler.server"
 import { requireAuthWithPermission } from "@/lib/auth.server"
 import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
+import { requireAuthThenRun } from "@/lib/domain-handler.server"
 
 export type SensitiveOperationRow = SensitiveOperationLogEntry
 
