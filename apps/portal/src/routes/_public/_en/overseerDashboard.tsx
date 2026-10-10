@@ -13,6 +13,7 @@ import {
 	XmarkCircle,
 } from "iconoir-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
@@ -80,16 +81,18 @@ const API_BASE = "https://alpha.iefa.com.br"
 const AUTO_REFRESH_MS = 60_000
 const REQ_TIMEOUT_MS = 8_000
 
+// Uma cor por estado para o ponto, o ícone e o degradê do cartão: os três precisam concordar.
+const STATUS_TONE: Record<ProbeStatus, { dot: string; icon: string; header: string }> = {
+	ok: { dot: "bg-success", icon: "text-success", header: "from-success/15" },
+	degraded: { dot: "bg-warning", icon: "text-warning", header: "from-warning/15" },
+	down: { dot: "bg-destructive", icon: "text-destructive", header: "from-destructive/15" },
+	error: { dot: "bg-destructive", icon: "text-destructive", header: "from-destructive/15" },
+	unknown: { dot: "bg-muted-foreground", icon: "text-muted-foreground", header: "from-muted-foreground/10" },
+	loading: { dot: "bg-muted-foreground animate-pulse", icon: "text-muted-foreground", header: "from-muted-foreground/10" },
+}
+
 function StatusDot({ status }: { status: ProbeStatus }) {
-	const map = {
-		ok: "bg-emerald-500",
-		degraded: "bg-amber-500",
-		down: "bg-rose-600",
-		error: "bg-rose-600",
-		unknown: "bg-slate-400",
-		loading: "bg-amber-400 animate-pulse",
-	}
-	return <span className={`inline-block h-2.5 w-2.5 rounded-full shadow-sm ${map[status]}`} aria-hidden="true" />
+	return <span className={`inline-block h-2.5 w-2.5 rounded-full shadow-sm ${STATUS_TONE[status].dot}`} aria-hidden="true" />
 }
 
 function statusLabel(s: ProbeStatus) {
@@ -544,45 +547,36 @@ function OverseerDashboard() {
 					<div className="h-40 animate-pulse rounded-xl bg-muted" />
 				</div>
 			) : targets.length === 0 ? (
-				<div className="rounded-xl border border-warning/30 bg-warning/5 p-4 flex items-start gap-3">
-					<div className="h-8 w-8 rounded-lg bg-warning/10 flex items-center justify-center">
-						<WarningCircle className="h-4 w-4 text-warning" />
-					</div>
-					<div className="text-sm">
+				<Alert variant="warning" role="note">
+					<WarningCircle aria-hidden="true" />
+					<AlertDescription>
 						Não foi possível derivar nenhum serviço do endpoint <code className="px-1 rounded bg-muted">/health</code>. Defina serviços no payload ou ajuste a
 						lista padrão em código.
-					</div>
-				</div>
+					</AlertDescription>
+				</Alert>
 			) : (
 				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
 					{targets.map((t) => {
 						const r = results[t.url] as ProbeResult | undefined
 						const st = r?.status ?? "loading"
 						const isUp = st === "ok" || st === "degraded"
-						const colorHeader =
-							st === "ok"
-								? "from-success/15 to-transparent"
-								: st === "degraded"
-									? "from-warning/15 to-transparent"
-									: st === "down" || st === "error"
-										? "from-destructive/15 to-transparent"
-										: "from-muted-foreground/10 to-transparent"
+						const tone = STATUS_TONE[st]
 
 						return (
 							<Card
 								key={t.url}
 								className={`group h-full border border-border transition-all hover:border-primary/40 hover:shadow-lg focus-within:ring-2 focus-within:ring-primary/40`}
 							>
-								<CardHeader className={`pb-2 bg-gradient-to-r ${colorHeader} rounded-t-xl`}>
+								<CardHeader className={`pb-2 bg-gradient-to-r ${tone.header} to-transparent rounded-t-xl`}>
 									<div className="flex items-center justify-between gap-2">
 										<div className="flex items-center gap-2">
 											<span aria-hidden="true">
 												{isUp ? (
-													<CheckCircle className={`h-5 w-5 ${st === "ok" ? "text-success" : "text-warning"}`} />
+													<CheckCircle className={`h-5 w-5 ${tone.icon}`} />
 												) : st === "down" || st === "error" ? (
-													<XmarkCircle className="h-5 w-5 text-destructive" />
+													<XmarkCircle className={`h-5 w-5 ${tone.icon}`} />
 												) : (
-													<WarningTriangle className="h-5 w-5 text-muted-foreground" />
+													<WarningTriangle className={`h-5 w-5 ${tone.icon}`} />
 												)}
 											</span>
 											<h3 className="text-base md:text-lg font-semibold leading-tight">{t.name}</h3>
@@ -654,7 +648,11 @@ function OverseerDashboard() {
 										</div>
 									</div>
 
-									{r?.note ? <div className="rounded-lg border border-warning/30 bg-warning/5 p-2 text-xs text-warning">Observação: {r.note}</div> : null}
+									{r?.note ? (
+										<Alert variant="warning" role="note">
+											<AlertDescription className="text-xs">Observação: {r.note}</AlertDescription>
+										</Alert>
+									) : null}
 								</CardContent>
 
 								<CardFooter className="flex items-center justify-between gap-2">

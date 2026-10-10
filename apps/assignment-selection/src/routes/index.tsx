@@ -104,10 +104,7 @@ function BoardPage() {
 								selected={highlightedState ?? null}
 								markers={markers}
 								editionName={editionName}
-								mapColor="#e2e8f0"
-								strokeColor="#0b1226"
 								strokeWidth={0.6}
-								selectColor="#3b82f6"
 								className="drop-shadow-2xl"
 							/>
 

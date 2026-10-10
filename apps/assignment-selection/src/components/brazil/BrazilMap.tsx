@@ -102,8 +102,8 @@ export function BrazilMap({
 						pathRefs.current[code] = el
 					}}
 					d={drawPath[code as keyof typeof drawPath]}
-					fill={selected === code ? selectColor : mapColor}
-					style={{ transition: "fill 150ms ease-out" }}
+					// `style`, não o atributo `fill`: as cores vêm como `var(--…)` do tema.
+					style={{ fill: selected === code ? selectColor : mapColor, transition: "fill 150ms ease-out" }}
 				/>
 			))}
 

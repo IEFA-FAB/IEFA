@@ -53,10 +53,10 @@ function ReviewerDashboard() {
 
 			{/* Stats */}
 			<div className="grid sm:grid-cols-4 gap-4">
-				<StatCard label="Convites" value={invites.length} icon={Mail} color="text-violet-500" />
-				<StatCard label="Pendentes" value={pendingReviews.length} icon={Clock} color="text-orange-500" />
-				<StatCard label="Concluídas" value={completedReviews.length} icon={CheckCircle} color="text-green-500" />
-				<StatCard label="Próximo Prazo" value={nextDue !== undefined ? `${nextDue} dias` : "-"} icon={WarningCircle} color="text-blue-500" />
+				<StatCard label="Convites" value={invites.length} icon={Mail} color="text-muted-foreground" />
+				<StatCard label="Pendentes" value={pendingReviews.length} icon={Clock} color="text-warning" />
+				<StatCard label="Concluídas" value={completedReviews.length} icon={CheckCircle} color="text-success" />
+				<StatCard label="Próximo Prazo" value={nextDue !== undefined ? `${nextDue} dias` : "-"} icon={WarningCircle} color="text-muted-foreground" />
 			</div>
 
 			{/* Convites pendentes */}
