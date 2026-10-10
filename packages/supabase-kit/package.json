@@ -15,7 +15,7 @@
   "dependencies": {
     "@iefa/database": "workspace:*",
     "@supabase/ssr": "^0.12.7",
-    "@supabase/supabase-js": "^2.116.0"
+    "@supabase/supabase-js": "^2.117.3"
   },
   "peerDependencies": {
     "@tanstack/react-start": "*"

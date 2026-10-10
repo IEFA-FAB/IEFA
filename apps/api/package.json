@@ -24,18 +24,18 @@
     "@iefa/compras-api": "workspace:*",
     "@iefa/legal-kit": "workspace:*",
     "@iefa/sisub-domain": "workspace:*",
-    "@scalar/hono-api-reference": "^0.12.3",
-    "@supabase/supabase-js": "^2.116.0",
-    "fast-xml-parser": "^5.11.1",
+    "@scalar/hono-api-reference": "^0.12.11",
+    "@supabase/supabase-js": "^2.117.3",
+    "fast-xml-parser": "^5.11.2",
     "fflate": "^0.8.3",
-    "hono": "^4.13.7",
+    "hono": "^4.13.13",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
     "zod": "^4.6.5"
   },
   "devDependencies": {
     "@iefa/tsconfig": "workspace:*",
     "@types/bun": "^1.4.2",
-    "bun-types": "^1.4.0",
+    "bun-types": "^1.4.3",
     "typescript": "^7.0.2"
   }
 }
