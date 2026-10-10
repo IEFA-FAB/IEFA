@@ -3,6 +3,7 @@ import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router"
 import { z } from "zod"
 import { authQueryOptions } from "@/auth/service"
 import { ProfileForm } from "@/components/journal/ProfileForm"
+import { Alert } from "@/components/ui/alert"
 import { userProfileQueryOptions } from "@/lib/journal/hooks"
 import { resolveProfileNext } from "@/lib/journal/profile"
 
@@ -66,13 +67,13 @@ function ProfilePage() {
 				<ProfileForm userId={user.id} profile={profile} userEmail={user.email} onSaved={next ? () => navigate({ href: next }) : undefined} />
 			</div>
 
-			<div className="mt-6 rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-900 dark:bg-blue-950">
-				<h3 className="font-semibold text-blue-900 dark:text-blue-100">ℹ️ Sobre seu perfil</h3>
-				<p className="mt-2 text-sm text-blue-800 dark:text-blue-200">
+			<Alert variant="info" role="note" className="mt-6">
+				<h3 className="text-base font-semibold">ℹ️ Sobre seu perfil</h3>
+				<p className="mt-2">
 					As informações preenchidas aqui serão utilizadas automaticamente ao submeter artigos. Certifique-se de manter seus dados atualizados, especialmente
 					seu ORCID e afiliação institucional.
 				</p>
-			</div>
+			</Alert>
 		</div>
 	)
 }

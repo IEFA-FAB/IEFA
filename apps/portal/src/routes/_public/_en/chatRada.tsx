@@ -356,7 +356,7 @@ function MessageItem({ m, copiedMsgId, onCopy }: { m: ChatMessage; copiedMsgId: 
 	// Pale Brutalism: sharp corners, solid fills, border-first hierarchy
 	const bubbleBase = "px-4 py-3 inline-block max-w-[85%]"
 	const bubbleUser = "bg-primary text-primary-foreground text-sm leading-relaxed whitespace-pre-wrap border border-primary"
-	const bubbleError = "bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/30 text-sm leading-relaxed"
+	const bubbleError = "bg-destructive/10 text-destructive border border-destructive/30 text-sm leading-relaxed"
 	const bubbleAssistant = "bg-card border border-border text-foreground"
 
 	return (
@@ -368,7 +368,7 @@ function MessageItem({ m, copiedMsgId, onCopy }: { m: ChatMessage; copiedMsgId: 
 					isUser
 						? "bg-primary text-primary-foreground border-primary"
 						: isError
-							? "bg-rose-500 text-white border-rose-500"
+							? "bg-destructive text-destructive-foreground border-destructive"
 							: "bg-muted text-muted-foreground border-border"
 				)}
 			>
@@ -427,7 +427,7 @@ function MessageItem({ m, copiedMsgId, onCopy }: { m: ChatMessage; copiedMsgId: 
 				>
 					{copiedMsgId === m.id ? (
 						<>
-							<Check className="h-3.5 w-3.5 text-emerald-600" />
+							<Check className="h-3.5 w-3.5 text-success" />
 							<span className="font-medium">Copiado!</span>
 						</>
 					) : (
@@ -738,8 +738,8 @@ function ChatRada() {
 					</Button>
 
 					{!isLoggedIn && (
-						<div className="mt-2 flex items-start gap-2 border border-amber-500/30 bg-amber-500/5 px-3 py-2">
-							<WarningCircle className="mt-0.5 h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+						<div className="mt-2 flex items-start gap-2 border border-warning/30 bg-warning/5 px-3 py-2">
+							<WarningCircle className="mt-0.5 h-3.5 w-3.5 text-warning shrink-0" />
 							<span className="text-[11px] text-muted-foreground">Não logado. Histórico desativado.</span>
 						</div>
 					)}
@@ -848,9 +848,9 @@ function ChatRada() {
 											: "Faça sua pergunta sobre o Regulamento de Administração da Aeronáutica."}
 									</p>
 								</div>
-								<div className="border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-left">
-									<p className="text-xs font-semibold text-amber-900 dark:text-amber-100 mb-1">Importante</p>
-									<p className="text-xs text-amber-800/80 dark:text-amber-200/70 leading-relaxed">
+								<div className="border border-warning/30 bg-warning/5 px-4 py-3 text-left">
+									<p className="text-xs font-semibold text-warning mb-1">Importante</p>
+									<p className="text-xs text-warning leading-relaxed">
 										{isLoggedIn
 											? 'O histórico desta conversa é salvo automaticamente por 7 dias. Use "Nova conversa" para mudar de assunto.'
 											: "Você não está logado. Faça login para ativar o histórico de conversas."}

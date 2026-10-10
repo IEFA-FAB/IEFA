@@ -232,7 +232,7 @@ export function ProfileForm({ profile, userEmail, onSaved }: ProfileFormProps) {
 							type="checkbox"
 							checked={field.state.value}
 							onChange={(e) => field.handleChange(e.target.checked)}
-							className="size-4 rounded border-gray-300"
+							className="size-4 rounded border-input"
 						/>
 						<Label htmlFor="email_notifications" className="cursor-pointer">
 							Receber notificações por e-mail sobre submissões e revisões
@@ -257,8 +257,8 @@ export function ProfileForm({ profile, userEmail, onSaved }: ProfileFormProps) {
 				<div
 					className={`rounded-md p-4 ${
 						message.type === "success"
-							? "bg-green-50 text-green-800 dark:bg-green-950 dark:text-green-200"
-							: "bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200"
+							? "border border-success/30 bg-success/10 text-success"
+							: "border border-destructive/30 bg-destructive/10 text-destructive"
 					}`}
 				>
 					{message.text}

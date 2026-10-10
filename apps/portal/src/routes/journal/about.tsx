@@ -2,6 +2,7 @@ import { LEGAL_CONTACT_EMAIL } from "@iefa/legal-kit/contact"
 import { createFileRoute } from "@tanstack/react-router"
 import { Archery, ClipboardCheck, Globe, Group, Mail, Medal, OpenBook, OpenNewWindow, Shield } from "iconoir-react"
 import { useState } from "react"
+import { Alert } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 
 export const Route = createFileRoute("/journal/about")({
@@ -106,14 +107,14 @@ function IdentitySection({ language }: { language: "pt" | "en" }) {
 				<InfoCard title={language === "pt" ? "Contato Editorial" : "Editorial Contact"} content={LEGAL_CONTACT_EMAIL} />
 			</div>
 
-			<div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-900">
-				<p className="text-sm text-blue-900 dark:text-blue-100">
+			<Alert variant="info" role="note">
+				<p>
 					<strong>{language === "pt" ? "📌 Importante:" : "📌 Important:"}</strong>{" "}
 					{language === "pt"
 						? "ISSN e outros dados institucionais específicos em processo de definição oficial."
 						: "ISSN and other specific institutional data under official definition process."}
 				</p>
-			</div>
+			</Alert>
 		</div>
 	)
 }
@@ -252,14 +253,14 @@ function PoliciesSection({ language }: { language: "pt" | "en" }) {
 			{/* DOI */}
 			<PolicyCard title="DOI" icon={ClipboardCheck}>
 				<p className="mb-3">{language === "pt" ? "A SEIVA atribui DOI a todos os artigos publicados." : "SEIVA assigns a DOI to all published articles."}</p>
-				<div className="p-3 bg-blue-50 dark:bg-blue-950 rounded border border-blue-200 dark:border-blue-800">
-					<p className="text-sm text-blue-900 dark:text-blue-100">
+				<Alert variant="info" role="note">
+					<p>
 						<strong>{language === "pt" ? "Um DOI por língua:" : "One DOI per language:"}</strong>{" "}
 						{language === "pt"
 							? "Quando um trabalho for publicado em duas versões linguísticas (PT e EN), cada versão recebe um DOI distinto, garantindo independência de citação por idioma."
 							: "When a work is published in two language versions (PT and EN), each version receives a separate DOI, ensuring independent citation by language."}
 					</p>
-				</div>
+				</Alert>
 			</PolicyCard>
 
 			{/* Peer Review */}
@@ -289,14 +290,14 @@ function PoliciesSection({ language }: { language: "pt" | "en" }) {
 			{/* Preprints */}
 			<PolicyCard title={language === "pt" ? "Publicação Prévia e Preprints" : "Prior Publication & Preprints"} icon={ClipboardCheck}>
 				<div className="space-y-3">
-					<div className="p-3 bg-orange-50 dark:bg-orange-950 rounded border border-orange-200 dark:border-orange-800">
-						<p className="text-sm text-orange-900 dark:text-orange-100">
+					<Alert variant="warning" role="note">
+						<p>
 							<strong>⚠️ {language === "pt" ? "Importante:" : "Important:"}</strong>{" "}
 							{language === "pt"
 								? "A SEIVA não aceita, neste momento, manuscritos que tenham sido disponibilizados integralmente como preprint."
 								: "SEIVA does not currently accept manuscripts whose full text has been publicly posted as a preprint."}
 						</p>
-					</div>
+					</Alert>
 					<p>
 						{language === "pt"
 							? "Divulgações parciais são permitidas (pôsteres, slides, apresentações orais, resumos) desde que o manuscrito completo não tenha sido tornado publicamente disponível."
@@ -338,13 +339,13 @@ function EthicsSection({ language }: { language: "pt" | "en" }) {
 							<li>• {language === "pt" ? "Editores (ao receber manuscrito)" : "Editors (upon assignment)"}</li>
 						</ul>
 					</div>
-					<div className="p-3 bg-blue-50 dark:bg-blue-950 rounded border border-blue-200 dark:border-blue-800">
-						<p className="text-sm text-blue-900 dark:text-blue-100">
+					<Alert variant="info" role="note">
+						<p>
 							{language === "pt"
 								? "COI declarado não implica rejeição automática, mas exige transparência."
 								: "Declared COI does not automatically imply rejection but requires transparency."}
 						</p>
-					</div>
+					</Alert>
 				</div>
 			</PolicyCard>
 
@@ -424,16 +425,14 @@ function TeamSection({ language }: { language: "pt" | "en" }) {
 			</div>
 
 			{/* Diversity */}
-			<div className="p-6 bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-800">
-				<h4 className="font-semibold mb-2 text-green-900 dark:text-green-100">
-					{language === "pt" ? "📊 Diversidade Institucional" : "📊 Institutional Diversity"}
-				</h4>
-				<p className="text-sm text-green-800 dark:text-green-200">
+			<Alert variant="info" role="note">
+				<h4 className="text-base font-semibold mb-2">{language === "pt" ? "📊 Diversidade Institucional" : "📊 Institutional Diversity"}</h4>
+				<p>
 					{language === "pt"
 						? "A revista busca diversidade institucional e participação externa. A participação de membros do IEFA em funções editoriais operacionais é limitada a até 25%, promovendo pluralidade e reduzindo endogenia."
 						: "SEIVA aims for institutional diversity and external participation. Operational editorial roles from IEFA are limited to up to 25%, fostering plurality and reducing endogeneity."}
 				</p>
-			</div>
+			</Alert>
 
 			{/* Independence */}
 			<div>

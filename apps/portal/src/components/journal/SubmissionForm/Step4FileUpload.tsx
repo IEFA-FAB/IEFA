@@ -4,6 +4,7 @@
 // survive page reloads — the user never loses a file they already uploaded.
 
 import { useState } from "react"
+import { Alert } from "@/components/ui/alert"
 import { uploadArticleFile } from "@/lib/journal/client"
 import { saveVersionDraftFn } from "@/server/journal.fn"
 import { FileUploader } from "../FileUploader"
@@ -131,9 +132,9 @@ export function Step4FileUpload() {
 			)}
 
 			{!currentArticleId && (
-				<div className="p-3 bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800">
-					<p className="text-sm text-yellow-800 dark:text-yellow-200">Salve o rascunho (botão abaixo) antes de fazer o upload dos arquivos.</p>
-				</div>
+				<Alert variant="warning" role="note">
+					<p>Salve o rascunho (botão abaixo) antes de fazer o upload dos arquivos.</p>
+				</Alert>
 			)}
 
 			<FileUploader
@@ -183,11 +184,11 @@ export function Step4FileUpload() {
 				onRemoveUploaded={handleRemoveSupplementary}
 			/>
 
-			<div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-900">
-				<p className="text-sm text-blue-900 dark:text-blue-100">
+			<Alert variant="info" role="note">
+				<p>
 					<strong>Dica:</strong> Certifique-se de que o PDF está anonimizado se a revista usa revisão duplo-cega.
 				</p>
-			</div>
+			</Alert>
 		</div>
 	)
 }

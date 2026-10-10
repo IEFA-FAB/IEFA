@@ -101,9 +101,7 @@ function ArticleDetailEditor() {
 				{banner && (
 					<div
 						className={`p-3 border rounded-lg text-sm flex items-center gap-2 ${
-							banner.kind === "success"
-								? "bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-900 text-green-900 dark:text-green-100"
-								: "bg-destructive/10 border-destructive/30 text-destructive"
+							banner.kind === "success" ? "bg-success/10 border-success/30 text-success" : "bg-destructive/10 border-destructive/30 text-destructive"
 						}`}
 					>
 						{banner.kind === "success" ? <CheckCircle className="size-4" /> : <WarningTriangle className="size-4" />}

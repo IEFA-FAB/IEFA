@@ -59,7 +59,7 @@ export function MetricsPanel() {
 					<CardHeader className="pb-3">
 						<div className="flex items-center justify-between">
 							<span className="text-sm text-muted-foreground">Em Revisão</span>
-							<WarningTriangle className="size-4 text-yellow-600 dark:text-yellow-400" aria-hidden="true" />
+							<WarningTriangle className="size-4 text-warning" aria-hidden="true" />
 						</div>
 					</CardHeader>
 					<CardContent>
@@ -72,7 +72,7 @@ export function MetricsPanel() {
 					<CardHeader className="pb-3">
 						<div className="flex items-center justify-between">
 							<span className="text-sm text-muted-foreground">Revisões Pendentes</span>
-							<WarningTriangle className="size-4 text-red-600 dark:text-red-400" aria-hidden="true" />
+							<WarningTriangle className="size-4 text-destructive" aria-hidden="true" />
 						</div>
 					</CardHeader>
 					<CardContent>

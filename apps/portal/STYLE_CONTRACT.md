@@ -74,6 +74,23 @@ Referências-chave: **adidas.com** · **greptile.com** · **Vercel Geist** · **
 | `--border` | `--gray-800` | Borda dark |
 | `--ring` | `oklch(0.9671 0 0)` | Foco — branco explícito |
 
+### 2.4 Tokens de Status (portal)
+
+Cor fora do cinza só comunica **estado**: nunca decora ícone, tile ou seção. Ícone ou tile
+decorativo fica em `bg-muted` + `text-foreground`.
+
+| Token CSS | Light | Dark | Uso |
+|-----------|-------|------|-----|
+| `--info` | `oklch(0.48 0.14 255)` | `oklch(0.80 0.10 250)` | Nota, dica, pendente |
+| `--success` | `oklch(0.48 0.12 150)` | `oklch(0.80 0.13 155)` | Concluído, salvo, no ar |
+| `--warning` | `oklch(0.50 0.11 65)` | `oklch(0.84 0.13 80)` | Atenção, ação pendente do usuário, degradado |
+| `--destructive` | (§2.2) | (§2.2) | Erro, falha, prazo estourado |
+
+O token é a cor do **texto**. Callout compõe `border-*/30 bg-*/10 text-*` (o texto passa de
+5:1 sobre o tint nos dois temas); callout estático usa `<Alert variant="info|success|warning">`
+com `role="note"`, não `div` com classes repetidas. Paleta crua do Tailwind (`bg-blue-50`,
+`text-green-600`) não entra: o lint de Tailwind conta como dívida.
+
 ---
 
 ## 3. Tipografia
@@ -327,7 +344,7 @@ Para seções que beneficiam de delimitação lateral explícita:
 ## 9. Cheat Sheet Rápido
 
 ```
-COR          → cinza-50 até cinza-950 · 1 acento (vermelho/destructive apenas)
+COR          → cinza-50 até cinza-950 · cor só para estado (info/success/warning/destructive, §2.4)
 RADIUS       → 0 (sempre)
 SOMBRA       → none (padrão) · shadow-hard-md (destaque)
 BORDER       → 1px solid (padrão) · 2px solid (ênfase, borda inteira) · NUNCA side-stripe colorido

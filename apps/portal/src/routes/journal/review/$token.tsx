@@ -81,7 +81,7 @@ function ReviewInvitation() {
 		return (
 			<div className="flex flex-col items-center justify-center py-16 text-center max-w-2xl mx-auto">
 				<div className="size-16 rounded-full bg-muted flex items-center justify-center mb-4">
-					{hasAccepted ? <CheckCircle className="size-8 text-green-600" /> : <XmarkCircle className="size-8 text-muted-foreground" />}
+					{hasAccepted ? <CheckCircle className="size-8 text-success" /> : <XmarkCircle className="size-8 text-muted-foreground" />}
 				</div>
 				<h2 className="text-2xl font-bold mb-2">{hasAccepted ? "Convite Aceito" : "Convite Recusado"}</h2>
 				<p className="text-muted-foreground mb-6">

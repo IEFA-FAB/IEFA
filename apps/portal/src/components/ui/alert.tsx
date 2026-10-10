@@ -4,12 +4,16 @@ import type * as React from "react"
 import { cn } from "../../lib/utils"
 
 const alertVariants = cva(
-	"grid gap-0.5 rounded-lg border px-2.5 py-2 text-left text-sm has-data-[slot=alert-action]:relative has-data-[slot=alert-action]:pr-18 has-[>svg]:grid-cols-[auto_1fr] has-[>svg]:gap-x-2 *:[svg]:row-span-2 *:[svg]:translate-y-0.5 *:[svg]:text-current *:[svg:not([class*='size-'])]:size-4 w-full relative group/alert",
+	"grid gap-0.5 rounded-lg border px-4 py-3 text-left text-sm has-data-[slot=alert-action]:relative has-data-[slot=alert-action]:pr-18 has-[>svg]:grid-cols-[auto_1fr] has-[>svg]:gap-x-2 *:[svg]:row-span-2 *:[svg]:translate-y-0.5 *:[svg]:text-current *:[svg:not([class*='size-'])]:size-4 w-full relative group/alert",
 	{
 		variants: {
 			variant: {
 				default: "bg-card text-card-foreground",
 				destructive: "text-destructive bg-card *:data-[slot=alert-description]:text-destructive/90 *:[svg]:text-current",
+				// Status: tint do token por baixo e o próprio token no texto (AA sobre o tint nos dois temas).
+				info: "border-info/30 bg-info/10 text-info *:data-[slot=alert-description]:text-info",
+				success: "border-success/30 bg-success/10 text-success *:data-[slot=alert-description]:text-success",
+				warning: "border-warning/30 bg-warning/10 text-warning *:data-[slot=alert-description]:text-warning",
 			},
 		},
 		defaultVariants: {

@@ -56,7 +56,7 @@ export function Step5Declarations() {
 						type="checkbox"
 						checked={formData.has_ethics_approval || false}
 						onChange={(e) => updateFormData({ has_ethics_approval: e.target.checked })}
-						className="size-4 rounded border-gray-300"
+						className="size-4 rounded border-input"
 					/>
 					<Label htmlFor="has_ethics_approval" className="cursor-pointer">
 						Este estudo envolve seres humanos ou animais e possui aprovação de comitê de ética
