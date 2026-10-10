@@ -1,6 +1,7 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { Download, Globe, Page, SendDiagonal } from "iconoir-react"
+import { Alert } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { journalSettingsQueryOptions, publishedArticlesQueryOptions } from "@/lib/journal/hooks"
 import { crossrefXml, downloadXml, dublinCoreXml, jatsXml } from "@/lib/journal/metadata-xml"
@@ -55,8 +56,8 @@ function MetadataExport() {
 			<div className="grid md:grid-cols-3 gap-6">
 				{/* Crossref */}
 				<div className="p-6 border rounded-lg bg-card space-y-4">
-					<div className="size-12 rounded-lg bg-blue-500/10 flex items-center justify-center">
-						<Globe className="size-6 text-blue-600 dark:text-blue-400" />
+					<div className="size-12 rounded-lg bg-muted flex items-center justify-center">
+						<Globe className="size-6 text-foreground" />
 					</div>
 					<div>
 						<h3 className="font-semibold text-lg mb-2">Crossref XML</h3>
@@ -72,8 +73,8 @@ function MetadataExport() {
 
 				{/* JATS XML */}
 				<div className="p-6 border rounded-lg bg-card space-y-4">
-					<div className="size-12 rounded-lg bg-green-500/10 flex items-center justify-center">
-						<Page className="size-6 text-green-600 dark:text-green-400" />
+					<div className="size-12 rounded-lg bg-muted flex items-center justify-center">
+						<Page className="size-6 text-foreground" />
 					</div>
 					<div>
 						<h3 className="font-semibold text-lg mb-2">JATS XML</h3>
@@ -87,8 +88,8 @@ function MetadataExport() {
 
 				{/* Dublin Core */}
 				<div className="p-6 border rounded-lg bg-card space-y-4">
-					<div className="size-12 rounded-lg bg-purple-500/10 flex items-center justify-center">
-						<SendDiagonal className="size-6 text-purple-600 dark:text-purple-400" />
+					<div className="size-12 rounded-lg bg-muted flex items-center justify-center">
+						<SendDiagonal className="size-6 text-foreground" />
 					</div>
 					<div>
 						<h3 className="font-semibold text-lg mb-2">Dublin Core</h3>
@@ -148,15 +149,15 @@ function MetadataExport() {
 			</div>
 
 			{/* Information */}
-			<div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-900">
-				<h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">ℹ️ Sobre a Exportação de Metadados</h3>
-				<ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1 list-disc list-inside">
+			<Alert variant="info" role="note">
+				<h3 className="text-base font-semibold mb-2">ℹ️ Sobre a Exportação de Metadados</h3>
+				<ul className="space-y-1 list-disc list-inside">
 					<li>Metadados são atualizados automaticamente após cada publicação</li>
 					<li>Crossref XML deve ser enviado manualmente ao sistema Crossref</li>
 					<li>JATS XML pode ser usado para depósito em repositórios</li>
 					<li>Dublin Core facilita a descoberta por motores de busca</li>
 				</ul>
-			</div>
+			</Alert>
 		</div>
 	)
 }

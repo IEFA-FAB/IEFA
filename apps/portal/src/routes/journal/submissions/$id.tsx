@@ -281,7 +281,7 @@ function RevisionResubmit({ articleId, nextVersion }: { articleId: string; nextV
 	}
 
 	return (
-		<div className="p-6 border rounded-lg bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-900 space-y-4">
+		<div className="p-6 border rounded-lg bg-warning/10 border-warning/30 space-y-4">
 			<div>
 				<h2 className="font-semibold text-lg">Enviar Versão Revisada</h2>
 				<p className="text-sm text-muted-foreground">O editor solicitou revisão. Envie o manuscrito revisado (PDF) para uma nova rodada de avaliação.</p>
@@ -289,7 +289,7 @@ function RevisionResubmit({ articleId, nextVersion }: { articleId: string; nextV
 
 			{banner && (
 				<div
-					className={`p-3 border rounded-lg text-sm flex items-center gap-2 ${banner.kind === "success" ? "bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-900 text-green-900 dark:text-green-100" : "bg-destructive/10 border-destructive/30 text-destructive"}`}
+					className={`p-3 border rounded-lg text-sm flex items-center gap-2 ${banner.kind === "success" ? "bg-success/10 border-success/30 text-success" : "bg-destructive/10 border-destructive/30 text-destructive"}`}
 				>
 					{banner.kind === "success" ? <CheckCircle className="size-4" /> : <WarningTriangle className="size-4" />}
 					{banner.text}

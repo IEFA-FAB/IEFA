@@ -80,6 +80,16 @@
   --destructive:           oklch(0.5771 0.2450 27.33);
   --destructive-foreground: oklch(1.0000 0 0);
 
+  /* Status (aviso informativo, sucesso, atenção): só para estado, nunca decoração.
+     O token é a cor do TEXTO; o callout compõe `bg-*/10 border-*/30 text-*`, e o
+     texto passa de 5:1 sobre o próprio tint nos dois temas. */
+  --info:                  oklch(0.4800 0.1400 255);
+  --info-foreground:       oklch(1.0000 0 0);
+  --success:               oklch(0.4800 0.1200 150);
+  --success-foreground:    oklch(1.0000 0 0);
+  --warning:               oklch(0.5000 0.1100 65);
+  --warning-foreground:    oklch(1.0000 0 0);
+
   /* Border + Input: cinza-300 — visível mas refinado */
   --border:                var(--gray-300);
   --input:                 var(--gray-300);
@@ -174,6 +184,13 @@
   --destructive:           oklch(0.5771 0.2450 27.33);
   --destructive-foreground: oklch(1.0000 0 0);
 
+  --info:                  oklch(0.8000 0.1000 250);
+  --info-foreground:       oklch(0.1000 0 0);
+  --success:               oklch(0.8000 0.1300 155);
+  --success-foreground:    oklch(0.1000 0 0);
+  --warning:               oklch(0.8400 0.1300 80);
+  --warning-foreground:    oklch(0.1000 0 0);
+
   --border:                var(--gray-800);
   --input:                 var(--gray-800);
 
@@ -224,6 +241,13 @@
 
     --destructive:           oklch(0.5771 0.2450 27.33);
     --destructive-foreground: oklch(1.0000 0 0);
+
+    --info:                  oklch(0.8000 0.1000 250);
+    --info-foreground:       oklch(0.1000 0 0);
+    --success:               oklch(0.8000 0.1300 155);
+    --success-foreground:    oklch(0.1000 0 0);
+    --warning:               oklch(0.8400 0.1300 80);
+    --warning-foreground:    oklch(0.1000 0 0);
 
     --border:                var(--gray-800);
     --input:                 var(--gray-800);
@@ -286,6 +310,12 @@
   --color-accent-foreground:         var(--accent-foreground);
   --color-destructive:               var(--destructive);
   --color-destructive-foreground:    var(--destructive-foreground);
+  --color-info:                      var(--info);
+  --color-info-foreground:           var(--info-foreground);
+  --color-success:                   var(--success);
+  --color-success-foreground:        var(--success-foreground);
+  --color-warning:                   var(--warning);
+  --color-warning-foreground:        var(--warning-foreground);
   --color-border:                    var(--border);
   --color-input:                     var(--input);
   --color-ring:                      var(--ring);

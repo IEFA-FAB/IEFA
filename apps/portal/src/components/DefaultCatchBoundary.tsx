@@ -18,15 +18,15 @@ export function DefaultCatchBoundary({ error }: ErrorComponentProps) {
 		<div className="min-h-screen w-full flex items-center justify-center p-4">
 			<Card className="w-full max-w-2xl border-white/10 bg-black/40 backdrop-blur-xl shadow-2xl rounded-3xl overflow-hidden">
 				<CardHeader className="text-center space-y-4 pb-4 pt-12">
-					<div className="mx-auto w-20 h-20 rounded-full bg-linear-to-br from-red-500/20 to-red-500/10 flex items-center justify-center border border-red-500/20">
-						<WarningCircle className="h-10 w-10 text-red-400" />
+					<div className="mx-auto w-20 h-20 rounded-full bg-linear-to-br from-destructive/20 to-destructive/10 flex items-center justify-center border border-destructive/20">
+						<WarningCircle className="h-10 w-10 text-destructive" />
 					</div>
 					<CardTitle className="text-4xl font-bold tracking-tight">Ops! Algo deu errado</CardTitle>
-					<CardDescription className="text-zinc-400 text-lg">Encontramos um erro inesperado. Por favor, tente novamente.</CardDescription>
+					<CardDescription className="text-muted-foreground text-lg">Encontramos um erro inesperado. Por favor, tente novamente.</CardDescription>
 				</CardHeader>
 
 				<CardContent className="px-8 pb-4">
-					<Alert variant="destructive" className="bg-red-500/10 border-red-500/20 text-red-400">
+					<Alert variant="destructive">
 						<WarningCircle className="h-4 w-4" />
 						<AlertDescription className="ml-2">
 							<strong className="font-semibold">Detalhes do erro:</strong>

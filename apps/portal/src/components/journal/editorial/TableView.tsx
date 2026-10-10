@@ -119,15 +119,7 @@ export function TableView({ articles }: TableViewProps) {
 								</TableCell>
 								<TableCell className="text-right text-sm font-mono">
 									{daysSinceSubmission > 0 ? (
-										<span
-											className={
-												daysSinceSubmission > 14
-													? "text-red-600 dark:text-red-400 font-semibold"
-													: daysSinceSubmission > 7
-														? "text-yellow-600 dark:text-yellow-400"
-														: "text-green-600 dark:text-green-400"
-											}
-										>
+										<span className={daysSinceSubmission > 14 ? "text-destructive font-semibold" : daysSinceSubmission > 7 ? "text-warning" : "text-success"}>
 											{daysSinceSubmission}d
 										</span>
 									) : (

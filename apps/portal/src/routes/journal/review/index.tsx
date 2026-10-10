@@ -148,9 +148,7 @@ function AssignmentCard({ assignment, variant }: { assignment: ReviewerAssignmen
 								)}
 							</div>
 						)}
-						{variant === "invite" && (
-							<span className="px-2 py-1 bg-violet-500/10 text-violet-600 dark:text-violet-400 rounded text-xs font-medium">Aguardando resposta</span>
-						)}
+						{variant === "invite" && <span className="px-2 py-1 bg-info/10 text-info rounded text-xs font-medium">Aguardando resposta</span>}
 					</div>
 				</div>
 

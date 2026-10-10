@@ -3,6 +3,7 @@ import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-ro
 import { ArrowLeft, CheckCircle, Download, FloppyDisk, SendDiagonal, WarningTriangle } from "iconoir-react"
 import { useState } from "react"
 import { authQueryOptions } from "@/auth/service"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import {
@@ -200,14 +201,14 @@ function ReviewSubmission() {
 			</div>
 
 			{assignment.status === "completed" && (
-				<div className="p-4 border rounded-lg bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-900 flex items-center gap-2">
-					<CheckCircle className="size-5 text-green-600" />
-					<p className="text-sm text-green-900 dark:text-green-100">Revisão já submetida. Exibindo em modo somente leitura.</p>
-				</div>
+				<Alert variant="success" role="status">
+					<CheckCircle />
+					<AlertDescription>Revisão já submetida. Exibindo em modo somente leitura.</AlertDescription>
+				</Alert>
 			)}
 
-			<div className="p-4 border rounded-lg bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-900 flex flex-wrap items-center justify-between gap-3">
-				<p className="text-sm text-blue-900 dark:text-blue-100">
+			<div className="p-4 border rounded-lg bg-info/10 border-info/30 flex flex-wrap items-center justify-between gap-3">
+				<p className="text-sm text-info">
 					📅 Prazo: <strong>{new Date(assignment.due_date).toLocaleDateString("pt-BR")}</strong>
 				</p>
 				{manuscriptUrl && (
@@ -215,7 +216,7 @@ function ReviewSubmission() {
 						href={manuscriptUrl}
 						target="_blank"
 						rel="noopener noreferrer"
-						className="inline-flex items-center gap-2 text-sm font-medium text-blue-700 dark:text-blue-300 hover:underline"
+						className="inline-flex items-center gap-2 text-sm font-medium text-info hover:underline"
 					>
 						<Download className="size-4" />
 						Baixar manuscrito (PDF)
@@ -234,9 +235,7 @@ function ReviewSubmission() {
 			{banner && (
 				<div
 					className={`p-4 border rounded-lg text-sm flex items-center gap-2 ${
-						banner.kind === "success"
-							? "bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-900 text-green-900 dark:text-green-100"
-							: "bg-destructive/10 border-destructive/30 text-destructive"
+						banner.kind === "success" ? "bg-success/10 border-success/30 text-success" : "bg-destructive/10 border-destructive/30 text-destructive"
 					}`}
 				>
 					{banner.kind === "success" ? <CheckCircle className="size-4" /> : <WarningTriangle className="size-4" />}

@@ -544,9 +544,9 @@ function OverseerDashboard() {
 					<div className="h-40 animate-pulse rounded-xl bg-muted" />
 				</div>
 			) : targets.length === 0 ? (
-				<div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 flex items-start gap-3">
-					<div className="h-8 w-8 rounded-lg bg-amber-500/10 flex items-center justify-center">
-						<WarningCircle className="h-4 w-4 text-amber-600 dark:text-amber-500" />
+				<div className="rounded-xl border border-warning/30 bg-warning/5 p-4 flex items-start gap-3">
+					<div className="h-8 w-8 rounded-lg bg-warning/10 flex items-center justify-center">
+						<WarningCircle className="h-4 w-4 text-warning" />
 					</div>
 					<div className="text-sm">
 						Não foi possível derivar nenhum serviço do endpoint <code className="px-1 rounded bg-muted">/health</code>. Defina serviços no payload ou ajuste a
@@ -561,12 +561,12 @@ function OverseerDashboard() {
 						const isUp = st === "ok" || st === "degraded"
 						const colorHeader =
 							st === "ok"
-								? "from-emerald-500/15 to-transparent"
+								? "from-success/15 to-transparent"
 								: st === "degraded"
-									? "from-amber-500/15 to-transparent"
+									? "from-warning/15 to-transparent"
 									: st === "down" || st === "error"
-										? "from-rose-500/15 to-transparent"
-										: "from-slate-400/10 to-transparent"
+										? "from-destructive/15 to-transparent"
+										: "from-muted-foreground/10 to-transparent"
 
 						return (
 							<Card
@@ -578,11 +578,11 @@ function OverseerDashboard() {
 										<div className="flex items-center gap-2">
 											<span aria-hidden="true">
 												{isUp ? (
-													<CheckCircle className={`h-5 w-5 ${st === "ok" ? "text-emerald-600" : "text-amber-600"}`} />
+													<CheckCircle className={`h-5 w-5 ${st === "ok" ? "text-success" : "text-warning"}`} />
 												) : st === "down" || st === "error" ? (
-													<XmarkCircle className="h-5 w-5 text-rose-600" />
+													<XmarkCircle className="h-5 w-5 text-destructive" />
 												) : (
-													<WarningTriangle className="h-5 w-5 text-slate-500" />
+													<WarningTriangle className="h-5 w-5 text-muted-foreground" />
 												)}
 											</span>
 											<h3 className="text-base md:text-lg font-semibold leading-tight">{t.name}</h3>
@@ -654,11 +654,7 @@ function OverseerDashboard() {
 										</div>
 									</div>
 
-									{r?.note ? (
-										<div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-2 text-xs text-amber-700 dark:text-amber-300">
-											Observação: {r.note}
-										</div>
-									) : null}
+									{r?.note ? <div className="rounded-lg border border-warning/30 bg-warning/5 p-2 text-xs text-warning">Observação: {r.note}</div> : null}
 								</CardContent>
 
 								<CardFooter className="flex items-center justify-between gap-2">
