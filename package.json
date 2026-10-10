@@ -44,7 +44,7 @@
     "5s:dev": "VITE_APP_TENANT=cinco-s bun --cwd ./apps/forms dev -- --port 3002",
     "docs:dev": "bun --cwd ./apps/docs dev",
     "format": "biome format --write .",
-    "format:check": "biome format .",
+    "format:check": "biome check --linter-enabled=false .",
     "fix": "biome check --write .",
     "check": "biome check . && bun run typecheck --concurrency=2 && bun run lint:tailwind",
     "doctor": "bun scripts/doctor.ts",

@@ -33,27 +33,54 @@
     // flex, posição). Aparência vem de variante — se o design pede uma que não existe, ela
     // nasce no primitivo, não num `className` repetido em cada tela. Contratos por slot abrem o
     // que o slot existe para receber. Dívida medida pelo baseline.
+    // `tabular-nums` e `font-mono` passam em todo lugar: dizem como o DADO se lê (valor que
+    // alinha em coluna, código, NUP, CNPJ), não como o componente se parece. Contrato substitui
+    // o `allow` geral em vez de somar, por isso eles se repetem em cada um.
     "shadcn/no-restyle": [
       "warn",
       {
-        "allow": ["layout"],
+        "allow": ["layout", "tabular-nums", "font-mono"],
         "contracts": [
           {
-            // Moldura: o respiro interno é decisão da tela.
+            // Moldura: o respiro interno e o texto corrido do conteúdo são decisão da tela; fundo,
+            // borda e sombra seguem sendo do primitivo.
             "pattern": "^(Card|Sheet|Dialog|AlertDialog|Drawer|Popover)(Header|Content|Footer)$|^TabsContent$",
-            "allow": ["layout", "spacing"]
+            "allow": ["layout", "spacing", "typography", "text-color", "tabular-nums", "font-mono"]
           },
           {
-            // Texto (CardTitle, AlertDescription, DropdownMenuLabel…): escala e cor DO TEXTO. Fundo,
-            // borda e anel seguem sendo do primitivo. `text-color` também cobre as classes
-            // semânticas `text-subheading`/`text-hint`…, que o linter lê como cor de texto.
+            // Texto (CardTitle, AlertDescription, DropdownMenuLabel…): escala e cor DO TEXTO, e o
+            // `gap` de quando o título leva ícone. Fundo, borda e anel seguem sendo do primitivo.
+            // `text-color` também cobre as classes semânticas `text-subheading`/`text-hint`…
             "pattern": "(Title|Description|Label)$",
-            "allow": ["layout", "typography", "text-color"]
+            "allow": ["layout", "typography", "text-color", "gap", "tabular-nums", "font-mono"]
           },
           {
             // Célula: alinhamento numérico, fonte mono, respiro e cor de status do texto.
             "pattern": "^Table(Cell|Head)$",
             "allow": ["layout", "spacing", "typography", "text-color"]
+          },
+          {
+            // Linha: o fundo marca estado do dado (pendente, vencido, selecionado) e a linha de
+            // cabeçalho desliga o hover.
+            "pattern": "^TableRow$",
+            "allow": ["layout", "bg-color"]
+          },
+          {
+            // Esqueleto imita a forma do que vai carregar: avatar redondo, card arredondado.
+            "pattern": "^Skeleton$",
+            "allow": ["layout", "rounded"]
+          },
+          {
+            // Contêineres de empilhamento: a densidade entre os filhos é decisão da tela.
+            "pattern": "^(FieldGroup|Field|ItemGroup)$|^ScrollArea$",
+            "allow": ["layout", "spacing"]
+          },
+          {
+            // Gatilhos sem visual próprio: o wrapper não aplica classe nenhuma, quem desenha é o
+            // elemento que a tela passa. `SelectTrigger`, `TabsTrigger` e afins têm visual e
+            // não entram aqui.
+            "pattern": "^(Tooltip|Popover|HoverCard|Collapsible|Dialog|AlertDialog|Sheet|Drawer|DropdownMenu)Trigger$",
+            "allow": ["*"]
           }
         ]
       }
