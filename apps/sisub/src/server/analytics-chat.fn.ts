@@ -27,12 +27,12 @@ import {
 	updateAnalyticsMessageChartType,
 } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
-import { requireAuthThenRun } from "@/lib/domain-handler.server"
 import { setResponseStatus } from "@tanstack/react-start/server"
 import { requireAuth } from "@/lib/auth.server"
 import { CHAT_HISTORY_WRITE_LIMITER } from "@/lib/chat-history-rate-limit"
 import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
+import { requireAuthThenRun } from "@/lib/domain-handler.server"
 
 // ── Sessions ─────────────────────────────────────────────────────────────────
 

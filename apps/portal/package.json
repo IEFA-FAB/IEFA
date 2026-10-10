@@ -9,9 +9,8 @@
     "build": "bunx --bun vite build",
     "serve": "bunx --bun vite preview",
     "format": "biome format",
-    "lint": "biome lint && bun ../../scripts/lint-tailwind.ts portal",
-    "check": "biome check",
-    "typecheck": "bun ../../scripts/typecheck.ts",
+    "lint": "biome check && bun ../../scripts/lint-tailwind.ts portal",
+    "typecheck": "bun check",
     "validate-env": "bun run src/env.ts"
   },
   "dependencies": {

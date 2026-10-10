@@ -14,9 +14,8 @@
     "test": "bun test --no-env-file src",
     "test:integration": "bun test --no-env-file --timeout 30000 tests/integration",
     "format": "biome format",
-    "lint": "biome lint",
-    "check": "biome check",
-    "typecheck": "bun ../../scripts/typecheck.ts"
+    "lint": "biome check",
+    "typecheck": "bun check"
   },
   "dependencies": {
     "@hono/zod-openapi": "^1.6.3",

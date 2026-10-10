@@ -7,9 +7,8 @@
     "build": "bunx --bun vite build",
     "serve": "bunx --bun vite preview",
     "format": "biome format",
-    "lint": "biome lint && bun ../../scripts/lint-tailwind.ts assignment-selection",
-    "check": "biome check",
-    "typecheck": "bun ../../scripts/typecheck.ts",
+    "lint": "biome check && bun ../../scripts/lint-tailwind.ts assignment-selection",
+    "typecheck": "bun check",
     "validate-env": "bun run src/env.ts",
     "test": "ASSIGNMENT_SELECTION_RUN_INTEGRATION=false vitest run --config vitest.config.ts",
     "test:integration": "ASSIGNMENT_SELECTION_RUN_INTEGRATION=true ASSIGNMENT_SELECTION_INTEGRATION_REQUIRED=true vitest run --config vitest.config.ts"
