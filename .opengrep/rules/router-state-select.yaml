@@ -1,0 +1,30 @@
+##
+# `useRouterState({ select: (s) => ... })` no sisub: o tipo do resultado vem da inferência de
+# `TSelected` a partir do retorno do `select`, com o parâmetro tipado como o `RouterState` inteiro.
+# No sisub, o `matches` desse estado é uma união das 172 rotas, e o `bun check` (o typecheck) não
+# infere: o resultado vira o `RouterState` inteiro. O `tsc` infere; o `bun check` 1.4.3 não.
+#
+# - Pedaço da URL (pathname, search, state, hash): `useLocation({ select })`. O parâmetro é a
+#   `ParsedLocation`, a inferência funciona, e o hook assina só a store de location em vez de
+#   reexecutar o `select` a cada mudança do estado do router.
+# - Outra parte do estado (`isLoading`, `status`): anote o retorno, `(s): boolean => s.isLoading`.
+#
+# Casos de teste: `__fixtures__/router-state-select.tsx` (opengrep test --config
+# .opengrep/rules/router-state-select.yaml .opengrep/rules/__fixtures__/router-state-select.tsx).
+#
+# Regras compatíveis com Opengrep e Semgrep (mesma sintaxe).
+##
+rules:
+  - id: router-state-select-unannotated
+    languages: [generic]
+    severity: ERROR
+    message: >-
+      `useRouterState({ select })` sem tipo de retorno no sisub: o `bun check` não infere o
+      resultado com o route tree do app e o trata como o `RouterState` inteiro. Para a URL use
+      `useLocation({ select: (location) => location.pathname })`; para outra parte do estado,
+      anote o retorno (`(s): boolean => s.isLoading`).
+    paths:
+      include:
+        - "apps/sisub/src/**/*.ts"
+        - "apps/sisub/src/**/*.tsx"
+    pattern-regex: 'useRouterState\(\s*\{\s*select:\s*\(?\s*\w+\s*\)?\s*=>'

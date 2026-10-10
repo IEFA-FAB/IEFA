@@ -8,7 +8,7 @@
     "serve": "bunx --bun vite preview",
     "format": "biome format",
     "lint": "biome check && bun ../../scripts/lint-tailwind.ts sisub",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "bun check",
     "validate-env": "bun run src/lib/env.ts",
     "test": "bun run test:unit",
     "test:unit": "SISUB_RUN_INTEGRATION=false vitest run --config vitest.config.ts",

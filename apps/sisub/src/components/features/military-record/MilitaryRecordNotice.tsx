@@ -1,5 +1,5 @@
 import { describeSaramStatus, type SaramStatus } from "@iefa/database/saram-link"
-import { Link, useRouterState } from "@tanstack/react-router"
+import { Link, useLocation } from "@tanstack/react-router"
 import { Clock, ShieldAlert, UserRoundSearch, X } from "lucide-react"
 import { useState } from "react"
 import { usePBAC } from "@/auth/pbac"
@@ -27,7 +27,7 @@ const dismissedByUser = new Map<string, string>()
  */
 export function MilitaryRecordNotice() {
 	const { user } = useAuth()
-	const pathname = useRouterState({ select: (state) => state.location.pathname })
+	const pathname = useLocation({ select: (location) => location.pathname })
 	const userId = user?.id ?? ""
 	// A ação mora numa tela do Comensal: quem tem o módulo negado não teria para onde ir.
 	const { can } = usePBAC()
