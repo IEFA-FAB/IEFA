@@ -16,7 +16,7 @@
     "format": "biome format",
     "lint": "biome lint",
     "check": "biome check",
-    "typecheck": "bun --check"
+    "typecheck": "bun ../../scripts/typecheck.ts"
   },
   "dependencies": {
     "@hono/zod-openapi": "^1.6.3",
@@ -35,7 +35,6 @@
   "devDependencies": {
     "@iefa/tsconfig": "workspace:*",
     "@types/bun": "^1.4.2",
-    "bun-types": "^1.4.3",
     "typescript": "^7.0.2"
   }
 }

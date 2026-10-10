@@ -7,7 +7,7 @@
     "build": "vite build",
     "start": "vite preview",
     "lint": "biome check .",
-    "typecheck": "fumadocs-mdx && bun --check"
+    "typecheck": "fumadocs-mdx && bun ../../scripts/typecheck.ts"
   },
   "dependencies": {
     "@iefa/agent-web": "workspace:*",

@@ -11,7 +11,7 @@
   "scripts": {
     "lint": "biome check .",
     "test": "bun test --no-env-file $(find src -name '*.test.ts' -print)",
-    "typecheck": "bun --check"
+    "typecheck": "bun ../../scripts/typecheck.ts"
   },
   "dependencies": {
     "@iefa/database": "workspace:*",
@@ -23,7 +23,7 @@
     "remark-gfm": "^4.0.1"
   },
   "peerDependencies": {
-    "react": "^19.3.0"
+    "react": "^19.2"
   },
   "peerDependenciesMeta": {
     "react": {

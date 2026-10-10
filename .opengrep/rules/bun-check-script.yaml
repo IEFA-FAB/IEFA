@@ -2,7 +2,11 @@
 # `bun check` (Bun 1.4.3) é o type checker embutido, MAS um script `check` no package.json tem
 # precedência: `bun check` passa a rodar o script. Nos workspaces que têm `"check": "biome check"`,
 # um `"typecheck": "bun check"` roda o Biome, sai 0 e o gate de typecheck fica verde sem checar
-# tipo nenhum. `bun --check` (sem arquivo) é sempre o type checker, com ou sem script `check`.
+# tipo nenhum. `bun --check` (sem arquivo) é sempre o type checker, com ou sem script `check`; o
+# `typecheck` dos workspaces chama `scripts/typecheck.ts`, que trava a versão mínima do Bun.
+#
+# Só os package.json de `apps/*` e `packages/*`: o scan do CI e o `scan:rules` olham essas duas
+# pastas. `bun check:types` (outro script) não é acusado.
 #
 # Casos de teste: `__fixtures__/bun-check-script.json` (opengrep test --config
 # .opengrep/rules/bun-check-script.yaml .opengrep/rules/__fixtures__/bun-check-script.json).
@@ -16,9 +20,9 @@ rules:
     message: >-
       `bun check` dentro de script do package.json roda o script `check` do workspace quando ele
       existe (no repo, `biome check`), não o type checker: o typecheck passa sem checar tipo. Use
-      `bun --check`.
+      `bun ../../scripts/typecheck.ts` (o `typecheck` padrão) ou `bun --check`.
     paths:
       include:
         - "apps/*/package.json"
         - "packages/*/package.json"
-    pattern-regex: '"[^"\n]*\bbun check\b[^"\n]*"'
+    pattern-regex: '"[^"\n]*\bbun[ \t]+check(?![:\w-])[^"\n]*"'

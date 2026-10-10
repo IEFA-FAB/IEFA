@@ -9,7 +9,7 @@
     "format": "biome format",
     "lint": "biome lint && bun ../../scripts/lint-tailwind.ts forms",
     "check": "biome check",
-    "typecheck": "bun --check",
+    "typecheck": "bun ../../scripts/typecheck.ts",
     "test": "bun test --no-env-file src",
     "validate-env": "bun run src/env.ts"
   },

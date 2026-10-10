@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "lint": "biome check .",
-    "typecheck": "bun --check"
+    "typecheck": "bun ../../scripts/typecheck.ts"
   },
   "exports": {
     ".": "./src/index.ts",
