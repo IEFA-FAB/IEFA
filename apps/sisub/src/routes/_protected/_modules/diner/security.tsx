@@ -357,7 +357,7 @@ function SecurityPage() {
 						size="sm"
 						nativeButton={false}
 						render={
-							<Link to="/diner/mcp-keys" className="gap-2">
+							<Link to="/diner/mcp-keys">
 								<KeyRound className="size-4" aria-hidden />
 								Gerenciar chaves MCP
 							</Link>

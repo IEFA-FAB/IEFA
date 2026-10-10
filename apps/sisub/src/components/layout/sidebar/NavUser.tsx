@@ -52,7 +52,7 @@ export function UserProfileRow() {
 				<TooltipTrigger
 					render={
 						<Button
-							variant="subtle-destructive"
+							variant="subtle"
 							size="sm"
 							className="shrink-0"
 							onClick={async () => {

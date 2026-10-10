@@ -227,7 +227,9 @@ function KeyItem({ apiKey }: KeyItemProps) {
 							<AlertDialog>
 								<AlertDialogTrigger
 									render={
-										<TooltipTrigger render={<Button variant="subtle" size="icon" className="size-8" aria-label="Revogar chave" disabled={isRevoking} />} />
+										<TooltipTrigger
+											render={<Button variant="subtle-destructive" size="icon" className="size-8" aria-label="Revogar chave" disabled={isRevoking} />}
+										/>
 									}
 								>
 									{isRevoking ? <Loader2 className="size-4 animate-spin" /> : <ShieldOff className="size-4" />}
