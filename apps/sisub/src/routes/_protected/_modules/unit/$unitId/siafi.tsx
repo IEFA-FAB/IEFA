@@ -135,7 +135,7 @@ function SiafiPage() {
 							if (file) handleFile(file)
 						}}
 					/>
-					<Button onClick={() => fileInput.current?.click()} disabled={busy} className="gap-2">
+					<Button onClick={() => fileInput.current?.click()} disabled={busy}>
 						{busy ? <Spinner className="size-4" /> : <FileUp className="size-4" />}
 						Selecionar arquivo (CSV ou XLSX)
 					</Button>
@@ -202,7 +202,7 @@ function SiafiPage() {
 										</td>
 										<td className="py-2.5 px-2 text-right">
 											{batch.status !== "applied" && (
-												<Button size="sm" variant="ghost" className="h-7 text-xs gap-1.5" disabled={busy} onClick={() => applyBatch(batch)}>
+												<Button size="sm" variant="ghost" className="h-7 text-xs" disabled={busy} onClick={() => applyBatch(batch)}>
 													<RefreshCw className="size-3.5" />
 													{batch.status === "failed" ? "Aplicar de novo" : "Aplicar"}
 												</Button>

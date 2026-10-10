@@ -207,7 +207,7 @@ function GrantsList({
 							<Badge variant={grant.module === "sucont-admin" ? "destructive" : "muted"}>{LEVEL_LABELS[grant.level] ?? `Nível ${grant.level}`}</Badge>
 							<Button
 								type="button"
-								variant="ghost"
+								variant="subtle-destructive"
 								size="sm"
 								disabled={locksSelfOut || byPolicy || revokingKey === key}
 								onClick={() => onRevoke(grant)}
@@ -220,7 +220,6 @@ function GrantsList({
 											? "Ninguém revoga a própria administração — peça a outro administrador"
 											: "Revogar acesso"
 								}
-								className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
 							>
 								{revokingKey === key ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
 								Revogar

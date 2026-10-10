@@ -404,9 +404,9 @@ export function RecipeIngredientsTable({
 												<div className="flex items-start gap-1.5">
 													<Button
 														type="button"
-														variant="ghost"
+														variant="subtle"
 														size="icon-sm"
-														className="-ml-1 shrink-0 text-muted-foreground"
+														className="-ml-1 shrink-0"
 														aria-expanded={isExpanded}
 														aria-label={`${isExpanded ? "Recolher" : "Expandir"} substitutos de ${row.ingredient_name}`}
 														onClick={() => toggleExpanded(index)}
@@ -579,9 +579,8 @@ export function RecipeIngredientsTable({
 											<TableCell>
 												<Button
 													type="button"
-													variant="ghost"
+													variant="subtle-destructive"
 													size="icon-sm"
-													className="text-muted-foreground hover:text-destructive"
 													aria-label={`Remover ${row.ingredient_name}`}
 													onClick={() => remove(index)}
 												>
@@ -924,9 +923,8 @@ function CandidatePicker({
 												render={
 													<Button
 														type="button"
-														variant="ghost"
+														variant="subtle"
 														size="sm"
-														className="text-muted-foreground"
 														// O texto visível ("Tornar principal") tem que ESTAR no nome acessível, ou o
 														// comando de voz que lê o botão na tela não o alcança (WCAG 2.5.3).
 														aria-label={`Tornar principal: ${candidate.name}`}
@@ -954,9 +952,8 @@ function CandidatePicker({
 										</Tooltip>
 										<Button
 											type="button"
-											variant="ghost"
+											variant="subtle-destructive"
 											size="icon-sm"
-											className="text-muted-foreground hover:text-destructive"
 											aria-label={`Remover ${candidate.name}`}
 											onClick={(event) => {
 												// A linha inteira seleciona o candidato; sem parar aqui, apagar o

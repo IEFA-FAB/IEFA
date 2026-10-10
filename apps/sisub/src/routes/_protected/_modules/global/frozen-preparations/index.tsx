@@ -73,7 +73,7 @@ function FrozenPreparationsPage() {
 		<div className="space-y-6">
 			<PageHeader title="Preparações Congeladas">
 				{canWrite && (
-					<Button size="sm" onClick={openCreate} className="gap-2">
+					<Button size="sm" onClick={openCreate}>
 						<Plus className="size-4" />
 						Nova preparação congelada
 					</Button>

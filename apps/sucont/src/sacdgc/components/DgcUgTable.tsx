@@ -112,7 +112,7 @@ export function DgcUgTable({ datasets, states, selectedGroup, onSelectGroup, onA
 												onClick={() => onAnalyze([dataset.ugCode])}
 												disabled={busy || state.status === "analisando" || state.status === "na-fila"}
 												variant="outline"
-												className="gap-1.5 rounded-lg text-label text-muted-foreground hover:border-tech-blue hover:text-tech-blue disabled:opacity-40 disabled:cursor-not-allowed"
+												className="rounded-lg text-label text-muted-foreground hover:border-tech-blue hover:text-tech-blue disabled:opacity-40 disabled:cursor-not-allowed"
 											>
 												<PlayCircle className="w-3.5 h-3.5" />
 												{state.status === "erro" ? "Tentar de novo" : "Analisar"}

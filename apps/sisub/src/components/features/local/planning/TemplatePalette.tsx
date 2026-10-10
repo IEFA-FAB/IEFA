@@ -68,7 +68,7 @@ export function TemplatePalette({ templates, selectedTemplateId, onSelectTemplat
 							aria-pressed={isSelected}
 							onClick={() => onSelectTemplate(isSelected ? null : template.id)}
 							className={cn(
-								"flex flex-col items-start gap-2 p-3 min-w-[140px] h-[76px] transition-colors",
+								"flex flex-col items-start p-3 min-w-[140px] h-[76px] transition-colors",
 								isSelected ? "border-primary ring-2 ring-offset-2 ring-primary bg-accent" : "border-border bg-background hover:border-primary/50"
 							)}
 						>

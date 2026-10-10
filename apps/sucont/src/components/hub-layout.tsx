@@ -184,7 +184,7 @@ function ThemeToggle() {
 		<Tooltip>
 			<TooltipTrigger
 				render={
-					<Button type="button" variant="ghost" size="icon-sm" aria-label={label} onClick={toggle} className="text-muted-foreground hover:text-foreground">
+					<Button type="button" variant="subtle" size="icon-sm" aria-label={label} onClick={toggle}>
 						{theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
 					</Button>
 				}
@@ -459,14 +459,7 @@ function HubSearchBar() {
 				onChange={(e) => onChange(e.target.value)}
 			/>
 			{draft !== "" && (
-				<Button
-					type="button"
-					onClick={clear}
-					aria-label="Limpar busca"
-					variant="ghost"
-					size="icon-xs"
-					className="size-7 shrink-0 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
-				>
+				<Button type="button" onClick={clear} aria-label="Limpar busca" variant="subtle" size="icon-xs" className="size-7 shrink-0 rounded-full">
 					<X className="size-3.5" />
 				</Button>
 			)}
@@ -560,14 +553,7 @@ function NavUser() {
 				{withTooltip(
 					isMobile,
 					"Sair",
-					<Button
-						type="button"
-						onClick={logout}
-						aria-label="Sair"
-						variant="ghost"
-						size="icon-sm"
-						className="shrink-0 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-					>
+					<Button type="button" onClick={logout} aria-label="Sair" variant="subtle-destructive" size="icon-sm" className="shrink-0 rounded-lg">
 						<LogOut className="size-4" />
 					</Button>
 				)}

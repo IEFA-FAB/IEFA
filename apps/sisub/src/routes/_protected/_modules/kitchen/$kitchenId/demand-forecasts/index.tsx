@@ -139,12 +139,7 @@ function DemandForecastsPage() {
 														</Link>
 													}
 												/>
-												<Button
-													size="sm"
-													onClick={() => handleSend(forecast.id, forecast.title)}
-													disabled={isSending || forecast.selections.length === 0}
-													className="gap-1.5"
-												>
+												<Button size="sm" onClick={() => handleSend(forecast.id, forecast.title)} disabled={isSending || forecast.selections.length === 0}>
 													<Send className="size-3.5" aria-hidden="true" />
 													Enviar
 												</Button>

@@ -336,9 +336,9 @@ function Workspace() {
 												{canEdit && (
 													<Button
 														type="button"
-														variant="ghost"
+														variant="subtle-destructive"
 														onClick={() => deleteTaskMutation.mutate(item.id as string)}
-														className="mt-4 h-auto p-0 text-muted-foreground hover:text-destructive hover:bg-transparent opacity-0 group-hover:opacity-100 focus-visible:opacity-100 gap-1 text-hint font-mono"
+														className="mt-4 h-auto p-0 hover:bg-transparent opacity-0 group-hover:opacity-100 focus-visible:opacity-100 text-hint font-mono"
 													>
 														<Trash2 className="w-3 h-3" /> EXCLUIR
 													</Button>
@@ -411,11 +411,11 @@ function Workspace() {
 									{canEdit && (
 										<Button
 											type="button"
-											variant="ghost"
+											variant="subtle-destructive"
 											size="icon-xs"
 											onClick={() => deleteNoticeMutation.mutate(notice.id)}
 											aria-label={`Excluir aviso: ${notice.content}`}
-											className="absolute top-2 right-2 text-muted-foreground hover:text-destructive hover:bg-transparent opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+											className="absolute top-2 right-2 hover:bg-transparent opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
 										>
 											<X className="w-3 h-3" />
 										</Button>
@@ -591,7 +591,7 @@ function AddTaskForm({
 					className="bg-muted/50 border border-border p-2 rounded text-caption text-foreground md:col-span-2 h-20 focus:border-tech-cyan outline-none"
 				/>
 				<div className="flex gap-2 md:col-span-2 justify-end">
-					<Button type="button" variant="ghost" onClick={onCancel} className="text-muted-foreground hover:text-foreground">
+					<Button type="button" variant="subtle" onClick={onCancel}>
 						CANCELAR
 					</Button>
 					<Button type="submit" disabled={pending} className="bg-tech-cyan text-white hover:bg-tech-cyan/90 shadow-md">
@@ -626,19 +626,14 @@ function AddNoticeForm({ onSave, onCancel, pending }: { onSave: (content: string
 					</SelectContent>
 				</Select>
 				<div className="flex gap-2">
-					<Button
-						type="button"
-						variant="ghost"
-						onClick={onCancel}
-						className="h-auto p-0 hover:bg-transparent text-hint text-muted-foreground hover:text-foreground"
-					>
+					<Button type="button" variant="subtle" onClick={onCancel} className="h-auto p-0 hover:bg-transparent text-hint">
 						CANCELAR
 					</Button>
 					<Button
 						type="button"
 						disabled={pending}
 						onClick={() => content && onSave(content, type)}
-						className="bg-tech-cyan text-white hover:bg-tech-cyan/90 h-auto px-3 py-1 shadow-sm gap-1 text-hint"
+						className="bg-tech-cyan text-white hover:bg-tech-cyan/90 h-auto px-3 py-1 shadow-sm text-hint"
 					>
 						{pending && <Loader2 className="w-3 h-3 animate-spin" />} SALVAR
 					</Button>

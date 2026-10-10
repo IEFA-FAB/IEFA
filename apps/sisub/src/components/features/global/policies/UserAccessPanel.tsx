@@ -61,7 +61,7 @@ export function UserAccessPanel({ userId, maps }: { userId: string; maps: ScopeM
 							Conjuntos nomeados de permissões. Desanexar revoga todas as dela de uma vez; um anexo com prazo para de valer sozinho no vencimento.
 						</p>
 					</div>
-					<Button size="sm" onClick={() => setAttachOpen(true)} disabled={available.length === 0} className="gap-1.5 shrink-0">
+					<Button size="sm" onClick={() => setAttachOpen(true)} disabled={available.length === 0} className="shrink-0">
 						<Link2 className="size-4" />
 						Anexar política
 					</Button>
@@ -101,12 +101,11 @@ export function UserAccessPanel({ userId, maps }: { userId: string; maps: ScopeM
 											setExpiresOn(expiryToDateInput(policy.expires_at))
 											setAttachOpen(true)
 										}}
-										className="gap-1.5"
 									>
 										<CalendarClock className="size-4" />
 										Prazo
 									</Button>
-									<Button variant="ghost" size="sm" onClick={() => setDetachTarget(policy)} className="gap-1.5">
+									<Button variant="ghost" size="sm" onClick={() => setDetachTarget(policy)}>
 										<Link2Off className="size-4" />
 										Desanexar
 									</Button>

@@ -203,14 +203,13 @@ function NfeDetailPage() {
 				<Button
 					variant="ghost"
 					size="sm"
-					className="gap-1.5"
 					render={<Link to="/storage/$kitchenId/nfe" params={{ kitchenId: Route.useParams().kitchenId }} />}
 					nativeButton={false}
 				>
 					<ArrowLeft className="size-4" />
 					Voltar
 				</Button>
-				<Button variant="outline" size="sm" className="gap-1.5" onClick={rematch} disabled={rematching}>
+				<Button variant="outline" size="sm" onClick={rematch} disabled={rematching}>
 					{rematching ? <Spinner className="size-4" /> : <RefreshCw className="size-4" />}
 					Rodar matching
 				</Button>

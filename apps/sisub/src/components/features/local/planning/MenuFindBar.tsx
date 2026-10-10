@@ -149,18 +149,11 @@ export function MenuFindBar<T extends MenuDraftItem>({
 				<Button type="button" variant="ghost" size="sm" disabled={matches.length === 0} onClick={() => setShowList((v) => !v)}>
 					{showList ? "Ocultar lista" : "Ver todas"}
 				</Button>
-				<Button
-					type="button"
-					variant="ghost"
-					size="sm"
-					className="gap-1.5"
-					disabled={matches.length === 0}
-					onClick={() => onSelectMatches(new Set(matches.map((m) => m.key)))}
-				>
+				<Button type="button" variant="ghost" size="sm" disabled={matches.length === 0} onClick={() => onSelectMatches(new Set(matches.map((m) => m.key)))}>
 					<ListChecks className="size-4" />
 					Selecionar
 				</Button>
-				<Button type="button" variant="ghost" size="sm" className="gap-1.5" disabled={matches.length === 0} onClick={() => setReplaceOpen(true)}>
+				<Button type="button" variant="ghost" size="sm" disabled={matches.length === 0} onClick={() => setReplaceOpen(true)}>
 					<Replace className="size-4" />
 					Substituir
 				</Button>

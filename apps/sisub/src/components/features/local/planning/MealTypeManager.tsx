@@ -107,7 +107,7 @@ export function MealTypeManager({ open, onClose, kitchenId }: MealTypeManagerPro
 					</DialogHeader>
 
 					<div className="flex justify-end">
-						<Button size="sm" variant="outline" className="gap-1.5" onClick={() => setGroupSetsOpen(true)}>
+						<Button size="sm" variant="outline" onClick={() => setGroupSetsOpen(true)}>
 							<LayoutGrid className="size-4" />
 							Conjuntos de grupos
 						</Button>

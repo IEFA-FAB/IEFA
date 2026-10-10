@@ -65,7 +65,7 @@ export function UserMenu() {
 		<DropdownMenu>
 			<DropdownMenuTrigger
 				render={
-					<Button variant="ghost" size="sm" className="gap-2 pl-1.5 pr-2.5 data-[state=open]:bg-accent data-[state=open]:text-foreground">
+					<Button variant="ghost" size="sm" className="pl-1.5 pr-2.5 data-[state=open]:bg-accent data-[state=open]:text-foreground">
 						{/* Avatar com iniciais — navy + dourado, alinhado à marca */}
 						<span className="grid size-6 shrink-0 place-items-center rounded-lg bg-primary text-[11px] font-bold text-gold" aria-hidden="true">
 							{initials}

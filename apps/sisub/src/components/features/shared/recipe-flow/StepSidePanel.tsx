@@ -117,14 +117,7 @@ export function StepSidePanel(props: StepSidePanelProps) {
 									className="flex-1"
 									onChange={(e) => props.onPatchOutput(o.clientId, { label: e.target.value })}
 								/>
-								<Button
-									type="button"
-									variant="ghost"
-									size="icon-sm"
-									aria-label="Remover saída"
-									className="text-muted-foreground hover:text-destructive"
-									onClick={() => props.onRemoveOutput(o.clientId)}
-								>
+								<Button type="button" variant="subtle-destructive" size="icon-sm" aria-label="Remover saída" onClick={() => props.onRemoveOutput(o.clientId)}>
 									<Trash2 className="size-3.5" />
 								</Button>
 							</div>
@@ -168,14 +161,7 @@ export function StepSidePanel(props: StepSidePanelProps) {
 								onChange={(ev) => props.onPatchEdge(e.id, Number(ev.target.value) || null)}
 							/>
 							<span className="w-8 text-caption text-muted-foreground">{e.data?.measureUnit ?? ""}</span>
-							<Button
-								type="button"
-								variant="ghost"
-								size="icon-sm"
-								aria-label="Remover entrada"
-								className="text-muted-foreground hover:text-destructive"
-								onClick={() => props.onRemoveEdge(e.id)}
-							>
+							<Button type="button" variant="subtle-destructive" size="icon-sm" aria-label="Remover entrada" onClick={() => props.onRemoveEdge(e.id)}>
 								<Trash2 className="size-3.5" />
 							</Button>
 						</div>

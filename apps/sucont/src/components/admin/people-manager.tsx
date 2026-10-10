@@ -114,7 +114,7 @@ export function SucontPeopleManager() {
 						/>
 					</div>
 					<div className="flex gap-2">
-						<Button type="button" variant="ghost" onClick={() => setIsAdding(false)} className="text-muted-foreground hover:text-foreground">
+						<Button type="button" variant="subtle" onClick={() => setIsAdding(false)}>
 							CANCELAR
 						</Button>
 						<Button type="submit" disabled={createPerson.isPending} className="bg-tech-cyan text-white shadow-md hover:bg-tech-cyan/90">
@@ -191,7 +191,7 @@ function PersonRow({ person, canManage, onChanged, onRemove }: { person: Section
 						<Button type="button" variant="outline" size="sm" onClick={() => setLinking(linking === "account" ? null : "account")}>
 							<Mail className="size-3.5" /> {person.hasAccount ? "Trocar conta" : "Vincular conta"}
 						</Button>
-						<Button type="button" variant="ghost" size="sm" onClick={onRemove} className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
+						<Button type="button" variant="subtle-destructive" size="sm" onClick={onRemove}>
 							<Trash2 className="size-3.5" /> Tirar da seção
 						</Button>
 					</div>
@@ -267,7 +267,7 @@ function RosterLinker({ person, onDone }: { person: SectionPerson; onDone: () =>
 					<Search className="size-3.5" /> Buscar
 				</Button>
 				{person.saram && (
-					<Button type="button" variant="ghost" size="sm" onClick={() => link.mutate(null)} className="text-muted-foreground hover:text-destructive">
+					<Button type="button" variant="subtle-destructive" size="sm" onClick={() => link.mutate(null)}>
 						<X className="size-3.5" /> Desvincular
 					</Button>
 				)}
@@ -343,7 +343,7 @@ function AccountLinker({ person, onDone }: { person: SectionPerson; onDone: () =
 				{link.isPending && <Loader2 className="size-3 animate-spin" />} Vincular
 			</Button>
 			{person.hasAccount && (
-				<Button type="button" variant="ghost" size="sm" onClick={() => link.mutate(null)} className="text-muted-foreground hover:text-destructive">
+				<Button type="button" variant="subtle-destructive" size="sm" onClick={() => link.mutate(null)}>
 					<X className="size-3.5" /> Desvincular
 				</Button>
 			)}

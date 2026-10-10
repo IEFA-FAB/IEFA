@@ -551,7 +551,7 @@ function UserPermissionsPanel({
 		<div className="space-y-4">
 			<div className="flex items-start justify-between gap-4">
 				<div className="flex items-center gap-3">
-					<Button variant="ghost" size="sm" onClick={onBack} className="gap-1.5">
+					<Button variant="ghost" size="sm" onClick={onBack}>
 						<ArrowLeft className="size-4" />
 						Voltar
 					</Button>
@@ -561,7 +561,7 @@ function UserPermissionsPanel({
 						{user.saram && <p className="text-xs text-muted-foreground">SARAM: {user.saram}</p>}
 					</div>
 				</div>
-				<Button size="sm" onClick={onAdd} className="gap-1.5 shrink-0">
+				<Button size="sm" onClick={onAdd} className="shrink-0">
 					<Plus className="size-4" />
 					Adicionar permissão
 				</Button>

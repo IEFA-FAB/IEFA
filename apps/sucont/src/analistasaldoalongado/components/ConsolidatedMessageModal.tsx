@@ -128,14 +128,7 @@ export function ConsolidatedMessageModal({ data, racFilter, onClose }: Consolida
 							</div>
 						</div>
 					</div>
-					<Button
-						type="button"
-						onClick={onClose}
-						variant="ghost"
-						size="icon"
-						aria-label="Fechar"
-						className="text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors"
-					>
+					<Button type="button" onClick={onClose} variant="subtle" size="icon" aria-label="Fechar" className="rounded-full transition-colors">
 						<X className="w-6 h-6" />
 					</Button>
 				</div>

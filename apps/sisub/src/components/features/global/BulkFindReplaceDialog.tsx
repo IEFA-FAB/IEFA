@@ -179,7 +179,7 @@ export function BulkFindReplaceDialog({ isOpen, onClose }: BulkFindReplaceDialog
 										<span className="text-muted-foreground line-through">{m.original}</span>
 										<span className="text-foreground">{m.newDescription}</span>
 									</div>
-									<Button type="button" variant="ghost" size="sm" className="shrink-0 gap-1.5" disabled={isRunning} onClick={() => handleApplyOne(m)}>
+									<Button type="button" variant="ghost" size="sm" className="shrink-0" disabled={isRunning} onClick={() => handleApplyOne(m)}>
 										{applyingKey === key ? <Loader2 className="size-3.5 animate-spin" /> : <Replace className="size-3.5" />}
 										Substituir
 									</Button>
@@ -196,7 +196,7 @@ export function BulkFindReplaceDialog({ isOpen, onClose }: BulkFindReplaceDialog
 					<Button type="button" variant="outline" onClick={handleClose} disabled={isRunning}>
 						Fechar
 					</Button>
-					<Button type="button" onClick={handleApply} disabled={isRunning || matches.length === 0} className="gap-2">
+					<Button type="button" onClick={handleApply} disabled={isRunning || matches.length === 0}>
 						{isRunning && <Loader2 className="size-4 animate-spin" />}
 						Substituir todos {matches.length > 0 ? `(${matches.length})` : ""}
 					</Button>
