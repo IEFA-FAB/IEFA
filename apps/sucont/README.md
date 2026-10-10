@@ -44,9 +44,9 @@ This project uses [Biome](https://biomejs.dev/) for linting and formatting. The 
 
 
 ```bash
-npm run lint
-npm run format
-npm run check
+bun run lint        # biome check (lint, formatação e imports) + lint de Tailwind
+bun run format
+bun run typecheck   # bun check
 ```
 
 

@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "lint": "biome check .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "bun check"
   },
   "exports": {
     ".": "./src/index.ts",
@@ -13,7 +13,7 @@
     "./alpha": "./src/alpha-client.ts"
   },
   "dependencies": {
-    "hono": "^4.13.7"
+    "hono": "^4.13.13"
   },
   "devDependencies": {
     "@iefa/alpha": "workspace:*",

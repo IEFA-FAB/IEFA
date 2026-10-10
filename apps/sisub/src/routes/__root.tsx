@@ -95,7 +95,7 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 })
 
 function RootDocument() {
-	const isLoading = useRouterState({ select: (s) => s.isLoading })
+	const isLoading = useRouterState({ select: (s): boolean => s.isLoading })
 	const router = useRouter()
 
 	// Safety net: Supabase may land password-recovery links on the Site URL root

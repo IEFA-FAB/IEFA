@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "lint": "biome check .",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "bun check",
     "test": "bun test --no-env-file $(find src -name '*.test.ts' -print)"
   },
   "exports": {

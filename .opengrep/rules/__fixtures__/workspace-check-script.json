@@ -1,0 +1,16 @@
+// Casos de teste de `.opengrep/rules/workspace-check-script.yaml`. Não é package.json de verdade:
+// os comentários existem só para as anotações do `opengrep test`.
+{
+  // ok: workspace-check-script
+  "someTool": { "check": true },
+  // ruleid: workspace-check-script
+  "scripts": {
+    "check": "biome check",
+    // ok: workspace-check-script
+    "typecheck": "bun check",
+    // ok: workspace-check-script
+    "lint": "biome check && bun ../../scripts/lint-tailwind.ts sisub",
+    // ok: workspace-check-script
+    "check:deploy": "bun scripts/generate-deploy-artifacts.ts --check"
+  }
+}

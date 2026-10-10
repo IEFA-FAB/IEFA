@@ -19,12 +19,12 @@
   "scripts": {
     "lint": "biome check .",
     "test": "bun test --no-env-file $(find src -name '*.test.ts' -print)",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "bun check"
   },
   "dependencies": {
     "@iefa/database": "workspace:*",
     "@iefa/pbac": "workspace:*",
-    "drizzle-orm": "^0.45.3",
+    "drizzle-orm": "^0.45.4",
     "zod": "^4.6.5"
   },
   "devDependencies": {

@@ -3,7 +3,7 @@
 # GERADO por scripts/generate-deploy-artifacts.ts a partir de apps.manifest.json — não editar à mão.
 # Digest centralizado: bump de versão do Bun altera só o manifesto.
 # =============================================================================
-ARG BUN_IMAGE=oven/bun:1.4.0-alpine@sha256:07235578f79ef8c6f97d94aee7938e76f5cdba5f21ae5dbfdd3d3d38058437eb
+ARG BUN_IMAGE=oven/bun:1.4.3-alpine@sha256:629e17411f1f129dbec3af78d5af9c9f2a937435c80349437206c6b0b7422373
 FROM ${BUN_IMAGE} AS base
 RUN apk add --no-cache libc6-compat
 WORKDIR /app

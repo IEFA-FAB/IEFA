@@ -35,17 +35,17 @@
     "audit:rls": "bun run scripts/audit-rls.ts",
     "lint": "biome check .",
     "test": "bun test --no-env-file $(find src scripts -name '*.test.ts' -print)",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "bun check"
   },
   "dependencies": {
-    "drizzle-orm": "^0.45.3",
+    "drizzle-orm": "^0.45.4",
     "postgres": "^3.4.9"
   },
   "devDependencies": {
     "@iefa/tsconfig": "workspace:*",
     "@types/bun": "^1.4.2",
     "drizzle-kit": "^0.31.11",
-    "supabase": "2.117.0",
+    "supabase": "2.120.0",
     "typescript": "^7.0.2"
   }
 }

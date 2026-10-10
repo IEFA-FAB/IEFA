@@ -1,6 +1,6 @@
 "use client"
 
-import { Link, useRouterState } from "@tanstack/react-router"
+import { Link, useLocation } from "@tanstack/react-router"
 import { Check, ChevronsUpDown } from "lucide-react"
 import { useSucontAccess } from "#/auth/pbac"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "#/components/ui/dropdown-menu"
@@ -22,8 +22,8 @@ import { cn } from "#/lib/utils"
  * lugar, e ainda anuncia a existência de um módulo que o usuário não pode abrir.
  */
 export function ModuleSwitcher() {
-	const pathname = useRouterState({ select: (s) => s.location.pathname })
-	const divisao = useRouterState({ select: (s) => (s.location.search as { divisao?: string }).divisao })
+	const pathname = useLocation({ select: (location) => location.pathname })
+	const divisao = useLocation({ select: (location) => (location.search as { divisao?: string }).divisao })
 	const { permissions } = useSucontAccess()
 	const { isMobile } = useSidebar()
 
