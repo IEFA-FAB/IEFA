@@ -16,7 +16,7 @@ export function LockScreen({ editionName }: { editionName: string }) {
 	const { loaded, total, done } = useAssetPreloadStatus()
 
 	return (
-		<div className="fixed inset-0 z-[60] flex flex-col items-center justify-center gap-8 bg-slate-950/95 backdrop-blur-2xl animate-in fade-in duration-500">
+		<div className="fixed inset-0 z-[60] flex flex-col items-center justify-center gap-8 bg-stage-deep/95 backdrop-blur-2xl animate-in fade-in duration-500">
 			<img
 				src={crest}
 				alt="Brasão do IEFA"
@@ -25,7 +25,7 @@ export function LockScreen({ editionName }: { editionName: string }) {
 			/>
 
 			<div className="text-center">
-				<p className="text-sm font-semibold uppercase tracking-[0.35em] text-blue-300/70">CPAINT · Força Aérea Brasileira</p>
+				<p className="text-sm font-semibold uppercase tracking-[0.35em] text-info/80">CPAINT · Força Aérea Brasileira</p>
 				<p className="mt-2 text-3xl font-black tracking-tight text-white/90">Escolha de Vagas {editionName}</p>
 			</div>
 

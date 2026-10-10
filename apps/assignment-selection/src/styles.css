@@ -6,10 +6,21 @@
 /* ============================================================
    assignment-selection — painel de escolha de vagas (CPAINT)
    Tokens neutros (zinc) para os controles do kit de UI (Base UI).
-   O painel de projeção em si usa a paleta escura (slate) direta.
+   As superfícies escuras fixas (telão, tela de espera, login) levam a
+   classe `dark` na raiz e herdam os tokens escuros; o card do militar,
+   que é claro dentro do telão, volta ao claro com `light`.
    ============================================================ */
 
+/* Fundo do telão: gradiente navy e o quase-preto do corpo. Não variam com o tema. */
 :root {
+	--stage: oklch(0.1876 0.0422 267.69);
+	--stage-mid: oklch(0.1721 0.0324 268.88);
+	--stage-deep: oklch(0.1304 0.0192 269.8);
+}
+
+/* `light` só reverte os tokens: utilitário `dark:` dentro dele ainda casaria. */
+:root,
+.light {
 	--radius: 0.625rem;
 	--background: oklch(1 0 0);
 	--foreground: oklch(0.145 0 0);
@@ -27,10 +38,14 @@
 	--accent-foreground: oklch(0.205 0 0);
 	--destructive: oklch(0.577 0.245 27.325);
 	--destructive-foreground: oklch(0.985 0 0);
-	--success: oklch(0.6907 0.1554 160.35);
+	/* Status: o token serve de texto (AA sobre branco e sobre o próprio tint /10) e de
+	   preenchimento com o foreground. */
+	--success: oklch(0.5 0.1 163);
 	--success-foreground: oklch(1 0 0);
-	--warning: oklch(0.75 0.14 82.53);
-	--warning-foreground: oklch(0.2 0 0);
+	--warning: oklch(0.52 0.13 55);
+	--warning-foreground: oklch(1 0 0);
+	--info: oklch(0.51 0.2 262);
+	--info-foreground: oklch(1 0 0);
 	--border: oklch(0.922 0 0);
 	--input: oklch(0.922 0 0);
 	--ring: oklch(0.708 0 0);
@@ -53,6 +68,12 @@
 	--accent-foreground: oklch(0.985 0 0);
 	--destructive: oklch(0.704 0.191 22.216);
 	--destructive-foreground: oklch(0.985 0 0);
+	--success: oklch(0.77 0.15 163);
+	--success-foreground: oklch(0.145 0 0);
+	--warning: oklch(0.83 0.16 84);
+	--warning-foreground: oklch(0.145 0 0);
+	--info: oklch(0.7 0.15 255);
+	--info-foreground: oklch(0.145 0 0);
 	--border: oklch(1 0 0 / 10%);
 	--input: oklch(1 0 0 / 15%);
 	--ring: oklch(0.556 0 0);
@@ -83,6 +104,11 @@
 	--color-success-foreground: var(--success-foreground);
 	--color-warning: var(--warning);
 	--color-warning-foreground: var(--warning-foreground);
+	--color-info: var(--info);
+	--color-info-foreground: var(--info-foreground);
+	--color-stage: var(--stage);
+	--color-stage-mid: var(--stage-mid);
+	--color-stage-deep: var(--stage-deep);
 	--color-border: var(--border);
 	--color-input: var(--input);
 	--color-ring: var(--ring);

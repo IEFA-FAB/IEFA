@@ -37,16 +37,16 @@ export function ConductPanel({ persons, onCall, onArmOm, onReveal, onConfirm, bu
 	const step = onStage ? (onStage.show_om ? 3 : 2) : 1
 
 	return (
-		<div className="rounded-xl border border-slate-200 bg-slate-50 p-5">
+		<div className="rounded-xl border border-border bg-muted/50 p-5">
 			<div className="mb-4 flex items-center justify-between">
-				<h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500">Condução da escolha</h2>
-				<span className="text-sm font-medium text-slate-600">
+				<h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Condução da escolha</h2>
+				<span className="text-sm font-medium text-muted-foreground">
 					{confirmed}/{total} confirmados
 				</span>
 			</div>
 
-			<div className="mb-4 h-2 overflow-hidden rounded-full bg-slate-200">
-				<div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${pct}%` }} />
+			<div className="mb-4 h-2 overflow-hidden rounded-full bg-border">
+				<div className="h-full rounded-full bg-success transition-all" style={{ width: `${pct}%` }} />
 			</div>
 
 			{/* Stepper */}
@@ -56,27 +56,27 @@ export function ConductPanel({ persons, onCall, onArmOm, onReveal, onConfirm, bu
 						<span
 							className={cn(
 								"grid size-6 shrink-0 place-items-center rounded-full text-xs font-bold transition-colors",
-								step === s.n ? "bg-blue-600 text-white" : step > s.n ? "bg-emerald-500 text-white" : "bg-slate-200 text-slate-500"
+								step === s.n ? "bg-info text-info-foreground" : step > s.n ? "bg-success text-success-foreground" : "bg-border text-muted-foreground"
 							)}
 						>
 							{s.n}
 						</span>
-						<span className={cn("text-xs font-medium", step === s.n ? "text-slate-900" : "text-slate-400")}>{s.label}</span>
-						{i < STEPS.length - 1 && <span className="h-px flex-1 bg-slate-200" />}
+						<span className={cn("text-xs font-medium", step === s.n ? "text-foreground" : "text-muted-foreground")}>{s.label}</span>
+						{i < STEPS.length - 1 && <span className="h-px flex-1 bg-border" />}
 					</div>
 				))}
 			</div>
 
 			{step === 1 &&
 				(nextToCall ? (
-					<div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-slate-200 bg-white p-4">
+					<div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-border bg-card p-4">
 						<div className="flex items-center gap-3">
-							<span className="grid size-11 shrink-0 place-items-center rounded-full bg-slate-800 text-lg font-bold text-white">
+							<span className="grid size-11 shrink-0 place-items-center rounded-full bg-primary text-lg font-bold text-primary-foreground">
 								{nextToCall.classificacao}º
 							</span>
 							<div>
-								<p className="text-xs font-medium uppercase tracking-wide text-slate-400">Próximo a chamar</p>
-								<p className="text-xl font-bold text-slate-900">{nextToCall.nome}</p>
+								<p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Próximo a chamar</p>
+								<p className="text-xl font-bold text-foreground">{nextToCall.nome}</p>
 							</div>
 						</div>
 						<Button size="lg" onClick={() => onCall(nextToCall.id)} disabled={busy}>
@@ -84,23 +84,25 @@ export function ConductPanel({ persons, onCall, onArmOm, onReveal, onConfirm, bu
 						</Button>
 					</div>
 				) : (
-					<div className="flex items-center justify-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-6 text-emerald-700">
+					<div className="flex items-center justify-center gap-2 rounded-lg border border-success/30 bg-success/10 p-6 text-success">
 						<CheckCircle2 /> <span className="font-semibold">Escolha concluída — todos confirmados.</span>
 					</div>
 				))}
 
 			{step === 2 && onStage && (
-				<div className="rounded-lg border border-blue-200 bg-blue-50/60 p-4">
+				<div className="rounded-lg border border-info/30 bg-info/5 p-4">
 					<div className="mb-3 flex items-center gap-3">
-						<span className="grid size-11 shrink-0 place-items-center rounded-full bg-blue-600 text-lg font-bold text-white">{onStage.classificacao}º</span>
+						<span className="grid size-11 shrink-0 place-items-center rounded-full bg-info text-lg font-bold text-info-foreground">
+							{onStage.classificacao}º
+						</span>
 						<div>
-							<p className="text-xs font-medium uppercase tracking-wide text-blue-600">No telão · aguardando anúncio</p>
-							<p className="text-xl font-bold text-slate-900">{onStage.nome}</p>
+							<p className="text-xs font-medium uppercase tracking-wide text-info">No telão · aguardando anúncio</p>
+							<p className="text-xl font-bold text-foreground">{onStage.nome}</p>
 						</div>
 					</div>
 					<div className="flex flex-wrap items-end gap-3">
 						<div className="min-w-[12rem] flex-1">
-							<span className="mb-1 block text-xs font-medium text-slate-500">OM anunciada</span>
+							<span className="mb-1 block text-xs font-medium text-muted-foreground">OM anunciada</span>
 							<Select value={onStage.localidade ?? null} onValueChange={(v) => onArmOm(onStage.id, v as string)} disabled={busy}>
 								<SelectTrigger className="w-full bg-white">
 									<SelectValue>{onStage.localidade ?? "Selecione a OM…"}</SelectValue>
@@ -118,18 +120,22 @@ export function ConductPanel({ persons, onCall, onArmOm, onReveal, onConfirm, bu
 							<Eye /> Revelar unidade
 						</Button>
 					</div>
-					<p className="mt-2 text-xs text-slate-400">Registre a OM que o militar anunciou e clique em "Revelar" — só então ela aparece no telão e no mapa.</p>
+					<p className="mt-2 text-xs text-muted-foreground">
+						Registre a OM que o militar anunciou e clique em "Revelar" — só então ela aparece no telão e no mapa.
+					</p>
 				</div>
 			)}
 
 			{step === 3 && onStage && (
-				<div className="rounded-lg border border-amber-200 bg-amber-50/60 p-4">
+				<div className="rounded-lg border border-warning/30 bg-warning/5 p-4">
 					<div className="flex flex-wrap items-center justify-between gap-4">
 						<div className="flex items-center gap-3">
-							<span className="grid size-11 shrink-0 place-items-center rounded-full bg-amber-500 text-lg font-bold text-white">{onStage.classificacao}º</span>
+							<span className="grid size-11 shrink-0 place-items-center rounded-full bg-warning text-lg font-bold text-warning-foreground">
+								{onStage.classificacao}º
+							</span>
 							<div>
-								<p className="text-xs font-medium uppercase tracking-wide text-amber-600">Revelado · {onStage.estado}</p>
-								<p className="text-xl font-bold text-slate-900">
+								<p className="text-xs font-medium uppercase tracking-wide text-warning">Revelado · {onStage.estado}</p>
+								<p className="text-xl font-bold text-foreground">
 									{onStage.nome} → {onStage.localidade}
 								</p>
 							</div>

@@ -80,19 +80,19 @@ function BoardPage() {
 
 	return (
 		<AssetPreloader sources={assetSources}>
-			<div className="relative h-screen w-full overflow-hidden bg-gradient-to-br from-[#0b1226] via-[#0a0f1e] to-[#05070f] text-white">
+			<div className="dark relative h-screen w-full overflow-hidden bg-gradient-to-br from-stage via-stage-mid to-stage-deep text-white">
 				{/* Brilho de fundo sutil */}
-				<div className="pointer-events-none absolute -left-40 top-0 size-[42rem] rounded-full bg-blue-600/10 blur-[120px]" />
-				<div className="pointer-events-none absolute -right-40 bottom-0 size-[42rem] rounded-full bg-indigo-700/10 blur-[120px]" />
+				<div className="pointer-events-none absolute -left-40 top-0 size-[42rem] rounded-full bg-info/8 blur-[120px]" />
+				<div className="pointer-events-none absolute -right-40 bottom-0 size-[42rem] rounded-full bg-info/5 blur-[120px]" />
 
 				<div className="relative flex h-full flex-col gap-3 p-4">
 					<header className="flex items-center justify-between">
 						<div>
-							<p className="text-xs font-semibold uppercase tracking-[0.25em] text-blue-300/70">CPAINT · Força Aérea Brasileira</p>
+							<p className="text-xs font-semibold uppercase tracking-[0.25em] text-info/80">CPAINT · Força Aérea Brasileira</p>
 							<h1 className="mt-1 text-3xl font-black tracking-tight text-white xl:text-4xl">Escolha de Vagas</h1>
 						</div>
 						<div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5">
-							<span className="size-2 rounded-full bg-emerald-400 shadow-[0_0_8px] shadow-emerald-400/60" />
+							<span className="size-2 rounded-full bg-success shadow-[0_0_8px] shadow-success/60" />
 							<span className="text-sm font-medium text-white/80">Edição {editionName}</span>
 						</div>
 					</header>
