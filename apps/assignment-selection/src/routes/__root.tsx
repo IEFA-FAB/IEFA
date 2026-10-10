@@ -33,7 +33,7 @@ function RootDocument() {
 			<head>
 				<HeadContent />
 			</head>
-			<body className="min-h-screen bg-slate-950 text-white antialiased">
+			<body className="min-h-screen bg-stage-deep text-white antialiased">
 				<Outlet />
 
 				{/*
@@ -46,7 +46,7 @@ function RootDocument() {
 				*/}
 				<LegalFooterLinks
 					className="fixed bottom-2 left-3 z-40 flex items-center gap-x-3"
-					linkClassName="text-[10px] text-slate-600 transition-colors hover:text-slate-300"
+					linkClassName="text-[10px] text-white/50 transition-colors hover:text-white/80"
 				/>
 				<Toaster position="top-right" viewportClassName="dark" />
 				<Scripts />

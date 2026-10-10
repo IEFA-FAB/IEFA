@@ -39,12 +39,12 @@ function AuthPage() {
 
 function AuthShell({ children }: { children: React.ReactNode }) {
 	return (
-		<div className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-gradient-to-br from-[#0b1226] via-[#0a0f1e] to-[#05070f] p-4 text-white">
-			<div className="pointer-events-none absolute -left-40 top-0 size-[42rem] rounded-full bg-blue-600/10 blur-[120px]" />
-			<div className="pointer-events-none absolute -right-40 bottom-0 size-[42rem] rounded-full bg-indigo-700/10 blur-[120px]" />
+		<div className="dark relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-gradient-to-br from-stage via-stage-mid to-stage-deep p-4 text-white">
+			<div className="pointer-events-none absolute -left-40 top-0 size-[42rem] rounded-full bg-info/8 blur-[120px]" />
+			<div className="pointer-events-none absolute -right-40 bottom-0 size-[42rem] rounded-full bg-info/5 blur-[120px]" />
 			<div className="relative w-full max-w-sm rounded-2xl border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur">
 				<div className="mb-6 text-center">
-					<p className="text-xs font-semibold uppercase tracking-[0.25em] text-blue-300/70">CPAINT · Força Aérea Brasileira</p>
+					<p className="text-xs font-semibold uppercase tracking-[0.25em] text-info/80">CPAINT · Força Aérea Brasileira</p>
 					<h1 className="mt-1 text-2xl font-black tracking-tight">Escolha de Vagas</h1>
 				</div>
 				{children}
@@ -105,7 +105,7 @@ function LoginCard() {
 							value={email}
 							onChange={(e) => setEmail(e.target.value)}
 							placeholder="nome@fab.mil.br"
-							className="w-full rounded-lg border border-white/15 bg-white/5 py-2 pl-9 pr-3 text-sm text-white outline-none transition-colors placeholder:text-white/30 focus:border-blue-400/60 focus:ring-2 focus:ring-blue-400/20"
+							className="w-full rounded-lg border border-white/15 bg-white/5 py-2 pl-9 pr-3 text-sm text-white outline-none transition-colors placeholder:text-white/30 focus:border-info/60 focus:ring-2 focus:ring-info/20"
 							required
 						/>
 					</div>
@@ -124,14 +124,14 @@ function LoginCard() {
 							value={password}
 							onChange={(e) => setPassword(e.target.value)}
 							placeholder="••••••••"
-							className="w-full rounded-lg border border-white/15 bg-white/5 py-2 pl-9 pr-3 text-sm text-white outline-none transition-colors placeholder:text-white/30 focus:border-blue-400/60 focus:ring-2 focus:ring-blue-400/20"
+							className="w-full rounded-lg border border-white/15 bg-white/5 py-2 pl-9 pr-3 text-sm text-white outline-none transition-colors placeholder:text-white/30 focus:border-info/60 focus:ring-2 focus:ring-info/20"
 							required
 						/>
 					</div>
 				</div>
 
 				{error && (
-					<div className="flex items-start gap-2 rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+					<div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
 						<AlertCircle className="mt-0.5 size-4 shrink-0" />
 						<span>{error}</span>
 					</div>
@@ -140,7 +140,7 @@ function LoginCard() {
 				<button
 					type="submit"
 					disabled={loading}
-					className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+					className="flex w-full items-center justify-center gap-2 rounded-lg bg-info py-2.5 text-sm font-semibold text-info-foreground transition-colors hover:bg-info/90 disabled:cursor-not-allowed disabled:opacity-60"
 				>
 					{loading ? <Loader2 className="size-4 animate-spin" /> : null}
 					{loading ? "Entrando…" : "Entrar"}
@@ -170,8 +170,8 @@ function NoAccessCard({ email }: { email: string }) {
 	return (
 		<AuthShell>
 			<div className="space-y-4 text-center">
-				<div className="mx-auto flex size-12 items-center justify-center rounded-full border border-amber-400/30 bg-amber-500/10">
-					<ShieldAlert className="size-6 text-amber-300" />
+				<div className="mx-auto flex size-12 items-center justify-center rounded-full border border-warning/30 bg-warning/10">
+					<ShieldAlert className="size-6 text-warning" />
 				</div>
 				<div className="space-y-1">
 					<h2 className="text-lg font-semibold text-white">Sem acesso ao painel</h2>

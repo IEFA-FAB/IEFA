@@ -34,7 +34,7 @@ export function ControllerTable({ persons, onUpdate, updatingId }: ControllerTab
 				<TableBody>
 					{persons.length === 0 ? (
 						<TableRow>
-							<TableCell colSpan={7} className="h-24 text-center text-slate-500">
+							<TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
 								Nenhuma pessoa nesta edição.
 							</TableCell>
 						</TableRow>
@@ -42,7 +42,7 @@ export function ControllerTable({ persons, onUpdate, updatingId }: ControllerTab
 						persons.map((p) => {
 							const isUpdating = p.id === updatingId
 							return (
-								<TableRow key={p.id} className={cn(isUpdating && "opacity-50 bg-slate-100")}>
+								<TableRow key={p.id} className={cn(isUpdating && "opacity-50 bg-muted")}>
 									<TableCell>
 										<Input
 											type="number"
@@ -79,7 +79,7 @@ export function ControllerTable({ persons, onUpdate, updatingId }: ControllerTab
 											</SelectContent>
 										</Select>
 									</TableCell>
-									<TableCell className="text-sm text-slate-600">{p.localidade ? (localidadesFab[p.localidade] ?? "N/A") : "N/A"}</TableCell>
+									<TableCell className="text-sm text-muted-foreground">{p.localidade ? (localidadesFab[p.localidade] ?? "N/A") : "N/A"}</TableCell>
 									<TableCell className="text-center">
 										<div className="flex justify-center">
 											<Checkbox checked={p.show_card} onCheckedChange={(checked) => onUpdate(p.id, { show_card: checked })} disabled={isUpdating} />

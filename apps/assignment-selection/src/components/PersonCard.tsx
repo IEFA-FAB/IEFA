@@ -25,13 +25,13 @@ const ImageWithFallback = memo(({ src, alt, className }: { src: string; alt: str
 	return (
 		<div className={`relative ${className}`}>
 			{loading && !error && (
-				<div className="absolute inset-0 bg-slate-200 animate-pulse rounded-md flex items-center justify-center">
-					<div className="w-8 h-8 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
+				<div className="absolute inset-0 bg-muted animate-pulse rounded-md flex items-center justify-center">
+					<div className="w-8 h-8 border-2 border-muted-foreground border-t-transparent rounded-full animate-spin" />
 				</div>
 			)}
 			{error ? (
-				<div className="absolute inset-0 bg-slate-200 rounded-md flex items-center justify-center">
-					<span className="text-slate-500 text-sm">Sem imagem</span>
+				<div className="absolute inset-0 bg-muted rounded-md flex items-center justify-center">
+					<span className="text-muted-foreground text-sm">Sem imagem</span>
 				</div>
 			) : (
 				<img
@@ -68,7 +68,7 @@ export const PersonCard = memo(({ cardData, editionName }: { cardData: Person; e
 	return (
 		<div
 			className={cn(
-				"z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-300",
+				"light z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-300",
 				revealed ? "fixed inset-0" : "absolute inset-0"
 			)}
 			role="dialog"
@@ -82,7 +82,7 @@ export const PersonCard = memo(({ cardData, editionName }: { cardData: Person; e
 				)}
 			>
 				<CardContent className={cn("grid grid-rows-1 items-center gap-6 px-6 h-full", revealed ? "grid-cols-8" : "grid-cols-6")}>
-					<div className="flex col-span-1 h-full items-center justify-center rounded-lg bg-gradient-to-br from-slate-100 to-slate-200 text-5xl font-bold text-slate-700 shadow-inner">
+					<div className="flex col-span-1 h-full items-center justify-center rounded-lg bg-gradient-to-br from-muted to-border text-5xl font-bold text-foreground/80 shadow-inner">
 						<span className="drop-shadow-sm">{cardData.classificacao}º</span>
 					</div>
 
@@ -92,14 +92,14 @@ export const PersonCard = memo(({ cardData, editionName }: { cardData: Person; e
 
 					<div className="col-span-3 grid grid-rows-3 space-y-2">
 						<div id="person-card-title" className="row-span-2">
-							<p className="text-4xl font-bold text-slate-700">Asp.</p>
-							<h3 className={cn("font-black text-left text-slate-900 leading-tight", revealed ? "text-6xl" : "text-5xl")}>{cardData.nome}</h3>
+							<p className="text-4xl font-bold text-foreground/80">Asp.</p>
+							<h3 className={cn("font-black text-left text-foreground leading-tight", revealed ? "text-6xl" : "text-5xl")}>{cardData.nome}</h3>
 						</div>
 						<div className="row-span-1">
 							{revealed && (
 								<div className="space-y-1 animate-in fade-in slide-in-from-bottom-2 duration-500">
-									<p className="text-4xl font-bold text-slate-700">{cardData.localidade}</p>
-									<p className="text-base text-slate-500">{cardData.estado}</p>
+									<p className="text-4xl font-bold text-foreground/80">{cardData.localidade}</p>
+									<p className="text-base text-muted-foreground">{cardData.estado}</p>
 								</div>
 							)}
 						</div>
