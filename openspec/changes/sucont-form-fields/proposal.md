@@ -36,10 +36,11 @@ somente leitura**, pintado à mão.
 - `Input` ganha `size` (`default` e `sm`), espelhando o `SelectTrigger`, e um estado somente leitura
   visível (`read-only:`) no próprio primitivo.
 - Entra `InputGroup` no sucont (`InputGroup`, `InputGroupAddon`, `InputGroupInput`,
-  `InputGroupButton`, `InputGroupText`), portado do sisub, que já o usa. O foco é do grupo
-  (`focus-within`), não do campo interno.
-- `Combobox` perde `inputClassName` e ganha `size`. O caso "filtro em pílula" passa a ser `Label` +
-  trigger padrão, como manda o §4.7 do contrato.
+  `InputGroupButton`, `InputGroupText`), portado do sisub, que já o usa. O foco do campo interno
+  acende o contorno do grupo; o botão interno tem foco próprio.
+- `Combobox` ganha `size` e texto de 16px no mobile. `inputClassName` sai junto com a migração dos
+  três painéis que o usam. O caso "filtro em pílula" passa a ser `Label` + trigger padrão, como
+  manda o §4.7 do contrato.
 - Migração das receitas, sem receita nova no lugar:
   - formulário padrão (receitas de modal e de card) vira primitivo puro;
   - controles densos em linha (`MessageControls`, toolbar de gráfico e ranking, select de rodapé)
@@ -49,7 +50,7 @@ somente leitura**, pintado à mão.
   - borda de erro vira `aria-invalid`.
 - `<textarea>` nativo nas rotas (`workspace`, `reports`, `documentacao`) vira o primitivo `Textarea`.
 - O prazo do `SiafiMessageModal` passa a `type="date"`, como nos outros dois modais que pedem o
-  mesmo dado.
+  mesmo dado. O texto da mensagem continua citando a data em `DD/MM/AAAA`.
 - O lint passa a ser o guarda: o baseline de `no-restyle` do sucont desce, e o STYLE_CONTRACT
   registra que campo do sucont não recebe aparência por `className`.
 

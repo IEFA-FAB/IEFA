@@ -21,12 +21,12 @@ inclusive quando está embutido num contêiner que desenha a borda do campo.
 - **THEN** o contorno do grupo inteiro exibe o anel de foco do tema
 
 ### Requirement: Uma única cor de foco
-O realce de foco dos campos SHALL usar a mesma cor em todas as ferramentas do hub, e o anel SHALL
-aparecer só na navegação por teclado, não no clique do mouse.
+O realce de foco dos campos SHALL usar a mesma cor e a mesma espessura em todas as ferramentas do
+hub, sem um segundo anel ou borda de cor própria da ferramenta.
 
 #### Scenario: Foco por clique
 - **WHEN** o usuário clica num campo de qualquer ferramenta
-- **THEN** o campo não exibe anel de foco de cor própria da ferramenta
+- **THEN** o campo exibe no máximo o anel do tema, sem borda ou anel de outra cor
 
 #### Scenario: Duas ferramentas lado a lado
 - **WHEN** o usuário foca um campo no auditor e outro no analista de saldo alongado
@@ -46,11 +46,15 @@ seleção, busca com seleção).
 
 ### Requirement: Mesmo grupo de campos, mesma aparência
 O mesmo conjunto de dados de entrada (nº da mensagem, data de envio, tipo, prazo) SHALL ter a mesma
-aparência e o mesmo tipo de entrada em todas as telas que o pedem.
+aparência, a mesma altura e o mesmo tipo de entrada em todas as telas que o pedem.
+
+#### Scenario: Grupo em telas diferentes
+- **WHEN** o usuário abre o grupo da mensagem no card da UG e depois no modal consolidado
+- **THEN** os quatro campos têm a mesma altura e o mesmo desenho nas duas telas
 
 #### Scenario: Prazo como data
 - **WHEN** o usuário informa o prazo da mensagem em qualquer modal ou painel
-- **THEN** o campo aceita a data pelo seletor de data, não por texto `DD/MM/AAAA`
+- **THEN** o campo aceita a data pelo seletor de data, abre já preenchido com o prazo padrão, e o texto da mensagem cita a data em `DD/MM/AAAA`
 
 ### Requirement: Valor legível e distinto do placeholder
 O valor digitado ou selecionado SHALL ter o contraste do texto principal, distinto do placeholder.
@@ -66,6 +70,14 @@ e SHALL continuar selecionável e copiável.
 #### Scenario: Nº atribuído pelo sistema
 - **WHEN** o modal mostra o número de mensagem já atribuído
 - **THEN** o campo aparece como somente leitura, não aceita edição e permite selecionar e copiar o valor
+
+#### Scenario: Somente leitura não se confunde com desabilitado
+- **WHEN** um campo desabilitado (ex.: durante o envio) e um somente leitura aparecem na mesma tela
+- **THEN** os dois têm aparências diferentes
+
+#### Scenario: Somente leitura recebe foco visível
+- **WHEN** o usuário chega pelo Tab num campo somente leitura
+- **THEN** o campo exibe o anel de foco do tema
 
 ### Requirement: Erro anunciado
 Campo com valor inválido SHALL ser marcado como inválido para tecnologia assistiva e SHALL exibir o
@@ -97,7 +109,7 @@ clique própria e sem sobrepor o texto digitado.
 
 #### Scenario: Senha com mostrar ou ocultar
 - **WHEN** o usuário digita uma senha longa e aciona "mostrar senha"
-- **THEN** o botão fica dentro do campo, o texto não passa por baixo do botão e o foco segue no campo
+- **THEN** o botão fica dentro do campo, o texto não passa por baixo do botão, o valor digitado se mantém e o botão exibe o próprio anel de foco, sem acender o contorno do grupo ao mesmo tempo
 
 #### Scenario: Busca com lupa
 - **WHEN** o usuário digita na busca de uma tabela

@@ -9,12 +9,15 @@ O sucont usa o sistema visual do sisub ("flat técnico"), mas tem os próprios p
   com foco em `focus-visible:ring-3 ring-ring/50` e erro por `aria-invalid`. **Sem `size`.**
 - `SelectTrigger`: o mesmo desenho, com `size` `default` (h-9) ou `sm` (h-8) via `data-size`. As
   receitas encolhem o trigger com `data-[size=default]:h-auto` em vez de usar `size="sm"`.
-- `Combobox`: expõe `inputClassName`, cujo comentário admite que existe para o caso "sem borda".
+- `Combobox`: expõe `inputClassName`, cujo comentário admite que existe para o caso "sem borda"
+  (usado em `AnalyticalPanel`, `ManagerialPanel` e `OperationalPanel`). O campo de busca dele é
+  `text-sm` fixo, 14px também no mobile.
 - `Textarea`: existe, mas as rotas usam `<textarea>` nativo.
 - `--border` e `--input` têm o mesmo valor nos dois temas, então `border border-border` em campo é
   sempre redundante.
 - O sisub já tem `input-group.tsx`. O STYLE_CONTRACT do sucont (§8, "Continua em aberto") registra que
-  `field.tsx`/`input-group` faltam e proíbe criar uma terceira convenção.
+  os patterns `field.tsx`/`item.tsx` do sisub faltam aqui e proíbe criar uma terceira convenção. O
+  `InputGroup` é o primeiro desses patterns a vir para o sucont.
 
 As auditorias (uma por área) classificaram as ~60 receitas assim: maioria **redundante ou deriva**
 (deveria ser o primitivo puro), um bloco de **densidade** (pede `size="sm"`), um de **limitação do
@@ -47,40 +50,59 @@ mobile").
 - *Conflito com o atributo HTML `size` do `<input>`:* o atributo nativo (largura em caracteres) não
   é usado no app. O tipo omite `size` de `ComponentProps<"input">`.
 
-### 2. Somente leitura no primitivo, por `read-only:`
-`Input` e `Textarea` ganham `read-only:bg-muted read-only:cursor-default read-only:focus-visible:ring-0`,
-mais a borda tracejada `read-only:border-dashed`. Fica distinguível de editável sem parecer
-desabilitado: continua selecionável e copiável, sem `opacity`.
+### 2. Somente leitura no primitivo, por `read-only:not-disabled:`
+`Input` e `Textarea` ganham `read-only:not-disabled:bg-muted read-only:not-disabled:border-dashed
+read-only:not-disabled:cursor-default`. O `:read-only` do CSS também casa com campo desabilitado, por
+isso o `not-disabled:`: desabilitado segue com o `disabled:` do primitivo (opacidade) e não vira
+tracejado. O anel de foco **fica**, porque o campo continua focável por Tab (spec: "Foco visível
+pelo teclado"). Fica distinguível de editável sem parecer desabilitado e continua selecionável e
+copiável.
 - *Alternativa:* prop `variant="readonly"`. Fica descartada porque duplicaria o atributo `readOnly`,
   que já é a fonte da verdade e o que a tecnologia assistiva lê.
 
 ### 3. `InputGroup` portado do sisub
 Copiar `apps/sisub/src/components/ui/input-group.tsx` para o sucont e trocar os tokens de raio e
 altura pelos do sucont (`rounded-md`, `h-9`/`h-8` acompanhando o `size`). O grupo é que desenha
-borda, fundo e foco (`has-[:focus-visible]:ring-3 ring-ring/50`). O `InputGroupInput` interno não
-tem borda nem anel. Isso resolve de uma vez busca com lupa, senha com "mostrar", chat com "enviar" e
+borda, fundo e foco, com o seletor do sisub: `has-[[data-slot=input-group-control]:focus-visible]`.
+Só o foco do **campo** acende o grupo. O `InputGroupButton` tem anel próprio, então não aparecem
+dois anéis concêntricos quando o Tab está no "mostrar senha". O `InputGroupInput` interno não tem
+borda nem anel. Isso resolve de uma vez busca com lupa, senha com "mostrar", chat com "enviar" e
 os filtros em pílula, que são os casos de foco invisível.
 - *Alternativa:* `startIcon`/`endIcon` como props do `Input`. Fica descartada porque não cobre ação
   clicável (mostrar senha, enviar) nem `Textarea`, e criaria uma terceira convenção, que o contrato
   proíbe.
 
 ### 4. `Combobox` sem `inputClassName`, com `size`
-A prop sai. O caso "filtro em pílula" dos painéis do auditor (receita C) passa a ser `Label` +
+O `Combobox` ganha `size` e passa o campo de busca para `text-base md:text-sm` (spec: "Legível no
+mobile"). A prop `inputClassName` sai **no mesmo PR** que migra os três painéis que a usam, para
+que cada PR passe no typecheck sozinho. O caso "filtro em pílula" dos painéis do auditor (receita C) passa a ser `Label` +
 `Combobox`/`Select` padrão em `size="sm"`, como o §4.7 já manda para filtro de conteúdo.
 - *Alternativa:* manter a pílula com um `variant="inline"`. Fica descartada porque o contrato lista
   a pílula sem borda entre o que foi removido, e ela é a origem do foco invisível.
 
 ### 5. Foco: só o do primitivo
-Todo `focus:*` e `focus-visible:*` de ponto de uso sai, e a cor única é `ring`. As receitas com
+Todo `focus:*` e `focus-visible:*` de ponto de uso sai, e a cor única é `ring`. Em campo de texto,
+os navegadores casam `:focus-visible` também no clique, então o anel do tema aparece no clique;
+o que some é o segundo anel ou borda de cor própria que as receitas somavam ao do primitivo. As receitas com
 `tech-cyan`/`tech-blue`/`action` no foco não viram token novo, porque `action` é cor de ação, não de
 foco (spec: "Uma única cor de foco").
 
-### 6. Fundo: nenhum no ponto de uso
+### 6. O grupo da mensagem é sempre `size="sm"`
+Nº, data de envio, tipo e prazo aparecem em faixa de controles (`MessageControls`, cards da UG) e
+em modais. Em todas essas telas o grupo usa `size="sm"` (spec: "Mesmo grupo de campos, mesma
+aparência"). Ele é denso por natureza, e uma altura só é o que o requisito pede.
+
+### 7. O prazo vira `type="date"` com conversão
+O `<input type="date">` lê e grava `AAAA-MM-DD`. O `SiafiMessageModal` passa a guardar o prazo em
+ISO no estado (o padrão inicial também), e o `generateMessage` formata em `DD/MM/AAAA` ao montar o
+texto que vai para o SIAFI. Um teste cobre a ida e a volta.
+
+### 8. Fundo: nenhum no ponto de uso
 `bg-card`, `bg-muted/50` e `dark:bg-card` saem. O primitivo é transparente sobre a superfície no
 claro e `input/30` no escuro, o que cumpre "mesma aparência nos dois temas". Superfície tingida em
 volta do campo continua sendo decisão do contêiner, não do campo.
 
-### 7. Migração por área, guardada pelo lint
+### 9. Migração por área, guardada pelo lint
 Cada área migra num PR e baixa o baseline de `no-restyle` do sucont. Os primitivos e o
 `InputGroup` vão primeiro, sozinhos, porque as áreas dependem deles. Ao final, uma override em
 `.oxlintrc.tailwind.jsonc` pode tornar `no-restyle` **erro** para `Input|SelectTrigger|Combobox|Textarea|InputGroup*`
@@ -94,16 +116,18 @@ no sucont. Como é definição de gate, essa parte espera o mantenedor.
 - **[Diff maior contra o upstream das ferramentas]**: o `sucont-upstream` compara repositórios de
   origem → o skill confere lógica, não classe. O registro no contrato (§8) explica que o upstream
   nunca é copiado com a receita de `className`.
-- **[`read-only:` pega mais do que o pretendido]**: `:read-only` também casa `<input type="checkbox">`
-  e similares → o `Input` do sucont não é usado para esses tipos (conferido nas auditorias). Se
-  passar a ser, o seletor vira `read-only:not-[type=checkbox]`.
+- **[`read-only:` pega mais do que o pretendido]**: `:read-only` também casa campo desabilitado e
+  `<input type="checkbox">` → o `not-disabled:` resolve o primeiro (decisão 2). O `Input` do sucont
+  não é usado para checkbox (conferido nas auditorias). Se passar a ser, o seletor ganha
+  `not-[type=checkbox]`.
 - **[Densidade some onde era desejada]**: a receita R1 tinha ~26px de altura, e o `sm` tem 32px →
   é a menor altura com alvo de toque aceitável. Fica registrado como decisão, sem `xs`.
 
 ## Migration Plan
 
 1. PR de primitivos: `Input` com `size` e read-only, `Textarea` com read-only, `InputGroup`,
-   `Combobox` com `size`. Sem migração de uso, com screenshot de um uso de cada.
+   `Combobox` com `size` e 16px no mobile (`inputClassName` ainda fica). Sem migração de uso, com
+   screenshot de um uso de cada.
 2. PRs de área, um para cada: `components/`, `routes/` (inclui `<textarea>` nativo e `type="date"`
    do prazo) e as ferramentas portadas (`analistasaldoalongado/`, `auditor/`, `subitens/`, `auth/`).
    Cada um baixa o baseline.
