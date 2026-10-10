@@ -28,4 +28,5 @@ rules:
       include:
         - "apps/*/package.json"
         - "packages/*/package.json"
-    pattern-regex: '"check"[ \t]*:'
+    # Só a chave dentro de `scripts` (um bloco de config de ferramenta pode ter `check`).
+    pattern-regex: '"scripts"\s*:\s*\{[^}]*?"check"\s*:'

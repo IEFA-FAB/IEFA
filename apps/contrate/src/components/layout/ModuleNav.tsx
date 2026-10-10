@@ -1,4 +1,4 @@
-import { Link, useRouterState } from "@tanstack/react-router"
+import { Link, useLocation } from "@tanstack/react-router"
 import { SidebarGroup, SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "@/components/ui/sidebar"
 import { type ContrateModule, type ModuleNavItem, resolveNavItems } from "@/lib/modules"
 import type { ScopeContext } from "@/lib/scope"
@@ -28,7 +28,7 @@ export function findActiveNavItem(pathname: string, items: readonly ModuleNavIte
  * nenhum item aqui leva a outro módulo (é o seletor, acima, que faz isso).
  */
 export function ModuleNav({ module, scope }: { module: ContrateModule; scope: ScopeContext | null }) {
-	const pathname = useRouterState({ select: (s) => s.location.pathname })
+	const pathname = useLocation({ select: (location) => location.pathname })
 	const { setOpenMobile } = useSidebar()
 
 	return (

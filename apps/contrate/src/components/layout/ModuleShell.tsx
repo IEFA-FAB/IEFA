@@ -1,4 +1,4 @@
-import { Link, useMatches, useRouterState } from "@tanstack/react-router"
+import { Link, useLocation, useMatches } from "@tanstack/react-router"
 import { NavArrowRight } from "iconoir-react"
 import type { ReactNode } from "react"
 import { LegalNoticeBanner } from "@/components/LegalNoticeBanner"
@@ -79,7 +79,7 @@ interface Crumb {
  * logo abaixo — repeti-lo aqui seria título duplo.
  */
 function ModuleBreadcrumb({ module, scope }: { module: ContrateModule; scope: ScopeContext | null }) {
-	const pathname = useRouterState({ select: (s) => s.location.pathname })
+	const pathname = useLocation({ select: (location) => location.pathname })
 	const item = findActiveNavItem(pathname, resolveNavItems(module, scope))
 	const scopeIndex = scope && module.scope ? scopedPath(module.scope.index, scope.id) : null
 	// A tela que É a entrada da OM já aparece como a OM: repetir o item seria "GAP-SJ › Fila".
