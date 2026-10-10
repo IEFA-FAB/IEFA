@@ -10,13 +10,13 @@
   "scripts": {
     "lint": "biome check .",
     "test": "bun test --no-env-file $(find src -name '*.test.ts' -print)",
-    "typecheck": "bun --check"
+    "typecheck": "bun ../../scripts/typecheck.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.3"
   },
   "peerDependencies": {
-    "react": "^19.3.0"
+    "react": "^19.2"
   },
   "devDependencies": {
     "@iefa/tsconfig": "workspace:*",

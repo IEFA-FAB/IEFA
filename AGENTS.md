@@ -63,11 +63,13 @@ estoura a RAM das máquinas de desenvolvimento.
   Os serviços Hono (`alpha`, `api`) ainda montam `createClient` direto; isso é dívida, não padrão.
 - **Auth:** ações e mensagens de erro via `@iefa/auth-kit`; trava de login é `useLoginRateLimiter`
   de `@iefa/auth-kit/react`.
-- **Typecheck:** o script `typecheck` é `bun --check` (type checker do Bun, port do typescript-go
-  7.0.2). Nunca `bun check` em script: o script `check` do workspace tem precedência e o typecheck
-  passa sem checar tipo (regra `bun-check-in-script` do opengrep). O `sisub` fica no `tsc --noEmit`
-  enquanto o `bun check` 1.4.3 inferir errado o `select` do `useRouterState` lá (6 falsos erros).
-  O pacote `typescript` continua: é o que o editor usa.
+- **Typecheck:** o script `typecheck` é `bun ../../scripts/typecheck.ts`, que roda `bun --check`
+  (type checker do Bun, port do typescript-go 7.0.2) e falha com Bun abaixo do `packageManager`:
+  antes do 1.4.3, `bun --check` imprime o help e sai 0. Nunca `bun check` em script: o script
+  `check` do workspace tem precedência e o typecheck passa sem checar tipo (regra
+  `bun-check-in-script` do opengrep). O `sisub` fica no `tsc --noEmit` enquanto o `bun check`
+  1.4.3 inferir errado o `select` do `useRouterState` lá (6 falsos erros). O pacote `typescript`
+  continua: é o que o editor usa.
 - **tsconfig:** estender `@iefa/tsconfig/{react-app,bun-service,library}.json`; o app só declara
   `paths`. Imports `@/*` → `src/*` (o `sucont` também aceita `#/*`, legado).
 - **Arquivos gerados** não se editam à mão: `Dockerfile`, `docker-bake.hcl`,
