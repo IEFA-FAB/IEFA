@@ -1,0 +1,16 @@
+// Casos de teste de `.opengrep/rules/bun-check-script.yaml`. Não é package.json de verdade: os
+// comentários existem só para as anotações do `opengrep test`.
+{
+  "scripts": {
+    // ruleid: bun-check-in-script
+    "typecheck": "bun check",
+    // ruleid: bun-check-in-script
+    "typecheck:src": "fumadocs-mdx && bun check -p .",
+    // ok: bun-check-in-script
+    "typecheck:ok": "bun --check",
+    // ok: bun-check-in-script
+    "docs": "fumadocs-mdx && bun --check",
+    // ok: bun-check-in-script
+    "check": "biome check"
+  }
+}

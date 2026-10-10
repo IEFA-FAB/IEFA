@@ -10,7 +10,7 @@
   "scripts": {
     "lint": "biome check .",
     "test": "bun test --no-env-file $(find src -name '*.test.ts' -print)",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "bun --check"
   },
   "dependencies": {
     "@iefa/database": "workspace:*",

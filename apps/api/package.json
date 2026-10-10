@@ -16,7 +16,7 @@
     "format": "biome format",
     "lint": "biome lint",
     "check": "biome check",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "bun --check"
   },
   "dependencies": {
     "@hono/zod-openapi": "^1.6.3",

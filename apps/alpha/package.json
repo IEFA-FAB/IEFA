@@ -10,7 +10,7 @@
     "ingest:all": "bash ingest-all.sh",
     "ingest:agu": "bun run src/cli/ingest-agu.ts",
     "lint": "biome check src/",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "bun --check",
     "test": "bun test --no-env-file",
     "eval": "bun run src/eval/run-eval.ts",
     "embed:backfill": "bun run src/cli/backfill-embeddings.ts",
