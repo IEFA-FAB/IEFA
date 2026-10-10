@@ -1,0 +1,31 @@
+##
+# `bun check` (Bun 1.4.3+) é o type checker embutido e é o `typecheck` de todo workspace. Um script
+# `check` no package.json tem precedência sobre ele: com `"check": "biome check"` no workspace, o
+# `"typecheck": "bun check"` rodaria o Biome, sairia 0 e o gate de typecheck ficaria verde sem
+# checar tipo nenhum. Por isso workspace não declara script `check`; o Biome do workspace roda no
+# `lint` (`biome check`, que já cobre lint, formatação e ordem dos imports).
+#
+# Sem o script, Bun anterior ao 1.4.3 também falha alto (`Script not found "check"`) em vez de
+# passar calado, o que não acontece com `bun --check`, que nele imprime o help e sai 0.
+#
+# A raiz fica de fora: o `check` dela é o gate completo (`bun run check`), a raiz não tem tsconfig
+# e o scan do CI só olha `apps` e `packages`.
+#
+# Casos de teste: `__fixtures__/workspace-check-script.json` (opengrep test --config
+# .opengrep/rules/workspace-check-script.yaml .opengrep/rules/__fixtures__/workspace-check-script.json).
+#
+# Regras compatíveis com Opengrep e Semgrep (mesma sintaxe).
+##
+rules:
+  - id: workspace-check-script
+    languages: [generic]
+    severity: ERROR
+    message: >-
+      Script `check` em package.json de workspace esconde o type checker: `bun check` (o
+      `typecheck`) passaria a rodar este script e o typecheck sairia verde sem checar tipo. Ponha o
+      Biome no `lint` (`biome check`) e dê outro nome a qualquer outra verificação.
+    paths:
+      include:
+        - "apps/*/package.json"
+        - "packages/*/package.json"
+    pattern-regex: '"check"[ \t]*:'

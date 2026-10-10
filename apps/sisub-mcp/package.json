@@ -7,7 +7,7 @@
     "dev": "bun run --hot src/index.ts",
     "start": "bun run src/index.ts",
     "build": "bun build src/index.ts --outdir dist --target bun --sourcemap=linked",
-    "typecheck": "bun ../../scripts/typecheck.ts",
+    "typecheck": "bun check",
     "test": "bun test --no-env-file $(find src -name '*.test.ts' -print)",
     "lint": "biome check src/"
   },

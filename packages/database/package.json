@@ -35,7 +35,7 @@
     "audit:rls": "bun run scripts/audit-rls.ts",
     "lint": "biome check .",
     "test": "bun test --no-env-file $(find src scripts -name '*.test.ts' -print)",
-    "typecheck": "bun ../../scripts/typecheck.ts"
+    "typecheck": "bun check"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.4",
