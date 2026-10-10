@@ -1,11 +1,11 @@
 {
   "name": "iefa",
   "private": true,
-  "packageManager": "bun@1.4.0",
+  "packageManager": "bun@1.4.3",
   "overrides": {
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
-    "@tanstack/query-core": "5.103.2",
+    "@tanstack/query-core": "5.104.1",
     "ws": "^8.21.3",
     "protobufjs": "^7.6.5",
     "fast-uri": "^3.1.5",
@@ -70,17 +70,17 @@
     }
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.14",
+    "@biomejs/biome": "^2.5.15",
     "@commitlint/cli": "^21.2.3",
     "@commitlint/config-conventional": "^21.2.3",
     "@shadcn/lint": "0.2.0",
     "commitizen": "^4.3.2",
     "cz-git": "^1.14.0",
     "husky": "^9.1.7",
-    "knip": "^6.37.0",
-    "oxlint": "1.85.0",
-    "react-doctor": "^0.9.14",
-    "turbo": "^2.11.2"
+    "knip": "^6.41.0",
+    "oxlint": "1.87.0",
+    "react-doctor": "^0.9.17",
+    "turbo": "^2.11.7"
   },
   "workspaces": [
     "apps/*",

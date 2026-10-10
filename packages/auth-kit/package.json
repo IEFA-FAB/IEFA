@@ -13,10 +13,10 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.116.0"
+    "@supabase/supabase-js": "^2.117.3"
   },
   "peerDependencies": {
-    "react": "^19.2"
+    "react": "^19.3.0"
   },
   "devDependencies": {
     "@iefa/tsconfig": "workspace:*",
