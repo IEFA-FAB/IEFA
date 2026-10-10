@@ -129,7 +129,7 @@ export function ToolCard({ tool, index, onDelete }: ToolCardProps) {
 								size="icon-sm"
 								onClick={onDelete}
 								aria-label={`Excluir ${tool.title}`}
-								className="absolute bottom-6 right-6 z-20 rounded-full bg-card/80 backdrop-blur-sm text-muted-foreground opacity-0 shadow-sm transition-all group-hover:opacity-100 hover:text-destructive focus-visible:opacity-100"
+								className="absolute bottom-6 right-6 z-20 rounded-full bg-card/80 backdrop-blur-sm text-muted-foreground opacity-0 shadow-sm group-hover:opacity-100 hover:text-destructive focus-visible:opacity-100"
 							>
 								<Trash2 className="w-4 h-4" />
 							</Button>

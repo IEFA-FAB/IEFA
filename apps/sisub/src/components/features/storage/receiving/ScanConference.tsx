@@ -290,24 +290,24 @@ export function ScanConference({ receiptId, lines, events, editable, scannerProp
 									</div>
 									<div className="flex items-center gap-2">
 										{done && (
-											<Badge variant="secondary" className="text-xs">
+											<Badge variant="secondary">
 												<Check className="mr-1 size-3" />
 												completo
 											</Badge>
 										)}
 										{over && (
-											<Badge variant="outline" className="text-xs text-warning">
+											<Badge variant="outline" className="text-warning">
 												a maior: {NUM.format(Math.abs(remaining))}
 											</Badge>
 										)}
 										{short && remaining != null && (
-											<Badge variant="outline" className="text-xs">
+											<Badge variant="outline">
 												falta {NUM.format(remaining)}
 												{!line.divergence_reason && " — informe o motivo na linha"}
 											</Badge>
 										)}
 										{refused && (
-											<Badge variant="outline" className="text-xs text-warning">
+											<Badge variant="outline" className="text-warning">
 												recusada
 											</Badge>
 										)}

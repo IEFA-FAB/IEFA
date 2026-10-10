@@ -151,7 +151,7 @@ export function AnalyticalPanel({ data }: AnalyticalPanelProps) {
 						onClick={() => exportElementToImage("analise-pareto", "mapa-risco-pareto")}
 						variant="outline"
 						size="sm"
-						className="gap-2 px-3 py-1.5 text-caption text-muted-foreground bg-muted/50 hover:bg-muted/80 border-border rounded-lg transition-colors"
+						className="gap-2 py-1.5 text-caption text-muted-foreground bg-muted/50 hover:bg-muted/80 border-border rounded-lg transition-colors"
 					>
 						<FileImage className="w-3.5 h-3.5" />
 						<span>Exportar</span>
@@ -215,7 +215,7 @@ export function AnalyticalPanel({ data }: AnalyticalPanelProps) {
 							onClick={() => exportElementToImage("risk-ods", "mapa-risco-ods")}
 							variant="outline"
 							size="sm"
-							className="gap-2 px-3 py-1.5 text-caption text-muted-foreground bg-muted/50 hover:bg-muted/80 border-border rounded-lg transition-colors"
+							className="gap-2 py-1.5 text-caption text-muted-foreground bg-muted/50 hover:bg-muted/80 border-border rounded-lg transition-colors"
 						>
 							<FileImage className="w-3.5 h-3.5" />
 							<span>Exportar</span>
@@ -301,7 +301,7 @@ export function AnalyticalPanel({ data }: AnalyticalPanelProps) {
 							onClick={() => exportElementToImage("risk-orgao", "mapa-risco-orgao")}
 							variant="outline"
 							size="sm"
-							className="gap-2 px-3 py-1.5 text-caption text-muted-foreground bg-muted/50 hover:bg-muted/80 border-border rounded-lg transition-colors"
+							className="gap-2 py-1.5 text-caption text-muted-foreground bg-muted/50 hover:bg-muted/80 border-border rounded-lg transition-colors"
 						>
 							<FileImage className="w-3.5 h-3.5" />
 							<span>Exportar</span>

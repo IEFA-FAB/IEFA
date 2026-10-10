@@ -185,7 +185,7 @@ function InnovationPolicy() {
 					<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px bg-border border border-border">
 						{SISTEMAS_SEFA.map(({ sigla, nome }) => (
 							<div key={sigla} className="bg-card px-5 py-4 flex items-center gap-4">
-								<Badge variant="secondary" className="shrink-0 font-mono text-xs">
+								<Badge variant="secondary" className="shrink-0 font-mono">
 									{sigla}
 								</Badge>
 								<span className="text-xs text-muted-foreground leading-snug">{nome}</span>
@@ -206,7 +206,7 @@ function InnovationPolicy() {
 					<div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
 						{/* Federal */}
 						<div className="border border-border bg-card p-6 flex flex-col gap-4">
-							<Badge variant="secondary" className="w-fit font-mono text-xs">
+							<Badge variant="secondary" className="w-fit font-mono">
 								Federal
 							</Badge>
 							<ul className="flex flex-col gap-2">
@@ -221,7 +221,7 @@ function InnovationPolicy() {
 
 						{/* MD */}
 						<div className="border border-border bg-card p-6 flex flex-col gap-4">
-							<Badge variant="secondary" className="w-fit font-mono text-xs">
+							<Badge variant="secondary" className="w-fit font-mono">
 								Ministério da Defesa
 							</Badge>
 							<ul className="flex flex-col gap-2">
@@ -236,7 +236,7 @@ function InnovationPolicy() {
 
 						{/* COMAER */}
 						<div className="border border-border bg-card p-6 flex flex-col gap-4">
-							<Badge variant="secondary" className="w-fit font-mono text-xs">
+							<Badge variant="secondary" className="w-fit font-mono">
 								COMAER
 							</Badge>
 							<ul className="flex flex-col gap-2">
@@ -366,7 +366,7 @@ function InnovationPolicy() {
 
 					<div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
 						<div className="border border-border bg-card p-6 flex flex-col gap-3">
-							<Badge variant="secondary" className="w-fit font-mono text-xs">
+							<Badge variant="secondary" className="w-fit font-mono">
 								DFP
 							</Badge>
 							<h3 className="font-semibold text-base">Captação de Parcerias</h3>
@@ -377,7 +377,7 @@ function InnovationPolicy() {
 						</div>
 
 						<div className="border border-border bg-card p-6 flex flex-col gap-3">
-							<Badge variant="secondary" className="w-fit font-mono text-xs">
+							<Badge variant="secondary" className="w-fit font-mono">
 								Art. 46–47
 							</Badge>
 							<h3 className="font-semibold text-base">Compartilhamento de Infraestrutura</h3>
@@ -388,7 +388,7 @@ function InnovationPolicy() {
 						</div>
 
 						<div className="border border-border bg-card p-6 flex flex-col gap-3">
-							<Badge variant="secondary" className="w-fit font-mono text-xs">
+							<Badge variant="secondary" className="w-fit font-mono">
 								Art. 11
 							</Badge>
 							<h3 className="font-semibold text-base">Atuação Local, Regional e Internacional</h3>
@@ -399,7 +399,7 @@ function InnovationPolicy() {
 						</div>
 
 						<div className="border border-border bg-card p-6 flex flex-col gap-3">
-							<Badge variant="secondary" className="w-fit font-mono text-xs">
+							<Badge variant="secondary" className="w-fit font-mono">
 								Art. 44
 							</Badge>
 							<h3 className="font-semibold text-base">Fundação de Apoio</h3>
@@ -450,7 +450,7 @@ function InnovationPolicy() {
 
 					<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
 						<div className="border border-border bg-card p-6 flex flex-col gap-3">
-							<Badge variant="secondary" className="w-fit font-mono text-xs">
+							<Badge variant="secondary" className="w-fit font-mono">
 								DIR
 							</Badge>
 							<h3 className="font-semibold text-sm">Diretor do IEFA</h3>
@@ -460,7 +460,7 @@ function InnovationPolicy() {
 						</div>
 
 						<div className="border border-border bg-card p-6 flex flex-col gap-3">
-							<Badge variant="secondary" className="w-fit font-mono text-xs">
+							<Badge variant="secondary" className="w-fit font-mono">
 								DFP
 							</Badge>
 							<h3 className="font-semibold text-sm">Divisão de Fomento à Pesquisa</h3>
@@ -470,7 +470,7 @@ function InnovationPolicy() {
 						</div>
 
 						<div className="border border-border bg-card p-6 flex flex-col gap-3">
-							<Badge variant="secondary" className="w-fit font-mono text-xs">
+							<Badge variant="secondary" className="w-fit font-mono">
 								OCS
 							</Badge>
 							<h3 className="font-semibold text-sm">Órgão Colegiado Superior</h3>
@@ -478,7 +478,7 @@ function InnovationPolicy() {
 						</div>
 
 						<div className="border border-border bg-card p-6 flex flex-col gap-3">
-							<Badge variant="secondary" className="w-fit font-mono text-xs">
+							<Badge variant="secondary" className="w-fit font-mono">
 								NIT / CGI
 							</Badge>
 							<h3 className="font-semibold text-sm">Núcleo de Inovação Tecnológica</h3>
@@ -490,7 +490,7 @@ function InnovationPolicy() {
 
 					{/* Comissão de Análise */}
 					<div className="mt-5 border border-border bg-card px-5 py-4 flex items-center gap-4">
-						<Badge variant="secondary" className="shrink-0 font-mono text-xs">
+						<Badge variant="secondary" className="shrink-0 font-mono">
 							Art. 35
 						</Badge>
 						<div>

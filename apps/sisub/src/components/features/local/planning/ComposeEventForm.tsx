@@ -90,7 +90,7 @@ export function ComposeEventForm({ kitchenId, templateIds, listLink, editorLink 
 								<div key={model.id} className="space-y-3">
 									<div className="flex items-center gap-2">
 										<p className="text-subheading">{model.name}</p>
-										<Badge variant="outline" className="ml-auto text-xs">
+										<Badge variant="outline" className="ml-auto">
 											{model.kitchen_id == null ? (catalogFolderPath(folders, model.folder_id) ?? "Global · SDAB") : "Desta cozinha"}
 										</Badge>
 									</div>

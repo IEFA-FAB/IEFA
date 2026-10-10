@@ -252,16 +252,8 @@ function GlobalRecipeVersionsPage() {
 												v{v.version}
 											</Badge>
 											<div className="flex gap-1 shrink-0">
-												{isLatest && (
-													<Badge variant="secondary" className="text-xs">
-														atual
-													</Badge>
-												)}
-												{isSelected && !isLatest && (
-													<Badge variant="secondary" className="text-xs">
-														comparando
-													</Badge>
-												)}
+												{isLatest && <Badge variant="secondary">atual</Badge>}
+												{isSelected && !isLatest && <Badge variant="secondary">comparando</Badge>}
 											</div>
 										</div>
 										<div className="flex items-center gap-1.5 mt-1.5">
@@ -280,11 +272,9 @@ function GlobalRecipeVersionsPage() {
 							{fromVersion && toVersion && fromVersion.id !== toVersion.id ? (
 								<>
 									<div className="flex items-center gap-2 px-1">
-										<Badge variant="outline" className="text-xs">
-											v{fromVersion.version}
-										</Badge>
+										<Badge variant="outline">v{fromVersion.version}</Badge>
 										<span className="text-muted-foreground text-xs">→</span>
-										<Badge className="text-xs">v{toVersion.version}</Badge>
+										<Badge>v{toVersion.version}</Badge>
 										<span className="text-xs text-muted-foreground ml-1">comparação</span>
 									</div>
 									<DiffView from={fromVersion} to={toVersion} />

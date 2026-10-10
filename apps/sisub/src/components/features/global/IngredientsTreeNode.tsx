@@ -350,7 +350,7 @@ export function IngredientsTreeNode({
 						<Tooltip>
 							<TooltipTrigger
 								render={
-									<Badge variant="outline" className="gap-1 text-muted-foreground">
+									<Badge variant="outline" className="text-muted-foreground">
 										<CalendarCheck className="size-3" />
 										Revisado {formatReviewDate(lastReviewedAt)}
 									</Badge>
@@ -382,7 +382,7 @@ export function IngredientsTreeNode({
 								// não há clique — então `cursor-default` desfaz o ponteiro que a regra de
 								// `@layer base` dá a todo `[role="button"]`.
 								folderReview.reviewed === folderReview.total ? (
-									<Badge variant="outline" className="cursor-default gap-1 text-muted-foreground" tabIndex={0} role="button">
+									<Badge variant="outline" className="cursor-default text-muted-foreground" tabIndex={0} role="button">
 										<CalendarCheck className="size-3" />
 										Revisada
 									</Badge>
@@ -420,12 +420,12 @@ export function IngredientsTreeNode({
 								// contagem de itens + progresso + este carimbo. O rótulo por extenso mora no
 								// tooltip; aqui fica ícone + data, que é o que se lê de relance.
 								folderConference.addedSince > 0 ? (
-									<Badge variant="warning" className="cursor-default gap-1 tabular-nums" tabIndex={0} role="button">
+									<Badge variant="warning" className="cursor-default tabular-nums" tabIndex={0} role="button">
 										<CircleCheck className="size-3" />
 										{formatReviewDate(folderConference.reviewedAt)} · {folderConference.addedSince} novo{folderConference.addedSince === 1 ? "" : "s"}
 									</Badge>
 								) : (
-									<Badge variant="outline" className="cursor-default gap-1 text-muted-foreground tabular-nums" tabIndex={0} role="button">
+									<Badge variant="outline" className="cursor-default text-muted-foreground tabular-nums" tabIndex={0} role="button">
 										<CircleCheck className="size-3" />
 										{formatReviewDate(folderConference.reviewedAt)}
 									</Badge>

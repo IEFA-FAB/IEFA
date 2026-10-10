@@ -425,7 +425,7 @@ function GroupColumn({
 					)}
 				</div>
 				{onAdd && (
-					<Button type="button" size="sm" variant="ghost" className="text-xs h-6 gap-1 text-muted-foreground hover:text-foreground" onClick={onAdd}>
+					<Button type="button" size="sm" variant="ghost" className="text-xs h-6 text-muted-foreground" onClick={onAdd}>
 						<Plus className="size-3.5" />
 						Adicionar
 					</Button>

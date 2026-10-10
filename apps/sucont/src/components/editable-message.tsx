@@ -51,7 +51,7 @@ export function EditableMessage({ value, onChange, onReset, isEdited, isStale, l
 					) : (
 						<span className="text-caption text-muted-foreground">Texto editado à mão. É ele que será copiado.</span>
 					)}
-					<Button type="button" variant="ghost" size="xs" className="gap-1" onClick={onReset}>
+					<Button type="button" variant="ghost" size="xs" onClick={onReset}>
 						<RotateCcw className="h-3 w-3" />
 						<span>Restaurar gerado</span>
 					</Button>

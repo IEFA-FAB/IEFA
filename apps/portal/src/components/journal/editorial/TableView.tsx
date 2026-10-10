@@ -98,7 +98,7 @@ export function TableView({ articles }: TableViewProps) {
 						const daysSinceSubmission = article.submitted_at ? Math.floor((Date.now() - new Date(article.submitted_at).getTime()) / (1000 * 60 * 60 * 24)) : 0
 
 						return (
-							<TableRow key={article.id} className="hover:bg-muted/50">
+							<TableRow key={article.id}>
 								<TableCell className="font-mono text-sm">{article.submission_number}</TableCell>
 								<TableCell>
 									<Link to="/journal/editorial/articles/$articleId" params={{ articleId: article.id }} className="hover:underline font-medium line-clamp-2">

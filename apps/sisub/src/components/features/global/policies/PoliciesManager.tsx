@@ -238,7 +238,7 @@ function PolicyDetailPanel({
 				<div className="h-5 w-px bg-border" />
 				<p className="text-subheading">{policy.name}</p>
 				{policy.managed && (
-					<Badge variant="secondary" className="gap-1">
+					<Badge variant="secondary">
 						<Lock className="size-3" />
 						Gerenciada
 					</Badge>
@@ -457,7 +457,7 @@ export function PoliciesManager({ maps, scopes }: { maps: ScopeMaps; scopes: Rea
 										<button type="button" onClick={() => setSelectedId(policy.id)} className="text-left">
 											<span className="text-subheading underline-offset-2 hover:underline">{policy.name}</span>
 											{policy.managed && (
-												<Badge variant="secondary" className="ml-2 gap-1">
+												<Badge variant="secondary" className="ml-2">
 													<Lock className="size-3" />
 													Gerenciada
 												</Badge>

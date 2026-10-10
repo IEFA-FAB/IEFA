@@ -212,7 +212,7 @@ function HubPage() {
 								if (groupModules.length === 0) return null
 								return (
 									<section key={group.label}>
-										<h2 className={cn("text-xs text-label mb-3", ACCENT_CLASSES[group.color])}>{group.label}</h2>
+										<h2 className={cn("text-label mb-3", ACCENT_CLASSES[group.color])}>{group.label}</h2>
 										<div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
 											{groupModules.map((mod) => (
 												<ModuleCard key={mod.id} module={mod} color={group.color} />

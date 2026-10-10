@@ -63,7 +63,7 @@ export function ProductionKanbanColumn({ status, items, onSelectItem, onUpdateSt
 					<Icon className="size-4 text-muted-foreground" />
 					<span className="text-subheading text-foreground">{config.label}</span>
 				</div>
-				<Badge variant="secondary" className="font-mono text-xs">
+				<Badge variant="secondary" className="font-mono">
 					{items.length}
 				</Badge>
 			</div>

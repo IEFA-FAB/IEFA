@@ -115,7 +115,7 @@ export function KitchenOccasionMenuList({
 
 	const occurrencesCell = (value: number | null) => (
 		<TableCell className="text-center">
-			<Badge variant="outline" className="font-mono text-xs">
+			<Badge variant="outline" className="font-mono">
 				{value ?? "—"}
 			</Badge>
 		</TableCell>
@@ -152,9 +152,7 @@ export function KitchenOccasionMenuList({
 							<div className="flex items-center gap-2 mb-3">
 								<Icon className="size-4 text-muted-foreground" />
 								<h2 className="text-subheading">Modelos Globais da SDAB</h2>
-								<Badge variant="outline" className="text-xs">
-									Somente leitura · disponíveis para adaptar
-								</Badge>
+								<Badge variant="outline">Somente leitura · disponíveis para adaptar</Badge>
 							</div>
 							{canCompose && (
 								<div className="flex flex-wrap items-center gap-2 mb-3">
@@ -205,12 +203,8 @@ export function KitchenOccasionMenuList({
 						<div className="flex items-center gap-2 mb-3">
 							{globalTemplates.length === 0 && <Icon className="size-4 text-muted-foreground" />}
 							<h2 className="text-subheading">{copy.sectionTitle}</h2>
-							<Badge variant="default" className="text-xs">
-								Esta Cozinha
-							</Badge>
-							<Badge variant="outline" className="text-xs">
-								Selecionáveis na licitação
-							</Badge>
+							<Badge variant="default">Esta Cozinha</Badge>
+							<Badge variant="outline">Selecionáveis na licitação</Badge>
 						</div>
 
 						{isLoading ? (
@@ -265,7 +259,7 @@ export function KitchenOccasionMenuList({
 												</TableCell>
 												<TableCell>
 													{template.base_template_id ? (
-														<Badge variant="secondary" className="text-xs gap-1 font-normal">
+														<Badge variant="secondary" className="font-normal">
 															<GitFork className="size-3" />
 															{sourcePath(template.base_template_id) ?? "Adaptado da SDAB"}
 														</Badge>
@@ -275,7 +269,7 @@ export function KitchenOccasionMenuList({
 												</TableCell>
 												{isSupportMenu && occurrencesCell(template.expected_monthly_occurrences)}
 												<TableCell className="text-center">
-													<Badge variant="secondary" className="font-mono text-xs">
+													<Badge variant="secondary" className="font-mono">
 														{template.recipe_count || 0}
 													</Badge>
 												</TableCell>

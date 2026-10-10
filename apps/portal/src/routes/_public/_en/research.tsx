@@ -353,7 +353,7 @@ function Research() {
 									<div className="size-9 border border-border bg-muted flex items-center justify-center shrink-0">
 										<Icon className="h-4 w-4 text-foreground" aria-hidden="true" />
 									</div>
-									<Badge variant="secondary" className="font-mono text-xs">
+									<Badge variant="secondary" className="font-mono">
 										{sigla}
 									</Badge>
 								</div>
@@ -430,7 +430,7 @@ function Research() {
 
 					<div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
 						<div className="border border-border bg-card p-6 flex flex-col gap-3">
-							<Badge variant="secondary" className="w-fit font-mono text-xs">
+							<Badge variant="secondary" className="w-fit font-mono">
 								Lei nº 13.243/2016
 							</Badge>
 							<h3 className="font-semibold text-base">Marco Legal da Inovação</h3>
@@ -441,7 +441,7 @@ function Research() {
 						</div>
 
 						<div className="border border-border bg-card p-6 flex flex-col gap-3">
-							<Badge variant="secondary" className="w-fit font-mono text-xs">
+							<Badge variant="secondary" className="w-fit font-mono">
 								Portaria DCTA nº 543/CGI — Dez 2024
 							</Badge>
 							<h3 className="font-semibold text-base">Reconhecimento como ICT</h3>
@@ -452,7 +452,7 @@ function Research() {
 						</div>
 
 						<div className="border border-border bg-card p-6 flex flex-col gap-3">
-							<Badge variant="secondary" className="w-fit font-mono text-xs">
+							<Badge variant="secondary" className="w-fit font-mono">
 								PCA 11-217
 							</Badge>
 							<h3 className="font-semibold text-base">Plano de CT&I da Aeronáutica</h3>
@@ -463,7 +463,7 @@ function Research() {
 						</div>
 
 						<div className="border border-border bg-card p-6 flex flex-col gap-3">
-							<Badge variant="secondary" className="w-fit font-mono text-xs">
+							<Badge variant="secondary" className="w-fit font-mono">
 								PNCT&I
 							</Badge>
 							<h3 className="font-semibold text-base">Política Nacional de CT&I</h3>

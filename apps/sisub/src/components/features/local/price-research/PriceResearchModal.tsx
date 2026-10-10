@@ -487,7 +487,7 @@ export function PriceResearchModal({
 				header: ({ column }) => <SortableHeader column={column} title="UF" />,
 				cell: ({ row }) =>
 					row.original.estado ? (
-						<Badge variant="secondary" className="text-xs font-normal">
+						<Badge variant="secondary" className="font-normal">
 							{row.original.estado}
 						</Badge>
 					) : (
@@ -536,7 +536,7 @@ export function PriceResearchModal({
 					const conversion = convertSamplePrice(row.original, unit)
 					if (!conversion.ok) {
 						return (
-							<Badge variant="outline" className="text-xs font-normal" title={SAMPLE_CONVERSION_REASON_LABELS[conversion.reason]}>
+							<Badge variant="outline" className="font-normal" title={SAMPLE_CONVERSION_REASON_LABELS[conversion.reason]}>
 								incomparável
 							</Badge>
 						)

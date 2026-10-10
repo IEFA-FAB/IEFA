@@ -645,7 +645,7 @@ export function RecipesManager({ ref }: { ref?: Ref<RecipesManagerHandle> }) {
 													<Tooltip>
 														<TooltipTrigger
 															render={
-																<Badge variant="outline" className="gap-1 text-muted-foreground shrink-0">
+																<Badge variant="outline" className="text-muted-foreground shrink-0">
 																	<CalendarCheck className="size-3" />
 																	<span className="hidden sm:inline">Revisada {formatReviewDate(reviewedAt)}</span>
 																</Badge>
@@ -666,7 +666,7 @@ export function RecipesManager({ ref }: { ref?: Ref<RecipesManagerHandle> }) {
 													</Tooltip>
 												))}
 											{recipe.version > 1 && (
-												<Badge variant="secondary" className="rounded-full px-2 py-0 font-mono text-xs shrink-0">
+												<Badge variant="secondary" className="rounded-full py-0 font-mono shrink-0">
 													v{recipe.version}
 												</Badge>
 											)}

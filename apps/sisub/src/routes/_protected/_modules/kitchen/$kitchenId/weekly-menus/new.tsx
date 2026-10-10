@@ -159,7 +159,7 @@ function NewWeeklyMenuPage() {
 									<p className="text-subheading">{baseTemplate.name}</p>
 									{baseTemplate.description && <p className="text-xs text-muted-foreground mt-0.5">{baseTemplate.description}</p>}
 								</div>
-								<Badge variant="outline" className="ml-auto text-xs">
+								<Badge variant="outline" className="ml-auto">
 									Global · SDAB
 								</Badge>
 							</div>

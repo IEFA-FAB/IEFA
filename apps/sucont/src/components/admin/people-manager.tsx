@@ -83,7 +83,7 @@ export function SucontPeopleManager() {
 
 			{canManage && (
 				<div className="flex justify-end">
-					<Button type="button" variant="outline" onClick={() => setIsAdding(true)} className="gap-2 bg-card font-mono text-tech-cyan hover:bg-muted/50">
+					<Button type="button" variant="outline" onClick={() => setIsAdding(true)} className="bg-card font-mono text-tech-cyan hover:bg-muted/50">
 						<Plus className="size-4" /> CADASTRAR PESSOA
 					</Button>
 				</div>
@@ -117,7 +117,7 @@ export function SucontPeopleManager() {
 						<Button type="button" variant="ghost" onClick={() => setIsAdding(false)} className="text-muted-foreground hover:text-foreground">
 							CANCELAR
 						</Button>
-						<Button type="submit" disabled={createPerson.isPending} className="gap-2 bg-tech-cyan text-white shadow-md hover:bg-tech-cyan/90">
+						<Button type="submit" disabled={createPerson.isPending} className="bg-tech-cyan text-white shadow-md hover:bg-tech-cyan/90">
 							{createPerson.isPending && <Loader2 className="size-3 animate-spin" />} CADASTRAR
 						</Button>
 					</div>
@@ -185,19 +185,13 @@ function PersonRow({ person, canManage, onChanged, onRemove }: { person: Section
 
 				{canManage && (
 					<div className="flex shrink-0 flex-wrap gap-2">
-						<Button type="button" variant="outline" size="sm" onClick={() => setLinking(linking === "roster" ? null : "roster")} className="gap-1.5">
+						<Button type="button" variant="outline" size="sm" onClick={() => setLinking(linking === "roster" ? null : "roster")}>
 							<IdCard className="size-3.5" /> {person.saram ? "Trocar SARAM" : "Vincular SARAM"}
 						</Button>
-						<Button type="button" variant="outline" size="sm" onClick={() => setLinking(linking === "account" ? null : "account")} className="gap-1.5">
+						<Button type="button" variant="outline" size="sm" onClick={() => setLinking(linking === "account" ? null : "account")}>
 							<Mail className="size-3.5" /> {person.hasAccount ? "Trocar conta" : "Vincular conta"}
 						</Button>
-						<Button
-							type="button"
-							variant="ghost"
-							size="sm"
-							onClick={onRemove}
-							className="gap-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-						>
+						<Button type="button" variant="ghost" size="sm" onClick={onRemove} className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
 							<Trash2 className="size-3.5" /> Tirar da seção
 						</Button>
 					</div>
@@ -269,11 +263,11 @@ function RosterLinker({ person, onDone }: { person: SectionPerson; onDone: () =>
 						className="border-border bg-card text-foreground focus:border-tech-cyan"
 					/>
 				</div>
-				<Button type="submit" variant="outline" size="sm" className="gap-1.5">
+				<Button type="submit" variant="outline" size="sm">
 					<Search className="size-3.5" /> Buscar
 				</Button>
 				{person.saram && (
-					<Button type="button" variant="ghost" size="sm" onClick={() => link.mutate(null)} className="gap-1.5 text-muted-foreground hover:text-destructive">
+					<Button type="button" variant="ghost" size="sm" onClick={() => link.mutate(null)} className="text-muted-foreground hover:text-destructive">
 						<X className="size-3.5" /> Desvincular
 					</Button>
 				)}
@@ -345,11 +339,11 @@ function AccountLinker({ person, onDone }: { person: SectionPerson; onDone: () =
 					className="border-border bg-card text-foreground focus:border-tech-cyan"
 				/>
 			</div>
-			<Button type="submit" disabled={link.isPending} variant="outline" size="sm" className="gap-1.5">
+			<Button type="submit" disabled={link.isPending} variant="outline" size="sm">
 				{link.isPending && <Loader2 className="size-3 animate-spin" />} Vincular
 			</Button>
 			{person.hasAccount && (
-				<Button type="button" variant="ghost" size="sm" onClick={() => link.mutate(null)} className="gap-1.5 text-muted-foreground hover:text-destructive">
+				<Button type="button" variant="ghost" size="sm" onClick={() => link.mutate(null)} className="text-muted-foreground hover:text-destructive">
 					<X className="size-3.5" /> Desvincular
 				</Button>
 			)}

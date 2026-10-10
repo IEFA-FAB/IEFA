@@ -46,7 +46,7 @@ export function MfaFactorList({ factors, isRemoving, canManage, onReplace, onRem
 						<Smartphone className="size-4" aria-hidden />
 					</ItemMedia>
 					<ItemContent>
-						<ItemTitle className="flex items-center gap-2">
+						<ItemTitle className="flex items-center">
 							{factor.friendlyName ?? "Dispositivo sem nome"}
 							<Badge variant="success">
 								<ShieldCheck className="size-3" aria-hidden />

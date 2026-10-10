@@ -110,7 +110,7 @@ export function RecipeFoldersDialog({ open, onOpenChange }: RecipeFoldersDialogP
 							placeholder="Nome da nova pasta (ex.: Carnes, Sobremesas)"
 							aria-label="Nome da nova pasta"
 						/>
-						<Button onClick={handleCreate} disabled={isPending || newName.trim().length === 0} className="shrink-0 gap-1.5">
+						<Button onClick={handleCreate} disabled={isPending || newName.trim().length === 0} className="shrink-0">
 							{isPending ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
 							Criar
 						</Button>

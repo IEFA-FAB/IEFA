@@ -169,11 +169,9 @@ function NfeListPage() {
 											<td className="py-2.5 pr-3 text-xs text-center tabular-nums">{(counts.matched ?? 0) + pendentes}</td>
 											<td className="py-2.5 text-center">
 												{doc.status === "announced" ? (
-													<Badge variant="outline" className="text-xs">
-														Aguardando XML
-													</Badge>
+													<Badge variant="outline">Aguardando XML</Badge>
 												) : doc.status === "cancelled" ? (
-													<Badge variant="outline" className="text-xs text-destructive">
+													<Badge variant="outline" className="text-destructive">
 														Cancelada
 													</Badge>
 												) : doc.kitchen_id == null ? (
@@ -181,13 +179,11 @@ function NfeListPage() {
 														Assumir para esta cozinha
 													</Button>
 												) : pendentes > 0 ? (
-													<Badge variant="outline" className="text-xs text-warning">
+													<Badge variant="outline" className="text-warning">
 														{pendentes} pendente{pendentes > 1 ? "s" : ""}
 													</Badge>
 												) : (
-													<Badge variant="secondary" className="text-xs">
-														Conferida
-													</Badge>
+													<Badge variant="secondary">Conferida</Badge>
 												)}
 											</td>
 										</tr>

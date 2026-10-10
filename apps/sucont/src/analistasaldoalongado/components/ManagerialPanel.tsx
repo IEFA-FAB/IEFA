@@ -207,7 +207,7 @@ export function ManagerialPanel({ data }: ManagerialPanelProps) {
 							onClick={() => exportElementToImage("managerial-top10", "estrategico-top10")}
 							variant="outline"
 							size="sm"
-							className="gap-2 px-3 py-1.5 text-caption text-muted-foreground bg-muted/50 hover:bg-muted/80 border-border rounded-lg transition-colors"
+							className="gap-2 py-1.5 text-caption text-muted-foreground bg-muted/50 hover:bg-muted/80 border-border rounded-lg transition-colors"
 						>
 							<FileImage className="w-3.5 h-3.5" />
 							<span>Exportar</span>
@@ -246,7 +246,7 @@ export function ManagerialPanel({ data }: ManagerialPanelProps) {
 							onClick={() => exportElementToImage("managerial-contas", "estrategico-contas")}
 							variant="outline"
 							size="sm"
-							className="gap-2 px-3 py-1.5 text-caption text-muted-foreground bg-muted/50 hover:bg-muted/80 border-border rounded-lg transition-colors"
+							className="gap-2 py-1.5 text-caption text-muted-foreground bg-muted/50 hover:bg-muted/80 border-border rounded-lg transition-colors"
 						>
 							<FileImage className="w-3.5 h-3.5" />
 							<span>Exportar</span>
@@ -293,7 +293,7 @@ export function ManagerialPanel({ data }: ManagerialPanelProps) {
 							onClick={() => exportElementToImage("managerial-ods", "estrategico-ods")}
 							variant="outline"
 							size="sm"
-							className="gap-2 px-3 py-1.5 text-caption text-muted-foreground bg-muted/50 hover:bg-muted/80 border-border rounded-lg transition-colors"
+							className="gap-2 py-1.5 text-caption text-muted-foreground bg-muted/50 hover:bg-muted/80 border-border rounded-lg transition-colors"
 						>
 							<FileImage className="w-3.5 h-3.5" />
 							<span>Exportar</span>
