@@ -225,7 +225,7 @@ function QuantityEstimateDetailPage() {
 							</Link>
 						}
 					/>
-					<Button size="sm" variant="outline" onClick={handleExportCSV} className="gap-2">
+					<Button size="sm" variant="outline" onClick={handleExportCSV}>
 						<Download className="size-4" aria-hidden="true" />
 						Exportar CSV
 					</Button>
@@ -235,7 +235,6 @@ function QuantityEstimateDetailPage() {
 							onClick={() => updateStatus({ quantityEstimateId: quantityEstimate.id, status: "completed" })}
 							disabled={isUpdating || justificationMissing}
 							title={justificationMissing ? "Preencha a justificativa da quantidade máxima nos limites de quantidade" : undefined}
-							className="gap-2"
 						>
 							<Send className="size-4" aria-hidden="true" />
 							Concluir anexo
@@ -247,7 +246,7 @@ function QuantityEstimateDetailPage() {
 							variant="outline"
 							onClick={() => updateStatus({ quantityEstimateId: quantityEstimate.id, status: "archived" })}
 							disabled={isUpdating}
-							className="gap-2 text-muted-foreground"
+							className="text-muted-foreground"
 						>
 							<Archive className="size-4" aria-hidden="true" />
 							Arquivar
@@ -338,7 +337,7 @@ function QuantityEstimateDetailPage() {
 			{/* Pesquisa automática de preços */}
 			{bulkEligibleCount > 0 && (
 				<div className="flex items-center gap-3 flex-wrap">
-					<Button variant="outline" onClick={handleBulkResearch} disabled={bulkProgress.isRunning} className="gap-2">
+					<Button variant="outline" onClick={handleBulkResearch} disabled={bulkProgress.isRunning}>
 						{bulkProgress.isRunning ? (
 							<>
 								<Spinner className="size-4" aria-hidden="true" />
@@ -394,7 +393,7 @@ function QuantityEstimateDetailPage() {
 						</p>
 					</div>
 					{!arp && !isArpLoading && (
-						<Button size="sm" variant="outline" className="gap-2" onClick={() => setArpModalOpen(true)}>
+						<Button size="sm" variant="outline" onClick={() => setArpModalOpen(true)}>
 							<Link2 className="size-4" />
 							Vincular ARP
 						</Button>
@@ -409,7 +408,7 @@ function QuantityEstimateDetailPage() {
 				) : arp && quantityEstimateId ? (
 					<>
 						<div className="flex justify-end">
-							<Button size="sm" variant="ghost" className="gap-2 text-xs" onClick={() => setArpModalOpen(true)}>
+							<Button size="sm" variant="ghost" className="text-xs" onClick={() => setArpModalOpen(true)}>
 								<Link2 className="size-3.5" />
 								Substituir ARP
 							</Button>

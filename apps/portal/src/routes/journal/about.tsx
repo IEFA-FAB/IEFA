@@ -52,12 +52,7 @@ function AboutPage() {
 					{sections.map((section) => {
 						const Icon = section.icon
 						return (
-							<Button
-								key={section.id}
-								variant={activeSection === section.id ? "default" : "outline"}
-								onClick={() => setActiveSection(section.id)}
-								className="gap-2"
-							>
+							<Button key={section.id} variant={activeSection === section.id ? "default" : "outline"} onClick={() => setActiveSection(section.id)}>
 								<Icon className="size-4" />
 								{section.label}
 							</Button>

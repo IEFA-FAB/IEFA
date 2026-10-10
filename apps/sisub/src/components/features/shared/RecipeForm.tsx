@@ -1422,7 +1422,7 @@ function RecipeReviewActions({ recipeId }: { recipeId: string }) {
 			<Tooltip>
 				<TooltipTrigger
 					render={
-						<Button type="button" variant="outline" size="sm" onClick={handleReview} disabled={isReviewing} className="gap-1.5">
+						<Button type="button" variant="outline" size="sm" onClick={handleReview} disabled={isReviewing}>
 							{isReviewing ? <Loader2 className="size-4 animate-spin" /> : <CircleCheck className="size-4" />}
 							Revisado
 						</Button>

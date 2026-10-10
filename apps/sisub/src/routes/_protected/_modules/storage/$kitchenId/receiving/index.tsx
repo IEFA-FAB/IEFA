@@ -86,7 +86,7 @@ function ReceivingListPage() {
 									<Button
 										size="sm"
 										variant="outline"
-										className="h-7 text-xs gap-1.5 ml-auto shrink-0"
+										className="h-7 text-xs ml-auto shrink-0"
 										disabled={creating != null}
 										onClick={() => createFromNfe(doc.id)}
 									>

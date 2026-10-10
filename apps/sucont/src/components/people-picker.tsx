@@ -146,10 +146,10 @@ export function OperatorPicker({
 				render={
 					<Button
 						type="button"
-						variant="ghost"
+						variant="subtle"
 						size="icon-xs"
 						aria-label={`Mudar o operador da UG ${label}`}
-						className="text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover/ug:opacity-100"
+						className="opacity-0 transition-opacity focus-visible:opacity-100 group-hover/ug:opacity-100"
 					>
 						<ChevronDown className="size-3" />
 					</Button>

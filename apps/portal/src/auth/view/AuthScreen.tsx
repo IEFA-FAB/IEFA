@@ -352,7 +352,7 @@ export function AuthScreen({
 	if (currentView === "reset") {
 		return (
 			<div className="w-full">
-				<Button type="button" variant="ghost" size="sm" onClick={goToAuth} className="mb-6 gap-1.5 text-muted-foreground px-2">
+				<Button type="button" variant="ghost" size="sm" onClick={goToAuth} className="mb-6 text-muted-foreground px-2">
 					<ArrowLeft className="h-3.5 w-3.5" />
 					Voltar ao login
 				</Button>
@@ -402,7 +402,7 @@ export function AuthScreen({
 		return (
 			<div className="w-full">
 				{/* goToAuth remove ?view=forgot — back button do browser também funciona */}
-				<Button type="button" variant="ghost" size="sm" onClick={goToAuth} className="mb-6 gap-1.5 text-muted-foreground px-2">
+				<Button type="button" variant="ghost" size="sm" onClick={goToAuth} className="mb-6 text-muted-foreground px-2">
 					<ArrowLeft className="h-3.5 w-3.5" />
 					Voltar ao login
 				</Button>

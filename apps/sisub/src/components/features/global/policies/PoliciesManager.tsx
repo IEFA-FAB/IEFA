@@ -231,7 +231,7 @@ function PolicyDetailPanel({
 	return (
 		<div className="space-y-4">
 			<div className="flex items-center gap-3">
-				<Button variant="ghost" size="sm" onClick={onBack} className="gap-1.5">
+				<Button variant="ghost" size="sm" onClick={onBack}>
 					<ArrowLeft className="size-4" />
 					Voltar
 				</Button>
@@ -304,7 +304,6 @@ function PolicyDetailPanel({
 								setDraft(INITIAL_DRAFT)
 								setDialog({ mode: "add" })
 							}}
-							className="gap-1.5"
 						>
 							<Plus className="size-4" />
 							Adicionar
@@ -421,7 +420,7 @@ export function PoliciesManager({ maps, scopes }: { maps: ScopeMaps; scopes: Rea
 						Uma política é um conjunto nomeado de permissões. Anexe-a a um usuário para conceder todas de uma vez — e desanexe para revogar em bloco.
 					</p>
 				</div>
-				<Button size="sm" onClick={() => setCreateOpen(true)} className="gap-1.5 shrink-0">
+				<Button size="sm" onClick={() => setCreateOpen(true)} className="shrink-0">
 					<Plus className="size-4" />
 					Nova política
 				</Button>

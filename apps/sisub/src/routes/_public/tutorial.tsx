@@ -370,7 +370,7 @@ function Tutorial() {
 						<Button
 							nativeButton={false}
 							render={
-								<Link to="/hub" className="flex items-center gap-2">
+								<Link to="/hub" className="flex items-center">
 									Ir para o Hub
 									<ChevronRight className="size-4" />
 								</Link>

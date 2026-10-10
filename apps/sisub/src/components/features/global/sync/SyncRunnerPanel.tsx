@@ -114,17 +114,17 @@ export function SyncRunnerPanel({ config }: { config: SyncPanelConfig }) {
 	return (
 		<div className="space-y-6">
 			<div className="flex items-center justify-end gap-2">
-				<Button variant="outline" size="sm" onClick={() => refetch()} disabled={isRunning} className="gap-2">
+				<Button variant="outline" size="sm" onClick={() => refetch()} disabled={isRunning}>
 					<RefreshCw className="size-4" />
 					Atualizar
 				</Button>
 				{isRunning && (
-					<Button size="sm" variant="destructive" onClick={handleStop} disabled={isStopping} className="gap-2">
+					<Button size="sm" variant="destructive" onClick={handleStop} disabled={isStopping}>
 						{isStopping ? <Loader2 className="size-4 animate-spin" /> : <Square className="size-4" />}
 						Parar Sync
 					</Button>
 				)}
-				<Button size="sm" onClick={handleTrigger} disabled={isTriggering || isRunning} className="gap-2">
+				<Button size="sm" onClick={handleTrigger} disabled={isTriggering || isRunning}>
 					{isTriggering ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />}
 					{isRunning ? "Sync em andamento…" : "Iniciar Sync"}
 				</Button>

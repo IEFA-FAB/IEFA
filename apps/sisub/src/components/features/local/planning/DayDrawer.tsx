@@ -564,13 +564,13 @@ function MealSection({
 								<h4 className="text-subheading">Itens do Cardápio</h4>
 								<div className="flex items-center gap-1">
 									{menu.menu_items && menu.menu_items.length > 0 && (
-										<Button type="button" size="sm" variant="ghost" className="gap-1.5" onClick={() => onCopyMeal(menu)}>
+										<Button type="button" size="sm" variant="ghost" onClick={() => onCopyMeal(menu)}>
 											<Copy className="size-3.5" />
 											Copiar refeição
 										</Button>
 									)}
 									{clipboardCount > 0 && (
-										<Button type="button" size="sm" variant="ghost" className="gap-1.5" onClick={() => onPasteMeal(menu)}>
+										<Button type="button" size="sm" variant="ghost" onClick={() => onPasteMeal(menu)}>
 											<ClipboardPaste className="size-3.5" />
 											Colar ({clipboardCount})
 										</Button>

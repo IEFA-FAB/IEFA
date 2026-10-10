@@ -38,7 +38,7 @@ export function DirtyChangesBar({ diffs, onSave, onDiscard, isSaving }: DirtyCha
 				</span>
 
 				{/* Expand/collapse diff list */}
-				<Button variant="ghost" size="sm" onClick={() => setExpanded((v) => !v)} aria-expanded={expanded} className="text-muted-foreground">
+				<Button variant="subtle" size="sm" onClick={() => setExpanded((v) => !v)} aria-expanded={expanded}>
 					<ChevronDown className={cn("size-3.5 transition-transform", expanded && "rotate-180")} />
 					<span>{expanded ? "Ocultar" : "Ver detalhes"}</span>
 				</Button>
@@ -46,15 +46,7 @@ export function DirtyChangesBar({ diffs, onSave, onDiscard, isSaving }: DirtyCha
 				{/* Discard */}
 				<AlertDialog>
 					<AlertDialogTrigger
-						render={
-							<Button
-								variant="ghost"
-								size="sm"
-								className="h-7 px-2 text-muted-foreground hover:text-destructive"
-								disabled={isSaving}
-								aria-label="Descartar alterações"
-							/>
-						}
+						render={<Button variant="subtle-destructive" size="sm" className="h-7 px-2" disabled={isSaving} aria-label="Descartar alterações" />}
 					>
 						<Trash2 className="size-3.5" />
 						<span className="text-xs ml-1 hidden sm:inline">Descartar</span>

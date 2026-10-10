@@ -312,7 +312,7 @@ export function IngredientsTreeManager({ ref, catalog = "exclude" }: { ref?: Ref
 					</div>
 
 					<Popover>
-						<PopoverTrigger render={<Button variant="outline" size="sm" className="shrink-0 gap-2" aria-label="Opções de busca" />}>
+						<PopoverTrigger render={<Button variant="outline" size="sm" className="shrink-0" aria-label="Opções de busca" />}>
 							<SlidersHorizontal className="size-4" />
 							<span className="hidden sm:inline">Opções</span>
 							{(searchCaseSensitive || searchAccentSensitive || onlyNotReviewed || onlyGlobalMenu) && (

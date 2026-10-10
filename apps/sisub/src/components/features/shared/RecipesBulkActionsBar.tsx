@@ -87,7 +87,7 @@ export function RecipesBulkActionsBar({ selectedRecipes, kitchenId, showDeleted,
 					<div className="mx-1 h-5 w-px bg-border" />
 
 					{kitchenId != null && (
-						<Button variant="ghost" size="sm" className="gap-1.5" disabled={forkTargets.length === 0 || isRunning} onClick={handleFork}>
+						<Button variant="ghost" size="sm" disabled={forkTargets.length === 0 || isRunning} onClick={handleFork}>
 							{isRunning ? <Loader2 className="size-4 animate-spin" /> : <GitFork className="size-4" />}
 							Copiar local
 						</Button>
@@ -95,7 +95,6 @@ export function RecipesBulkActionsBar({ selectedRecipes, kitchenId, showDeleted,
 					<Button
 						variant="ghost"
 						size="sm"
-						className="gap-1.5"
 						disabled={selectedRecipes.length === 0 || isRunning}
 						onClick={() => {
 							setTargetFolder(null)
@@ -106,7 +105,7 @@ export function RecipesBulkActionsBar({ selectedRecipes, kitchenId, showDeleted,
 						Pasta
 					</Button>
 					{showDeleted && (
-						<Button variant="ghost" size="sm" className="gap-1.5" disabled={selectedRecipes.length === 0 || isRunning} onClick={handleRestore}>
+						<Button variant="ghost" size="sm" disabled={selectedRecipes.length === 0 || isRunning} onClick={handleRestore}>
 							{isRunning ? <Loader2 className="size-4 animate-spin" /> : <RotateCcw className="size-4" />}
 							Restaurar
 						</Button>
@@ -114,7 +113,7 @@ export function RecipesBulkActionsBar({ selectedRecipes, kitchenId, showDeleted,
 					<Button
 						variant="ghost"
 						size="sm"
-						className="gap-1.5 text-destructive hover:text-destructive"
+						className="text-destructive hover:text-destructive"
 						disabled={selectedRecipes.length === 0 || isRunning}
 						onClick={() => setConfirmDelete(true)}
 					>
@@ -160,7 +159,7 @@ export function RecipesBulkActionsBar({ selectedRecipes, kitchenId, showDeleted,
 						<Button variant="outline" onClick={() => setMoveOpen(false)} disabled={isRunning}>
 							Cancelar
 						</Button>
-						<Button onClick={handleMove} disabled={isRunning || targetFolder === null} className="gap-2">
+						<Button onClick={handleMove} disabled={isRunning || targetFolder === null}>
 							{isRunning && <Loader2 className="size-4 animate-spin" />}
 							{isRunning && progress ? `${progress.completed}/${progress.total}` : "Mover"}
 						</Button>

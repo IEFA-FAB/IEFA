@@ -204,7 +204,7 @@ export function ArpSearchModal({ open, onOpenChange, quantityEstimateId = null, 
 					</p>
 				</div>
 
-				<Button onClick={handleSearch} disabled={!uasg.trim() || !!windowError || numeroSemAno || isSearching} className="self-end gap-2">
+				<Button onClick={handleSearch} disabled={!uasg.trim() || !!windowError || numeroSemAno || isSearching} className="self-end">
 					{isSearching ? <Spinner className="size-4" /> : <Search className="size-4" />}
 					Buscar
 				</Button>

@@ -86,7 +86,7 @@ export default function QRAutoCheckinCard({
 			</div>
 
 			<div className="mt-4 flex flex-col sm:flex-row gap-2">
-				<Button variant="default" size="sm" onClick={handleCopyOm} disabled={!currentOm} className="gap-2 flex-1">
+				<Button variant="default" size="sm" onClick={handleCopyOm} disabled={!currentOm} className="flex-1">
 					{copied ? (
 						<>
 							<CheckCircle2 className="size-4" aria-hidden="true" />
@@ -99,7 +99,7 @@ export default function QRAutoCheckinCard({
 						</>
 					)}
 				</Button>
-				<Button variant="outline" size="sm" onClick={handleDownloadPng} disabled={!currentOm} className="gap-2 flex-1">
+				<Button variant="outline" size="sm" onClick={handleDownloadPng} disabled={!currentOm} className="flex-1">
 					<Download className="size-4" aria-hidden="true" />
 					Baixar PNG do QR
 				</Button>

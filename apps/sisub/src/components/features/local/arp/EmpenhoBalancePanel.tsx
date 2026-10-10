@@ -269,7 +269,7 @@ function EmpenhoForm({ unitId, arpItemId, arpId, onSuccess }: EmpenhoFormProps) 
 				) : (
 					<span />
 				)}
-				<Button type="submit" size="sm" disabled={isPending || !numero.trim() || !qtd || !valor} className="gap-1.5">
+				<Button type="submit" size="sm" disabled={isPending || !numero.trim() || !qtd || !valor}>
 					{isPending && <Spinner className="size-3.5" />}
 					Registrar
 				</Button>
@@ -384,7 +384,7 @@ function ArpItemRow({ item, unitId, arpId, local, canWrite }: ArpItemRowProps) {
 									<Button
 										size="sm"
 										variant="ghost"
-										className="h-7 text-xs gap-1.5 mt-1"
+										className="h-7 text-xs mt-1"
 										onClick={(e) => {
 											e.stopPropagation()
 											setShowForm(true)
@@ -463,7 +463,7 @@ export function EmpenhoBalancePanel({ arp, unitId, quantityEstimateId }: Empenho
 						</p>
 					</div>
 					{canWrite && (
-						<Button size="sm" variant="outline" className="gap-2 shrink-0" onClick={() => syncBalance(arp.id)} disabled={isSyncing}>
+						<Button size="sm" variant="outline" className="shrink-0" onClick={() => syncBalance(arp.id)} disabled={isSyncing}>
 							{isSyncing ? <Spinner className="size-3.5" /> : <RefreshCw className="size-3.5" />}
 							Sincronizar saldo
 						</Button>

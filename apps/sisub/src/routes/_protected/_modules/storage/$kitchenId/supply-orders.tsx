@@ -247,7 +247,7 @@ function SupplyOrdersPage() {
 							<Label className="text-xs">Entrega prevista *</Label>
 							<Input className="h-8 text-xs" type="date" value={expected} onChange={(e) => setExpected(e.target.value)} required />
 						</div>
-						<Button type="submit" size="sm" className="gap-1.5" disabled={busy || !empenhoId || !neItemId}>
+						<Button type="submit" size="sm" disabled={busy || !empenhoId || !neItemId}>
 							{busy ? <Spinner className="size-3.5" /> : <Send className="size-3.5" />}
 							Emitir
 						</Button>

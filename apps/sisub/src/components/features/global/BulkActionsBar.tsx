@@ -174,7 +174,6 @@ export function BulkActionsBar({ selectedNodes, showDeleted, onDone, onClear, ca
 					<Button
 						variant="ghost"
 						size="sm"
-						className="gap-1.5"
 						disabled={selectedNodes.length === 0}
 						onClick={() => {
 							setTargetFolder(null)
@@ -187,7 +186,6 @@ export function BulkActionsBar({ selectedNodes, showDeleted, onDone, onClear, ca
 					<Button
 						variant="ghost"
 						size="sm"
-						className="gap-1.5"
 						disabled={ingredientNodes.length === 0}
 						onClick={() => {
 							setUnit(null)
@@ -200,7 +198,6 @@ export function BulkActionsBar({ selectedNodes, showDeleted, onDone, onClear, ca
 					<Button
 						variant="ghost"
 						size="sm"
-						className="gap-1.5"
 						disabled={ingredientNodes.length === 0}
 						onClick={() => {
 							setFactor("1.0")
@@ -211,7 +208,7 @@ export function BulkActionsBar({ selectedNodes, showDeleted, onDone, onClear, ca
 						Fator
 					</Button>
 					{showDeleted && (
-						<Button variant="ghost" size="sm" className="gap-1.5" disabled={selectedNodes.length === 0 || isRunning} onClick={handleRestore}>
+						<Button variant="ghost" size="sm" disabled={selectedNodes.length === 0 || isRunning} onClick={handleRestore}>
 							{isRunning ? <Loader2 className="size-4 animate-spin" /> : <RotateCcw className="size-4" />}
 							Restaurar
 						</Button>
@@ -219,7 +216,7 @@ export function BulkActionsBar({ selectedNodes, showDeleted, onDone, onClear, ca
 					<Button
 						variant="ghost"
 						size="sm"
-						className="gap-1.5 text-destructive hover:text-destructive"
+						className="text-destructive hover:text-destructive"
 						disabled={selectedNodes.length === 0}
 						onClick={() => setActive("delete")}
 					>
@@ -259,7 +256,7 @@ export function BulkActionsBar({ selectedNodes, showDeleted, onDone, onClear, ca
 						<Button variant="outline" onClick={close} disabled={isRunning}>
 							Cancelar
 						</Button>
-						<Button onClick={handleMove} disabled={isRunning || targetFolder === null} className="gap-2">
+						<Button onClick={handleMove} disabled={isRunning || targetFolder === null}>
 							{isRunning && <Loader2 className="size-4 animate-spin" />}
 							{isRunning && progress ? `${progress.completed}/${progress.total}` : "Mover"}
 						</Button>
@@ -295,7 +292,7 @@ export function BulkActionsBar({ selectedNodes, showDeleted, onDone, onClear, ca
 						<Button variant="outline" onClick={close} disabled={isRunning}>
 							Cancelar
 						</Button>
-						<Button onClick={handleSetUnit} disabled={isRunning || !unit} className="gap-2">
+						<Button onClick={handleSetUnit} disabled={isRunning || !unit}>
 							{isRunning && <Loader2 className="size-4 animate-spin" />}
 							{isRunning && progress ? `${progress.completed}/${progress.total}` : "Aplicar"}
 						</Button>
@@ -320,7 +317,7 @@ export function BulkActionsBar({ selectedNodes, showDeleted, onDone, onClear, ca
 						<Button variant="outline" onClick={close} disabled={isRunning}>
 							Cancelar
 						</Button>
-						<Button onClick={handleSetFactor} disabled={isRunning} className="gap-2">
+						<Button onClick={handleSetFactor} disabled={isRunning}>
 							{isRunning && <Loader2 className="size-4 animate-spin" />}
 							{isRunning && progress ? `${progress.completed}/${progress.total}` : "Aplicar"}
 						</Button>

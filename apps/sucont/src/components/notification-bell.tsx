@@ -70,7 +70,7 @@ export function NotificationBell() {
 			 */}
 			<PopoverTrigger
 				render={
-					<Button type="button" variant="ghost" size="icon-sm" aria-label={label} className="relative text-muted-foreground hover:text-foreground">
+					<Button type="button" variant="subtle" size="icon-sm" aria-label={label} className="relative">
 						<Bell className="size-4" />
 						{unread > 0 && (
 							// `aria-hidden`: a contagem já está no `aria-label` do botão. Sem

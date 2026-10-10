@@ -98,11 +98,11 @@ function StockReportsPage() {
 					description="Balancete mensal (RMA/RMB), Ficha de Almoxarifado, fechamento com lock de período e exportação por CATMAT."
 				>
 					<Input type="month" className="h-8 text-xs w-40" value={competencia} onChange={(e) => navigate({ search: { competencia: e.target.value } })} />
-					<Button variant="outline" size="sm" className="gap-1.5" onClick={() => window.print()}>
+					<Button variant="outline" size="sm" onClick={() => window.print()}>
 						<Printer className="size-4" />
 						Imprimir
 					</Button>
-					<Button variant="outline" size="sm" className="gap-1.5" disabled={busy} onClick={downloadCsv}>
+					<Button variant="outline" size="sm" disabled={busy} onClick={downloadCsv}>
 						<Download className="size-4" />
 						CSV CATMAT
 					</Button>
@@ -112,7 +112,7 @@ function StockReportsPage() {
 							Fechada
 						</Badge>
 					) : (
-						<Button size="sm" className="gap-1.5" disabled={busy} onClick={closeMonth}>
+						<Button size="sm" disabled={busy} onClick={closeMonth}>
 							{busy ? <Spinner className="size-4" /> : <Lock className="size-4" />}
 							Fechar competência
 						</Button>

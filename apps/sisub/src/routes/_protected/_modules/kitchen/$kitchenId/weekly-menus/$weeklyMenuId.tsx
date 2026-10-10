@@ -893,7 +893,7 @@ function WeeklyMenuEditorPage() {
 									</span>
 									{clipboard.length > 0 && (
 										<Tooltip>
-											<TooltipTrigger render={<Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={() => handlePaste(day.num)} />}>
+											<TooltipTrigger render={<Button type="button" variant="outline" size="sm" onClick={() => handlePaste(day.num)} />}>
 												<ClipboardPaste className="size-3.5" />
 												Colar no dia ({clipboard.length})
 											</TooltipTrigger>
@@ -934,13 +934,7 @@ function WeeklyMenuEditorPage() {
 														/>
 													</div>
 													{clipboard.length > 0 && (
-														<Button
-															type="button"
-															size="sm"
-															variant="ghost"
-															className="text-xs h-7 text-muted-foreground"
-															onClick={() => handlePaste(day.num, mealType.id)}
-														>
+														<Button type="button" size="sm" variant="subtle" className="text-xs h-7" onClick={() => handlePaste(day.num, mealType.id)}>
 															<ClipboardPaste className="size-3.5" />
 															Colar ({clipboard.length})
 														</Button>
@@ -948,8 +942,8 @@ function WeeklyMenuEditorPage() {
 													<Button
 														type="button"
 														size="sm"
-														variant="ghost"
-														className="text-xs h-7 text-muted-foreground"
+														variant="subtle"
+														className="text-xs h-7"
 														// Primeira coluna do conjunto DESTA refeição: fixar "prato_principal"
 														// criava item fora do conjunto no café e na ceia, numa coluna que
 														// nem botão de adicionar tem.

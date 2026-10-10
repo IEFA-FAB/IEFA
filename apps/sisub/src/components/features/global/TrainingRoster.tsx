@@ -68,7 +68,7 @@ export function TrainingRoster() {
 					</p>
 				</div>
 				{canWrite && (
-					<Button size="sm" onClick={() => setAddOpen(true)} disabled={!policy} className="gap-1.5 shrink-0">
+					<Button size="sm" onClick={() => setAddOpen(true)} disabled={!policy} className="shrink-0">
 						<UserPlus className="size-4" />
 						Adicionar treinando
 					</Button>
@@ -125,7 +125,7 @@ export function TrainingRoster() {
 									<TableCell>
 										{canWrite && (
 											<div className="flex justify-end">
-												<Button variant="ghost" size="sm" onClick={() => setRemoveTarget(member)} className="gap-1.5">
+												<Button variant="ghost" size="sm" onClick={() => setRemoveTarget(member)}>
 													<UserMinus className="size-4" />
 													Remover
 												</Button>

@@ -82,7 +82,7 @@ function IngredientsPage() {
 	return (
 		<div className="space-y-6">
 			<PageHeader title="Gestão de Insumos">
-				<Button variant="outline" size="sm" onClick={() => setMetricsOpen(true)} className="gap-2">
+				<Button variant="outline" size="sm" onClick={() => setMetricsOpen(true)}>
 					<Activity className="size-4" />
 					<span className="hidden sm:inline">Métricas de revisão</span>
 					<span className="sm:hidden">Métricas</span>
@@ -91,7 +91,7 @@ function IngredientsPage() {
 				{tab !== "preparacoes" && (
 					<>
 						{tab === "insumos" && (
-							<Button variant="outline" size="sm" onClick={exportCSV} className="gap-2">
+							<Button variant="outline" size="sm" onClick={exportCSV}>
 								<DownloadIcon className="size-4" />
 								<span className="hidden sm:inline">Exportar CSV</span>
 								<span className="sm:hidden">CSV</span>
@@ -99,11 +99,11 @@ function IngredientsPage() {
 						)}
 						{canWrite && (
 							<ButtonGroup>
-								<Button variant="outline" size="sm" onClick={() => activeManagerRef.current?.openCreateFolder()} className="gap-2">
+								<Button variant="outline" size="sm" onClick={() => activeManagerRef.current?.openCreateFolder()}>
 									<FolderPlus className="size-4" />
 									Nova Pasta
 								</Button>
-								<Button size="sm" onClick={() => activeManagerRef.current?.openCreateIngredient()} className="gap-2">
+								<Button size="sm" onClick={() => activeManagerRef.current?.openCreateIngredient()}>
 									<PackagePlus className="size-4" />
 									{tab === "auxiliares" ? "Novo Item" : "Novo Insumo"}
 								</Button>
