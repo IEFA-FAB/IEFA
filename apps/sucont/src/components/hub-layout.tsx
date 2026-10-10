@@ -1,6 +1,6 @@
 import { LegalFooterLinks } from "@iefa/legal-kit/react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { Link, useRouteContext, useRouter, useRouterState } from "@tanstack/react-router"
+import { Link, useLocation, useRouteContext, useRouter } from "@tanstack/react-router"
 import { ChevronRight, FileBarChart, IdCard, LayoutGrid, LogOut, type LucideIcon, Moon, Search, SquareKanban, Sun, X } from "lucide-react"
 import type React from "react"
 import { useEffect, useId, useRef, useState } from "react"
@@ -116,7 +116,7 @@ export function HubLayout({ children, title, description, searchable = false, ac
 	// Estado da barra lida do cookie no `beforeLoad` da raiz: o HTML do SSR já sai
 	// no estado certo, sem o salto de 16rem na hidratação.
 	const { sidebarOpen } = useRouteContext({ from: "__root__" })
-	const pathname = useRouterState({ select: (s) => s.location.pathname })
+	const pathname = useLocation({ select: (location) => location.pathname })
 	const tool = findToolByPath(sucontTools, pathname)
 	const blurb = description ?? tool?.description
 	const heading = title ?? tool?.title
@@ -224,8 +224,8 @@ function SidebarLegalLinks() {
 }
 
 function HubSidebar() {
-	const pathname = useRouterState({ select: (s) => s.location.pathname })
-	const divisao = useRouterState({ select: (s) => (s.location.search as { divisao?: string }).divisao })
+	const pathname = useLocation({ select: (location) => location.pathname })
+	const divisao = useLocation({ select: (location) => (location.search as { divisao?: string }).divisao })
 	const { permissions } = useSucontAccess()
 	// Mesmo resolvedor do seletor: a barra tem que listar as ferramentas de uma
 	// divisão que o usuário PODE abrir, venha ela da URL ou do padrão.
@@ -258,7 +258,7 @@ function HubSidebar() {
 
 /** Navegação do módulo `admin`: governança do próprio sucont. */
 function AdminNav() {
-	const pathname = useRouterState({ select: (s) => s.location.pathname })
+	const pathname = useLocation({ select: (location) => location.pathname })
 	const labelId = useId()
 
 	return (
@@ -290,7 +290,7 @@ function AdminNav() {
 
 /** Navegação de uma divisão: as três telas do hub mais as ferramentas DELA, por etapa. */
 function HubNav({ division }: { division: SucontDivision }) {
-	const pathname = useRouterState({ select: (s) => s.location.pathname })
+	const pathname = useLocation({ select: (location) => location.pathname })
 	const activeTool = findToolByPath(sucontTools, pathname)
 	const hubLabelId = useId()
 	const groupLabelId = useId()
@@ -367,8 +367,8 @@ function HubNav({ division }: { division: SucontDivision }) {
  * item aqui é texto simples com `aria-current`, não um segundo título.
  */
 function HubBreadcrumb() {
-	const pathname = useRouterState({ select: (s) => s.location.pathname })
-	const divisao = useRouterState({ select: (s) => (s.location.search as { divisao?: string }).divisao })
+	const pathname = useLocation({ select: (location) => location.pathname })
+	const divisao = useLocation({ select: (location) => (location.search as { divisao?: string }).divisao })
 	const tool = findToolByPath(sucontTools, pathname)
 	const crumbs = buildToolCrumbs(tool)
 

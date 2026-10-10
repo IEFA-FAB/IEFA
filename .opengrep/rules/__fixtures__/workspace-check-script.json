@@ -1,11 +1,11 @@
 // Casos de teste de `.opengrep/rules/workspace-check-script.yaml`. Não é package.json de verdade:
 // os comentários existem só para as anotações do `opengrep test`.
 {
+  // ok: workspace-check-script
+  "someTool": { "check": true },
+  // ruleid: workspace-check-script
   "scripts": {
-    // ruleid: workspace-check-script
     "check": "biome check",
-    // ruleid: workspace-check-script
-    "check" : "anything",
     // ok: workspace-check-script
     "typecheck": "bun check",
     // ok: workspace-check-script

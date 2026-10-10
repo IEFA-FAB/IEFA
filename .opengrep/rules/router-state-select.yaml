@@ -1,10 +1,13 @@
 ##
-# `useRouterState({ select: (s) => ... })` no sisub: o tipo do resultado vem da inferência de
-# `TSelected` a partir do retorno do `select`, com o parâmetro tipado como o `RouterState` inteiro.
-# No sisub, o `matches` desse estado é uma união das 172 rotas, e o `bun check` (o typecheck) não
-# infere: o resultado vira o `RouterState` inteiro. O `tsc` infere; o `bun check` 1.4.3 não.
+# `useRouterState({ select })` sem tipo de retorno anotado. O tipo do resultado vem da inferência
+# de `TSelected` a partir do retorno do `select`, com o parâmetro tipado como o `RouterState`
+# inteiro, cujo `matches` é uma união de todas as rotas do app. No sisub (172 rotas) o `bun check`
+# (o typecheck) não infere e trata o resultado como o `RouterState` inteiro: erro falso quando o
+# valor é usado como string, e erro escondido quando o uso aceita qualquer objeto. O `tsc` infere;
+# o `bun check` 1.4.3 não. Os outros apps ainda passam, mas o limite chega com o route tree
+# crescendo, então a regra vale para todos.
 #
-# - Pedaço da URL (pathname, search, state, hash): `useLocation({ select })`. O parâmetro é a
+# - Pedaço da URL (pathname, href, search, state): `useLocation({ select })`. O parâmetro é a
 #   `ParsedLocation`, a inferência funciona, e o hook assina só a store de location em vez de
 #   reexecutar o `select` a cada mudança do estado do router.
 # - Outra parte do estado (`isLoading`, `status`): anote o retorno, `(s): boolean => s.isLoading`.
@@ -19,12 +22,17 @@ rules:
     languages: [generic]
     severity: ERROR
     message: >-
-      `useRouterState({ select })` sem tipo de retorno no sisub: o `bun check` não infere o
-      resultado com o route tree do app e o trata como o `RouterState` inteiro. Para a URL use
+      `useRouterState({ select })` sem tipo de retorno: o `bun check` não infere o resultado com
+      route tree grande e o trata como o `RouterState` inteiro. Para a URL use
       `useLocation({ select: (location) => location.pathname })`; para outra parte do estado,
       anote o retorno (`(s): boolean => s.isLoading`).
     paths:
       include:
-        - "apps/sisub/src/**/*.ts"
-        - "apps/sisub/src/**/*.tsx"
-    pattern-regex: 'useRouterState\(\s*\{\s*select:\s*\(?\s*\w+\s*\)?\s*=>'
+        - "apps/*/src/**/*.ts"
+        - "apps/*/src/**/*.tsx"
+      exclude:
+        - "**/routeTree.gen.ts"
+    # Do `useRouterState({` ao `select:` sem atravessar parênteses (não sai da chamada), e o valor
+    # do `select` sem tipo de retorno: arrow com parâmetros entre parênteses (desestruturado ou
+    # anotado), arrow de um parâmetro só ou `function`. `(s): T =>` não casa.
+    pattern-regex: 'useRouterState\(\s*\{[^()]{0,200}?\bselect\s*:\s*(?:\((?:[^()]|\([^()]*\))*\)\s*=>|\w+\s*=>|function\s*\w*\s*\([^()]*\)\s*\{)'
