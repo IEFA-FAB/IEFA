@@ -25,11 +25,11 @@ import {
 	updatePolicyRule,
 } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
-import { requireAuthThenRun } from "@/lib/domain-handler.server"
 import { z } from "zod"
 import { requireAuth, requireAuthWithPermission } from "@/lib/auth.server"
 import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
+import { requireAuthThenRun } from "@/lib/domain-handler.server"
 import type { PolicyRule, PolicyTarget } from "@/types/domain/policy"
 
 // ============================================================================

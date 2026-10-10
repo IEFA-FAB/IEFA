@@ -248,7 +248,7 @@ function addLogicalRelations(src: string): string {
 			.filter(Boolean)
 		const needs = code.includes("one(") ? "one" : "many"
 		const header = helpers.includes(needs) ? match[0] : `${match[1]}${[...helpers, needs].join(", ")}${match[3]}`
-		out = out.slice(0, start) + header + code + "\n" + out.slice(start + match[0].length)
+		out = `${out.slice(0, start)}${header}${code}\n${out.slice(start + match[0].length)}`
 	}
 	return out
 }
