@@ -256,7 +256,7 @@ function AuthPage() {
 								<AlertCircle className="size-4" />
 								<AlertDescription>Solicite um novo email de confirmação.</AlertDescription>
 							</Alert>
-							<Button variant="ghost" size="sm" onClick={() => setView("tabs")} className="self-start gap-1.5 font-mono text-xs">
+							<Button variant="ghost" size="sm" onClick={() => setView("tabs")} className="self-start font-mono text-xs">
 								<ArrowLeft className="size-3.5" aria-hidden />
 								Voltar ao login
 							</Button>
@@ -485,7 +485,7 @@ function LoginView({ onSubmit, onForgotPassword }: LoginViewProps) {
 				</label>
 			</div>
 
-			<Button type="submit" className="w-full gap-2" disabled={isSubmitting || isLocked}>
+			<Button type="submit" className="w-full" disabled={isSubmitting || isLocked}>
 				{isLocked ? (
 					<>Bloqueado ({retryAfter}s)</>
 				) : isSubmitting ? (
@@ -616,7 +616,7 @@ function RegisterView({ onSubmit, onBack }: RegisterViewProps) {
 					<p className="font-bold text-base mb-1">Cadastro realizado!</p>
 					<p className="text-sm text-muted-foreground leading-relaxed">Verifique seu email institucional para ativar a conta antes de fazer login.</p>
 				</div>
-				<Button variant="outline" size="sm" onClick={onBack} className="gap-1.5 font-mono text-xs mt-2">
+				<Button variant="outline" size="sm" onClick={onBack} className="font-mono text-xs mt-2">
 					<ArrowLeft className="size-3.5" aria-hidden />
 					Ir para o login
 				</Button>
@@ -762,7 +762,7 @@ function RegisterView({ onSubmit, onBack }: RegisterViewProps) {
 				)}
 			</div>
 
-			<Button type="submit" className="w-full gap-2" disabled={isSubmitting}>
+			<Button type="submit" className="w-full" disabled={isSubmitting}>
 				{isSubmitting ? (
 					<>
 						<Loader2 className="size-4 animate-spin" aria-hidden /> Criando conta...
@@ -853,7 +853,7 @@ function ForgotView({ onBack, onSubmit }: ForgotViewProps) {
 					<h2 className="text-display mb-1">Email enviado!</h2>
 					<p className="text-sm text-muted-foreground leading-relaxed">Verifique sua caixa de entrada. O link de redefinição expira em alguns minutos.</p>
 				</div>
-				<Button variant="ghost" size="sm" onClick={onBack} className="self-start gap-1.5 font-mono text-xs">
+				<Button variant="ghost" size="sm" onClick={onBack} className="self-start font-mono text-xs">
 					<ArrowLeft className="size-3.5" aria-hidden />
 					Voltar ao login
 				</Button>
@@ -907,7 +907,7 @@ function ForgotView({ onBack, onSubmit }: ForgotViewProps) {
 				</div>
 
 				<div className="flex gap-3">
-					<Button type="submit" className="flex-1 gap-2" disabled={isSubmitting}>
+					<Button type="submit" className="flex-1" disabled={isSubmitting}>
 						{isSubmitting ? (
 							<>
 								<Loader2 className="size-4 animate-spin" aria-hidden /> Enviando...

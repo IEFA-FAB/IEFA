@@ -757,12 +757,7 @@ export function PriceResearchModal({
 						<span className="text-xs text-muted-foreground">{allResults.length.toLocaleString("pt-BR")} registros totais</span>
 					)}
 					{!isLoading && allResults.length > 0 && (
-						<Button
-							size="sm"
-							variant="ghost"
-							onClick={() => setPeriodMonths((prev) => (prev ? null : DEFAULT_PERIOD_MONTHS))}
-							className="h-7 px-2 text-xs gap-1.5"
-						>
+						<Button size="sm" variant="ghost" onClick={() => setPeriodMonths((prev) => (prev ? null : DEFAULT_PERIOD_MONTHS))} className="h-7 px-2 text-xs">
 							<CalendarClock className="size-3.5" aria-hidden="true" />
 							{periodMonths ? `Últimos ${periodMonths} meses${outOfPeriodCount > 0 ? ` (${outOfPeriodCount} fora)` : ""}` : "Todo o histórico"}
 						</Button>
@@ -797,7 +792,7 @@ export function PriceResearchModal({
 							Limpar seleção ({selectedRows.length})
 						</Button>
 					)}
-					<Button size="sm" variant="outline" onClick={handleRefresh} disabled={isLoading} className="ml-auto gap-1.5">
+					<Button size="sm" variant="outline" onClick={handleRefresh} disabled={isLoading} className="ml-auto">
 						<RefreshCw className={isLoading ? "animate-spin" : ""} />
 						Atualizar
 					</Button>

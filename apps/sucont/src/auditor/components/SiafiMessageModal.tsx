@@ -108,7 +108,7 @@ export const SiafiMessageModal: React.FC<SiafiMessageModalProps> = ({
 							{context === "RANKING" ? "Modelo Comparativo" : "Modelo Evolutivo"}
 						</span>
 					</div>
-					<Button variant="ghost" size="icon" onClick={onClose} className="text-muted-foreground hover:text-foreground" aria-label="Fechar">
+					<Button variant="subtle" size="icon" onClick={onClose} aria-label="Fechar">
 						<X className="w-6 h-6" />
 					</Button>
 				</div>
@@ -169,13 +169,7 @@ export const SiafiMessageModal: React.FC<SiafiMessageModalProps> = ({
 					</span>
 
 					<div className="flex items-center justify-end gap-3">
-						<Button
-							type="button"
-							variant="ghost"
-							size="lg"
-							onClick={onClose}
-							className="font-semibold text-muted-foreground hover:bg-transparent hover:text-foreground"
-						>
+						<Button type="button" variant="subtle" size="lg" onClick={onClose} className="font-semibold hover:bg-transparent">
 							Cancelar
 						</Button>
 						<Button

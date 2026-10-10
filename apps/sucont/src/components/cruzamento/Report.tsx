@@ -646,7 +646,7 @@ SUCONT-3 • DIREF • COMAER`
 											setCopiedConsolidated(true)
 											setTimeout(() => setCopiedConsolidated(false), 2000)
 										}}
-										className="flex items-center gap-2 py-1.5 bg-card border-border hover:bg-muted/50 hover:border-border/80 text-foreground text-label shadow-sm"
+										className="flex items-center py-1.5 bg-card border-border hover:bg-muted/50 hover:border-border/80 text-foreground text-label shadow-sm"
 									>
 										{copiedConsolidated ? (
 											<>
@@ -867,7 +867,7 @@ SUCONT-3 • DIREF • COMAER`
 															variant="outline"
 															size="sm"
 															onClick={(e) => handleCopyMessage(e, ug)}
-															className="flex items-center gap-2 py-1.5 bg-card border-border hover:bg-muted/50 hover:border-border/80 text-foreground text-label shadow-sm"
+															className="flex items-center py-1.5 bg-card border-border hover:bg-muted/50 hover:border-border/80 text-foreground text-label shadow-sm"
 														>
 															{copiedUg === ug.ug ? (
 																<>

@@ -215,7 +215,7 @@ export function AppShell() {
 					<div className="flex shrink-0 items-center gap-2">
 						{/* No celular a sidebar vira gaveta: a busca precisa de um ponto de entrada à vista */}
 						{isMobile && (
-							<Button variant="ghost" size="icon" onClick={openCommandPalette} aria-label="Buscar página" className="text-muted-foreground">
+							<Button variant="subtle" size="icon" onClick={openCommandPalette} aria-label="Buscar página">
 								<Search className="size-4" />
 							</Button>
 						)}

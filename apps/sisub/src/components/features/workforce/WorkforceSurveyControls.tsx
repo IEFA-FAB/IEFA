@@ -101,12 +101,12 @@ export function WorkforceSurveyControls({ current, onSelect, canManage, invalida
 			{canManage && (
 				<>
 					{current?.status === "open" && (
-						<Button size="sm" variant="outline" className="gap-1.5" disabled={close.isPending} onClick={() => close.mutate(current.id)}>
+						<Button size="sm" variant="outline" disabled={close.isPending} onClick={() => close.mutate(current.id)}>
 							<Lock className="size-3.5" aria-hidden="true" />
 							Encerrar
 						</Button>
 					)}
-					<Button size="sm" variant="outline" className="gap-1.5" onClick={() => setOpen(true)}>
+					<Button size="sm" variant="outline" onClick={() => setOpen(true)}>
 						<Plus className="size-3.5" aria-hidden="true" />
 						Nova competência
 					</Button>

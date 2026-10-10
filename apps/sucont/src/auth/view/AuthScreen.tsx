@@ -184,12 +184,7 @@ function SuccessBanner({ message }: { message: string }) {
 
 function BackToLogin({ onClick }: { onClick: () => void }) {
 	return (
-		<Button
-			type="button"
-			onClick={onClick}
-			variant="ghost"
-			className="mx-auto mt-5 h-auto gap-1.5 p-0 text-caption text-muted-foreground hover:bg-transparent hover:text-foreground"
-		>
+		<Button type="button" onClick={onClick} variant="subtle" className="mx-auto mt-5 h-auto p-0 text-caption hover:bg-transparent">
 			<ArrowLeft className="h-3.5 w-3.5" />
 			Voltar ao login
 		</Button>
@@ -639,10 +634,10 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 								/>
 								<Button
 									type="button"
-									variant="ghost"
+									variant="subtle"
 									size="icon-xs"
 									onClick={() => setShowPassword(!showPassword)}
-									className="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+									className="absolute top-1/2 right-2 -translate-y-1/2"
 									aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
 								>
 									{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}

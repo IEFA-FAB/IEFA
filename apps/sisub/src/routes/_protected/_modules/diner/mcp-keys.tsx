@@ -96,7 +96,7 @@ function McpKeysPage() {
 						</span>
 					)}
 				</p>
-				<Button size="sm" onClick={() => setCreateOpen(true)} className="gap-2">
+				<Button size="sm" onClick={() => setCreateOpen(true)}>
 					<Plus className="size-4" />
 					Nova Chave
 				</Button>
@@ -118,7 +118,7 @@ function McpKeysPage() {
 						<KeyRound className="size-10 text-muted-foreground/40 mb-3" />
 						<p className="text-subheading text-muted-foreground">Nenhuma chave cadastrada</p>
 						<p className="text-xs text-muted-foreground/70 mt-1">Crie uma chave para usar o sisub-mcp com Claude ou Cursor.</p>
-						<Button size="sm" variant="outline" onClick={() => setCreateOpen(true)} className="mt-4 gap-2">
+						<Button size="sm" variant="outline" onClick={() => setCreateOpen(true)} className="mt-4">
 							<Plus className="size-4" />
 							Nova Chave
 						</Button>
@@ -227,9 +227,7 @@ function KeyItem({ apiKey }: KeyItemProps) {
 							<AlertDialog>
 								<AlertDialogTrigger
 									render={
-										<TooltipTrigger
-											render={<Button variant="ghost" size="icon" className="size-8 text-muted-foreground" aria-label="Revogar chave" disabled={isRevoking} />}
-										/>
+										<TooltipTrigger render={<Button variant="subtle" size="icon" className="size-8" aria-label="Revogar chave" disabled={isRevoking} />} />
 									}
 								>
 									{isRevoking ? <Loader2 className="size-4 animate-spin" /> : <ShieldOff className="size-4" />}
@@ -427,7 +425,7 @@ function CreateKeyDialog({ open, onOpenChange, onKeyCreated }: CreateKeyDialogPr
 									<Button type="button" variant="ghost" onClick={handleClose} disabled={createMutation.isPending}>
 										Cancelar
 									</Button>
-									<Button type="submit" disabled={!canSubmit || createMutation.isPending || isSubmitting} className="gap-2">
+									<Button type="submit" disabled={!canSubmit || createMutation.isPending || isSubmitting}>
 										{createMutation.isPending || isSubmitting ? (
 											<>
 												<Loader2 className="size-4 animate-spin" />
@@ -528,7 +526,7 @@ function RevealKeyDialog({ created, onClose }: RevealKeyDialogProps) {
 					<Button variant="ghost" onClick={() => handleOpenChange(false)}>
 						Fechar
 					</Button>
-					<Button onClick={handleCopy} className="gap-2">
+					<Button onClick={handleCopy}>
 						{copied ? (
 							<>
 								<Check className="size-4" />

@@ -27,7 +27,7 @@ export function UserMenu() {
 		<DropdownMenu>
 			<DropdownMenuTrigger
 				render={
-					<Button variant="ghost" size="sm" className="data-popup-open:bg-accent data-popup-open:text-accent-foreground gap-2 px-2">
+					<Button variant="ghost" size="sm" className="data-popup-open:bg-accent data-popup-open:text-accent-foreground px-2">
 						{/* Iniciais em mono — único identificador visual */}
 						<span className="font-mono text-[11px] font-semibold uppercase tracking-(--tracking-label) text-muted-foreground">{initials}</span>
 						{/* Primeiro nome — oculto em mobile */}

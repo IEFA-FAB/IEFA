@@ -258,7 +258,7 @@ export default function PresenceTable({ arranchamentos, presences, users, milita
 																	({record.arranchados_count + record.extras.length} pessoas total)
 																</span>
 															</h3>
-															<Button variant="outline" size="sm" onClick={() => handleCopyCsv(record)} className="gap-2">
+															<Button variant="outline" size="sm" onClick={() => handleCopyCsv(record)}>
 																<Copy className="size-4" />
 																Copiar CSV
 															</Button>

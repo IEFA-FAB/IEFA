@@ -115,7 +115,7 @@ function DivergenceRow({ row, unitId, onResolved }: { row: ReconciliationRow; un
 								value={justificativa}
 								onChange={(e) => setJustificativa(e.target.value)}
 							/>
-							<Button size="sm" className="h-7 text-xs gap-1.5" disabled={busy} onClick={() => resolve("adotado_siafi")}>
+							<Button size="sm" className="h-7 text-xs" disabled={busy} onClick={() => resolve("adotado_siafi")}>
 								{busy ? <Spinner className="size-3" /> : <CheckCheck className="size-3.5" />}
 								Adotar SIAFI
 							</Button>

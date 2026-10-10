@@ -237,6 +237,8 @@ cada uma desenhava à mão:
 | Aviso de estado (nada a cobrar, conta fora do escopo, só leitura, painel faltando) | `Alert` (`success` / `warning` / `info` / default) | `<p>` e `<div>` com `bg-*/10 border-*/30` escritos no lugar, um deles com disco de 80px e `border-4 border-white` |
 | Filtro de conteúdo | `Label` + `Select` com trigger PADRÃO, ou `SegmentedControl` | `SelectTrigger` com `rounded-none border-0 border-l` colado a botões `tech-blue`; `rounded-full` sem borda; N botões de conferente pintados por estado |
 | Botão de ação (copiar, analisar, ver) | `Button` com `variant` | `variant="ghost"` + `className="bg-tech-blue text-white … shadow-lg"` — o primitivo usado só para desligar o primitivo |
+| Ação secundária discreta (fechar, limpar, voltar) e remover item de lista | `Button` `variant="subtle"` / `"subtle-destructive"` | `variant="ghost"` + `className="text-muted-foreground hover:text-foreground"` (ou `hover:text-destructive`) |
+| Respiro entre ícone e texto do botão | o `size` do `Button` | `gap-*` no `className` |
 
 - **`StatTile` pinta o VALOR, não a superfície.** `status` é o único eixo de cor.
   Indicador com fundo colorido inteiro compete com o `Alert` do lado.
