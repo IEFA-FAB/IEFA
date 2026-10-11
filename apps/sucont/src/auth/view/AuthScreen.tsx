@@ -184,13 +184,8 @@ function SuccessBanner({ message }: { message: string }) {
 
 function BackToLogin({ onClick }: { onClick: () => void }) {
 	return (
-		<Button
-			type="button"
-			onClick={onClick}
-			variant="ghost"
-			className="mx-auto mt-5 h-auto gap-1.5 p-0 text-caption text-muted-foreground hover:bg-transparent hover:text-foreground"
-		>
-			<ArrowLeft className="h-3.5 w-3.5" />
+		<Button type="button" onClick={onClick} variant="subtle" size="sm" className="mx-auto mt-5">
+			<ArrowLeft />
 			Voltar ao login
 		</Button>
 	)
@@ -639,10 +634,10 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 								/>
 								<Button
 									type="button"
-									variant="ghost"
+									variant="subtle"
 									size="icon-xs"
 									onClick={() => setShowPassword(!showPassword)}
-									className="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+									className="absolute top-1/2 right-2 -translate-y-1/2"
 									aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
 								>
 									{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -662,7 +657,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 								/>
 								Lembrar e-mail
 							</label>
-							<Button type="button" onClick={goToForgot} variant="link" className="h-auto p-0 text-caption text-tech-blue">
+							<Button type="button" onClick={goToForgot} variant="link" className="h-auto p-0 text-tech-blue">
 								Esqueceu a senha?
 							</Button>
 						</div>
@@ -682,12 +677,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 
 				<p className="text-center text-caption text-muted-foreground">
 					{isRegister ? "Já tem uma conta? " : "Não tem uma conta? "}
-					<Button
-						type="button"
-						onClick={() => switchTab(isRegister ? "login" : "register")}
-						variant="link"
-						className="h-auto p-0 font-semibold text-foreground"
-					>
+					<Button type="button" onClick={() => switchTab(isRegister ? "login" : "register")} variant="link" className="h-auto p-0 text-foreground">
 						{isRegister ? "Entrar" : "Cadastre-se"}
 					</Button>
 				</p>

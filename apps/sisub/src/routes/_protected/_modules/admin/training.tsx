@@ -125,7 +125,7 @@ function TrainingPage() {
 		<div className="space-y-6">
 			<PageHeader title="Ambiente de Treino">
 				{canWrite && (
-					<Button variant="destructive" size="sm" onClick={() => setConfirmOpen(true)} className="gap-2">
+					<Button variant="destructive" size="sm" onClick={() => setConfirmOpen(true)}>
 						<RotateCcw className="size-4" />
 						Resetar ambiente de treino
 					</Button>

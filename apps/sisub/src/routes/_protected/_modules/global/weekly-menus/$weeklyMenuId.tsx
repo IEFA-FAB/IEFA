@@ -581,13 +581,7 @@ function GlobalWeeklyMenuEditorPage() {
 												</div>
 												<div className="flex items-center gap-2">
 													{clipboard.length > 0 && (
-														<Button
-															type="button"
-															size="sm"
-															variant="ghost"
-															className="text-xs h-7 text-muted-foreground"
-															onClick={() => handlePaste(day.num, mealType.id)}
-														>
+														<Button type="button" size="sm" variant="subtle" className="text-xs h-7" onClick={() => handlePaste(day.num, mealType.id)}>
 															<ClipboardPaste className="size-3.5" />
 															Colar ({clipboard.length})
 														</Button>
@@ -595,8 +589,8 @@ function GlobalWeeklyMenuEditorPage() {
 													<Button
 														type="button"
 														size="sm"
-														variant="ghost"
-														className="text-xs h-7 text-muted-foreground"
+														variant="subtle"
+														className="text-xs h-7"
 														// Primeira coluna do conjunto DESTA refeição: fixar "prato_principal"
 														// criava item fora do conjunto no café e na ceia, numa coluna que
 														// nem botão de adicionar tem.

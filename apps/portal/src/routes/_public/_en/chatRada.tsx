@@ -417,7 +417,7 @@ function MessageItem({ m, copiedMsgId, onCopy }: { m: ChatMessage; copiedMsgId: 
 				{/* Copiar */}
 				<Button
 					className={cn(
-						"opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground px-2 py-1",
+						"opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center text-xs text-muted-foreground hover:text-foreground px-2 py-1",
 						isUser && "ml-auto"
 					)}
 					variant="ghost"
@@ -730,7 +730,7 @@ function ChatRada() {
 					<Button
 						onClick={startNewSession}
 						variant="default"
-						className="w-full justify-start gap-2"
+						className="w-full justify-start"
 						title={isLoggedIn ? "Iniciar nova sessão" : "Nova conversa (sem histórico)"}
 					>
 						<Plus className="h-4 w-4" />
@@ -890,7 +890,7 @@ function ChatRada() {
 							{/* Scroll to bottom */}
 							{!isAtBottom && (
 								<div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10">
-									<Button onClick={scrollToBottom} variant="outline" size="sm" className="flex items-center gap-2 text-xs">
+									<Button onClick={scrollToBottom} variant="outline" size="sm" className="flex items-center text-xs">
 										<ArrowDown className="h-3.5 w-3.5" aria-hidden="true" />
 										Novas mensagens
 									</Button>

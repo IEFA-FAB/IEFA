@@ -185,13 +185,7 @@ export const ChartWrapper: React.FC<ChartWrapperProps> = ({
 			<Tooltip>
 				<TooltipTrigger
 					render={
-						<Button
-							variant="ghost"
-							size="icon-sm"
-							onClick={() => setIsExpanded(!isExpanded)}
-							className="text-muted-foreground"
-							aria-label={isExpanded ? "Minimizar" : "Expandir"}
-						>
+						<Button variant="subtle" size="icon-sm" onClick={() => setIsExpanded(!isExpanded)} aria-label={isExpanded ? "Minimizar" : "Expandir"}>
 							{isExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
 						</Button>
 					}

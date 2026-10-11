@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { Bell, ClipboardList, Loader2, Plus, StickyNote, Terminal, Trash2, Users, X } from "lucide-react"
+import { Bell, ClipboardList, Loader2, Plus, StickyNote, Terminal, Trash2, Users } from "lucide-react"
 import { motion } from "motion/react"
 import React, { useEffect, useRef, useState } from "react"
 import { requireAnyDivision, useSucontAccess } from "#/auth/pbac"
@@ -12,6 +12,7 @@ import { Checkbox } from "#/components/ui/checkbox"
 import { Input } from "#/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 import { toast } from "#/components/ui/toast"
+import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip"
 import { addDays, dateInBrasilia, formatBrDate, todayInBrasilia } from "#/lib/brasilia"
 import {
 	CHECKLIST_RECURRENCES,
@@ -240,7 +241,7 @@ function Workspace() {
 
 					{canEdit && (
 						<div className="flex justify-end mb-4">
-							<Button type="button" variant="outline" onClick={() => setIsAddingTask(true)} className="bg-card text-tech-cyan font-mono hover:bg-muted/50">
+							<Button type="button" variant="outline" onClick={() => setIsAddingTask(true)} className="bg-card text-tech-cyan hover:bg-muted/50">
 								<Plus className="w-4 h-4" /> ADICIONAR TAREFA
 							</Button>
 						</div>
@@ -274,7 +275,7 @@ function Workspace() {
 										animate={{ opacity: 1, x: 0 }}
 										transition={{ delay: idx * 0.04 }}
 										className={cn(
-											"bg-card border border-border p-5 rounded-lg hover:border-tech-cyan/30 transition-all group shadow-sm",
+											"relative bg-card border border-border p-5 rounded-lg hover:border-tech-cyan/30 transition-all group shadow-sm",
 											// Vencido se distingue por borda INTEIRA e tint de fundo,
 											// nunca por faixa colorida de um lado só: `border-l-4` +
 											// canto arredondado do outro lado é proibição global do
@@ -284,8 +285,27 @@ function Workspace() {
 											done && "opacity-70"
 										)}
 									>
+										{canEdit && (
+											<Tooltip>
+												<TooltipTrigger
+													render={
+														<Button
+															type="button"
+															variant="subtle-destructive"
+															size="icon-sm"
+															onClick={() => deleteTaskMutation.mutate(item.id as string)}
+															aria-label={`Excluir tarefa: ${item.task}`}
+															className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+														>
+															<Trash2 />
+														</Button>
+													}
+												/>
+												<TooltipContent>Excluir</TooltipContent>
+											</Tooltip>
+										)}
 										<div className="flex flex-col md:flex-row justify-between gap-4">
-											<div className="flex-grow flex gap-3">
+											<div className="flex-grow flex gap-3 pr-6 md:pr-0">
 												{/*
 												 * A execução é da COMPETÊNCIA corrente, não do item: marcar
 												 * em setembro segue marcado em setembro depois que outubro
@@ -319,7 +339,7 @@ function Workspace() {
 												</div>
 											</div>
 
-											<div className="md:w-56 shrink-0 flex flex-col justify-center items-end border-t md:border-t-0 md:border-l border-border pt-4 md:pt-0 md:pl-4">
+											<div className="md:w-56 shrink-0 flex flex-col justify-center items-end border-t md:border-t-0 md:border-l border-border pt-4 md:pt-0 md:pl-4 md:pr-8">
 												<span className="font-mono text-label text-muted-foreground mb-1">Responsáveis</span>
 												{/*
 												 * O campo de texto virou seleção sobre o cadastro de pessoas.
@@ -333,16 +353,6 @@ function Workspace() {
 													value={{ personIds: parseAssignees(item.assignees).map((a) => a.id), assignToAll: Boolean(item.assign_to_all) }}
 													onChange={(next) => setAssigneesMutation.mutate({ id: item.id as string, ...next })}
 												/>
-												{canEdit && (
-													<Button
-														type="button"
-														variant="ghost"
-														onClick={() => deleteTaskMutation.mutate(item.id as string)}
-														className="mt-4 h-auto p-0 text-muted-foreground hover:text-destructive hover:bg-transparent opacity-0 group-hover:opacity-100 focus-visible:opacity-100 gap-1 text-hint font-mono"
-													>
-														<Trash2 className="w-3 h-3" /> EXCLUIR
-													</Button>
-												)}
 											</div>
 										</div>
 									</motion.div>
@@ -409,18 +419,25 @@ function Workspace() {
 									className={`group relative border p-4 rounded-lg shadow-sm ${notice.type === "alert" ? "bg-warning/10 border-warning/30" : "bg-action/10 border-action/30"}`}
 								>
 									{canEdit && (
-										<Button
-											type="button"
-											variant="ghost"
-											size="icon-xs"
-											onClick={() => deleteNoticeMutation.mutate(notice.id)}
-											aria-label={`Excluir aviso: ${notice.content}`}
-											className="absolute top-2 right-2 text-muted-foreground hover:text-destructive hover:bg-transparent opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
-										>
-											<X className="w-3 h-3" />
-										</Button>
+										<Tooltip>
+											<TooltipTrigger
+												render={
+													<Button
+														type="button"
+														variant="subtle-destructive"
+														size="icon-sm"
+														onClick={() => deleteNoticeMutation.mutate(notice.id)}
+														aria-label={`Excluir aviso: ${notice.content}`}
+														className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+													>
+														<Trash2 />
+													</Button>
+												}
+											/>
+											<TooltipContent>Excluir</TooltipContent>
+										</Tooltip>
 									)}
-									<p className="text-caption text-foreground">{notice.content}</p>
+									<p className="pr-6 text-caption text-foreground">{notice.content}</p>
 									<span className="font-mono text-label text-muted-foreground mt-2 block">Postado em: {notice.date}</span>
 								</div>
 							))}
@@ -591,7 +608,7 @@ function AddTaskForm({
 					className="bg-muted/50 border border-border p-2 rounded text-caption text-foreground md:col-span-2 h-20 focus:border-tech-cyan outline-none"
 				/>
 				<div className="flex gap-2 md:col-span-2 justify-end">
-					<Button type="button" variant="ghost" onClick={onCancel} className="text-muted-foreground hover:text-foreground">
+					<Button type="button" variant="subtle" onClick={onCancel}>
 						CANCELAR
 					</Button>
 					<Button type="submit" disabled={pending} className="bg-tech-cyan text-white hover:bg-tech-cyan/90 shadow-md">
@@ -626,19 +643,14 @@ function AddNoticeForm({ onSave, onCancel, pending }: { onSave: (content: string
 					</SelectContent>
 				</Select>
 				<div className="flex gap-2">
-					<Button
-						type="button"
-						variant="ghost"
-						onClick={onCancel}
-						className="h-auto p-0 hover:bg-transparent text-hint text-muted-foreground hover:text-foreground"
-					>
+					<Button type="button" variant="subtle" onClick={onCancel} className="h-auto p-0 hover:bg-transparent">
 						CANCELAR
 					</Button>
 					<Button
 						type="button"
 						disabled={pending}
 						onClick={() => content && onSave(content, type)}
-						className="bg-tech-cyan text-white hover:bg-tech-cyan/90 h-auto px-3 py-1 shadow-sm gap-1 text-hint"
+						className="bg-tech-cyan text-white hover:bg-tech-cyan/90 h-auto px-3 py-1 shadow-sm"
 					>
 						{pending && <Loader2 className="w-3 h-3 animate-spin" />} SALVAR
 					</Button>

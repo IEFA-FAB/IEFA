@@ -209,7 +209,7 @@ function OpeningBalancePage() {
 								</SelectContent>
 							</Select>
 						</div>
-						<Button type="button" variant="outline" onClick={downloadSheet} disabled={busy} className="gap-2">
+						<Button type="button" variant="outline" onClick={downloadSheet} disabled={busy}>
 							<Download className="size-4" />
 							Baixar folha (CSV)
 						</Button>
@@ -224,7 +224,7 @@ function OpeningBalancePage() {
 								if (file) importFile(file)
 							}}
 						/>
-						<Button type="button" onClick={() => fileInput.current?.click()} disabled={busy} className="gap-2">
+						<Button type="button" onClick={() => fileInput.current?.click()} disabled={busy}>
 							{busy ? <Spinner className="size-4" /> : <FileUp className="size-4" />}
 							Importar planilha
 						</Button>
@@ -291,7 +291,6 @@ function OpeningBalancePage() {
 							<Button
 								type="button"
 								variant="outline"
-								className="gap-2"
 								disabled={busy || draft.suggestible === 0}
 								onClick={() =>
 									run(
@@ -336,7 +335,7 @@ function OpeningBalancePage() {
 							)}
 
 							<AlertDialog>
-								<AlertDialogTrigger render={<Button type="button" variant="ghost" className="gap-2" disabled={busy} />}>
+								<AlertDialogTrigger render={<Button type="button" variant="ghost" disabled={busy} />}>
 									<Trash2 className="size-4" />
 									Descartar rascunho
 								</AlertDialogTrigger>

@@ -226,8 +226,7 @@ function SortableItem({
 							<Button
 								type="button"
 								size="icon-xs"
-								variant="ghost"
-								className="text-muted-foreground"
+								variant="subtle"
 								disabled={!allowHeadcount || !allowProportion}
 								onClick={onSwitchDemandType}
 								aria-label={
@@ -304,8 +303,8 @@ function SortableItem({
 			<Button
 				type="button"
 				size="icon"
-				variant="ghost"
-				className="size-6 shrink-0 text-muted-foreground hover:text-destructive"
+				variant="subtle-destructive"
+				className="size-6 shrink-0"
 				onClick={() => onRemove(item.id)}
 				aria-label="Remover preparação"
 			>
@@ -425,7 +424,7 @@ function GroupColumn({
 					)}
 				</div>
 				{onAdd && (
-					<Button type="button" size="sm" variant="ghost" className="text-xs h-6 text-muted-foreground" onClick={onAdd}>
+					<Button type="button" size="sm" variant="subtle" className="text-xs h-6" onClick={onAdd}>
 						<Plus className="size-3.5" />
 						Adicionar
 					</Button>

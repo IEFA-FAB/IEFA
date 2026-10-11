@@ -494,7 +494,7 @@ function OverseerDashboard() {
 						</div>
 					</div>
 					<div className="flex items-center gap-2">
-						<Button onClick={refreshAll} disabled={refreshingAll || loadingTargets} size="sm" className="gap-2">
+						<Button onClick={refreshAll} disabled={refreshingAll || loadingTargets} size="sm">
 							<RefreshDouble className={refreshingAll ? "h-4 w-4 animate-spin" : "h-4 w-4"} />
 							Verificar tudo
 						</Button>
@@ -662,7 +662,7 @@ function OverseerDashboard() {
 								</CardContent>
 
 								<CardFooter className="flex items-center justify-between gap-2">
-									<Button variant="outline" size="sm" onClick={() => refreshOne(t)} className="gap-2" aria-label={`Reverificar ${t.name}`}>
+									<Button variant="outline" size="sm" onClick={() => refreshOne(t)} aria-label={`Reverificar ${t.name}`}>
 										<RefreshDouble className={st === "loading" ? "h-4 w-4 animate-spin" : "h-4 w-4"} />
 										Verificar
 									</Button>

@@ -179,7 +179,7 @@ function TaskCard({
 						</tbody>
 					</table>
 					<div className="flex justify-end">
-						<Button size="sm" className="gap-1.5" disabled={busy} onClick={confirm}>
+						<Button size="sm" disabled={busy} onClick={confirm}>
 							{busy ? <Spinner className="size-4" /> : <CheckCircle2 className="size-4" />}
 							Confirmar baixa (FEFO)
 						</Button>

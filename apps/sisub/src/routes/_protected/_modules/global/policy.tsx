@@ -139,11 +139,11 @@ function PolicyTab({ target }: PolicyTabProps) {
 					{activeRules.length} {activeRules.length === 1 ? "regra" : "regras"} de política para {label}
 				</p>
 				<div className="flex items-center gap-2">
-					<Button variant="outline" size="sm" onClick={handleGeneratePrompt} className="gap-2">
+					<Button variant="outline" size="sm" onClick={handleGeneratePrompt}>
 						<ClipboardList className="size-4" />
 						Gerar Prompt de Revisão
 					</Button>
-					<Button size="sm" onClick={handleAddRule} className="gap-2">
+					<Button size="sm" onClick={handleAddRule}>
 						<Plus className="size-4" />
 						Nova Regra
 					</Button>
@@ -157,7 +157,7 @@ function PolicyTab({ target }: PolicyTabProps) {
 						<ClipboardList className="size-10 text-muted-foreground/40 mb-3" />
 						<p className="text-subheading text-muted-foreground">Nenhuma regra cadastrada</p>
 						<p className="text-xs text-muted-foreground/70 mt-1">Adicione regras de política para {label}.</p>
-						<Button size="sm" variant="outline" onClick={handleAddRule} className="mt-4 gap-2">
+						<Button size="sm" variant="outline" onClick={handleAddRule} className="mt-4">
 							<Plus className="size-4" />
 							Nova Regra
 						</Button>
@@ -509,7 +509,7 @@ function PromptDialog({ open, onOpenChange, target, prompt, isFetching }: Prompt
 					<Button variant="ghost" onClick={() => onOpenChange(false)}>
 						Fechar
 					</Button>
-					<Button onClick={handleCopy} disabled={isFetching || !prompt} className="gap-2">
+					<Button onClick={handleCopy} disabled={isFetching || !prompt}>
 						{copied ? (
 							<>
 								<Check className="size-4" />

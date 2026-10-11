@@ -108,7 +108,7 @@ export function ProductionTaskCard({ item, onSelect, onUpdateStatus, isUpdating 
 					</div>
 				)}
 				{task.status === "DONE" && (
-					<Button size="sm" variant="ghost" className="w-full text-muted-foreground" disabled={isUpdating} onClick={(e) => handleActionClick(e, "PENDING")}>
+					<Button size="sm" variant="subtle" className="w-full" disabled={isUpdating} onClick={(e) => handleActionClick(e, "PENDING")}>
 						<RotateCcw className="size-3.5" />
 						Reabrir
 					</Button>

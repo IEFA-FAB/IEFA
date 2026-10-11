@@ -603,7 +603,7 @@ function NewQuantityEstimatePage() {
 						</div>
 					)}
 					<div className="flex justify-end pt-2">
-						<Button onClick={() => goToStep(2, true)} className="gap-2">
+						<Button onClick={() => goToStep(2, true)}>
 							Próximo: Eventos
 							<ArrowRight className="size-4" aria-hidden="true" />
 						</Button>
@@ -636,11 +636,11 @@ function NewQuantityEstimatePage() {
 						</div>
 					)}
 					<div className="flex justify-between pt-2">
-						<Button variant="outline" onClick={() => goToStep(1, true)} className="gap-2">
+						<Button variant="outline" onClick={() => goToStep(1, true)}>
 							<ArrowLeft className="size-4" aria-hidden="true" />
 							Cardápios
 						</Button>
-						<Button onClick={() => goToStep(3, true)} className="gap-2">
+						<Button onClick={() => goToStep(3, true)}>
 							Próximo: Cardápios de Apoio
 							<ArrowRight className="size-4" aria-hidden="true" />
 						</Button>
@@ -700,11 +700,11 @@ function NewQuantityEstimatePage() {
 						</div>
 					)}
 					<div className="flex justify-between pt-2">
-						<Button variant="outline" onClick={() => goToStep(2, true)} className="gap-2">
+						<Button variant="outline" onClick={() => goToStep(2, true)}>
 							<ArrowLeft className="size-4" aria-hidden="true" />
 							Eventos
 						</Button>
-						<Button onClick={() => goToStep(4, true)} className="gap-2">
+						<Button onClick={() => goToStep(4, true)}>
 							Próximo: Resumo
 							<ArrowRight className="size-4" aria-hidden="true" />
 						</Button>
@@ -773,11 +773,11 @@ function NewQuantityEstimatePage() {
 
 					{/* Calcular */}
 					<div className="flex items-center justify-between pt-2">
-						<Button variant="outline" onClick={() => goToStep(3)} className="gap-2">
+						<Button variant="outline" onClick={() => goToStep(3)}>
 							<ArrowLeft className="size-4" aria-hidden="true" />
 							Cardápios de Apoio
 						</Button>
-						<Button size="lg" onClick={handleCalculate} disabled={!hasAnySelection || isCalculating} className="gap-2">
+						<Button size="lg" onClick={handleCalculate} disabled={!hasAnySelection || isCalculating}>
 							<Calculator className="size-5" aria-hidden="true" />
 							{isCalculating ? "Calculando..." : "Calcular Lista"}
 						</Button>
@@ -834,7 +834,7 @@ function NewQuantityEstimatePage() {
 							{/* Pesquisa automática de preços */}
 							{bulkEligibleCount > 0 && (
 								<div className="flex items-center gap-3 flex-wrap">
-									<Button variant="outline" onClick={handleBulkResearch} disabled={bulkProgress.isRunning} className="gap-2">
+									<Button variant="outline" onClick={handleBulkResearch} disabled={bulkProgress.isRunning}>
 										{bulkProgress.isRunning ? (
 											<>
 												<Spinner className="size-4" aria-hidden="true" />
@@ -875,23 +875,19 @@ function NewQuantityEstimatePage() {
 
 							{/* Ações finais */}
 							<div className="flex items-center justify-between pt-2">
-								<Button variant="outline" onClick={() => goToStep(4)} className="gap-2">
+								<Button variant="outline" onClick={() => goToStep(4)}>
 									<ArrowLeft className="size-4" aria-hidden="true" />
 									Resumo
 								</Button>
 								<div className="flex items-center gap-3">
 									{justificationMissing && <span className="text-xs text-warning">Preencha a justificativa do acréscimo nos limites de quantidade</span>}
 									{displayItems.length > 0 && (
-										<Button variant="outline" onClick={handleExportCSV} className="gap-2">
+										<Button variant="outline" onClick={handleExportCSV}>
 											<Download className="size-4" aria-hidden="true" />
 											Exportar CSV
 										</Button>
 									)}
-									<Button
-										onClick={handleSave}
-										disabled={!wizardState.title.trim() || displayItems.length === 0 || isFinalizing || justificationMissing}
-										className="gap-2"
-									>
+									<Button onClick={handleSave} disabled={!wizardState.title.trim() || displayItems.length === 0 || isFinalizing || justificationMissing}>
 										<Save className="size-4" aria-hidden="true" />
 										{isFinalizing ? "Salvando..." : "Salvar anexo"}
 									</Button>

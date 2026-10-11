@@ -101,7 +101,7 @@ function NfeListPage() {
 						if (file) handleFile(file)
 					}}
 				/>
-				<Button onClick={() => fileInput.current?.click()} disabled={uploading} className="gap-2">
+				<Button onClick={() => fileInput.current?.click()} disabled={uploading}>
 					{uploading ? <Spinner className="size-4" /> : <FileUp className="size-4" />}
 					Importar XML
 				</Button>

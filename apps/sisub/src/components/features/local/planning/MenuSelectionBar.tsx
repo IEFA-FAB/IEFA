@@ -72,7 +72,6 @@ export function MenuSelectionBar({
 							<Button
 								variant="ghost"
 								size="sm"
-								className="gap-1.5"
 								onClick={() => {
 									setHeadcount("")
 									setHeadcountOpen(true)
@@ -81,23 +80,23 @@ export function MenuSelectionBar({
 								<Users className="size-4" />
 								Comensais
 							</Button>
-							<Button variant="ghost" size="sm" className="gap-1.5" onClick={() => onSetHeadcount(null)}>
+							<Button variant="ghost" size="sm" onClick={() => onSetHeadcount(null)}>
 								<Eraser className="size-4" />
 								Limpar comensais
 							</Button>
 						</>
 					)}
 					{onCopy && (
-						<Button variant="ghost" size="sm" className="gap-1.5" onClick={onCopy}>
+						<Button variant="ghost" size="sm" onClick={onCopy}>
 							<Copy className="size-4" />
 							Copiar
 						</Button>
 					)}
-					<Button variant="ghost" size="sm" className="gap-1.5" onClick={() => setReplaceOpen(true)}>
+					<Button variant="ghost" size="sm" onClick={() => setReplaceOpen(true)}>
 						<Replace className="size-4" />
 						Substituir
 					</Button>
-					<Button variant="ghost" size="sm" className="gap-1.5 text-destructive hover:text-destructive" onClick={() => setConfirmRemove(true)}>
+					<Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => setConfirmRemove(true)}>
 						<Trash2 className="size-4" />
 						Remover
 					</Button>
