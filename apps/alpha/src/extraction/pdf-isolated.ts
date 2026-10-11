@@ -21,6 +21,7 @@
 
 import { createHash } from "node:crypto"
 import { readFile } from "node:fs/promises"
+import { fileURLToPath } from "node:url"
 import { DocumentLimitError, MAX_PDF_PAGES, PdfTooLargeError } from "../lib/document-limits.ts"
 import type { PdfWorkerReply } from "./pdf-worker.ts"
 import type { PdfSubmissionText } from "./to-text.ts"
@@ -36,18 +37,18 @@ const RSS_POLL_MS = 100
  * lado a lado em `dist/` como `index.js` e `pdf-worker.js`, e `import.meta.url` passa a ser
  * o do `index.js`.
  */
-export function workerPathFor(moduleUrl: string): string {
-	return new URL(moduleUrl.endsWith(".ts") ? "./pdf-worker.ts" : "./pdf-worker.js", moduleUrl).pathname
+export function resolveWorkerPath(moduleUrl: string): string {
+	return fileURLToPath(new URL(moduleUrl.endsWith(".ts") ? "./pdf-worker.ts" : "./pdf-worker.js", moduleUrl))
 }
 
-const WORKER_PATH = workerPathFor(import.meta.url)
+const WORKER_PATH = resolveWorkerPath(import.meta.url)
 
 /**
  * Comando do filho. `--no-install`: sem `node_modules` ao lado (o bundle de produção não tem),
  * o Bun liga o auto-install e tenta criar o cache em `$HOME`, que o filho não recebe; com o
  * diretório de trabalho só de leitura, o worker morria com EACCES antes de ler o PDF.
  */
-export function workerCommand(workerPath: string, maxPages: number): string[] {
+export function buildWorkerCommand(workerPath: string, maxPages: number): string[] {
 	return [process.execPath, "--smol", "--no-install", workerPath, String(maxPages)]
 }
 
@@ -158,7 +159,7 @@ async function runWorker(bytes: Uint8Array, limits: Required<PdfReadLimits>): Pr
 	const { timeoutMs, maxRssBytes, maxPages } = limits
 
 	const child = Bun.spawn({
-		cmd: workerCommand(WORKER_PATH, maxPages),
+		cmd: buildWorkerCommand(WORKER_PATH, maxPages),
 		// Cópia com `ArrayBuffer` próprio: o `Blob` não aceita a visão sobre `SharedArrayBuffer`.
 		stdin: new Blob([new Uint8Array(bytes)]),
 		stdout: "pipe",

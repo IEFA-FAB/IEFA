@@ -12,7 +12,7 @@
  *
  * `bun run generate:deploy` reescreve; `bun run check:deploy` confere no CI.
  */
-import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs"
+import { readdirSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 
 const ROOT = join(import.meta.dir, "..")
@@ -44,6 +44,8 @@ type App = {
 	buildSecrets?: string[]
 	buildSecretComments?: Record<string, string>
 	runtimeEnv?: Record<string, string>
+	/** bun-bundle: o app tem `public/` versionado, que vai para a imagem ao lado do `dist/`. */
+	copyPublic?: boolean
 	runtimeFrom?: "base"
 	outputAt?: string
 	aliasOf?: string
@@ -91,16 +93,20 @@ function bakeSecretsOf(app: App): string[] {
 	return [...new Set([...(stage?.buildSecrets ?? []), ...(app.buildSecrets ?? [])])]
 }
 
-/** Versão do Bun na tag (`oven/bun:1.4.0-alpine@sha256:…` → `1.4.0`). */
-export function bunVersionOf(image: string): string | undefined {
+/** Versão do Bun na tag (`oven/bun:1.4.0-alpine@sha256:…` → `1.4.0`). Confere a tag, não o digest. */
+function parseBunVersion(image: string): string | undefined {
 	return /^oven\/bun:(\d+\.\d+\.\d+)-/.exec(image)?.[1]
 }
 
-if (bunVersionOf(manifest.bunImage) === undefined || bunVersionOf(manifest.bunImage) !== bunVersionOf(manifest.bunRuntimeImage)) {
+const buildBunVersion = parseBunVersion(manifest.bunImage)
+if (buildBunVersion === undefined || buildBunVersion !== parseBunVersion(manifest.bunRuntimeImage)) {
 	throw new Error("bunImage e bunRuntimeImage têm de estar na mesma versão do Bun: o bundle sai de uma e roda na outra")
 }
 
 for (const app of manifest.apps) {
+	if (!app.aliasOf && app.kind !== "nitro" && app.kind !== "bun-bundle" && app.kind !== "dockerfile") {
+		throw new Error(`${app.key}: kind obrigatório (nitro, bun-bundle ou dockerfile)`)
+	}
 	if (app.kind === "bun-bundle" && app.entry !== `${app.path}/dist/index.js`) {
 		throw new Error(`${app.key}: entry de bun-bundle é ${app.path}/dist/index.js (saída do \`bun run build\`)`)
 	}
@@ -252,8 +258,9 @@ function dockerStage(app: App) {
 	}
 
 	// bun-bundle: `bun build --target bun` inlina as dependências, então o runtime leva só o
-	// `dist/` (e o `public/`, se o app tiver) numa imagem distroless: sem shell, sem apk, sem
-	// node_modules e sem código-fonte. `--no-install`: sem node_modules, o Bun liga o
+	// `dist/` (e o `public/`, com `copyPublic`) numa imagem distroless: sem shell, sem apk e sem
+	// node_modules. Os `.map` do `dist/` trazem o código-fonte (o repo é público) e dão o stack
+	// trace em `.ts`; não há rota que sirva o `dist/`. `--no-install`: sem node_modules, o Bun liga o
 	// auto-install, e um import de pacote ausente baixaria código do npm em produção.
 	out.push(
 		...buildSecretCommentLines(app),
@@ -265,7 +272,7 @@ function dockerStage(app: App) {
 	)
 	for (const [k, v] of Object.entries(app.runtimeEnv ?? {})) out.push(`ENV ${k}=${v}`)
 	out.push("WORKDIR /app", `COPY --from=${app.key}-build /app/${app.path}/dist ./${app.path}/dist`)
-	if (existsSync(join(ROOT, app.path, "public"))) out.push(`COPY --from=${app.key}-build /app/${app.path}/public ./${app.path}/public`)
+	if (app.copyPublic) out.push(`COPY --from=${app.key}-build /app/${app.path}/public ./${app.path}/public`)
 	out.push("USER nonroot", `EXPOSE ${app.port}`, 'ENTRYPOINT ["/usr/local/bin/bun", "--no-install"]', `CMD ["${app.entry}"]`)
 	return out.join("\n")
 }
