@@ -3,7 +3,8 @@ import { createServiceClient, describeIntegration, getTestEnv } from "./supabase
 
 // `assignment_selection.apply_person_choice` contra o banco compartilhado. Cobre a regra da
 // migration 20261011120000: a escolha não tem teto (confirmar numa OM que já completou
-// passa) e continua recusando OM fora do quadro da edição. Tudo nasce numa edição inativa
+// passa) e continua recusando OM fora do quadro da edição; e a de 20261011130000: com
+// `p_expected`, recusa (40001) quando a linha não está como a tela viu. Tudo nasce numa edição inativa
 // com o prefixo `zzz-test-audit-` (fora do telão) e sai no afterAll.
 
 const TEST_PREFIX = "zzz-test-audit-"
@@ -68,5 +69,25 @@ describeIntegration("assignment_selection · apply_person_choice (prod DB, com c
 			p_changes: { localidade: `${TEST_PREFIX}fora-do-quadro` },
 		})
 		expect(error?.code).toBe("23514")
+	})
+
+	it("recusa com 40001 quando a linha não está como a tela viu (p_expected)", async () => {
+		// `p_expected` ainda não está nos tipos gerados; o cast some depois do `db:types`.
+		const rpc = service.rpc.bind(service) as unknown as (
+			fn: "apply_person_choice",
+			args: { p_person_id: number; p_changes: Record<string, unknown>; p_expected: Record<string, unknown> | null }
+		) => PromiseLike<{ data: { hide_card: boolean } | null; error: { code?: string } | null }>
+
+		// O primeiro teste confirmou os dois; uma tela velha que ainda o via aberto tenta reabrir.
+		const stale = await rpc("apply_person_choice", { p_person_id: personIds[0], p_changes: { hide_card: false }, p_expected: { hide_card: false } })
+		expect(stale.error?.code).toBe("40001")
+
+		const fresh = await rpc("apply_person_choice", {
+			p_person_id: personIds[0],
+			p_changes: { hide_card: false },
+			p_expected: { hide_card: true, localidade: om },
+		})
+		expect(fresh.error).toBeNull()
+		expect(fresh.data?.hide_card).toBe(false)
 	})
 })

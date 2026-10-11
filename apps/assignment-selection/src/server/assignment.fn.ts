@@ -3,7 +3,7 @@ import type { Edition, Person, Vacancy } from "@iefa/database/assignment-selecti
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAccess } from "@/lib/auth.server"
-import { splitPersonChanges } from "@/lib/person-changes"
+import { type ExpectedState, expectedFilters, STALE_SCREEN_MESSAGE, splitPersonChanges } from "@/lib/person-changes"
 import { maskUnannouncedChoice } from "@/lib/person-visibility"
 import { getAssignmentServerClient } from "@/lib/supabase.server"
 
@@ -87,35 +87,71 @@ const personChangesSchema = z
 	})
 	.partial()
 
+/** O que a tela viu do militar; o servidor só grava se a linha ainda estiver assim. */
+const expectedSchema = z
+	.object({
+		localidade: z.string().nullable(),
+		show_card: z.boolean(),
+		show_om: z.boolean(),
+		hide_card: z.boolean(),
+	})
+	.partial()
+
 export const updatePersonFn = createServerFn({ method: "POST" })
-	.validator(z.object({ id: z.number().int(), changes: personChangesSchema }))
+	.validator(z.object({ id: z.number().int(), changes: personChangesSchema, expected: expectedSchema.optional() }))
 	.handler(async ({ data }): Promise<Person> => {
 		await requireAccess()
 		const supabase = getAssignmentServerClient()
 		const { choice, rest, hasChoice, hasRest } = splitPersonChanges(data.changes)
+		const expected = data.expected
+
+		// Escolha e flags vão por caminhos diferentes (função do banco e update comum). Com
+		// estado esperado, as duas juntas não seriam uma transação só; a condução nunca
+		// mistura, então mistura com `expected` é recusada em vez de meio conferida.
+		if (expected && hasChoice && hasRest) throw new Error("Alteração mista não confere o estado da tela")
 
 		// OM e confirmação vão pela função do banco, que recusa OM fora do quadro da
-		// edição (sem teto de vagas: a escolha pode mudar na hora). Roda antes do update
-		// comum, para que uma recusa não deixe meia alteração gravada.
+		// edição (sem teto de vagas: a escolha pode mudar na hora) e confere `expected`
+		// com o militar travado. Roda antes do update comum, para que uma recusa não deixe
+		// meia alteração gravada.
 		let row: Person | null = null
 		if (hasChoice) {
-			const { data: applied, error } = await applyPersonChoice(supabase, data.id, choice)
-			if (error) throw new Error(error.message)
+			const { data: applied, error } = await applyPersonChoice(supabase, data.id, choice, expected ?? null)
+			if (error) throw new Error(error.code === SERIALIZATION_FAILURE ? STALE_SCREEN_MESSAGE : error.message)
 			row = applied
 		}
 		if (hasRest || !row) {
-			const { data: updated, error } = await supabase.from("person").update(rest).eq("id", data.id).select("*").single()
+			// Update condicional numa instrução só: a linha muda se, e só se, ainda estiver
+			// como a tela viu. Zero linhas = outro controle andou antes.
+			let query = supabase.from("person").update(rest).eq("id", data.id)
+			for (const f of expected ? expectedFilters(expected) : []) {
+				query = f.op === "is" ? query.is(f.column, null) : query.eq(f.column, f.value as string | boolean)
+			}
+			const { data: updated, error } = await query.select("*").maybeSingle()
 			if (error) throw new Error(error.message)
+			if (!updated) throw new Error(expected ? STALE_SCREEN_MESSAGE : "Militar não encontrado")
 			row = updated
 		}
 		return row
 	})
 
+/** `serialization_failure`: `apply_person_choice` achou a linha diferente do `p_expected`. */
+const SERIALIZATION_FAILURE = "40001"
+
 type AssignmentClient = ReturnType<typeof getAssignmentServerClient>
 
-/** `assignment_selection.apply_person_choice`: grava a escolha e recusa OM fora do quadro da edição. */
-function applyPersonChoice(supabase: AssignmentClient, personId: number, changes: Record<string, unknown>) {
-	return supabase.rpc("apply_person_choice", { p_person_id: personId, p_changes: changes as Json })
+/**
+ * `assignment_selection.apply_person_choice`: grava a escolha, recusa OM fora do quadro da
+ * edição e confere o estado que a tela viu.
+ */
+function applyPersonChoice(supabase: AssignmentClient, personId: number, changes: Record<string, unknown>, expected: ExpectedState | null) {
+	// `p_expected` (migration 20261011130000) ainda não está nos tipos gerados; o cast some
+	// depois do `db:types`.
+	const rpc = supabase.rpc.bind(supabase) as unknown as (
+		fn: "apply_person_choice",
+		args: { p_person_id: number; p_changes: Json; p_expected: Json | null }
+	) => PromiseLike<{ data: Person | null; error: { message: string; code?: string } | null }>
+	return rpc("apply_person_choice", { p_person_id: personId, p_changes: changes as Json, p_expected: expected as Json | null })
 }
 
 /** Ativa uma edição no telão (marca active=true e desmarca as demais). */
@@ -143,27 +179,27 @@ export const setEditionLockFn = createServerFn({ method: "POST" })
 /**
  * Chama um militar ao telão: exibe só o card dele (show_card), esconde os demais
  * e reseta a revelação da OM (show_om=false) até ele anunciar a vaga.
+ *
+ * O militar acende primeiro, num update condicional: tem de ser da edição informada (sem
+ * isto um id de outra edição apagava este telão) e, com `expected`, ainda estar como a
+ * tela viu. Só depois os demais apagam; zero linhas no primeiro passo não mexe em nada.
  */
 export const callPersonFn = createServerFn({ method: "POST" })
-	.validator(z.object({ editionId: z.uuid(), personId: z.number().int() }))
+	.validator(z.object({ editionId: z.uuid(), personId: z.number().int(), expected: expectedSchema.optional() }))
 	.handler(async ({ data }): Promise<void> => {
 		await requireAccess()
 		const supabase = getAssignmentServerClient()
-		// O militar tem de ser da edição informada. Sem isto o `clear` apagava o telão de
-		// uma edição e o `show` acendia o card de alguém de outra.
-		const { data: person, error: personError } = await supabase
-			.from("person")
-			.select("id")
-			.eq("id", data.personId)
-			.eq("edition_id", data.editionId)
-			.maybeSingle()
-		if (personError) throw new Error(personError.message)
-		if (!person) throw new Error("Militar não pertence a esta edição")
 
-		const clear = await supabase.from("person").update({ show_card: false, show_om: false }).eq("edition_id", data.editionId)
+		let show = supabase.from("person").update({ show_card: true, show_om: false }).eq("id", data.personId).eq("edition_id", data.editionId)
+		for (const f of data.expected ? expectedFilters(data.expected) : []) {
+			show = f.op === "is" ? show.is(f.column, null) : show.eq(f.column, f.value as string | boolean)
+		}
+		const { data: shown, error: showError } = await show.select("id").maybeSingle()
+		if (showError) throw new Error(showError.message)
+		if (!shown) throw new Error(data.expected ? STALE_SCREEN_MESSAGE : "Militar não pertence a esta edição")
+
+		const clear = await supabase.from("person").update({ show_card: false, show_om: false }).eq("edition_id", data.editionId).neq("id", data.personId)
 		if (clear.error) throw new Error(clear.error.message)
-		const show = await supabase.from("person").update({ show_card: true }).eq("id", data.personId).eq("edition_id", data.editionId)
-		if (show.error) throw new Error(show.error.message)
 	})
 
 /**
