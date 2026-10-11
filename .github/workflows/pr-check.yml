@@ -30,11 +30,10 @@ concurrency:
 jobs:
   ci:
     name: lint · typecheck · test
-    # ARM da Blacksmith: os mesmos 4 vCPU, mais baratos que o x64. Todo binário nativo do lint e
-    # do build (biome, oxlint, turbo, rolldown, oxide, lightningcss, esbuild) tem variante
-    # linux-arm64 no bun.lock. A imagem de produção continua x64: sai do `_app-build.yml`, e este
-    # job descarta o build.
-    runs-on: blacksmith-4vcpu-ubuntu-2404-arm
+    # x64, não ARM: medido em 2026-10-11 com o monorepo inteiro, o ARM de 4 vCPU da Blacksmith
+    # levou o dobro do tempo (lint 102 s contra 41 s, build 105 s contra ~48 s). O minuto mais
+    # barato não paga o dobro de minutos, e o PR espera mais.
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v7
@@ -47,8 +46,7 @@ jobs:
           bun-version: "1.4.3"
 
       # Só leitura, na chave que os jobs da `main` gravam: PR não grava cache (cada PR guardaria
-      # o seu, ~450 MB de storage). O cache vem do x64; o que é JS serve igual, e o `bun install`
-      # baixa só os binários arm64 que faltam.
+      # o seu, ~450 MB de storage, quando o lockfile muda).
       - uses: actions/cache/restore@v6
         with:
           path: ~/.bun/install/cache

@@ -48,10 +48,10 @@ smoke test) e `_terraform-apply.yml`. Não disparam sozinhos.
 O repositório é público, então o runner do GitHub é **gratuito**. A Blacksmith cobra cada job
 por minuto cheio, e o ARM sai mais barato que o x64. A regra:
 
-- **Blacksmith x64** onde CPU encurta a espera de alguém a caminho da produção: `changes`,
-  `warm-deps`, `check-*` e `build-*` do `deploy.yml`. O `changes` dura segundos, mas é o início do
+- **Blacksmith x64** onde CPU encurta a espera de alguém: o `pr-check` (resposta ao PR) e, a
+  caminho da produção, `changes`, `warm-deps`, `check-*` e `build-*` do `deploy.yml`. ARM foi
+  medido no `pr-check` e levou o dobro do tempo: sai mais caro apesar do minuto mais barato. O `changes` dura segundos, mas é o início do
   caminho crítico e não pode esperar fila no GitHub.
-- **Blacksmith ARM** onde a saída não vai para produção: o `pr-check`. A imagem do ECS é x64.
 - **GitHub** (`ubuntu-24.04`, versão fixada) para o resto: job que espera rede ou AWS
   (`deploy-*`, `deploy-docs`), `sync-secrets`, tudo do `security`, da integração e do Terraform.
 - O plano gratuito da organização roda **20 jobs simultâneos** no GitHub, somando PRs e `main`.
