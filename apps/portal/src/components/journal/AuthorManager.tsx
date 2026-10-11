@@ -183,7 +183,7 @@ function SortableAuthorItem({ id, author, index, onUpdate, onRemove, canRemove }
 					type="checkbox"
 					checked={author.is_corresponding}
 					onChange={(e) => onUpdate(index, "is_corresponding", e.target.checked)}
-					className="size-4 rounded border-gray-300"
+					className="size-4 rounded border-input"
 				/>
 				<Label htmlFor={`author-${index}-corresponding`} className="cursor-pointer">
 					Autor correspondente
