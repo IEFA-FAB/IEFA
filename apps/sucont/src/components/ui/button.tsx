@@ -4,8 +4,11 @@ import type * as React from "react"
 
 import { cn } from "#/lib/utils"
 
+// O ícone ganha o tamanho do botão, a menos que traga o próprio (`size-*`, `w-*`, `h-*`). A checagem
+// é por classe inteira: `[class*='w-']` também casava `lucide-arrow-left` e `lucide-trash-2`, e esses
+// ícones saíam em 24px.
 const buttonVariants = cva(
-	"inline-flex shrink-0 cursor-pointer select-none items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-']):not([class*='w-']):not([class*='h-'])]:size-4",
+	"inline-flex shrink-0 cursor-pointer select-none items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-']):not([class^='w-']):not([class*='_w-']):not([class^='h-']):not([class*='_h-'])]:size-4",
 	{
 		variants: {
 			variant: {
@@ -29,11 +32,11 @@ const buttonVariants = cva(
 			},
 			size: {
 				default: "h-9 px-4 py-2 has-[>svg]:px-3",
-				xs: "h-6 gap-1 rounded-md px-2 text-xs has-[>svg]:px-1.5 [&_svg:not([class*='size-']):not([class*='w-']):not([class*='h-'])]:size-3",
+				xs: "h-6 gap-1 rounded-md px-2 text-xs has-[>svg]:px-1.5 [&_svg:not([class*='size-']):not([class^='w-']):not([class*='_w-']):not([class^='h-']):not([class*='_h-'])]:size-3",
 				sm: "h-8 gap-1.5 rounded-md px-3 has-[>svg]:px-2.5",
 				lg: "h-10 rounded-md px-6 has-[>svg]:px-4",
 				icon: "size-9",
-				"icon-xs": "size-6 rounded-md [&_svg:not([class*='size-']):not([class*='w-']):not([class*='h-'])]:size-3",
+				"icon-xs": "size-6 rounded-md [&_svg:not([class*='size-']):not([class^='w-']):not([class*='_w-']):not([class^='h-']):not([class*='_h-'])]:size-3",
 				"icon-sm": "size-8",
 				"icon-lg": "size-10",
 			},

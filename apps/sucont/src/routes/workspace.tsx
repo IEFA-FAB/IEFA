@@ -292,7 +292,7 @@ function Workspace() {
 														<Button
 															type="button"
 															variant="subtle-destructive"
-															size="icon-xs"
+															size="icon-sm"
 															onClick={() => deleteTaskMutation.mutate(item.id as string)}
 															aria-label={`Excluir tarefa: ${item.task}`}
 															className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
@@ -339,7 +339,7 @@ function Workspace() {
 												</div>
 											</div>
 
-											<div className="md:w-56 shrink-0 flex flex-col justify-center items-end border-t md:border-t-0 md:border-l border-border pt-4 md:pt-0 md:pl-4">
+											<div className="md:w-56 shrink-0 flex flex-col justify-center items-end border-t md:border-t-0 md:border-l border-border pt-4 md:pt-0 md:pl-4 md:pr-8">
 												<span className="font-mono text-label text-muted-foreground mb-1">Responsáveis</span>
 												{/*
 												 * O campo de texto virou seleção sobre o cadastro de pessoas.
@@ -425,7 +425,7 @@ function Workspace() {
 													<Button
 														type="button"
 														variant="subtle-destructive"
-														size="icon-xs"
+														size="icon-sm"
 														onClick={() => deleteNoticeMutation.mutate(notice.id)}
 														aria-label={`Excluir aviso: ${notice.content}`}
 														className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
