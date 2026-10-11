@@ -2,8 +2,8 @@
 /**
  * Gera Dockerfile, docker-bake.hcl e .github/paths-filter.yml a partir de
  * `apps.manifest.json` + o grafo de dependências de workspace lido dos
- * package.json, e as regiões marcadas (`# >>> gerado: <nome>`) do
- * .github/workflows/deploy.yml que só repetem a lista de apps.
+ * package.json. O deploy.yml não é gerado: ele lê o manifesto em tempo de execução
+ * (`scripts/release-plan.ts` e `scripts/release-verify.ts`).
  *
  * Motivo: adicionar um app (ou um package compartilhado) exigia editar as mesmas
  * listas à mão em três arquivos. Elas divergiam em silêncio e o modo de falha era
@@ -50,7 +50,20 @@ type App = {
 	outputAt?: string
 	aliasOf?: string
 	notes?: string
+	/** GitHub Variable com a URL do smoke test depois do rollout no ECS. Ausente → sem smoke test. */
+	healthUrlVar?: string
+	/**
+	 * Tarefas de turbo (`<workspace>#<tarefa>`) que liberam o deploy do app no push da `main`.
+	 * Padrão: lint, typecheck e test do próprio workspace; app de kind `dockerfile` não tem nenhuma.
+	 */
+	check?: string[]
+	/** `static-site`: publicado como site estático (jobs `docs-*` do deploy.yml), fora da matriz do ECS. */
+	release?: "ecs" | "static-site"
+	buildTimeoutMinutes?: number
+	bakeAttemptTimeoutMinutes?: number
 }
+
+export type { App }
 
 type Manifest = {
 	/** Imagem dos estágios de build e do runtime dos apps Nitro. */
@@ -67,9 +80,9 @@ type Manifest = {
 export const manifest: Manifest = JSON.parse(readFileSync(join(ROOT, "apps.manifest.json"), "utf8"))
 
 /**
- * Chave do app no paths-filter e nos outputs do `changes` (`sisub-mcp` é lido como `mcp`). Uma
- * função só para os dois geradores: se divergirem, o deploy.yml lê um output que não existe e
- * o app para de deployar em silêncio.
+ * Nome do filtro do app no paths-filter (`sisub-mcp` é `mcp`, por histórico). Uma função só para
+ * o gerador e o `release-plan.ts`: se divergirem, o plano não reconhece o filtro e o app para
+ * de deployar em silêncio.
  */
 export function filterKeyOf(app: App): string {
 	return app.filterKey ?? app.key.replaceAll("-", "_")
@@ -384,7 +397,7 @@ function renderBake() {
 			for (const n of names) lines.push(`    ${n.padEnd(width)} = ${args[n]}`)
 			lines.push("  }")
 		}
-		// Lido da variável de ambiente do processo do bake (o _app-build.yml a define a
+		// Lido da variável de ambiente do processo do bake (o _release.yml a define a
 		// partir do secret do GitHub). Ausente → o secret não é montado e o build segue.
 		const secrets = bakeSecretsOf(app)
 		if (secrets.length) {
@@ -408,8 +421,9 @@ const PIPELINE_TRIGGERS = [
 	"apps.manifest.json",
 	".github/paths-filter.yml",
 	".github/workflows/deploy.yml",
-	".github/workflows/_app-build.yml",
-	".github/workflows/_app-deploy.yml",
+	".github/workflows/_release.yml",
+	"scripts/release-plan.ts",
+	"scripts/release-verify.ts",
 ]
 
 /** Arquivos que reconstroem qualquer imagem do monorepo, então disparam todos os apps dele.
@@ -434,8 +448,8 @@ function renderPathsFilter() {
 			source.kind === "dockerfile"
 				? [`${source.path}/**`, ...PIPELINE_TRIGGERS]
 				: [`${source.path}/**`, ...packageDepsOf(source.workspace as string).map((d) => `${d}/**`), ...GLOBAL_TRIGGERS]
-		// `filterKey` existe porque o deploy.yml lê `steps.filter.outputs.<key>` e alguns
-		// nomes históricos não batem com a chave do app (sisub-mcp é lido como `mcp`).
+		// `filterKey` é o nome do filtro (sisub-mcp é `mcp`, por histórico); o release-plan.ts o
+		// traduz de volta para a chave do app.
 		lines.push(`${filterKeyOf(app)}:`)
 		for (const p of paths) lines.push(`  - '${p}'`)
 		lines.push("")
@@ -444,76 +458,11 @@ function renderPathsFilter() {
 }
 
 // ---------------------------------------------------------------------------
-// .github/workflows/deploy.yml — regiões geradas
-// ---------------------------------------------------------------------------
-
-/**
- * O deploy.yml repetia a lista de apps em seis lugares (input `force_*`, output do `changes`,
- * env e `echo` do "Resolve outputs", condição do `warm-deps`), e app novo era seis edições à
- * mão. Essas regiões ficam entre `# >>> gerado: <nome>` e `# <<< gerado: <nome>` e saem
- * daqui; os jobs `check/build/deploy-<app>` continuam escritos à mão, porque cada app tem
- * os seus passos.
- */
-const DEPLOY_WORKFLOW = ".github/workflows/deploy.yml"
-
-/** `steps.x.outputs.<k>`, com colchetes quando a chave começa por dígito (`5s`). */
-const outputRef = (prefix: string, key: string) => (/^\d/.test(key) ? `${prefix}['${key}']` : `${prefix}.${key}`)
-const envNameOf = (key: string) => key.toUpperCase()
-
-/** Linhas de cada região, com indentação RELATIVA ao marcador (o renderizador soma a dele). */
-export function deployRegions(apps: readonly App[] = manifest.apps): Record<string, string[]> {
-	const keys = apps.map(filterKeyOf)
-	return {
-		"force-inputs": apps.flatMap((app) => [
-			`force_${filterKeyOf(app)}:`,
-			`  description: "Force deploy ${app.key}${app.title ? ` — ${app.title.replaceAll('"', "'")}` : ""}"`,
-			"  type: boolean",
-			"  default: false",
-		]),
-		"changes-outputs": keys.map((key) => `${key}: \${{ ${outputRef("steps.final.outputs", key)} }}`),
-		"resolve-env": [
-			...keys.map((key) => `FORCE_${envNameOf(key)}: \${{ inputs.force_${key} }}`),
-			...keys.map((key) => `FILTER_${envNameOf(key)}: \${{ ${outputRef("steps.filter.outputs", key)} }}`),
-		],
-		"resolve-force": keys.map((key) => `echo "${key}=$FORCE_${envNameOf(key)}"`),
-		"resolve-filter": keys.map((key) => `echo "${key}=$FILTER_${envNameOf(key)}"`),
-		// App cujo build é de kind `dockerfile` (próprio ou pelo alias) não usa o estágio `deps`.
-		"warm-deps-if": [
-			"if: >-",
-			...apps
-				.filter((app) => buildSourceOf(app).kind !== "dockerfile")
-				.map((app, index, list) => `  ${outputRef("needs.changes.outputs", filterKeyOf(app))} == 'true'${index < list.length - 1 ? " ||" : ""}`),
-		],
-	}
-}
-
-/** Reescreve cada região marcada; região ausente ou duplicada é erro (cópia não seria checada). */
-export function renderDeployWorkflow(current: string, regions: Record<string, string[]> = deployRegions()): string {
-	let out = current
-	for (const [name, body] of Object.entries(regions)) {
-		const openings = out.split("\n").filter((line) => line.trimStart().startsWith(`# >>> gerado: ${name} `)).length
-		if (openings !== 1) throw new Error(`${DEPLOY_WORKFLOW}: região "${name}" aparece ${openings} vez(es); tem de ser exatamente uma`)
-		const re = new RegExp(`^( *)# >>> gerado: ${name} [^\\n]*\\n[\\s\\S]*?^ *# <<< gerado: ${name}$`, "m")
-		const match = re.exec(out)
-		if (!match) throw new Error(`${DEPLOY_WORKFLOW}: região "${name}" sem o marcador de fim (# <<< gerado: ${name})`)
-		const indent = match[1] ?? ""
-		const block = [
-			`${indent}# >>> gerado: ${name} (bun run generate:deploy; não editar à mão)`,
-			...body.map((line) => indent + line),
-			`${indent}# <<< gerado: ${name}`,
-		].join("\n")
-		out = out.slice(0, match.index) + block + out.slice(match.index + match[0].length)
-	}
-	return out
-}
-
-// ---------------------------------------------------------------------------
 
 export const artifacts: Array<[string, string]> = [
 	["Dockerfile", renderDockerfile()],
 	["docker-bake.hcl", renderBake()],
 	[".github/paths-filter.yml", renderPathsFilter()],
-	[DEPLOY_WORKFLOW, renderDeployWorkflow(readFileSync(join(ROOT, DEPLOY_WORKFLOW), "utf8"))],
 ]
 
 if (import.meta.main) {

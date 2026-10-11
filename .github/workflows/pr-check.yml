@@ -13,7 +13,7 @@
 #
 # Sem segredo nenhum, de propósito: roda igual em PR de fork, e teste que precisa de
 # credencial é teste de integração, que tem o próprio workflow (`integration.yml`). As
-# `vars` abaixo são as mesmas que os `check-<app>` recebem e que já vão no bundle público.
+# `vars` abaixo são as mesmas que o `verify` do deploy.yml recebe e que já vão no bundle público.
 name: pr-check
 
 on:
