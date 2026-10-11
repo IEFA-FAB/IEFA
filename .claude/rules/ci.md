@@ -12,23 +12,8 @@ paths:
 
 ## O que roda onde
 
-| Workflow | Quando | Gate |
-|----------|--------|------|
-| `pr-check.yml` | PR | format + `turbo run lint typecheck test --affected` + `build` dos afetados (sem segredo; arquivo global alterado roda tudo) |
-| `security.yml` | PR, push na main, semanal | opengrep (ERROR bloqueia), `bun audit` crítico, drift do manifesto, headers; CodeQL/Trivy só reportam |
-| `integration.yml` | todo PR, push na main, dispatch; `changes` usa o escopo sisub do `paths-filter.yml` | PR: `gate` (`test:integration:gate` transacional + `audit:rls`, fila por PR, check obrigatório). Main e dispatch: `gate` a cada commit + `full` (suíte inteira, monitor, trava global do banco) |
-| `commit-lint.yml` | PR | título do PR (e subject do commit único) no commitlint |
-| `deploy.yml` (`CI/CD`) | push na main | `changes` → `check-<app>` → `build-<app>` → `deploy-<app>` por app (paths-filter); sem integração |
-| `terraform-plan/apply` | PR / push em `infra/**` | plan com role de PR; apply só na main |
-
-Mapa completo (o que roda em cada evento, em que runner) em `.github/workflows/README.md`.
-
-## Runner
-
-Repo público: `ubuntu-latest` é grátis, a Blacksmith cobra por minuto cheio. Blacksmith só em job
-cuja CPU encurta a espera de alguém (`pr-check`, `check-*` e `build-*` do deploy); job de espera
-(rollout do ECS, sync do S3), de segundos ou com segredo de produção vai no GitHub. O plano
-gratuito roda 20 jobs simultâneos no GitHub. Label novo da Blacksmith entra no
+Em `.github/workflows/README.md`: o que roda em cada evento, em que runner e com que credencial.
+É a fonte única; mudou runner ou workflow, atualize lá. Label novo da Blacksmith entra no
 `.github/actionlint.yaml`.
 
 ## Armadilhas conhecidas

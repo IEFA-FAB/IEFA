@@ -30,10 +30,10 @@ concurrency:
 jobs:
   ci:
     name: lint · typecheck · test
-    # ARM da Blacksmith: mesmo 4 vCPU por 62% do preço do x64 (US$ 0,005 contra 0,008 por minuto).
-    # Todo binário nativo do lint e do build (biome, oxlint, turbo, rolldown, oxide, lightningcss,
-    # esbuild) tem variante linux-arm64 no bun.lock. A imagem de produção continua x64: sai do
-    # `_app-build.yml`, e este job descarta o build.
+    # ARM da Blacksmith: os mesmos 4 vCPU, mais baratos que o x64. Todo binário nativo do lint e
+    # do build (biome, oxlint, turbo, rolldown, oxide, lightningcss, esbuild) tem variante
+    # linux-arm64 no bun.lock. A imagem de produção continua x64: sai do `_app-build.yml`, e este
+    # job descarta o build.
     runs-on: blacksmith-4vcpu-ubuntu-2404-arm
     timeout-minutes: 25
     steps:
@@ -46,13 +46,14 @@ jobs:
         with:
           bun-version: "1.4.3"
 
-      - uses: actions/cache@v6
+      # Só leitura, na chave que os jobs da `main` gravam: PR não grava cache (cada PR guardaria
+      # o seu, ~450 MB de storage). O cache vem do x64; o que é JS serve igual, e o `bun install`
+      # baixa só os binários arm64 que faltam.
+      - uses: actions/cache/restore@v6
         with:
           path: ~/.bun/install/cache
-          # A arquitetura entra na chave: o cache do x64 (jobs do deploy.yml) não traz os pacotes
-          # nativos de arm64, e um hit na chave exata impediria salvar os que faltam.
-          key: ${{ runner.os }}-${{ runner.arch }}-bun-${{ hashFiles('bun.lock') }}
-          restore-keys: ${{ runner.os }}-${{ runner.arch }}-bun-
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: ${{ runner.os }}-bun-
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
