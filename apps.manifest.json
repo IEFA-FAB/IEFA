@@ -11,6 +11,7 @@
     "quebrado) nem no paths-filter (app não redeployava quando o package mudava)."
   ],
   "bunImage": "oven/bun:1.4.0-alpine@sha256:07235578f79ef8c6f97d94aee7938e76f5cdba5f21ae5dbfdd3d3d38058437eb",
+  "bunRuntimeImage": "oven/bun:1.4.0-distroless@sha256:a8919d4a092a234f7184ac6d3960a2d860fea73e034709e1752a7d0de09913f8",
   "registryDefaults": {
     "registry": "replace-me.dkr.ecr.sa-east-1.amazonaws.com",
     "repositoryPrefix": "iefa/prod"
@@ -24,6 +25,7 @@
       "kind": "bun-bundle",
       "port": 3000,
       "entry": "apps/api/dist/index.js",
+      "copyPublic": true,
       "buildArgs": [],
       "notes": "o bundle da api importa @iefa/sisub-domain/gtin (utils puros de GTIN) — sem o source do package o bun build não resolve o subpath do workspace"
     },
@@ -105,14 +107,13 @@
       "title": "Projeto α (apps/alpha) — Hono + LangGraph + Bun",
       "workspace": "@iefa/alpha",
       "path": "apps/alpha",
-      "kind": "bun-source",
+      "kind": "bun-bundle",
       "port": 8000,
-      "entry": "apps/alpha/src/index.ts",
+      "entry": "apps/alpha/dist/index.js",
       "buildArgs": [],
       "runtimeEnv": {
         "PORT": "8000"
-      },
-      "copyWorkspacesAtRuntime": true
+      }
     },
     {
       "key": "docs",
@@ -134,16 +135,14 @@
       "title": "SISUB-MCP — MCP server (bun runtime, HTTP transport)",
       "workspace": "@iefa/sisub-mcp",
       "path": "apps/sisub-mcp",
-      "kind": "bun-source",
+      "kind": "bun-bundle",
       "port": 3000,
-      "entry": "apps/sisub-mcp/src/index.ts",
+      "entry": "apps/sisub-mcp/dist/index.js",
       "buildArgs": [],
       "runtimeEnv": {
         "MCP_TRANSPORT": "http",
         "MCP_PORT": "3000"
-      },
-      "copyWorkspacesAtRuntime": true,
-      "notes": "Roda o entrypoint TypeScript direto (sem bundle), então a imagem de runtime mantém node_modules + os packages de workspace que ele resolve por symlink."
+      }
     },
     {
       "key": "5s",
