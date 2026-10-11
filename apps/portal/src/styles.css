@@ -81,7 +81,7 @@
   --destructive-foreground: oklch(1.0000 0 0);
 
   /* Status (aviso informativo, sucesso, atenção): só para estado, nunca decoração.
-     O token é a cor do TEXTO; o callout compõe `bg-*/10 border-*/30 text-*`, e o
+     O token é a cor do TEXTO; o callout compõe `bg-<token>/10 border-<token>/30 text-<token>`, e o
      texto passa de 4,5:1 sobre o próprio tint nos dois temas. */
   --info:                  oklch(0.4800 0.1400 255);
   --info-foreground:       oklch(1.0000 0 0);

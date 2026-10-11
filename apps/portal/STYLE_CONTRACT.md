@@ -89,7 +89,7 @@ decorativo fica em `bg-muted` + `text-foreground`.
 Os `*-foreground` são branco no light e `oklch(0.10 0 0)` no dark (≥ 6:1 sobre o token nos dois;
 `destructive-foreground` dá 6,4 no light e 7,2 no dark).
 
-O token é a cor do **texto**. Callout compõe `border-*/30 bg-*/10 text-*` (uma opacidade de tint
+O token é a cor do **texto**. Callout compõe `border-<token>/30 bg-<token>/10 text-<token>` (uma opacidade de tint
 só, `/10`; o texto passa de 4,5:1 sobre ele nos dois temas); callout estático usa
 `<Alert variant="info|success|warning|destructive" role="note">` com o padding do primitivo, não
 `div` com classes repetidas. Paleta crua do Tailwind (`bg-blue-50`,
