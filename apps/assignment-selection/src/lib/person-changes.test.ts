@@ -16,7 +16,7 @@ describe("splitPersonChanges", () => {
 		expect(hasRest).toBe(true)
 	})
 
-	it("confirmar sozinho ainda passa pela escolha (é o que consome vaga)", () => {
+	it("confirmar sozinho ainda passa pela escolha (a função confere a OM da edição)", () => {
 		const { choice, hasChoice, hasRest } = splitPersonChanges({ hide_card: true })
 		expect(choice).toEqual({ hide_card: true })
 		expect(hasChoice).toBe(true)

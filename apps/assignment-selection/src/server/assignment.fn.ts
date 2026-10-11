@@ -1,3 +1,4 @@
+import type { Json } from "@iefa/database"
 import type { Edition, Person, Vacancy } from "@iefa/database/assignment-selection"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
@@ -112,17 +113,9 @@ export const updatePersonFn = createServerFn({ method: "POST" })
 
 type AssignmentClient = ReturnType<typeof getAssignmentServerClient>
 
-/**
- * `assignment_selection.apply_person_choice` (migration 20260921160500) ainda não está
- * nos tipos gerados de `@iefa/database` — o cast some quando os tipos forem regenerados
- * depois de aplicar a migration.
- */
+/** `assignment_selection.apply_person_choice`: grava a escolha e recusa OM fora do quadro da edição. */
 function applyPersonChoice(supabase: AssignmentClient, personId: number, changes: Record<string, unknown>) {
-	const rpc = supabase.rpc.bind(supabase) as unknown as (
-		fn: "apply_person_choice",
-		args: { p_person_id: number; p_changes: Record<string, unknown> }
-	) => PromiseLike<{ data: Person | null; error: { message: string } | null }>
-	return rpc("apply_person_choice", { p_person_id: personId, p_changes: changes })
+	return supabase.rpc("apply_person_choice", { p_person_id: personId, p_changes: changes as Json })
 }
 
 /** Ativa uma edição no telão (marca active=true e desmarca as demais). */

@@ -7,8 +7,9 @@
 -- cerimônia. O quadro do telão segue contando só os confirmados (`hide_card`) e mostra
 -- a OM acima do total como está.
 --
--- Fica a outra metade da função: a OM tem de estar no quadro de vagas da edição (o
--- controle só oferece essas). Sem contagem, a trava `for update` das linhas de vaga não
+-- Fica a outra metade da função: a OM tem de estar no quadro de vagas da edição. Os
+-- seletores do controle ainda listam todas as localidades FAB; o controle novo passa a
+-- oferecer só as do quadro, e esta checagem fica como rede de segurança. Sem contagem, a trava `for update` das linhas de vaga não
 -- protege mais nada e sai; a do militar continua, porque a escolha lê e grava a linha.
 --
 -- Mesma assinatura, mesmo SECURITY INVOKER, `search_path` fixo e execução só para

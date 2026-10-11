@@ -11,20 +11,22 @@ export type Escolha = {
 /**
  * Quadro de vagas para projeção — alto contraste, legível à distância.
  *
- * Com `emphasizeAvailable` (militar chamado, ainda sem anunciar) as OM completas
- * ficam apagadas: o quadro passa a responder "para onde ainda dá para ir".
+ * Com `emphasizeAvailable` (militar chamado, ainda sem anunciar) o título passa a
+ * "Vagas Disponíveis" e conta as vagas abertas. Nenhuma OM sai apagada: não há teto, e o
+ * militar pode escolher uma OM que já completou.
  */
 export function VacancyBoard({ data, emphasizeAvailable = false }: { data: Escolha[]; emphasizeAvailable?: boolean }) {
 	const totalVagas = data.reduce((acc, e) => acc + e.total, 0)
-	const totalChosen = data.reduce((acc, e) => acc + Math.min(e.chosen, e.total), 0)
+	// Sem teto de vagas, uma OM pode passar do total: o placar soma todos os confirmados, e
+	// "restantes" conta só as vagas ainda abertas de cada OM.
+	const totalChosen = data.reduce((acc, e) => acc + e.chosen, 0)
+	const openVagas = data.reduce((acc, e) => acc + Math.max(0, e.total - e.chosen), 0)
 
 	return (
 		<div className="flex h-full flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] shadow-2xl backdrop-blur-sm">
 			<div className="flex items-baseline justify-between border-b border-white/10 px-7 py-4">
 				<h2 className="text-3xl font-bold tracking-wide text-white/95">{emphasizeAvailable ? "Vagas Disponíveis" : "Quadro de Vagas"}</h2>
-				<span className="font-mono text-lg text-white/55">
-					{emphasizeAvailable ? `${totalVagas - totalChosen} restantes` : `${totalChosen}/${totalVagas} preenchidas`}
-				</span>
+				<span className="font-mono text-lg text-white/55">{emphasizeAvailable ? `${openVagas} restantes` : `${totalChosen}/${totalVagas} preenchidas`}</span>
 			</div>
 
 			<div className="min-h-0 flex-1 overflow-hidden">
@@ -43,14 +45,7 @@ export function VacancyBoard({ data, emphasizeAvailable = false }: { data: Escol
 							const empty = e.chosen === 0
 							const pct = e.total > 0 ? Math.min(100, (e.chosen / e.total) * 100) : 0
 							return (
-								<tr
-									key={e.id}
-									className={cn(
-										"border-b border-white/5 transition-all duration-300",
-										full ? "bg-warning/7" : "hover:bg-white/[0.03]",
-										emphasizeAvailable && full && "opacity-40"
-									)}
-								>
+								<tr key={e.id} className={cn("border-b border-white/5 transition-all duration-300", full ? "bg-warning/7" : "hover:bg-white/[0.03]")}>
 									<td className="px-7 py-1">
 										<div className="flex items-center gap-4">
 											<span className={cn("whitespace-nowrap text-2xl font-black tracking-tight", full ? "text-warning" : "text-white")}>{e.OM}</span>
