@@ -65,10 +65,15 @@ jobs:
           role-to-assume: ${{ vars.AWS_TF_APPLY_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
 
+      # Versão única do Terraform para plan e apply (e para o tfenv local): infra/.terraform-version.
+      - name: Terraform version
+        id: tfver
+        run: echo "version=$(tr -d '[:space:]' < infra/.terraform-version)" >> "$GITHUB_OUTPUT"
+
       # Third-party action → hash-pinned per .github/zizmor.yml (Dependabot bumps it).
       - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
-          terraform_version: "1.16.5"
+          terraform_version: ${{ steps.tfver.outputs.version }}
           terraform_wrapper: false
 
       - name: Terraform init
@@ -80,7 +85,9 @@ jobs:
           set -euo pipefail
           cd "infra/$STACK"
           cp backend.tf.example backend.tf
-          terraform init -input=false \
+          # -lockfile=readonly: o provider é o do .terraform.lock.hcl commitado, nunca o mais novo
+          # dentro da faixa; lock que não casa com o required_providers falha em vez de ser reescrito.
+          terraform init -input=false -lockfile=readonly \
             -backend-config="bucket=$TF_STATE_BUCKET" \
             -backend-config="dynamodb_table=$TF_STATE_DYNAMODB_TABLE"
 

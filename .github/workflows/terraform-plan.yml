@@ -57,6 +57,9 @@ jobs:
           # A module change affects every service stack (they consume ../modules/service).
           modules_changed=false
           if grep -q '^infra/modules/' <<<"$changed"; then modules_changed=true; fi
+          # A versão do Terraform (infra/.terraform-version) vale para todo stack, foundation inclusive.
+          version_changed=false
+          if grep -qx 'infra/.terraform-version' <<<"$changed"; then version_changed=true; fi
 
           stacks=()
           for d in infra/*/; do
@@ -67,7 +70,7 @@ jobs:
             # tem um (alb.tf, ecs.tf, iam.tf…) — ou seja, mudança de foundation nunca
             # foi planejada em PR nenhum.
             [ -f "$d/backend.tf.example" ] || continue
-            if grep -q "^infra/$name/" <<<"$changed"; then
+            if grep -q "^infra/$name/" <<<"$changed" || [ "$version_changed" = true ]; then
               stacks+=("$name")
             elif [ "$modules_changed" = true ] && [ "$name" != "foundation" ]; then
               stacks+=("$name")
@@ -126,11 +129,17 @@ jobs:
           role-to-assume: ${{ vars.AWS_TF_PLAN_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
 
+      # Versão única do Terraform para plan e apply (e para o tfenv local): infra/.terraform-version.
+      - name: Terraform version
+        id: tfver
+        if: steps.tfvars.outputs.has_tfvars == 'true'
+        run: echo "version=$(tr -d '[:space:]' < infra/.terraform-version)" >> "$GITHUB_OUTPUT"
+
       # Third-party action → hash-pinned per .github/zizmor.yml (Dependabot bumps it).
       - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         if: steps.tfvars.outputs.has_tfvars == 'true'
         with:
-          terraform_version: "1.16.5"
+          terraform_version: ${{ steps.tfver.outputs.version }}
           terraform_wrapper: false
 
       - name: Terraform init + plan (read-only)
@@ -146,7 +155,9 @@ jobs:
           cd "infra/$STACK"
           # Reuse the committed backend key; inject bucket/table from repo vars.
           cp backend.tf.example backend.tf
-          terraform init -input=false \
+          # -lockfile=readonly: o provider é o do .terraform.lock.hcl commitado, nunca o mais novo
+          # dentro da faixa; lock que não casa com o required_providers falha em vez de ser reescrito.
+          terraform init -input=false -lockfile=readonly \
             -backend-config="bucket=$TF_STATE_BUCKET" \
             -backend-config="dynamodb_table=$TF_STATE_DYNAMODB_TABLE"
           # -lock=false keeps this strictly read-only (no state lock write).
