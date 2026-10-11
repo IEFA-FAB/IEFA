@@ -83,7 +83,7 @@ export function SucontPeopleManager() {
 
 			{canManage && (
 				<div className="flex justify-end">
-					<Button type="button" variant="outline" onClick={() => setIsAdding(true)} className="bg-card font-mono text-tech-cyan hover:bg-muted/50">
+					<Button type="button" variant="outline" onClick={() => setIsAdding(true)} className="bg-card text-tech-cyan hover:bg-muted/50">
 						<Plus className="size-4" /> CADASTRAR PESSOA
 					</Button>
 				</div>

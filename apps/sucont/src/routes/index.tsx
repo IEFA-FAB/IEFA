@@ -181,7 +181,7 @@ function Catalogo() {
 
 					<div className="ml-auto flex items-center gap-3">
 						{isFiltered && (
-							<Button variant="outline" size="sm" onClick={clear} className="text-label rounded-full text-muted-foreground hover:text-foreground">
+							<Button variant="outline" size="sm" onClick={clear} className="rounded-full text-muted-foreground hover:text-foreground">
 								Limpar <X className="w-3 h-3" />
 							</Button>
 						)}
@@ -195,7 +195,7 @@ function Catalogo() {
 			{filtered.length === 0 ? (
 				<div className="flex flex-col items-center gap-4 py-16">
 					<p className="text-body text-muted-foreground">Nenhuma ferramenta corresponde a esse recorte.</p>
-					<Button variant="outline" onClick={clear} className="text-label">
+					<Button variant="outline" onClick={clear}>
 						Limpar filtros
 					</Button>
 				</div>

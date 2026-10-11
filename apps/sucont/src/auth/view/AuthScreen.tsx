@@ -184,8 +184,8 @@ function SuccessBanner({ message }: { message: string }) {
 
 function BackToLogin({ onClick }: { onClick: () => void }) {
 	return (
-		<Button type="button" onClick={onClick} variant="subtle" className="mx-auto mt-5 h-auto p-0 text-caption hover:bg-transparent">
-			<ArrowLeft className="h-3.5 w-3.5" />
+		<Button type="button" onClick={onClick} variant="subtle" size="sm" className="mx-auto mt-5">
+			<ArrowLeft />
 			Voltar ao login
 		</Button>
 	)
@@ -657,7 +657,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 								/>
 								Lembrar e-mail
 							</label>
-							<Button type="button" onClick={goToForgot} variant="link" className="h-auto p-0 text-caption text-tech-blue">
+							<Button type="button" onClick={goToForgot} variant="link" className="h-auto p-0 text-tech-blue">
 								Esqueceu a senha?
 							</Button>
 						</div>
@@ -677,12 +677,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 
 				<p className="text-center text-caption text-muted-foreground">
 					{isRegister ? "Já tem uma conta? " : "Não tem uma conta? "}
-					<Button
-						type="button"
-						onClick={() => switchTab(isRegister ? "login" : "register")}
-						variant="link"
-						className="h-auto p-0 font-semibold text-foreground"
-					>
+					<Button type="button" onClick={() => switchTab(isRegister ? "login" : "register")} variant="link" className="h-auto p-0 text-foreground">
 						{isRegister ? "Entrar" : "Cadastre-se"}
 					</Button>
 				</p>

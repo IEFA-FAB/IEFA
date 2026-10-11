@@ -102,7 +102,7 @@ function Reports() {
 							variant="outline"
 							size="sm"
 							onClick={() => setIsAdding(true)}
-							className="flex items-center bg-card border-border text-tech-cyan px-4 py-2 text-caption font-mono hover:bg-muted/50 shadow-sm"
+							className="flex items-center bg-card border-border text-tech-cyan px-4 py-2 hover:bg-muted/50 shadow-sm"
 						>
 							<Plus className="w-4 h-4" /> ANEXAR RELATÓRIO
 						</Button>
@@ -146,14 +146,14 @@ function Reports() {
 								className="bg-muted/50 border border-border p-2 rounded text-caption text-foreground md:col-span-2 h-20 focus:border-tech-cyan outline-none"
 							/>
 							<div className="flex gap-2 md:col-span-2 justify-end">
-								<Button type="button" variant="subtle" size="sm" onClick={() => setIsAdding(false)} className="px-4 py-2 text-caption">
+								<Button type="button" variant="subtle" size="sm" onClick={() => setIsAdding(false)} className="px-4 py-2">
 									CANCELAR
 								</Button>
 								<Button
 									type="submit"
 									variant="ghost"
 									disabled={createMutation.isPending}
-									className="bg-tech-cyan text-white px-6 rounded text-label shadow-md inline-flex items-center"
+									className="bg-tech-cyan text-white px-6 rounded shadow-md inline-flex items-center"
 								>
 									{createMutation.isPending && <Loader2 className="w-3 h-3 animate-spin" />} SALVAR RELATÓRIO
 								</Button>
@@ -209,7 +209,7 @@ function ConfirmDelete({ title, isPending, onCancel, onConfirm }: { title: strin
 					“{title}” sai da lista de todos os operadores da seção. A exclusão é definitiva — não há como desfazer.
 				</p>
 				<div className="flex justify-end gap-2">
-					<Button type="button" variant="subtle" size="sm" onClick={onCancel} className="px-4 py-2 text-label">
+					<Button type="button" variant="subtle" size="sm" onClick={onCancel} className="px-4 py-2">
 						Cancelar
 					</Button>
 					<Button
@@ -218,7 +218,7 @@ function ConfirmDelete({ title, isPending, onCancel, onConfirm }: { title: strin
 						size="sm"
 						onClick={onConfirm}
 						disabled={isPending}
-						className="inline-flex items-center px-5 py-2 rounded-lg text-label shadow-md disabled:opacity-60 transition-colors"
+						className="inline-flex items-center px-5 py-2 rounded-lg shadow-md disabled:opacity-60 transition-colors"
 					>
 						{isPending && <Loader2 className="w-3 h-3 animate-spin" />} Excluir
 					</Button>

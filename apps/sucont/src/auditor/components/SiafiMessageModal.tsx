@@ -169,7 +169,7 @@ export const SiafiMessageModal: React.FC<SiafiMessageModalProps> = ({
 					</span>
 
 					<div className="flex items-center justify-end gap-3">
-						<Button type="button" variant="subtle" size="lg" onClick={onClose} className="font-semibold hover:bg-transparent">
+						<Button type="button" variant="subtle" size="lg" onClick={onClose} className="hover:bg-transparent">
 							Cancelar
 						</Button>
 						<Button
