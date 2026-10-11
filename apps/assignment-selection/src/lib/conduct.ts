@@ -12,6 +12,10 @@ import type { Edition, Person } from "@iefa/database/assignment-selection"
  *
  * O confirmado mantém `show_card` até a próxima chamada, que o apaga. É isso que deixa
  * desfazer a confirmação enquanto ninguém novo foi chamado.
+ *
+ * A exceção é o "pulado" (ausente na hora): não há coluna para isso no banco, e o pulo é
+ * uma decisão do operador sobre a fila, não um estado do militar no telão. Fica no
+ * navegador (`useSkipped`, por edição) e entra aqui como conjunto de ids.
  */
 
 type PersonFlags = Pick<Person, "id" | "classificacao" | "nome" | "localidade" | "show_card" | "show_om" | "hide_card">
@@ -31,12 +35,11 @@ export interface ConductState<P extends PersonFlags = PersonFlags> {
 	step: ConductStep
 	/** Militar em foco: o que está no telão, senão o próximo a chamar. */
 	current: P | null
+	/** O militar em foco foi pulado antes e voltou porque a fila acabou. */
+	isCurrentSkipped: boolean
 	/** Quem vem depois do militar em foco, na ordem de classificação. */
 	upcoming: P[]
-	/**
-	 * Não confirmados que ficaram para trás (ausente na hora, chamado fora de ordem).
-	 * Não somem da tela: o operador os chama quando o locutor pedir.
-	 */
+	/** Pulados e ainda não confirmados. Não somem: o operador os chama quando o locutor pedir. */
 	behind: P[]
 	undo: UndoAction<P> | null
 	total: number
@@ -54,28 +57,29 @@ export function findOnStage<P extends Pick<Person, "show_card" | "hide_card" | "
 	return byClassification(persons).find((p) => p.show_card && !p.hide_card) ?? null
 }
 
-export function deriveConduct<P extends PersonFlags>(persons: readonly P[]): ConductState<P> {
+const NO_SKIPS: ReadonlySet<number> = new Set()
+
+export function deriveConduct<P extends PersonFlags>(persons: readonly P[], skipped: ReadonlySet<number> = NO_SKIPS): ConductState<P> {
 	const ordered = byClassification(persons)
 	const pending = ordered.filter((p) => !p.hide_card)
 	const confirmed = ordered.length - pending.length
 	const missingOm = pending.filter((p) => !p.localidade).length
-	const onStage = ordered.find((p) => p.show_card && !p.hide_card) ?? null
+	const onStage = findOnStage(ordered)
 
-	// Fronteira: a maior classificação já confirmada. A fila segue dela para a frente,
-	// então quem ficou para trás (ausente) não volta a ser "o próximo" a cada passo.
-	const frontier = ordered.reduce((max, p) => (p.hide_card && p.classificacao > max ? p.classificacao : max), Number.NEGATIVE_INFINITY)
-	const anchor = onStage?.classificacao ?? frontier
-	const ahead = pending.filter((p) => p !== onStage && p.classificacao > anchor)
-	const behind = pending.filter((p) => p !== onStage && p.classificacao < anchor)
+	// A fila parte da menor classificação pendente (nem confirmada, nem no telão). Chamar
+	// alguém fora de ordem não tira ninguém da fila; só o "Pular" explícito tira.
+	const offStage = pending.filter((p) => p !== onStage)
+	const queue = offStage.filter((p) => !skipped.has(p.id))
+	const behind = offStage.filter((p) => skipped.has(p.id))
 
-	const base = { total: ordered.length, confirmed, missingOm, behind }
+	const base = { total: ordered.length, confirmed, missingOm, isCurrentSkipped: false }
 
 	if (onStage) {
 		const step: ConductStep = onStage.show_om ? "confirm" : "reveal"
 		const undo: UndoAction<P> = onStage.show_om
 			? { kind: "unreveal", person: onStage, changes: { show_om: false } }
 			: { kind: "uncall", person: onStage, changes: { show_card: false } }
-		return { ...base, step, current: onStage, upcoming: ahead, undo }
+		return { ...base, step, current: onStage, upcoming: queue, behind, undo }
 	}
 
 	// Ninguém em cena. Quem confirmou por último ainda tem `show_card` (a próxima chamada
@@ -83,17 +87,16 @@ export function deriveConduct<P extends PersonFlags>(persons: readonly P[]): Con
 	const justConfirmed = [...ordered].reverse().find((p) => p.show_card && p.hide_card) ?? null
 	const undo: UndoAction<P> | null = justConfirmed ? { kind: "unconfirm", person: justConfirmed, changes: { hide_card: false } } : null
 
-	// Sem ninguém à frente da fronteira, a fila volta para quem ficou para trás.
-	const queue = ahead.length > 0 ? ahead : behind
-	const [current = null, ...upcoming] = queue
-	return {
-		...base,
-		behind: ahead.length > 0 ? behind : [],
-		step: current ? "call" : "done",
-		current,
-		upcoming,
-		undo,
+	if (queue.length > 0) {
+		const [current, ...upcoming] = queue
+		return { ...base, step: "call", current, upcoming, behind, undo }
 	}
+	// Acabada a fila, os pulados voltam, na ordem: o evento só termina com todos chamados.
+	if (behind.length > 0) {
+		const [current, ...upcoming] = behind
+		return { ...base, isCurrentSkipped: true, step: "call", current, upcoming, behind: [], undo }
+	}
+	return { ...base, step: "done", current: null, upcoming: [], behind: [], undo }
 }
 
 /** Rótulo do botão de desfazer: diz o efeito no telão, não o nome da flag. */

@@ -66,17 +66,47 @@ describe("deriveConduct", () => {
 		expect(state.undo).toBeNull()
 	})
 
-	it("ausente pulado fica para trás e não volta a ser o próximo", () => {
-		// 3º ausente: o operador chamou o 4º fora de ordem e confirmou.
-		const state = deriveConduct([confirmedRow(1), confirmedRow(2), row(3), confirmedRow(4), row(5)])
-		expect(state.current?.classificacao).toBe(5)
-		expect(state.behind.map((p) => p.classificacao)).toEqual([3])
+	it("chamar fora de ordem e confirmar não pula ninguém: a fila parte da menor pendente", () => {
+		// O 8º foi chamado fora de ordem e confirmado; 4º a 7º seguem na fila, nessa ordem.
+		const state = deriveConduct([confirmedRow(1), confirmedRow(2), confirmedRow(3), row(4), row(5), row(6), row(7), confirmedRow(8), row(9)])
+		expect(state.current?.classificacao).toBe(4)
+		expect(state.upcoming.map((p) => p.classificacao)).toEqual([5, 6, 7, 9])
+		expect(state.behind).toEqual([])
 	})
 
-	it("acabada a fila, quem ficou para trás vira o próximo", () => {
-		const state = deriveConduct([confirmedRow(1), row(2), confirmedRow(3)])
+	it("com alguém no telão, a fila são os demais pendentes desde o menor", () => {
+		const state = deriveConduct([confirmedRow(1), row(2), row(3), row(8, { show_card: true })])
+		expect(state.current?.classificacao).toBe(8)
+		expect(state.upcoming.map((p) => p.classificacao)).toEqual([2, 3])
+	})
+
+	it("pulado sai da fila e vai para 'ficaram para trás'", () => {
+		const state = deriveConduct([confirmedRow(1), row(2), row(3), row(4)], new Set([2]))
+		expect(state.current?.classificacao).toBe(3)
+		expect(state.upcoming.map((p) => p.classificacao)).toEqual([4])
+		expect(state.behind.map((p) => p.classificacao)).toEqual([2])
+		expect(state.isCurrentSkipped).toBe(false)
+	})
+
+	it("pulado chamado depois aparece no telão, não em 'ficaram para trás'", () => {
+		const state = deriveConduct([row(2, { show_card: true }), row(3)], new Set([2]))
+		expect(state.current?.classificacao).toBe(2)
+		expect(state.step).toBe("reveal")
+		expect(state.behind).toEqual([])
+	})
+
+	it("pulado confirmado sai de tudo", () => {
+		const state = deriveConduct([confirmedRow(2), row(3)], new Set([2]))
+		expect(state.behind).toEqual([])
+		expect(state.current?.classificacao).toBe(3)
+	})
+
+	it("acabada a fila, os pulados voltam em ordem", () => {
+		const state = deriveConduct([confirmedRow(1), row(2), row(4), confirmedRow(3)], new Set([2, 4]))
 		expect(state.step).toBe("call")
 		expect(state.current?.classificacao).toBe(2)
+		expect(state.isCurrentSkipped).toBe(true)
+		expect(state.upcoming.map((p) => p.classificacao)).toEqual([4])
 		expect(state.behind).toEqual([])
 	})
 
