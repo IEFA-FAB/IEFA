@@ -93,10 +93,9 @@ export const updatePersonFn = createServerFn({ method: "POST" })
 		const supabase = getAssignmentServerClient()
 		const { choice, rest, hasChoice, hasRest } = splitPersonChanges(data.changes)
 
-		// OM e confirmação consomem vaga: vão pela função do banco, que trava a vaga e
-		// recusa OM fora da edição ou acima de `total_vagas` — inclusive com dois
-		// controladores confirmando ao mesmo tempo. Roda antes do update comum, para que
-		// uma recusa não deixe meia alteração gravada.
+		// OM e confirmação vão pela função do banco, que recusa OM fora do quadro da
+		// edição (sem teto de vagas: a escolha pode mudar na hora). Roda antes do update
+		// comum, para que uma recusa não deixe meia alteração gravada.
 		let row: Person | null = null
 		if (hasChoice) {
 			const { data: applied, error } = await applyPersonChoice(supabase, data.id, choice)
