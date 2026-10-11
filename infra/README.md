@@ -211,13 +211,13 @@ required reviewers on that environment.
 
 **Known overlap with `deploy.yml`:** a single push that changes both
 `infra/<service>/**` and that app's code starts two rollouts of the same ECS
-service — Terraform registers a new task definition revision while `_app-deploy.yml`
-issues its own `update-service --force-new-deployment`. ECS converges on the later
-one, but the deploy job polls a specific deployment id and can report the
-superseded one as a rollback, failing the run even though the service is healthy.
-Re-run the deploy job. Serializing them is not worth a shared concurrency group:
-`_app-deploy.yml` uses `cancel-in-progress: true`, which would kill an apply
-mid-flight and strand the state lock.
+service — Terraform registers a new task definition revision while the `deploy` job
+of `_release.yml` issues its own `update-service --force-new-deployment`. ECS
+converges on the later one, but the deploy job polls a specific deployment id and
+can report the superseded one as a rollback, failing the run even though the service
+is healthy. Re-run the deploy job. A shared concurrency group would serialize them,
+but the deploy would then wait for whole applies of unrelated stacks; the overlap is
+rare enough that the rerun is cheaper.
 
 ## Routing
 

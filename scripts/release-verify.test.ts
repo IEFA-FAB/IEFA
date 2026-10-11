@@ -86,7 +86,7 @@ describe("outcomesOf e releaseEntriesOf", () => {
 
 	test("a entrada da matriz leva os timeouts e a variável do smoke test do manifesto", () => {
 		const [pdf] = releaseEntriesOf([{ group: "pdf", ok: true, failed: [] }])
-		expect(pdf).toEqual({ key: "pdf", health_var: "PDF_HEALTH_URL", build_timeout: 40, attempt_timeout: 25 })
+		expect(pdf).toEqual({ key: "pdf", health_var: "PDF_HEALTH_URL", build_timeout: 40, attempt_timeout: 25, build_secrets: [] })
 	})
 
 	test("todo app do ECS tem a variável do smoke test", () => {

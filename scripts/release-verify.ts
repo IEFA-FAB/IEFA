@@ -14,7 +14,7 @@
  */
 import { appendFileSync, existsSync, readdirSync, readFileSync, statSync } from "node:fs"
 import { join } from "node:path"
-import { type App, buildSourceOf, manifest } from "./generate-deploy-artifacts"
+import { type App, bakeSecretsOf, buildSourceOf, manifest } from "./generate-deploy-artifacts"
 
 const ROOT = join(import.meta.dir, "..")
 const DEFAULT_TASKS = ["lint", "typecheck", "test"]
@@ -83,7 +83,7 @@ export function outcomesOf(groups: Map<string, string[]>, exitCodes: Map<string,
 	})
 }
 
-export type ReleaseEntry = { key: string; health_var: string; build_timeout: number; attempt_timeout: number }
+export type ReleaseEntry = { key: string; health_var: string; build_timeout: number; attempt_timeout: number; build_secrets: string[] }
 
 export function releaseEntriesOf(outcomes: readonly Outcome[], apps: readonly App[] = manifest.apps): ReleaseEntry[] {
 	const passed = new Set(outcomes.filter((o) => o.ok).map((o) => o.group))
@@ -94,6 +94,7 @@ export function releaseEntriesOf(outcomes: readonly Outcome[], apps: readonly Ap
 			health_var: app.healthUrlVar ?? "",
 			build_timeout: app.buildTimeoutMinutes ?? 15,
 			attempt_timeout: app.bakeAttemptTimeoutMinutes ?? 8,
+			build_secrets: bakeSecretsOf(app),
 		}))
 }
 

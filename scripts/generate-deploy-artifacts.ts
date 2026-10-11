@@ -61,6 +61,10 @@ type App = {
 	release?: "ecs" | "static-site"
 	buildTimeoutMinutes?: number
 	bakeAttemptTimeoutMinutes?: number
+	/** Build arg → GitHub Variable de onde ele sai, quando o nome difere (o rumaer usa as vars do sisub). */
+	buildArgFrom?: Record<string, string>
+	/** Build args que podem sair vazios (o Faro desligado vira no-op); os outros falham o build. */
+	optionalBuildArgs?: string[]
 }
 
 export type { App }
@@ -101,7 +105,7 @@ export function buildSourceOf(app: App): App {
  * estágio que ele reusa (o `--mount=type=secret` está no RUN desse estágio). Sem o
  * segundo, o alias buildaria sem o segredo em silêncio.
  */
-function bakeSecretsOf(app: App): string[] {
+export function bakeSecretsOf(app: App): string[] {
 	const stage = app.aliasOf ? manifest.apps.find((a) => a.key === app.aliasOf) : undefined
 	return [...new Set([...(stage?.buildSecrets ?? []), ...(app.buildSecrets ?? [])])]
 }
@@ -422,8 +426,10 @@ const PIPELINE_TRIGGERS = [
 	".github/paths-filter.yml",
 	".github/workflows/deploy.yml",
 	".github/workflows/_release.yml",
+	"scripts/generate-deploy-artifacts.ts",
 	"scripts/release-plan.ts",
 	"scripts/release-verify.ts",
+	"scripts/release-build-env.ts",
 ]
 
 /** Arquivos que reconstroem qualquer imagem do monorepo, então disparam todos os apps dele.
@@ -459,17 +465,20 @@ function renderPathsFilter() {
 
 // ---------------------------------------------------------------------------
 
-export const artifacts: Array<[string, string]> = [
-	["Dockerfile", renderDockerfile()],
-	["docker-bake.hcl", renderBake()],
-	[".github/paths-filter.yml", renderPathsFilter()],
-]
+/** Sob demanda: o plan e o verify do deploy importam este módulo só pelo manifesto. */
+export function renderArtifacts(): Array<[string, string]> {
+	return [
+		["Dockerfile", renderDockerfile()],
+		["docker-bake.hcl", renderBake()],
+		[".github/paths-filter.yml", renderPathsFilter()],
+	]
+}
 
 if (import.meta.main) {
 	const check = process.argv.includes("--check")
 	let drift = false
 
-	for (const [file, content] of artifacts) {
+	for (const [file, content] of renderArtifacts()) {
 		const path = join(ROOT, file)
 		const current = (() => {
 			try {

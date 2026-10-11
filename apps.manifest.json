@@ -8,7 +8,9 @@
     "scripts/release-verify.ts): `healthUrlVar` é a GitHub Variable com a URL do smoke test,",
     "`check` troca as tarefas de turbo que liberam o app (padrão: lint, typecheck e test do",
     "workspace), `release: static-site` tira o app da matriz do ECS e",
-    "`buildTimeoutMinutes`/`bakeAttemptTimeoutMinutes` sobem os timeouts do build.",
+    "`buildTimeoutMinutes`/`bakeAttemptTimeoutMinutes` sobem os timeouts do build. Cada",
+    "build arg vem da GitHub Variable de mesmo nome, ou da indicada em `buildArgFrom`; vazia",
+    "falha o build, a não ser que esteja em `optionalBuildArgs` (scripts/release-build-env.ts).",
     "",
     "As dependências de workspace NÃO ficam aqui: o gerador as resolve do package.json",
     "de cada app, transitivamente. Era essa lista, mantida à mão em três arquivos, que",
@@ -53,7 +55,11 @@
       "kind": "nitro",
       "port": 3000,
       "buildArgs": ["VITE_RUMAER_SUPABASE_URL", "VITE_RUMAER_SUPABASE_PUBLISHABLE_KEY"],
-      "healthUrlVar": "RUMAER_HEALTH_URL"
+      "healthUrlVar": "RUMAER_HEALTH_URL",
+      "buildArgFrom": {
+        "VITE_RUMAER_SUPABASE_URL": "VITE_SISUB_SUPABASE_URL",
+        "VITE_RUMAER_SUPABASE_PUBLISHABLE_KEY": "VITE_SISUB_SUPABASE_PUBLISHABLE_KEY"
+      }
     },
     {
       "key": "sucont",
@@ -63,7 +69,11 @@
       "kind": "nitro",
       "port": 3000,
       "buildArgs": ["VITE_SUCONT_SUPABASE_URL", "VITE_SUCONT_SUPABASE_PUBLISHABLE_KEY"],
-      "healthUrlVar": "SUCONT_HEALTH_URL"
+      "healthUrlVar": "SUCONT_HEALTH_URL",
+      "buildArgFrom": {
+        "VITE_SUCONT_SUPABASE_URL": "VITE_SISUB_SUPABASE_URL",
+        "VITE_SUCONT_SUPABASE_PUBLISHABLE_KEY": "VITE_SISUB_SUPABASE_PUBLISHABLE_KEY"
+      }
     },
     {
       "key": "assignment-selection",
@@ -73,7 +83,11 @@
       "kind": "nitro",
       "port": 3000,
       "buildArgs": ["VITE_ASSIGNMENT_SELECTION_SUPABASE_URL", "VITE_ASSIGNMENT_SELECTION_SUPABASE_PUBLISHABLE_KEY"],
-      "healthUrlVar": "ASSIGNMENT_SELECTION_HEALTH_URL"
+      "healthUrlVar": "ASSIGNMENT_SELECTION_HEALTH_URL",
+      "buildArgFrom": {
+        "VITE_ASSIGNMENT_SELECTION_SUPABASE_URL": "VITE_SISUB_SUPABASE_URL",
+        "VITE_ASSIGNMENT_SELECTION_SUPABASE_PUBLISHABLE_KEY": "VITE_SISUB_SUPABASE_PUBLISHABLE_KEY"
+      }
     },
     {
       "key": "sisub",
@@ -91,7 +105,8 @@
         "FARO_SOURCEMAP_API_KEY": "Faro sourcemap upload — secret do BuildKit, montado como env SÓ neste RUN e lido pelo\nvite.config.ts (loadEnv). Ausente → build não gera/envia maps. Não fica em ARG,\ncamada, cache nem na imagem runtime."
       },
       "healthUrlVar": "SISUB_HEALTH_URL",
-      "check": ["@iefa/sisub#lint", "@iefa/sisub#typecheck", "@iefa/sisub#test:unit", "@iefa/pbac#test", "@iefa/sisub-domain#test"]
+      "check": ["@iefa/sisub#lint", "@iefa/sisub#typecheck", "@iefa/sisub#test:unit", "@iefa/pbac#test", "@iefa/sisub-domain#test"],
+      "optionalBuildArgs": ["VITE_FARO_COLLECTOR_URL", "VITE_FARO_APP_NAME", "VITE_FARO_ENVIRONMENT"]
     },
     {
       "key": "forms",

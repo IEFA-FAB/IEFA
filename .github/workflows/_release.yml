@@ -79,6 +79,17 @@ jobs:
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
 
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: "1.4.3"
+      # Build args do bundle do cliente (`buildArgs` do manifesto) a partir das GitHub Variables,
+      # no `$GITHUB_ENV`: o docker-bake.hcl declara cada um como `variable`, e o bake lê a
+      # variável de ambiente homônima. Variável obrigatória vazia falha aqui, antes do bake.
+      - name: Resolve build args
+        env:
+          SERVICE: ${{ inputs.service }}
+          VARS_JSON: ${{ toJSON(vars) }}
+        run: bun scripts/release-build-env.ts
       - name: Generate tag
         id: meta
         run: echo "tag=sha-${GITHUB_SHA::7}-${GITHUB_RUN_ID}" >> "$GITHUB_OUTPUT"
@@ -117,22 +128,6 @@ jobs:
           # de cache (gha, mode=max) e na proveniência. Target que não declara o secret
           # não o recebe.
           FARO_SOURCEMAP_API_KEY: ${{ secrets.FARO_SOURCEMAP_API_KEY }}
-          # Build args do bundle do cliente: o docker-bake.hcl declara cada um como `variable`,
-          # e o bake lê a variável de ambiente homônima. Cada target só usa os seus (`args`);
-          # são os mesmos valores públicos que o pr-check passa ao `vite build`.
-          VITE_IEFA_SUPABASE_URL: ${{ vars.VITE_IEFA_SUPABASE_URL }}
-          VITE_IEFA_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY }}
-          VITE_SISUB_SUPABASE_URL: ${{ vars.VITE_SISUB_SUPABASE_URL }}
-          VITE_SISUB_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
-          VITE_RUMAER_SUPABASE_URL: ${{ vars.VITE_SISUB_SUPABASE_URL }}
-          VITE_RUMAER_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
-          VITE_SUCONT_SUPABASE_URL: ${{ vars.VITE_SISUB_SUPABASE_URL }}
-          VITE_SUCONT_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
-          VITE_ASSIGNMENT_SELECTION_SUPABASE_URL: ${{ vars.VITE_SISUB_SUPABASE_URL }}
-          VITE_ASSIGNMENT_SELECTION_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
-          VITE_FARO_COLLECTOR_URL: ${{ vars.VITE_FARO_COLLECTOR_URL }}
-          VITE_FARO_APP_NAME: ${{ vars.VITE_FARO_APP_NAME }}
-          VITE_FARO_ENVIRONMENT: ${{ vars.VITE_FARO_ENVIRONMENT }}
         with: &bake-with
           files: ./docker-bake.hcl
           targets: ${{ inputs.service }}

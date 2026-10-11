@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { artifacts, buildSourceOf, filterKeyOf, manifest } from "./generate-deploy-artifacts"
+import { buildSourceOf, filterKeyOf, manifest, renderArtifacts } from "./generate-deploy-artifacts"
 
-const pathsFilter = artifacts.find(([file]) => file === ".github/paths-filter.yml")?.[1] ?? ""
+const pathsFilter = renderArtifacts().find(([file]) => file === ".github/paths-filter.yml")?.[1] ?? ""
 
 describe("paths-filter", () => {
 	test("todo app do manifesto tem um filtro, com o nome que o release-plan.ts lê", () => {
@@ -12,7 +12,7 @@ describe("paths-filter", () => {
 	})
 
 	test("mudar o pipeline do deploy dispara todo app, inclusive os de imagem de terceiro", () => {
-		for (const trigger of [".github/workflows/_release.yml", "scripts/release-plan.ts", "scripts/release-verify.ts"]) {
+		for (const trigger of [".github/workflows/_release.yml", "scripts/release-plan.ts", "scripts/release-verify.ts", "scripts/release-build-env.ts"]) {
 			const matches = pathsFilter.split("\n").filter((line) => line === `  - '${trigger}'`).length
 			expect(matches, trigger).toBe(manifest.apps.length)
 		}

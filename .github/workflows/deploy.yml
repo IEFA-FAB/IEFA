@@ -68,8 +68,13 @@ jobs:
   # resultado é por app (tabela no resumo do job): app vermelho não segura o deploy dos outros, e
   # o job fica vermelho para alguém ver.
   #
+  # Job único, então um travamento que esgote os 25 min segura o release de todos os apps, não só
+  # o do app travado; os testes têm timeout próprio (15 s/60 s no vitest), que transforma a
+  # maioria dos travamentos em falha daquele app.
+  #
   # Sem segredo: teste unitário não lê credencial. A integração roda no integration.yml, fora do
-  # caminho do deploy. As `VITE_*` são os valores públicos que vão no bundle.
+  # caminho do deploy. Só as `VITE_SISUB_*` chegam aos testes: é o que o `env` do `test` no
+  # turbo.json repassa.
   verify:
     needs: [plan]
     runs-on: blacksmith-4vcpu-ubuntu-2404
@@ -96,19 +101,13 @@ jobs:
         run: bun scripts/release-verify.ts
         env:
           APPS: ${{ needs.plan.outputs.apps }}
-          VITE_IEFA_SUPABASE_URL: ${{ vars.VITE_IEFA_SUPABASE_URL }}
-          VITE_IEFA_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY }}
           VITE_SISUB_SUPABASE_URL: ${{ vars.VITE_SISUB_SUPABASE_URL }}
           VITE_SISUB_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
-          VITE_RUMAER_SUPABASE_URL: ${{ vars.VITE_SISUB_SUPABASE_URL }}
-          VITE_RUMAER_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
-          VITE_ASSIGNMENT_SELECTION_SUPABASE_URL: ${{ vars.VITE_SISUB_SUPABASE_URL }}
-          VITE_ASSIGNMENT_SELECTION_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
 
   # ============================================================
   # WARM DEPS CACHE
   # Builda o estágio `deps` uma vez e popula o scope `deps` do cache gha.
-  # Os builds do `release` dependem deste job e leem esse cache → o `bun install`
+  # Os builds do `release` esperam este job e leem esse cache → o `bun install`
   # do monorepo não é refeito por app em cache frio.
   # ============================================================
   warm-deps:
@@ -122,8 +121,8 @@ jobs:
           persist-credentials: false
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       # Mesma segunda tentativa do build do _release.yml: o buildkit às vezes perde o processo
-      # de um passo trivial (`exit code: 4294967295`), e um warm-deps vermelho derruba o build
-      # de todos os apps do run.
+      # de um passo trivial (`exit code: 4294967295`), e um warm-deps vermelho deixa cada
+      # build refazendo o estágio `deps` sozinho.
       - name: Warm deps cache
         id: bake
         continue-on-error: true
@@ -143,16 +142,15 @@ jobs:
   # RELEASE ── build ► deploy, um por app que passou no verify
   # ============================================================
   # `!cancelled()`: o `verify` vermelho por causa de UM app ainda libera os outros (a matriz só
-  # tem os que passaram). `warm-deps` pulado (só o pdf mudou) não bloqueia; falhado, sim, porque
-  # todo build do monorepo depende do cache dele.
+  # tem os que passaram). O `warm-deps` só ordena: pulado (só o pdf mudou) ou vermelho não
+  # bloqueia, porque sem o cache cada build refaz o estágio `deps` sozinho, só mais devagar.
   release:
     name: release ${{ matrix.key }}
     needs: [plan, verify, warm-deps]
     if: >-
       ${{ !cancelled()
         && (needs.verify.result == 'success' || needs.verify.result == 'failure')
-        && needs.verify.outputs.release != '' && needs.verify.outputs.release != '[]'
-        && needs.warm-deps.result != 'failure' && needs.warm-deps.result != 'cancelled' }}
+        && needs.verify.outputs.release != '' && needs.verify.outputs.release != '[]' }}
     permissions:
       contents: read
       id-token: write
@@ -167,8 +165,10 @@ jobs:
       timeout_minutes: ${{ matrix.build_timeout }}
       bake_attempt_timeout_minutes: ${{ matrix.attempt_timeout }}
     secrets:
-      # Só o sisub declara o secret no docker-bake.hcl; os outros builds nem o recebem.
-      FARO_SOURCEMAP_API_KEY: ${{ matrix.key == 'sisub' && secrets.FARO_SOURCEMAP_API_KEY || '' }}
+      # Cada build só recebe os segredos que o app declara em `buildSecrets` no manifesto
+      # (`matrix.build_secrets`). Segredo novo entra aqui e no `secrets:` do _release.yml; o
+      # release-verify.test.ts confere.
+      FARO_SOURCEMAP_API_KEY: ${{ contains(matrix.build_secrets, 'FARO_SOURCEMAP_API_KEY') && secrets.FARO_SOURCEMAP_API_KEY || '' }}
 
   # ============================================================
   # DOCS ── site estático (S3 + CloudFront), fora da matriz do ECS
