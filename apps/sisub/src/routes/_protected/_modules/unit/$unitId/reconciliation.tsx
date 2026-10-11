@@ -149,7 +149,7 @@ function ReconciliationPage() {
 
 			<Card>
 				<CardHeader className="pb-2">
-					<CardTitle className="text-subheading">Documentos (NE, NS, OB)</CardTitle>
+					<CardTitle>Documentos (NE, NS, OB)</CardTitle>
 				</CardHeader>
 				<CardContent className="px-0 pb-0">
 					{documents.length === 0 ? (
@@ -181,7 +181,7 @@ function ReconciliationPage() {
 
 			<Card>
 				<CardHeader className="pb-2">
-					<CardTitle className="text-subheading">Físico × contábil</CardTitle>
+					<CardTitle>Físico × contábil</CardTitle>
 				</CardHeader>
 				<CardContent className="px-0 pb-0">
 					{physical.length === 0 ? (

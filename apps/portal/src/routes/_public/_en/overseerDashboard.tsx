@@ -571,7 +571,7 @@ function OverseerDashboard() {
 						return (
 							<Card
 								key={t.url}
-								className={`group h-full border border-border bg-card text-card-foreground transition-all hover:border-primary/40 hover:shadow-lg focus-within:ring-2 focus-within:ring-primary/40`}
+								className={`group h-full border border-border transition-all hover:border-primary/40 hover:shadow-lg focus-within:ring-2 focus-within:ring-primary/40`}
 							>
 								<CardHeader className={`pb-2 bg-gradient-to-r ${colorHeader} rounded-t-xl`}>
 									<div className="flex items-center justify-between gap-2">

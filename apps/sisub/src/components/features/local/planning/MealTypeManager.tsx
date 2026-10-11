@@ -119,9 +119,7 @@ export function MealTypeManager({ open, onClose, kitchenId }: MealTypeManagerPro
 							<div className="flex items-center gap-2 mb-3">
 								<Lock className="size-4 text-muted-foreground" />
 								<h3 className="text-subheading">Tipos Genéricos</h3>
-								<Badge variant="outline" className="text-xs">
-									Global
-								</Badge>
+								<Badge variant="outline">Global</Badge>
 							</div>
 
 							{genericTypes.length > 0 ? (
@@ -140,7 +138,7 @@ export function MealTypeManager({ open, onClose, kitchenId }: MealTypeManagerPro
 												<TableCell className="text-subheading">{mealType.name}</TableCell>
 												<TableCell className="text-sm text-muted-foreground">{groupSetName(mealType)}</TableCell>
 												<TableCell>
-													<Badge variant="secondary" className="font-mono text-xs">
+													<Badge variant="secondary" className="font-mono">
 														{mealType.sort_order}
 													</Badge>
 												</TableCell>
@@ -149,9 +147,7 @@ export function MealTypeManager({ open, onClose, kitchenId }: MealTypeManagerPro
 														// Tipo de sistema é mantido pela migration que o criou (#409): a
 														// operação recusa a escrita, e um botão que sempre erra é pior do
 														// que botão nenhum.
-														<Badge variant="outline" className="text-xs">
-															Sistema
-														</Badge>
+														<Badge variant="outline">Sistema</Badge>
 													) : canEditGeneric ? (
 														<Tooltip>
 															<TooltipTrigger
@@ -164,9 +160,7 @@ export function MealTypeManager({ open, onClose, kitchenId }: MealTypeManagerPro
 															<TooltipContent>Editar nome, ordem e conjunto de grupos</TooltipContent>
 														</Tooltip>
 													) : (
-														<Badge variant="outline" className="text-xs">
-															Somente Leitura
-														</Badge>
+														<Badge variant="outline">Somente Leitura</Badge>
 													)}
 												</TableCell>
 											</TableRow>
@@ -183,9 +177,7 @@ export function MealTypeManager({ open, onClose, kitchenId }: MealTypeManagerPro
 							<div className="flex items-center justify-between mb-3">
 								<div className="flex items-center gap-2">
 									<h3 className="text-subheading">Tipos Customizados</h3>
-									<Badge variant="default" className="text-xs">
-										Esta Cozinha
-									</Badge>
+									<Badge variant="default">Esta Cozinha</Badge>
 								</div>
 								<Button size="sm" onClick={handleCreate}>
 									<Plus className="size-4 mr-2" />
@@ -211,7 +203,7 @@ export function MealTypeManager({ open, onClose, kitchenId }: MealTypeManagerPro
 												<TableCell className="text-subheading">{mealType.name}</TableCell>
 												<TableCell className="text-sm text-muted-foreground">{groupSetName(mealType)}</TableCell>
 												<TableCell>
-													<Badge variant="secondary" className="font-mono text-xs">
+													<Badge variant="secondary" className="font-mono">
 														{mealType.sort_order}
 													</Badge>
 												</TableCell>

@@ -196,7 +196,7 @@ export default function PresenceTable({ arranchamentos, presences, users, milita
 								return (
 									<>
 										{/* Main Row */}
-										<TableRow key={rowKey} className="cursor-pointer hover:bg-muted/50" onClick={() => toggleOpen(rowKey)}>
+										<TableRow key={rowKey} className="cursor-pointer" onClick={() => toggleOpen(rowKey)}>
 											<TableCell>
 												{isOpen ? (
 													<ChevronDown className="size-4 text-muted-foreground" aria-hidden="true" />

@@ -415,7 +415,7 @@ function DailyIssuePage() {
 			{open && (
 				<Card>
 					<CardHeader className="pb-2">
-						<CardTitle className="flex items-center gap-2 text-subheading">
+						<CardTitle className="flex items-center gap-2">
 							<PackageMinus className="size-4" />
 							Retirar
 						</CardTitle>
@@ -480,7 +480,7 @@ function DailyIssuePage() {
 
 			<Card>
 				<CardHeader className="pb-2">
-					<CardTitle className="flex items-center gap-2 text-subheading">
+					<CardTitle className="flex items-center gap-2">
 						<CalendarDays className="size-4" />
 						Itens do dia
 						{open && origin === "production" && (

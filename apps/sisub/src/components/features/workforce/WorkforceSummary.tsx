@@ -53,7 +53,7 @@ export function WorkforceSummary({ summary, scopeLabel }: WorkforceSummaryProps)
 			{tiles.map((tile) => (
 				<Card key={tile.label}>
 					<CardHeader className="pb-2">
-						<CardTitle className="flex items-center gap-2 text-subheading">
+						<CardTitle className="flex items-center gap-2">
 							<tile.icon className="size-4 text-muted-foreground" aria-hidden="true" />
 							{tile.label}
 						</CardTitle>

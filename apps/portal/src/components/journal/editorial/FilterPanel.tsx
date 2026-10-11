@@ -83,7 +83,7 @@ export function FilterPanel({ onFilterChange, currentFilters }: FilterPanelProps
 			<div className="flex items-center justify-between">
 				<h3 className="font-semibold text-lg">Filtros</h3>
 				{hasActiveFilters && (
-					<Button variant="ghost" size="sm" onClick={clearAllFilters} className="text-muted-foreground hover:text-foreground">
+					<Button variant="ghost" size="sm" onClick={clearAllFilters} className="text-muted-foreground">
 						<Xmark className="size-4 mr-1" />
 						Limpar
 					</Button>

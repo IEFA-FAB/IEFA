@@ -257,7 +257,7 @@ function RecipeSelectorContent({
 										>
 											<span className="truncate">{node.label}</span>
 											{node.data.kitchen_id === null && (
-												<Badge variant="outline" className="shrink-0 text-xs">
+												<Badge variant="outline" className="shrink-0">
 													Global
 												</Badge>
 											)}

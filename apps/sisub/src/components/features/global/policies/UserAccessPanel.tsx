@@ -82,7 +82,7 @@ export function UserAccessPanel({ userId, maps }: { userId: string; maps: ScopeM
 									<p className="text-subheading flex items-center gap-2">
 										{policy.name}
 										{policy.managed && (
-											<Badge variant="secondary" className="gap-1">
+											<Badge variant="secondary">
 												<Lock className="size-3" />
 												Gerenciada
 											</Badge>
@@ -158,7 +158,7 @@ export function UserAccessPanel({ userId, maps }: { userId: string; maps: ScopeM
 									</TableCell>
 									<TableCell>
 										{perm.denied ? (
-											<Badge variant="destructive" className="gap-1">
+											<Badge variant="destructive">
 												<ShieldOff className="size-3" />
 												Anulada
 											</Badge>
@@ -172,7 +172,7 @@ export function UserAccessPanel({ userId, maps }: { userId: string; maps: ScopeM
 											{/* Vários grants diretos colapsam numa permissão efetiva: a chave precisa do
 											    índice, senão todos recebem "inline" e o React reconcilia errado. */}
 											{perm.origins.map((origin, index) => (
-												<Badge key={origin.kind === "policy" ? origin.policyId : `${origin.kind}-${index}`} variant="outline" className="text-xs">
+												<Badge key={origin.kind === "policy" ? origin.policyId : `${origin.kind}-${index}`} variant="outline">
 													{origin.kind === "policy" ? origin.policyName : origin.kind === "implicit" ? "Implícito" : "Direto"}
 												</Badge>
 											))}

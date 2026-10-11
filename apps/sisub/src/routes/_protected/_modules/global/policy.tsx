@@ -485,7 +485,7 @@ function PromptDialog({ open, onOpenChange, target, prompt, isFetching }: Prompt
 				<div className="flex-1 overflow-y-auto min-h-0">
 					<Card className="border-dashed">
 						<CardHeader className="pb-2">
-							<CardTitle className="text-subheading text-muted-foreground">Prompt gerado</CardTitle>
+							<CardTitle className="text-muted-foreground">Prompt gerado</CardTitle>
 							<CardDescription className="text-xs">
 								Copie o texto abaixo e cole em uma sessão do Claude com acesso ao MCP do Supabase para revisar os itens.
 							</CardDescription>

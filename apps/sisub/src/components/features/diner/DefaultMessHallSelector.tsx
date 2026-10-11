@@ -65,7 +65,7 @@ export function DefaultMessHallSelector({ defaultMessHallCode, setDefaultMessHal
 	}
 
 	return (
-		<Card className="group relative w-full h-fit bg-card text-card-foreground border border-border transition-all duration-300 hover:border-accent max-w-xl">
+		<Card className="group relative w-full h-fit border border-border transition-all duration-300 hover:border-accent max-w-xl">
 			<CardHeader className="pb-4">
 				<div className="flex items-start justify-between gap-3">
 					<CardTitle className="text-foreground">
@@ -120,7 +120,7 @@ export function DefaultMessHallSelector({ defaultMessHallCode, setDefaultMessHal
 						size="sm"
 						onClick={handleApply}
 						disabled={isApplying || saving || !defaultMessHallCode}
-						className="bg-primary text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed"
+						className="hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed"
 					>
 						{isApplying || saving ? (
 							<>
@@ -139,7 +139,7 @@ export function DefaultMessHallSelector({ defaultMessHallCode, setDefaultMessHal
 						size="sm"
 						onClick={handleCancel}
 						disabled={isApplying || saving}
-						className="hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+						className="focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
 					>
 						Cancelar
 					</Button>

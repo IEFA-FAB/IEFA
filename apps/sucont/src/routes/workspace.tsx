@@ -240,12 +240,7 @@ function Workspace() {
 
 					{canEdit && (
 						<div className="flex justify-end mb-4">
-							<Button
-								type="button"
-								variant="outline"
-								onClick={() => setIsAddingTask(true)}
-								className="gap-2 bg-card text-tech-cyan font-mono hover:bg-muted/50"
-							>
+							<Button type="button" variant="outline" onClick={() => setIsAddingTask(true)} className="bg-card text-tech-cyan font-mono hover:bg-muted/50">
 								<Plus className="w-4 h-4" /> ADICIONAR TAREFA
 							</Button>
 						</div>
@@ -343,7 +338,7 @@ function Workspace() {
 														type="button"
 														variant="ghost"
 														onClick={() => deleteTaskMutation.mutate(item.id as string)}
-														className="mt-4 h-auto p-0 text-muted-foreground hover:text-destructive hover:bg-transparent opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-all gap-1 text-hint font-mono"
+														className="mt-4 h-auto p-0 text-muted-foreground hover:text-destructive hover:bg-transparent opacity-0 group-hover:opacity-100 focus-visible:opacity-100 gap-1 text-hint font-mono"
 													>
 														<Trash2 className="w-3 h-3" /> EXCLUIR
 													</Button>
@@ -420,7 +415,7 @@ function Workspace() {
 											size="icon-xs"
 											onClick={() => deleteNoticeMutation.mutate(notice.id)}
 											aria-label={`Excluir aviso: ${notice.content}`}
-											className="absolute top-2 right-2 text-muted-foreground hover:text-destructive hover:bg-transparent opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-all"
+											className="absolute top-2 right-2 text-muted-foreground hover:text-destructive hover:bg-transparent opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
 										>
 											<X className="w-3 h-3" />
 										</Button>
@@ -599,7 +594,7 @@ function AddTaskForm({
 					<Button type="button" variant="ghost" onClick={onCancel} className="text-muted-foreground hover:text-foreground">
 						CANCELAR
 					</Button>
-					<Button type="submit" disabled={pending} className="bg-tech-cyan text-white hover:bg-tech-cyan/90 shadow-md gap-2">
+					<Button type="submit" disabled={pending} className="bg-tech-cyan text-white hover:bg-tech-cyan/90 shadow-md">
 						{pending && <Loader2 className="w-3 h-3 animate-spin" />} SALVAR TAREFA
 					</Button>
 				</div>

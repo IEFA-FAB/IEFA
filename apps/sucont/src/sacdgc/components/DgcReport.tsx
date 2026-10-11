@@ -28,7 +28,7 @@ export function DgcReport({ data, onBack }: DgcReportProps) {
 						type="button"
 						onClick={onBack}
 						variant="ghost"
-						className="h-auto gap-2 p-0 text-label text-muted-foreground hover:bg-transparent hover:text-tech-blue"
+						className="h-auto p-0 text-label text-muted-foreground hover:bg-transparent hover:text-tech-blue"
 					>
 						<ArrowLeft className="w-4 h-4" />
 						Voltar às unidades
@@ -37,7 +37,7 @@ export function DgcReport({ data, onBack }: DgcReportProps) {
 						type="button"
 						onClick={() => window.print()}
 						variant="ghost"
-						className="h-auto gap-2 p-0 text-label text-muted-foreground hover:bg-transparent hover:text-tech-blue"
+						className="h-auto p-0 text-label text-muted-foreground hover:bg-transparent hover:text-tech-blue"
 					>
 						<Printer className="w-4 h-4" />
 						Imprimir

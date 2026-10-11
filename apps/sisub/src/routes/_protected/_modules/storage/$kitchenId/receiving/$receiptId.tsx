@@ -291,7 +291,7 @@ function LotEditor({
 				<td className="py-1.5 px-2 w-40 text-xs">
 					{verdict === "dentro" && <Badge variant="secondary">na faixa</Badge>}
 					{outOfRange && (
-						<Badge variant="destructive" className="gap-1">
+						<Badge variant="destructive">
 							<Thermometer className="size-3" />
 							fora da faixa
 						</Badge>
@@ -505,7 +505,7 @@ function ItemCard({ item, editable, onSaved }: { item: ReceiptItemRow; editable:
 						)}
 					</p>
 					{editable && !addingLot && (
-						<Button size="sm" variant="outline" className="h-7 gap-1 text-xs print:hidden" onClick={() => setAddingLot(true)}>
+						<Button size="sm" variant="outline" className="h-7 text-xs print:hidden" onClick={() => setAddingLot(true)}>
 							<Plus className="size-3" />
 							Adicionar lote
 						</Button>
@@ -716,7 +716,7 @@ function ReceiptDetailPage() {
 				<div className="flex flex-wrap items-center gap-2">
 					<span className="text-caption text-muted-foreground">Conservação exigida nesta entrega:</span>
 					{Object.entries(conservationTally).map(([cls, count]) => (
-						<Badge key={cls} variant="secondary" className="text-xs">
+						<Badge key={cls} variant="secondary">
 							{CONSERVATION_LABELS[cls as ConservationClass]} · {count} item(ns)
 						</Badge>
 					))}

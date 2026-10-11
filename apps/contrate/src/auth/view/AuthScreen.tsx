@@ -352,7 +352,7 @@ export function AuthScreen({
 	if (currentView === "reset") {
 		return (
 			<div className="w-full">
-				<Button type="button" variant="ghost" size="sm" onClick={goToAuth} className="mb-6 gap-1.5 text-muted-foreground hover:text-foreground px-2">
+				<Button type="button" variant="ghost" size="sm" onClick={goToAuth} className="mb-6 gap-1.5 text-muted-foreground px-2">
 					<ArrowLeft className="h-3.5 w-3.5" />
 					Voltar ao login
 				</Button>
@@ -386,7 +386,7 @@ export function AuthScreen({
 							</div>
 						</div>
 						<div className="px-8 pb-8 pt-2 border-t border-border">
-							<Button type="submit" className="w-full h-11 text-sm" disabled={isSubmitting}>
+							<Button type="submit" className="w-full h-11" disabled={isSubmitting}>
 								{isSubmitting && <Refresh className="mr-2 h-4 w-4 animate-spin" />}
 								Atualizar Senha
 							</Button>
@@ -402,7 +402,7 @@ export function AuthScreen({
 		return (
 			<div className="w-full">
 				{/* goToAuth remove ?view=forgot — back button do browser também funciona */}
-				<Button type="button" variant="ghost" size="sm" onClick={goToAuth} className="mb-6 gap-1.5 text-muted-foreground hover:text-foreground px-2">
+				<Button type="button" variant="ghost" size="sm" onClick={goToAuth} className="mb-6 gap-1.5 text-muted-foreground px-2">
 					<ArrowLeft className="h-3.5 w-3.5" />
 					Voltar ao login
 				</Button>
@@ -439,7 +439,7 @@ export function AuthScreen({
 						</div>
 
 						<div className="px-8 pb-8 pt-2 border-t border-border">
-							<Button type="submit" className="w-full h-11 text-sm" disabled={isSubmitting}>
+							<Button type="submit" className="w-full h-11" disabled={isSubmitting}>
 								{isSubmitting && <Refresh className="mr-2 h-4 w-4 animate-spin" />}
 								Enviar Link
 							</Button>
@@ -533,7 +533,7 @@ export function AuthScreen({
 											variant="ghost"
 											size="icon-xs"
 											onClick={() => setShowPassword(!showPassword)}
-											className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+											className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground"
 											aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
 										>
 											{showPassword ? <EyeClosed className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -559,7 +559,7 @@ export function AuthScreen({
 							</div>
 
 							<div className="px-8 pb-8 border-t border-border pt-5">
-								<Button type="submit" className="w-full h-11 text-sm" disabled={isSubmitting || isLocked || !!emailError || !!passwordError}>
+								<Button type="submit" className="w-full h-11" disabled={isSubmitting || isLocked || !!emailError || !!passwordError}>
 									{isLocked ? (
 										`Bloqueado (${retryAfter}s)`
 									) : (
@@ -659,7 +659,7 @@ export function AuthScreen({
 							</div>
 
 							<div className="px-8 pb-8 border-t border-border pt-5">
-								<Button type="submit" className="w-full h-11 text-sm" disabled={isSubmitting || !!registerEmailError}>
+								<Button type="submit" className="w-full h-11" disabled={isSubmitting || !!registerEmailError}>
 									{isSubmitting && <Refresh className="mr-2 h-4 w-4 animate-spin" />}
 									{isSubmitting ? "Criando..." : "Criar conta"}
 								</Button>

@@ -175,7 +175,7 @@ function SupplyOrdersPage() {
 
 			<Card>
 				<CardHeader className="pb-2">
-					<CardTitle className="text-subheading">Emitir OF</CardTitle>
+					<CardTitle>Emitir OF</CardTitle>
 				</CardHeader>
 				<CardContent>
 					<form onSubmit={emit} className="grid gap-3 sm:grid-cols-5 items-end">
@@ -282,7 +282,7 @@ function SupplyOrdersPage() {
 
 			<Card>
 				<CardHeader className="pb-2">
-					<CardTitle className="text-subheading">OFs desta cozinha</CardTitle>
+					<CardTitle>OFs desta cozinha</CardTitle>
 				</CardHeader>
 				<CardContent>
 					{orders.length === 0 ? (

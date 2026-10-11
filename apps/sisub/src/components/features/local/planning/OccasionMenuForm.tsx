@@ -162,7 +162,7 @@ export function OccasionMenuForm({ templateType, kitchenId, forkFrom, folderId, 
 					baseTemplate && (
 						<Card className="border-dashed">
 							<CardHeader className="pb-3">
-								<CardTitle className="text-sm flex items-center gap-2">
+								<CardTitle className="flex items-center gap-2">
 									<GitFork className="size-4 text-muted-foreground" />
 									Modelo de origem
 								</CardTitle>
@@ -186,7 +186,7 @@ export function OccasionMenuForm({ templateType, kitchenId, forkFrom, folderId, 
 										<p className="text-subheading">{baseTemplate.name}</p>
 										{baseTemplate.description && <p className="text-xs text-muted-foreground mt-0.5">{baseTemplate.description}</p>}
 									</div>
-									<Badge variant="outline" className="ml-auto text-xs">
+									<Badge variant="outline" className="ml-auto">
 										{isSourceGlobal ? "Global · SDAB" : "Cozinha"}
 									</Badge>
 								</div>

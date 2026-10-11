@@ -107,7 +107,7 @@ function StockReportsPage() {
 						CSV CATMAT
 					</Button>
 					{isClosed ? (
-						<Badge variant="secondary" className="gap-1">
+						<Badge variant="secondary">
 							<Lock className="size-3" />
 							Fechada
 						</Badge>
@@ -126,7 +126,7 @@ function StockReportsPage() {
 
 			<Card>
 				<CardHeader className="pb-2">
-					<CardTitle className="text-subheading">Balancete — {competencia}</CardTitle>
+					<CardTitle>Balancete — {competencia}</CardTitle>
 				</CardHeader>
 				<CardContent className="px-0 pb-0">
 					{balancete.length === 0 ? (
@@ -167,7 +167,7 @@ function StockReportsPage() {
 			{sheet && (
 				<Card>
 					<CardHeader className="pb-2">
-						<CardTitle className="text-subheading">
+						<CardTitle>
 							Ficha de Almoxarifado — {sheet.description} ({competencia})
 						</CardTitle>
 					</CardHeader>
@@ -203,7 +203,7 @@ function StockReportsPage() {
 
 			<Card className="print:hidden">
 				<CardHeader className="pb-2">
-					<CardTitle className="text-subheading">Empenho × Liquidação</CardTitle>
+					<CardTitle>Empenho × Liquidação</CardTitle>
 				</CardHeader>
 				<CardContent>
 					{empenhoPanel.length === 0 ? (
@@ -235,7 +235,7 @@ function StockReportsPage() {
 
 			<Card className="print:hidden">
 				<CardHeader className="pb-2">
-					<CardTitle className="text-subheading">Fechamentos</CardTitle>
+					<CardTitle>Fechamentos</CardTitle>
 				</CardHeader>
 				<CardContent>
 					{closings.length === 0 ? (
@@ -249,7 +249,7 @@ function StockReportsPage() {
 									<span className="text-muted-foreground">
 										{BRL.format(Number(closing.opening_value))} → {BRL.format(Number(closing.closing_value))}
 									</span>
-									<Badge variant="secondary" className="text-[10px] ml-auto gap-1">
+									<Badge variant="secondary" className="text-[10px] ml-auto">
 										<Lock className="size-2.5" />
 										Fechada
 									</Badge>

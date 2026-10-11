@@ -102,7 +102,7 @@ function Reports() {
 							variant="outline"
 							size="sm"
 							onClick={() => setIsAdding(true)}
-							className="flex items-center gap-2 bg-card border border-border text-tech-cyan px-4 py-2 rounded-md text-caption font-mono hover:bg-muted/50 transition-all shadow-sm"
+							className="flex items-center gap-2 bg-card border-border text-tech-cyan px-4 py-2 text-caption font-mono hover:bg-muted/50 shadow-sm"
 						>
 							<Plus className="w-4 h-4" /> ANEXAR RELATÓRIO
 						</Button>
@@ -159,7 +159,7 @@ function Reports() {
 									type="submit"
 									variant="ghost"
 									disabled={createMutation.isPending}
-									className="bg-tech-cyan text-white px-6 py-2 rounded text-label shadow-md inline-flex items-center gap-2"
+									className="bg-tech-cyan text-white px-6 rounded text-label shadow-md inline-flex items-center"
 								>
 									{createMutation.isPending && <Loader2 className="w-3 h-3 animate-spin" />} SALVAR RELATÓRIO
 								</Button>
@@ -224,7 +224,7 @@ function ConfirmDelete({ title, isPending, onCancel, onConfirm }: { title: strin
 						size="sm"
 						onClick={onConfirm}
 						disabled={isPending}
-						className="inline-flex items-center gap-2 bg-destructive text-destructive-foreground px-5 py-2 rounded-lg text-label shadow-md hover:bg-destructive/90 disabled:opacity-60 transition-colors"
+						className="inline-flex items-center gap-2 px-5 py-2 rounded-lg text-label shadow-md disabled:opacity-60 transition-colors"
 					>
 						{isPending && <Loader2 className="w-3 h-3 animate-spin" />} Excluir
 					</Button>

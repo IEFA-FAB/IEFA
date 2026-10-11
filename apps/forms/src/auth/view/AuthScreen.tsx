@@ -212,7 +212,7 @@ function ResetView({ state, dispatch, actions, onNavigate, goToAuth }: ResetView
 
 	return (
 		<div className="w-full">
-			<Button type="button" variant="ghost" size="sm" onClick={goToAuth} className="mb-6 gap-1.5 text-muted-foreground hover:text-foreground px-2">
+			<Button type="button" variant="ghost" size="sm" onClick={goToAuth} className="mb-6 gap-1.5 text-muted-foreground px-2">
 				<ArrowLeft className="h-3.5 w-3.5" />
 				Voltar ao login
 			</Button>
@@ -246,7 +246,7 @@ function ResetView({ state, dispatch, actions, onNavigate, goToAuth }: ResetView
 						</div>
 					</div>
 					<div className="px-8 pb-8 pt-2 border-t border-border">
-						<Button type="submit" className="w-full h-11 text-sm" disabled={state.isSubmitting}>
+						<Button type="submit" className="w-full h-11" disabled={state.isSubmitting}>
 							{state.isSubmitting && <Refresh className="mr-2 h-4 w-4 animate-spin" />}
 							Atualizar Senha
 						</Button>
@@ -286,7 +286,7 @@ function ForgotView({ state, dispatch, actions, goToAuth }: ForgotViewProps) {
 	return (
 		<div className="w-full">
 			{/* goToAuth remove ?view=forgot — back button do browser também funciona */}
-			<Button type="button" variant="ghost" size="sm" onClick={goToAuth} className="mb-6 gap-1.5 text-muted-foreground hover:text-foreground px-2">
+			<Button type="button" variant="ghost" size="sm" onClick={goToAuth} className="mb-6 gap-1.5 text-muted-foreground px-2">
 				<ArrowLeft className="h-3.5 w-3.5" />
 				Voltar ao login
 			</Button>
@@ -323,7 +323,7 @@ function ForgotView({ state, dispatch, actions, goToAuth }: ForgotViewProps) {
 					</div>
 
 					<div className="px-8 pb-8 pt-2 border-t border-border">
-						<Button type="submit" className="w-full h-11 text-sm" disabled={state.isSubmitting}>
+						<Button type="submit" className="w-full h-11" disabled={state.isSubmitting}>
 							{state.isSubmitting && <Refresh className="mr-2 h-4 w-4 animate-spin" />}
 							Enviar Link
 						</Button>
@@ -468,7 +468,7 @@ function LoginTabContent({ state, dispatch, actions, onNavigate, searchParams, i
 								variant="ghost"
 								size="icon-xs"
 								onClick={() => dispatch({ type: "TOGGLE_PASSWORD" })}
-								className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+								className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground"
 								aria-label={state.showPassword ? "Ocultar senha" : "Mostrar senha"}
 							>
 								{state.showPassword ? <EyeClosed className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -494,7 +494,7 @@ function LoginTabContent({ state, dispatch, actions, onNavigate, searchParams, i
 				</div>
 
 				<div className="px-8 pb-8 border-t border-border pt-5">
-					<Button type="submit" className="w-full h-11 text-sm" disabled={state.isSubmitting || isLocked || !!state.emailError || !!state.passwordError}>
+					<Button type="submit" className="w-full h-11" disabled={state.isSubmitting || isLocked || !!state.emailError || !!state.passwordError}>
 						{isLocked ? (
 							`Bloqueado (${retryAfter}s)`
 						) : (
@@ -637,7 +637,7 @@ function RegisterTabContent({ state, dispatch, actions, onTabChange }: RegisterT
 				</div>
 
 				<div className="px-8 pb-8 border-t border-border pt-5">
-					<Button type="submit" className="w-full h-11 text-sm" disabled={state.isSubmitting || !!state.registerEmailError}>
+					<Button type="submit" className="w-full h-11" disabled={state.isSubmitting || !!state.registerEmailError}>
 						{state.isSubmitting && <Refresh className="mr-2 h-4 w-4 animate-spin" />}
 						{state.isSubmitting ? "Criando..." : "Criar conta"}
 					</Button>

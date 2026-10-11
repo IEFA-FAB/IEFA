@@ -38,9 +38,7 @@ export default function Filters({ selectedDate, setSelectedDate, selectedMeal, s
 								</div>
 								{isInvalid && (
 									<div className="flex items-center space-x-2">
-										<Badge variant="destructive" className="text-xs">
-											Inválido
-										</Badge>
+										<Badge variant="destructive">Inválido</Badge>
 										<AlertCircle className="size-4 text-destructive" />
 									</div>
 								)}
@@ -88,9 +86,7 @@ export default function Filters({ selectedDate, setSelectedDate, selectedMeal, s
 								</div>
 								{isInvalid && (
 									<div className="flex items-center space-x-2">
-										<Badge variant="destructive" className="text-xs">
-											Inválida
-										</Badge>
+										<Badge variant="destructive">Inválida</Badge>
 										<AlertCircle className="size-4 text-destructive" />
 									</div>
 								)}

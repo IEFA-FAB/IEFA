@@ -38,13 +38,7 @@ export function DirtyChangesBar({ diffs, onSave, onDiscard, isSaving }: DirtyCha
 				</span>
 
 				{/* Expand/collapse diff list */}
-				<Button
-					variant="ghost"
-					size="sm"
-					onClick={() => setExpanded((v) => !v)}
-					aria-expanded={expanded}
-					className="text-muted-foreground hover:text-foreground"
-				>
+				<Button variant="ghost" size="sm" onClick={() => setExpanded((v) => !v)} aria-expanded={expanded} className="text-muted-foreground">
 					<ChevronDown className={cn("size-3.5 transition-transform", expanded && "rotate-180")} />
 					<span>{expanded ? "Ocultar" : "Ver detalhes"}</span>
 				</Button>

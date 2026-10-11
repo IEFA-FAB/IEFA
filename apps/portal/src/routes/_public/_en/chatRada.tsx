@@ -730,7 +730,7 @@ function ChatRada() {
 					<Button
 						onClick={startNewSession}
 						variant="default"
-						className="w-full justify-start gap-2 font-medium"
+						className="w-full justify-start gap-2"
 						title={isLoggedIn ? "Iniciar nova sessão" : "Nova conversa (sem histórico)"}
 					>
 						<Plus className="h-4 w-4" />
@@ -890,7 +890,7 @@ function ChatRada() {
 							{/* Scroll to bottom */}
 							{!isAtBottom && (
 								<div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10">
-									<Button onClick={scrollToBottom} variant="outline" size="sm" className="flex items-center gap-2 text-xs border border-border bg-background">
+									<Button onClick={scrollToBottom} variant="outline" size="sm" className="flex items-center gap-2 text-xs">
 										<ArrowDown className="h-3.5 w-3.5" aria-hidden="true" />
 										Novas mensagens
 									</Button>

@@ -197,14 +197,12 @@ export function MenuGroupSetManager({ open, onClose, kitchenId }: { open: boolea
 											<div className="flex items-center gap-2">
 												<p className="text-subheading">{set.name}</p>
 												{set.kitchen_id == null ? (
-													<Badge variant="outline" className="text-xs gap-1">
+													<Badge variant="outline">
 														<Lock className="size-3" />
 														Global
 													</Badge>
 												) : (
-													<Badge variant="outline" className="text-xs">
-														Desta cozinha
-													</Badge>
+													<Badge variant="outline">Desta cozinha</Badge>
 												)}
 											</div>
 											{set.description && <p className="text-xs text-muted-foreground">{set.description}</p>}
@@ -242,7 +240,7 @@ export function MenuGroupSetManager({ open, onClose, kitchenId }: { open: boolea
 									</div>
 									<div className="flex flex-wrap gap-1.5">
 										{set.groups.map((g) => (
-											<Badge key={g.id} variant="secondary" className="text-xs font-normal">
+											<Badge key={g.id} variant="secondary" className="font-normal">
 												{g.label}
 											</Badge>
 										))}
@@ -260,7 +258,7 @@ export function MenuGroupSetManager({ open, onClose, kitchenId }: { open: boolea
 							Fechar
 						</Button>
 						{canCreate && (
-							<Button type="button" className="gap-1.5" onClick={() => setCreating(true)}>
+							<Button type="button" onClick={() => setCreating(true)}>
 								<Plus className="size-4" />
 								Novo conjunto
 							</Button>

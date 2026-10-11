@@ -1,15 +1,10 @@
 import { fetchServerSentEvents, useChat } from "@tanstack/ai-react"
-import { type ClassValue, clsx } from "clsx"
 import { Bot, Loader2, MessageSquare, Send, User, X } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { twMerge } from "tailwind-merge"
 import { Button } from "#/components/ui/button"
 import { Input } from "#/components/ui/input"
-
-function cn(...inputs: ClassValue[]) {
-	return twMerge(clsx(inputs))
-}
+import { cn } from "#/lib/utils"
 
 interface AIAssistantProps {
 	// biome-ignore lint/suspicious/noExplicitAny: context carries arbitrary data shape
@@ -191,7 +186,7 @@ export function AIAssistant({ dataContext }: AIAssistantProps) {
 									type="button"
 									size="icon"
 									aria-label={isStreaming ? "Parar" : "Enviar"}
-									className="w-10 h-10 rounded-full bg-tech-blue text-white hover:bg-tech-blue disabled:opacity-50 disabled:cursor-not-allowed"
+									className="w-10 h-10 rounded-full bg-tech-blue text-white hover:bg-tech-blue disabled:cursor-not-allowed"
 								>
 									{isStreaming ? <X size={16} /> : <Send size={16} className="ml-1" />}
 								</Button>

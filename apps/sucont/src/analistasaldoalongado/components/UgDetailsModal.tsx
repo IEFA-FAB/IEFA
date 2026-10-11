@@ -209,7 +209,7 @@ export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsM
 							type="button"
 							onClick={exportToExcel}
 							variant="outline"
-							className="gap-2 px-4 py-2 text-subheading text-foreground bg-card border-border rounded-lg hover:bg-muted/50 transition-colors"
+							className="text-subheading text-foreground bg-card border-border rounded-lg hover:bg-muted/50 transition-colors"
 						>
 							<Download className="w-4 h-4" />
 							Exportar

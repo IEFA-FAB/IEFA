@@ -61,7 +61,7 @@ function McpKeysPage() {
 			{/* Info card */}
 			<Card className="border-dashed bg-muted/30">
 				<CardHeader className="pb-2">
-					<CardTitle className="text-subheading flex items-center gap-2">
+					<CardTitle className="flex items-center gap-2">
 						<Terminal className="size-4 text-muted-foreground" />
 						Como usar
 					</CardTitle>
@@ -202,12 +202,10 @@ function KeyItem({ apiKey }: KeyItemProps) {
 								{expiry.isExpired ? "Vencida" : "Ativa"}
 							</Badge>
 						) : (
-							<Badge variant="secondary" className="text-xs">
-								Revogada
-							</Badge>
+							<Badge variant="secondary">Revogada</Badge>
 						)}
 						{apiKey.is_active && expiry.isNear && (
-							<Badge variant="warning" className="text-xs gap-1">
+							<Badge variant="warning">
 								<CalendarClock className="size-3" />
 								{expiry.days === 1 ? "Vence amanhã" : `Vence em ${expiry.days} dias`}
 							</Badge>
@@ -230,15 +228,7 @@ function KeyItem({ apiKey }: KeyItemProps) {
 								<AlertDialogTrigger
 									render={
 										<TooltipTrigger
-											render={
-												<Button
-													variant="ghost"
-													size="icon"
-													className="size-8 text-muted-foreground hover:text-foreground"
-													aria-label="Revogar chave"
-													disabled={isRevoking}
-												/>
-											}
+											render={<Button variant="ghost" size="icon" className="size-8 text-muted-foreground" aria-label="Revogar chave" disabled={isRevoking} />}
 										/>
 									}
 								>

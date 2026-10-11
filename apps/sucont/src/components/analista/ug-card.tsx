@@ -177,7 +177,7 @@ export function UGCard({ group, type, activeRacFilter }: UGCardProps) {
 								onClick={() => navigator.clipboard.writeText(message.text)}
 								variant="outline"
 								size="xs"
-								className="gap-1 bg-card font-medium text-muted-foreground shadow-sm hover:text-foreground"
+								className="bg-card text-muted-foreground shadow-sm hover:text-foreground"
 							>
 								<Copy className="w-3 h-3" />
 								<span>Copiar</span>

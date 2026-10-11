@@ -172,7 +172,7 @@ export function ChatAssistant({ managerialData, estrategicoData, decisaoData }: 
 					onClick={() => setQuery("Qual ODS tem mais inconsistências?")}
 					variant="secondary"
 					size="xs"
-					className="h-auto rounded-md bg-muted py-1 text-foreground hover:bg-muted/70"
+					className="h-auto bg-muted py-1 text-foreground hover:bg-muted/70"
 				>
 					Qual ODS tem mais inconsistências?
 				</Button>
@@ -181,7 +181,7 @@ export function ChatAssistant({ managerialData, estrategicoData, decisaoData }: 
 					onClick={() => setQuery("Quais são as 10 UGs com mais inconsistências?")}
 					variant="secondary"
 					size="xs"
-					className="h-auto rounded-md bg-muted py-1 text-foreground hover:bg-muted/70"
+					className="h-auto bg-muted py-1 text-foreground hover:bg-muted/70"
 				>
 					Top 10 UGs
 				</Button>
@@ -190,7 +190,7 @@ export function ChatAssistant({ managerialData, estrategicoData, decisaoData }: 
 					onClick={() => setQuery("Qual questão RAC é mais recorrente?")}
 					variant="secondary"
 					size="xs"
-					className="h-auto rounded-md bg-muted py-1 text-foreground hover:bg-muted/70"
+					className="h-auto bg-muted py-1 text-foreground hover:bg-muted/70"
 				>
 					Questão RAC mais recorrente
 				</Button>

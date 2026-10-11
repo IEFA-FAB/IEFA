@@ -312,7 +312,7 @@ function QuantityEstimateDetailPage() {
 			{quantityEstimate.kitchens.length > 0 && (
 				<Card>
 					<CardHeader className="pb-3">
-						<CardTitle className="text-subheading">Cozinhas Participantes</CardTitle>
+						<CardTitle>Cozinhas Participantes</CardTitle>
 					</CardHeader>
 					<CardContent>
 						<div className="space-y-4">
@@ -322,7 +322,7 @@ function QuantityEstimateDetailPage() {
 									{kitchenEntry.delivery_notes && <p className="text-xs text-muted-foreground mt-0.5">{kitchenEntry.delivery_notes}</p>}
 									<div className="flex flex-wrap gap-1.5 mt-2">
 										{kitchenEntry.selections.map((sel) => (
-											<Badge key={sel.id} variant="secondary" className="text-xs font-normal">
+											<Badge key={sel.id} variant="secondary" className="font-normal">
 												{sel.template.name} × {sel.repetitions}
 											</Badge>
 										))}

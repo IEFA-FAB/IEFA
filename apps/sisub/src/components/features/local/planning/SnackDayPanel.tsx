@@ -18,7 +18,7 @@ export function SnackDayPanel({ kitchenId, date, menu }: { kitchenId: number; da
 	return (
 		<Card>
 			<CardHeader className="pb-3">
-				<CardTitle className="flex items-center gap-2 text-subheading">
+				<CardTitle className="flex items-center gap-2">
 					<PlaneTakeoff className="size-4" aria-hidden="true" />
 					Lanches de Bordo/Apoio
 				</CardTitle>

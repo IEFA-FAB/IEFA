@@ -68,7 +68,7 @@ A arquitetura visual deve seguir estritamente a sequência de prioridade abaixo:
 
 ### 4.6 Tipografia — Hierarquia semântica
 
-- **Função:** Estabelecer 7 níveis tipográficos com vetores distintos (tamanho, peso, tracking), eliminando decisões ad-hoc de `font-*` / `text-*` nos componentes de feature.
+- **Função:** Estabelecer 7 níveis tipográficos, mais o título de card, que é do primitivo, com vetores distintos (tamanho, peso, tracking), eliminando decisões ad-hoc de `font-*` / `text-*` nos componentes de feature.
 - **Tokens de tracking** (definidos em `styles.css` `:root`): `--tracking-tight: -0.02em` · `--tracking-normal: 0em` · `--tracking-label: 0.05em`
 - **Pesos reconhecidos:** 400 (regular), 500 (medium), 600 (semibold), 700 (bold). Cada peso tem um papel fixo no sistema — ver tabela abaixo.
 - **Classes utilitárias** (definidas em `@layer utilities` de `styles.css`):
@@ -76,7 +76,8 @@ A arquitetura visual deve seguir estritamente a sequência de prioridade abaixo:
 | Nível | Classe | Tamanho | Peso | Tracking | Uso canônico |
 |-------|--------|---------|------|---------|--------------|
 | Display | `.text-display` | 1.375rem | 700 | −0.02em | PageHeader — título de página |
-| Heading | `.text-heading` | 1.125rem | 600 | −0.02em | CardTitle, títulos de seção |
+| Heading | `.text-heading` | 1.125rem | 600 | −0.02em | Títulos de seção fora de card |
+| Título de card | `CardTitle` (sem classe) | 1rem · 0.875rem em `Card size="sm"` | 500 | 0em | Título de todo card. 16px é o tamanho que deixa achar o card certo passando o olho; o compacto é só para card de quadro/lista densa, via `size="sm"` |
 | Subheading | `.text-subheading` | 0.875rem | 500 | 0em | Títulos de dialog/drawer, section headers menores, ênfase de dados em tabelas |
 | Body | `.text-body` | 0.875rem | 400 | 0em | Conteúdo principal, ItemTitle |
 | Label | `.text-label` | 0.75rem | 600 | +0.05em + uppercase | Rótulos de seção, `<th>` com uppercase, badges de categoria |
@@ -93,6 +94,7 @@ A arquitetura visual deve seguir estritamente a sequência de prioridade abaixo:
   - `subheading` e `body` têm o mesmo tamanho (0.875rem) mas diferem em peso: 500 vs 400
 - **Fronteira primitivo/feature:**
   - **Primitivos UI (`src/components/ui/`)** controlam seus próprios pesos internamente (`font-medium` em Button, Badge, Label, CardTitle, etc.). Isso é canônico — não alterar.
+  - **`CardTitle` não recebe classe de tamanho** (`text-subheading`, `text-heading`, `text-sm`, `text-base`…). O tamanho é do primitivo; card compacto é `<Card size="sm">`. No `className` do título só entram layout (`flex items-center gap-2` para ícone) e cor.
   - **Feature components** não devem usar `font-medium`, `font-semibold`, `font-bold`, `text-xs`, `text-sm`, `text-base`, `text-lg`, `tracking-*` ou `uppercase` diretamente. Mapear a um nível semântico da tabela acima.
 
 ## 5. Convenções obrigatórias

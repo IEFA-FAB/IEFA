@@ -212,7 +212,7 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 						onClick={() => exportElementToImage("chart-top10", "saldos-top10")}
 						variant="outline"
 						size="sm"
-						className="gap-2 px-3 py-1.5 text-caption text-muted-foreground bg-muted/50 hover:bg-muted/80 border-border rounded-lg transition-colors"
+						className="gap-2 py-1.5 text-caption text-muted-foreground bg-muted/50 hover:bg-muted/80 border-border rounded-lg transition-colors"
 					>
 						<FileImage className="w-3.5 h-3.5" />
 						<span>Exportar Gráfico</span>
@@ -330,7 +330,7 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 							}}
 							variant="outline"
 							size="sm"
-							className="gap-2 px-3 py-1.5 text-caption text-muted-foreground bg-card hover:bg-muted/50 border-border rounded-lg transition-colors"
+							className="gap-2 py-1.5 text-caption text-muted-foreground bg-card hover:bg-muted/50 border-border rounded-lg transition-colors"
 						>
 							<Download className="w-3.5 h-3.5" />
 							<span>Exportar Excel</span>
@@ -413,7 +413,7 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 											onClick={() => onViewDetails(row, selectedRac)}
 											variant="outline"
 											size="sm"
-											className="gap-1.5 px-3 py-1.5 text-caption text-action bg-muted/50 border-border rounded-lg hover:bg-muted hover:border-border transition-colors"
+											className="py-1.5 text-caption text-action bg-muted/50 border-border rounded-lg hover:bg-muted hover:border-border transition-colors"
 										>
 											Analisar
 											<ArrowRight className="w-3.5 h-3.5" />
