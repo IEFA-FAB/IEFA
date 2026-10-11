@@ -70,7 +70,8 @@ jobs:
   # DETECT CHANGES
   # ============================================
   changes:
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    # Só lê o diff (paths-filter): segundos de trabalho, que na Blacksmith pagavam o minuto cheio.
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
       # >>> gerado: changes-outputs (bun run generate:deploy; não editar à mão)
@@ -836,7 +837,8 @@ jobs:
 
   deploy-docs:
     needs: [build-docs]
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    # Sync para o S3 + invalidação do CloudFront: rede e espera, não CPU (ver _app-deploy.yml).
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
       id-token: write

@@ -21,6 +21,16 @@ paths:
 | `deploy.yml` (`CI/CD`) | push na main | `changes` → `check-<app>` → `build-<app>` → `deploy-<app>` por app (paths-filter); sem integração |
 | `terraform-plan/apply` | PR / push em `infra/**` | plan com role de PR; apply só na main |
 
+Mapa completo (o que roda em cada evento, em que runner) em `.github/workflows/README.md`.
+
+## Runner
+
+Repo público: `ubuntu-latest` é grátis, a Blacksmith cobra por minuto cheio. Blacksmith só em job
+cuja CPU encurta a espera de alguém (`pr-check`, `check-*` e `build-*` do deploy); job de espera
+(rollout do ECS, sync do S3), de segundos ou com segredo de produção vai no GitHub. O plano
+gratuito roda 20 jobs simultâneos no GitHub. Label novo da Blacksmith entra no
+`.github/actionlint.yaml`.
+
 ## Armadilhas conhecidas
 
 - **Nome de job é contrato do ruleset da `main`.** Os checks obrigatórios são casados pelo nome

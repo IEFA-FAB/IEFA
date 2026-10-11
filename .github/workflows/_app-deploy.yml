@@ -30,7 +30,10 @@ permissions:
 
 jobs:
   deploy:
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    # Runner do GitHub (grátis em repo público): o job é quase todo espera pelo rollout do ECS
+    # (`wait services-stable`, ~3 min), e espera não fica mais rápida em CPU mais rápida. Na
+    # Blacksmith era a maior linha da conta (37% dos minutos de 2026-09-28 a 10-11).
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
       id-token: write
