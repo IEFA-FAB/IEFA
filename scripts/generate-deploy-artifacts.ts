@@ -12,7 +12,7 @@
  *
  * `bun run generate:deploy` reescreve; `bun run check:deploy` confere no CI.
  */
-import { readdirSync, readFileSync, writeFileSync } from "node:fs"
+import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 
 const ROOT = join(import.meta.dir, "..")
@@ -29,7 +29,7 @@ type App = {
 	 * `<path>/Dockerfile`, fora do monorepo Bun (sem workspace, sem estágio `deps`).
 	 * Não entra no Dockerfile raiz e o paths-filter só olha a própria pasta.
 	 */
-	kind?: "nitro" | "bun-bundle" | "bun-source" | "dockerfile"
+	kind?: "nitro" | "bun-bundle" | "dockerfile"
 	port?: number
 	entry?: string
 	buildArgs: string[]
@@ -46,13 +46,18 @@ type App = {
 	runtimeEnv?: Record<string, string>
 	runtimeFrom?: "base"
 	outputAt?: string
-	copyWorkspacesAtRuntime?: boolean
 	aliasOf?: string
 	notes?: string
 }
 
 type Manifest = {
+	/** Imagem dos estágios de build e do runtime dos apps Nitro. */
 	bunImage: string
+	/**
+	 * Runtime dos serviços `bun-bundle`: distroless, sem shell nem gerenciador de pacotes. Tem de
+	 * estar na mesma versão do Bun que `bunImage`, que é quem gera o bundle.
+	 */
+	bunRuntimeImage: string
 	registryDefaults: { registry: string; repositoryPrefix: string }
 	apps: App[]
 }
@@ -86,11 +91,22 @@ function bakeSecretsOf(app: App): string[] {
 	return [...new Set([...(stage?.buildSecrets ?? []), ...(app.buildSecrets ?? [])])]
 }
 
+/** Versão do Bun na tag (`oven/bun:1.4.0-alpine@sha256:…` → `1.4.0`). */
+export function bunVersionOf(image: string): string | undefined {
+	return /^oven\/bun:(\d+\.\d+\.\d+)-/.exec(image)?.[1]
+}
+
+if (bunVersionOf(manifest.bunImage) === undefined || bunVersionOf(manifest.bunImage) !== bunVersionOf(manifest.bunRuntimeImage)) {
+	throw new Error("bunImage e bunRuntimeImage têm de estar na mesma versão do Bun: o bundle sai de uma e roda na outra")
+}
+
 for (const app of manifest.apps) {
+	if (app.kind === "bun-bundle" && app.entry !== `${app.path}/dist/index.js`) {
+		throw new Error(`${app.key}: entry de bun-bundle é ${app.path}/dist/index.js (saída do \`bun run build\`)`)
+	}
 	if (!app.buildSecrets?.length) continue
 	// O secret é montado no RUN de build do estágio do próprio app: Dockerfile próprio
-	// (kind dockerfile), bun-source (sem passo de build) e alias (reusa outro estágio)
-	// não têm onde montá-lo.
+	// (kind dockerfile) e alias (reusa outro estágio) não têm onde montá-lo.
 	if (app.aliasOf || (app.kind !== "nitro" && app.kind !== "bun-bundle")) {
 		throw new Error(`${app.key}: buildSecrets só vale para app kind nitro/bun-bundle sem aliasOf (é montado no RUN de build)`)
 	}
@@ -228,46 +244,29 @@ function dockerStage(app: App) {
 			"COPY docker/bun-serve-idle-timeout.ts ./docker/bun-serve-idle-timeout.ts",
 			"USER bun",
 			`EXPOSE ${app.port}`,
-			`CMD ["bun", "--preload", "./docker/bun-serve-idle-timeout.ts", "${outputAt.replace(/^\.\//, "")}/server/index.mjs"]`
+			// `--no-install`: o `.output` traz o próprio node_modules; o que faltar nele é bug do
+			// build, não pacote para baixar do npm em produção.
+			`CMD ["bun", "--no-install", "--preload", "./docker/bun-serve-idle-timeout.ts", "${outputAt.replace(/^\.\//, "")}/server/index.mjs"]`
 		)
 		return out.join("\n")
 	}
 
-	if (app.kind === "bun-bundle") {
-		out.push(
-			...buildSecretCommentLines(app),
-			`RUN ${secretMounts(app)}bun --filter='${app.workspace}' run build`,
-			`RUN test -f ${app.entry} || \\\n    (echo "❌ Build failed: output missing" && exit 1)`,
-			"",
-			`FROM base AS ${app.key}`,
-			"ENV NODE_ENV=production"
-		)
-		for (const [k, v] of Object.entries(app.runtimeEnv ?? {})) out.push(`ENV ${k}=${v}`)
-		out.push(
-			// Bundle gerado por `bun build --target bun` é self-contained (deps inlined)
-			// — a imagem de runtime não precisa de node_modules.
-			`COPY --from=${app.key}-build /app/${app.path}/dist ./${app.path}/dist`,
-			`COPY --from=${app.key}-build /app/${app.path}/public ./${app.path}/public`,
-			"USER bun",
-			`EXPOSE ${app.port}`,
-			`CMD ["bun", "${app.entry}"]`
-		)
-		return out.join("\n")
-	}
-
-	// bun-source: roda o entrypoint TypeScript direto, então precisa de node_modules.
-	out.push(`RUN test -f ${app.entry} || \\\n    (echo "❌ ${app.key} entrypoint missing" && exit 1)`, "", `FROM base AS ${app.key}`, "ENV NODE_ENV=production")
+	// bun-bundle: `bun build --target bun` inlina as dependências, então o runtime leva só o
+	// `dist/` (e o `public/`, se o app tiver) numa imagem distroless: sem shell, sem apk, sem
+	// node_modules e sem código-fonte. `--no-install`: sem node_modules, o Bun liga o
+	// auto-install, e um import de pacote ausente baixaria código do npm em produção.
+	out.push(
+		...buildSecretCommentLines(app),
+		`RUN ${secretMounts(app)}bun --filter='${app.workspace}' run build`,
+		`RUN test -f ${app.entry} || \\\n    (echo "❌ Build failed: output missing" && exit 1)`,
+		"",
+		`FROM \${BUN_RUNTIME_IMAGE} AS ${app.key}`,
+		"ENV NODE_ENV=production"
+	)
 	for (const [k, v] of Object.entries(app.runtimeEnv ?? {})) out.push(`ENV ${k}=${v}`)
-	if (app.copyWorkspacesAtRuntime) {
-		out.push(
-			`COPY --from=${app.key}-build /app/package.json ./package.json`,
-			`COPY --from=${app.key}-build /app/node_modules ./node_modules`,
-			`COPY --from=${app.key}-build /app/packages ./packages`
-		)
-	} else {
-		out.push("COPY --from=deps /app/node_modules ./node_modules")
-	}
-	out.push(`COPY --from=${app.key}-build /app/${app.path} ./${app.path}`, "USER bun", `EXPOSE ${app.port}`, `CMD ["bun", "${app.entry}"]`)
+	out.push("WORKDIR /app", `COPY --from=${app.key}-build /app/${app.path}/dist ./${app.path}/dist`)
+	if (existsSync(join(ROOT, app.path, "public"))) out.push(`COPY --from=${app.key}-build /app/${app.path}/public ./${app.path}/public`)
+	out.push("USER nonroot", `EXPOSE ${app.port}`, 'ENTRYPOINT ["/usr/local/bin/bun", "--no-install"]', `CMD ["${app.entry}"]`)
 	return out.join("\n")
 }
 
@@ -276,6 +275,7 @@ function renderDockerfile() {
 	const parts = [
 		header("BASE - Alpine com Bun", `${GENERATED_BANNER}\nDigest centralizado: bump de versão do Bun altera só o manifesto.`),
 		`ARG BUN_IMAGE=${manifest.bunImage}`,
+		`ARG BUN_RUNTIME_IMAGE=${manifest.bunRuntimeImage}`,
 		// biome-ignore lint/suspicious/noTemplateCurlyInString: `${BUN_IMAGE}` é interpolação de ARG do Dockerfile gerado, não template literal de JS
 		"FROM ${BUN_IMAGE} AS base",
 		"RUN apk add --no-cache libc6-compat",

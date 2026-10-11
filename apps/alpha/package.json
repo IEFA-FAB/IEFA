@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "bun run --hot src/index.ts",
     "start": "bun run src/index.ts",
+    "build": "bun build src/index.ts src/extraction/pdf-worker.ts --outdir dist --target bun --sourcemap=linked --entry-naming [name].[ext]",
     "ingest": "bun run ingest-local.ts",
     "ingest:all": "bash ingest-all.sh",
     "ingest:agu": "bun run src/cli/ingest-agu.ts",

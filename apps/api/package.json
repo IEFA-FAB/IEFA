@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "bun run --watch src/index.ts",
     "start": "bun src/index.ts",
-    "build": "bun build src/index.ts --outdir dist --target bun",
+    "build": "bun build src/index.ts --outdir dist --target bun --sourcemap=linked",
     "sync:food-catmat": "bun scripts/run-compras-food-sync.ts",
     "sync:nutrition-reference": "bun scripts/run-nutrition-reference-sync.ts",
     "sync:gpc": "bun scripts/run-gpc-import.ts",

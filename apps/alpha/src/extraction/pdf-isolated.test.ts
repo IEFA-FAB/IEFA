@@ -1,6 +1,10 @@
 import { describe, expect, it } from "bun:test"
+import { existsSync, mkdtempSync, rmSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
+import { pathToFileURL } from "node:url"
 import { DocumentLimitError, PdfTooLargeError } from "../lib/document-limits.ts"
-import { pdfReaderLoad, readPdfIsolated } from "./pdf-isolated.ts"
+import { pdfReaderLoad, readPdfIsolated, workerCommand, workerPathFor } from "./pdf-isolated.ts"
 import { toSubmissionText } from "./to-text.ts"
 
 /** PDF de uma página com uma linha de texto, montado à mão (o mesmo de `to-text.test.ts`). */
@@ -103,4 +107,45 @@ describe("readPdfIsolated", () => {
 		clearInterval(ticker)
 		expect(ticks).toBeGreaterThan(0)
 	})
+})
+
+describe("worker no bundle de produção", () => {
+	it("no código-fonte, aponta para o pdf-worker.ts ao lado", () => {
+		expect(workerPathFor("file:///app/apps/alpha/src/extraction/pdf-isolated.ts")).toBe("/app/apps/alpha/src/extraction/pdf-worker.ts")
+	})
+
+	// Mesmos entrypoints e nomes do `build` do package.json: se o bundle deixar de gerar o
+	// worker ao lado do index, a leitura de PDF quebra só em produção.
+	it("o bundle gera o worker onde o index o procura, e o worker lê o PDF", async () => {
+		const outdir = mkdtempSync(join(tmpdir(), "alpha-bundle-"))
+		try {
+			const build = await Bun.build({
+				entrypoints: [join(import.meta.dir, "../index.ts"), join(import.meta.dir, "pdf-worker.ts")],
+				outdir,
+				target: "bun",
+				naming: "[name].[ext]",
+			})
+			expect(build.success).toBe(true)
+
+			const worker = workerPathFor(pathToFileURL(join(outdir, "index.js")).href)
+			expect(existsSync(worker)).toBe(true)
+
+			// Como em produção: só o PATH no ambiente e diretório de trabalho sem escrita.
+			const child = Bun.spawn({
+				cmd: workerCommand(worker, 10),
+				stdin: new Blob([minimalPdf()]),
+				stdout: "pipe",
+				stderr: "pipe",
+				cwd: "/",
+				env: { PATH: process.env.PATH ?? "" },
+			})
+			const [stdout, stderr] = await Promise.all([new Response(child.stdout).text(), new Response(child.stderr).text()])
+			expect(stderr).toBe("")
+			const reply = JSON.parse(stdout.trim())
+			expect(reply.ok).toBe(true)
+			expect(JSON.stringify(reply.result)).toContain("RADA teste")
+		} finally {
+			rmSync(outdir, { recursive: true, force: true })
+		}
+	}, 30_000)
 })

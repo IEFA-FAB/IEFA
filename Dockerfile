@@ -4,6 +4,7 @@
 # Digest centralizado: bump de versão do Bun altera só o manifesto.
 # =============================================================================
 ARG BUN_IMAGE=oven/bun:1.4.0-alpine@sha256:07235578f79ef8c6f97d94aee7938e76f5cdba5f21ae5dbfdd3d3d38058437eb
+ARG BUN_RUNTIME_IMAGE=oven/bun:1.4.0-distroless@sha256:a8919d4a092a234f7184ac6d3960a2d860fea73e034709e1752a7d0de09913f8
 FROM ${BUN_IMAGE} AS base
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
@@ -59,13 +60,15 @@ RUN bun --filter='@iefa/api' run build
 RUN test -f apps/api/dist/index.js || \
     (echo "❌ Build failed: output missing" && exit 1)
 
-FROM base AS api
+FROM ${BUN_RUNTIME_IMAGE} AS api
 ENV NODE_ENV=production
+WORKDIR /app
 COPY --from=api-build /app/apps/api/dist ./apps/api/dist
 COPY --from=api-build /app/apps/api/public ./apps/api/public
-USER bun
+USER nonroot
 EXPOSE 3000
-CMD ["bun", "apps/api/dist/index.js"]
+ENTRYPOINT ["/usr/local/bin/bun", "--no-install"]
+CMD ["apps/api/dist/index.js"]
 
 # =============================================================================
 # PORTAL
@@ -105,7 +108,7 @@ COPY --from=portal-build /app/apps/portal/.output ./.output
 COPY docker/bun-serve-idle-timeout.ts ./docker/bun-serve-idle-timeout.ts
 USER bun
 EXPOSE 3000
-CMD ["bun", "--preload", "./docker/bun-serve-idle-timeout.ts", ".output/server/index.mjs"]
+CMD ["bun", "--no-install", "--preload", "./docker/bun-serve-idle-timeout.ts", ".output/server/index.mjs"]
 
 # =============================================================================
 # RUMAER
@@ -145,7 +148,7 @@ COPY --from=rumaer-build /app/apps/rumaer/.output ./.output
 COPY docker/bun-serve-idle-timeout.ts ./docker/bun-serve-idle-timeout.ts
 USER bun
 EXPOSE 3000
-CMD ["bun", "--preload", "./docker/bun-serve-idle-timeout.ts", ".output/server/index.mjs"]
+CMD ["bun", "--no-install", "--preload", "./docker/bun-serve-idle-timeout.ts", ".output/server/index.mjs"]
 
 # =============================================================================
 # SUCONT (HUB SUCONT-4 — acompanhamento contábil)
@@ -186,7 +189,7 @@ COPY --from=sucont-build /app/apps/sucont/.output ./.output
 COPY docker/bun-serve-idle-timeout.ts ./docker/bun-serve-idle-timeout.ts
 USER bun
 EXPOSE 3000
-CMD ["bun", "--preload", "./docker/bun-serve-idle-timeout.ts", ".output/server/index.mjs"]
+CMD ["bun", "--no-install", "--preload", "./docker/bun-serve-idle-timeout.ts", ".output/server/index.mjs"]
 
 # =============================================================================
 # ASSIGNMENT-SELECTION (escolha de vagas / CPAINT)
@@ -226,7 +229,7 @@ COPY --from=assignment-selection-build /app/apps/assignment-selection/.output ./
 COPY docker/bun-serve-idle-timeout.ts ./docker/bun-serve-idle-timeout.ts
 USER bun
 EXPOSE 3000
-CMD ["bun", "--preload", "./docker/bun-serve-idle-timeout.ts", ".output/server/index.mjs"]
+CMD ["bun", "--no-install", "--preload", "./docker/bun-serve-idle-timeout.ts", ".output/server/index.mjs"]
 
 # =============================================================================
 # SISUB
@@ -278,7 +281,7 @@ COPY --from=sisub-build /app/apps/sisub/.output ./.output
 COPY docker/bun-serve-idle-timeout.ts ./docker/bun-serve-idle-timeout.ts
 USER bun
 EXPOSE 3000
-CMD ["bun", "--preload", "./docker/bun-serve-idle-timeout.ts", ".output/server/index.mjs"]
+CMD ["bun", "--no-install", "--preload", "./docker/bun-serve-idle-timeout.ts", ".output/server/index.mjs"]
 
 # =============================================================================
 # FORMS
@@ -319,7 +322,7 @@ COPY --from=forms-build /app/apps/forms/.output ./.output
 COPY docker/bun-serve-idle-timeout.ts ./docker/bun-serve-idle-timeout.ts
 USER bun
 EXPOSE 3000
-CMD ["bun", "--preload", "./docker/bun-serve-idle-timeout.ts", ".output/server/index.mjs"]
+CMD ["bun", "--no-install", "--preload", "./docker/bun-serve-idle-timeout.ts", ".output/server/index.mjs"]
 
 # =============================================================================
 # CONTRATE (copiloto de aquisições — Projeto α)
@@ -360,7 +363,7 @@ COPY --from=contrate-build /app/apps/contrate/.output ./.output
 COPY docker/bun-serve-idle-timeout.ts ./docker/bun-serve-idle-timeout.ts
 USER bun
 EXPOSE 3000
-CMD ["bun", "--preload", "./docker/bun-serve-idle-timeout.ts", ".output/server/index.mjs"]
+CMD ["bun", "--no-install", "--preload", "./docker/bun-serve-idle-timeout.ts", ".output/server/index.mjs"]
 
 # =============================================================================
 # Projeto α (apps/alpha) — Hono + LangGraph + Bun
@@ -375,19 +378,19 @@ COPY packages/pbac ./packages/pbac
 COPY packages/supabase-kit ./packages/supabase-kit
 COPY packages/tsconfig ./packages/tsconfig
 COPY apps/alpha ./apps/alpha
-RUN test -f apps/alpha/src/index.ts || \
-    (echo "❌ alpha entrypoint missing" && exit 1)
+RUN bun --filter='@iefa/alpha' run build
+RUN test -f apps/alpha/dist/index.js || \
+    (echo "❌ Build failed: output missing" && exit 1)
 
-FROM base AS alpha
+FROM ${BUN_RUNTIME_IMAGE} AS alpha
 ENV NODE_ENV=production
 ENV PORT=8000
-COPY --from=alpha-build /app/package.json ./package.json
-COPY --from=alpha-build /app/node_modules ./node_modules
-COPY --from=alpha-build /app/packages ./packages
-COPY --from=alpha-build /app/apps/alpha ./apps/alpha
-USER bun
+WORKDIR /app
+COPY --from=alpha-build /app/apps/alpha/dist ./apps/alpha/dist
+USER nonroot
 EXPOSE 8000
-CMD ["bun", "apps/alpha/src/index.ts"]
+ENTRYPOINT ["/usr/local/bin/bun", "--no-install"]
+CMD ["apps/alpha/dist/index.js"]
 
 # =============================================================================
 # DOCS
@@ -420,11 +423,10 @@ COPY --from=docs-build /app/apps/docs/.output ./apps/docs/.output
 COPY docker/bun-serve-idle-timeout.ts ./docker/bun-serve-idle-timeout.ts
 USER bun
 EXPOSE 3003
-CMD ["bun", "--preload", "./docker/bun-serve-idle-timeout.ts", "apps/docs/.output/server/index.mjs"]
+CMD ["bun", "--no-install", "--preload", "./docker/bun-serve-idle-timeout.ts", "apps/docs/.output/server/index.mjs"]
 
 # =============================================================================
 # SISUB-MCP — MCP server (bun runtime, HTTP transport)
-# Roda o entrypoint TypeScript direto (sem bundle), então a imagem de runtime mantém node_modules + os packages de workspace que ele resolve por symlink.
 # =============================================================================
 FROM deps AS sisub-mcp-build
 COPY packages/database ./packages/database
@@ -432,17 +434,17 @@ COPY packages/pbac ./packages/pbac
 COPY packages/sisub-domain ./packages/sisub-domain
 COPY packages/tsconfig ./packages/tsconfig
 COPY apps/sisub-mcp ./apps/sisub-mcp
-RUN test -f apps/sisub-mcp/src/index.ts || \
-    (echo "❌ sisub-mcp entrypoint missing" && exit 1)
+RUN bun --filter='@iefa/sisub-mcp' run build
+RUN test -f apps/sisub-mcp/dist/index.js || \
+    (echo "❌ Build failed: output missing" && exit 1)
 
-FROM base AS sisub-mcp
+FROM ${BUN_RUNTIME_IMAGE} AS sisub-mcp
 ENV NODE_ENV=production
 ENV MCP_TRANSPORT=http
 ENV MCP_PORT=3000
-COPY --from=sisub-mcp-build /app/package.json ./package.json
-COPY --from=sisub-mcp-build /app/node_modules ./node_modules
-COPY --from=sisub-mcp-build /app/packages ./packages
-COPY --from=sisub-mcp-build /app/apps/sisub-mcp ./apps/sisub-mcp
-USER bun
+WORKDIR /app
+COPY --from=sisub-mcp-build /app/apps/sisub-mcp/dist ./apps/sisub-mcp/dist
+USER nonroot
 EXPOSE 3000
-CMD ["bun", "apps/sisub-mcp/src/index.ts"]
+ENTRYPOINT ["/usr/local/bin/bun", "--no-install"]
+CMD ["apps/sisub-mcp/dist/index.js"]
