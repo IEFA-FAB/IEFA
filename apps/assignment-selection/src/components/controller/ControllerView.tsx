@@ -2,31 +2,41 @@ import type { Person } from "@iefa/database/assignment-selection"
 import { ClipboardList, LogOut, Radio } from "lucide-react"
 import { useMemo } from "react"
 import { ConductPanel } from "@/components/ConductPanel"
+import { toOmItems } from "@/components/controller/OmCombobox"
 import { PrepareTable } from "@/components/controller/PrepareTable"
-import { type PersonChanges, RecoveryPanel } from "@/components/controller/RecoveryPanel"
+import { RecoveryPanel, type UpdatePerson } from "@/components/controller/RecoveryPanel"
 import { ScreenStatusBar } from "@/components/controller/ScreenStatusBar"
 import { EditionSelect } from "@/components/EditionSelect"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@/components/ui/tabs"
 import { deriveConduct, deriveScreenView, type UndoAction } from "@/lib/conduct"
-import { buildOmOptions, estadoForOm } from "@/lib/om-options"
+import { buildOmOptions, estadoForOm, hasVacancyBoard } from "@/lib/om-options"
 import type { BoardData } from "@/server/assignment.fn"
 
 export type ControllerTab = "conduct" | "prepare"
 
+/**
+ * Ações do operador. As da condução recebem o militar como a tela o viu: é dele que sai o
+ * estado esperado que o servidor confere antes de gravar.
+ */
 export interface ControllerActions {
-	call: (personId: number) => void
-	reveal: (personId: number) => void
-	confirm: (personId: number) => void
+	call: (person: Person) => void
+	reveal: (person: Person) => void
+	confirm: (person: Person) => void
 	/** `estado` vem do quadro de vagas: é por ele que o mapa do telão destaca. */
-	changeOm: (personId: number, om: string, estado: string) => void
+	changeOm: (person: Person, om: string, estado: string) => void
 	undo: (undo: UndoAction<Person>) => void
 	activate: () => void
 	setLock: (locked: boolean) => void
 	resetScreen: () => void
 	clearChoices: () => void
-	updatePerson: (personId: number, changes: PersonChanges) => void
+	updatePerson: UpdatePerson
+	skip: (personId: number) => void
+	unskip: (personId: number) => void
 }
+
+/** Escrita em andamento, para travar o que não pode mudar no meio dela. */
+export type PendingAction = "call" | "reveal" | "confirm" | "undo" | "om" | "screen" | "person"
 
 interface ControllerViewProps {
 	data: Pick<BoardData, "editionId" | "editions" | "persons" | "vacancies">
@@ -36,6 +46,9 @@ interface ControllerViewProps {
 	userEmail?: string | null
 	onSignOut: () => void
 	busy?: boolean
+	pendingAction?: PendingAction | null
+	/** Ids pulados na condução (locais a este navegador, por edição). */
+	skipped: ReadonlySet<number>
 	actions: ControllerActions
 }
 
@@ -44,11 +57,15 @@ interface ControllerViewProps {
  * uma por momento: **Preparar** (antes do evento, a lista e as OMs) e **Conduzir** (no
  * dia, um militar por vez). A faixa do telão fica fixa no topo nas duas.
  */
-export function ControllerView({ data, tab, onTabChange, onEditionChange, userEmail, onSignOut, busy, actions }: ControllerViewProps) {
-	const conduct = useMemo(() => deriveConduct(data.persons), [data.persons])
+export function ControllerView({ data, tab, onTabChange, onEditionChange, userEmail, onSignOut, busy, pendingAction, skipped, actions }: ControllerViewProps) {
+	const conduct = useMemo(() => deriveConduct(data.persons, skipped), [data.persons, skipped])
 	const screen = useMemo(() => deriveScreenView(data.editions, data.editionId, data.persons), [data.editions, data.editionId, data.persons])
 	const omOptions = useMemo(() => buildOmOptions(data.vacancies, data.persons), [data.vacancies, data.persons])
-	const changeOm = (personId: number, om: string) => actions.changeOm(personId, om, estadoForOm(omOptions, om))
+	// Uma lista de itens por quadro, a mesma referência para todos os combobox da tela.
+	const omItems = useMemo(() => toOmItems(omOptions), [omOptions])
+	const hasBoard = hasVacancyBoard(data.vacancies)
+	const changeOm = (person: Person, om: string) => actions.changeOm(person, om, estadoForOm(omOptions, om))
+	const offAir = screen.kind === "other-edition" || screen.kind === "no-edition"
 	const editionName = data.editions.find((e) => e.id === data.editionId)?.name ?? "—"
 
 	return (
@@ -92,20 +109,26 @@ export function ControllerView({ data, tab, onTabChange, onEditionChange, userEm
 					<TabsPanel value="conduct">
 						<ConductPanel
 							state={conduct}
-							omOptions={omOptions}
+							omItems={omItems}
+							hasVacancyBoard={hasBoard}
 							busy={busy}
+							omLocked={pendingAction === "reveal" || pendingAction === "confirm"}
+							offAir={offAir}
+							onActivate={actions.activate}
 							shortcutEnabled={tab === "conduct"}
 							onCall={actions.call}
 							onReveal={actions.reveal}
 							onConfirm={actions.confirm}
 							onChangeOm={changeOm}
 							onUndo={actions.undo}
+							onSkip={actions.skip}
+							onUnskip={actions.unskip}
 						/>
 					</TabsPanel>
 
 					<TabsPanel value="prepare">
 						<div className="flex flex-col gap-8">
-							<PrepareTable persons={data.persons} omOptions={omOptions} onChangeOm={changeOm} />
+							<PrepareTable persons={data.persons} omItems={omItems} hasVacancyBoard={hasBoard} onChangeOm={changeOm} />
 							<RecoveryPanel
 								persons={data.persons}
 								editionName={editionName}

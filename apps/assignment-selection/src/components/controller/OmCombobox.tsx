@@ -4,7 +4,8 @@ import type { OmOption } from "@/lib/om-options"
 interface OmComboboxProps {
 	id?: string
 	value: string | null
-	options: OmOption[]
+	/** De `toOmItems`, memoizado por quem chama: a mesma referência mantém o item selecionado estável. */
+	items: ComboboxOption[]
 	onChange: (om: string) => void
 	size?: "default" | "lg"
 	disabled?: boolean
@@ -15,7 +16,7 @@ interface OmComboboxProps {
 }
 
 /** Contagem do quadro ao lado de cada OM. Só informa: OM cheia continua escolhível. */
-function toItems(options: OmOption[]): ComboboxOption[] {
+export function toOmItems(options: readonly OmOption[]): ComboboxOption[] {
 	return options.map((o) => ({
 		value: o.value,
 		label: o.label,
@@ -23,6 +24,6 @@ function toItems(options: OmOption[]): ComboboxOption[] {
 	}))
 }
 
-export function OmCombobox({ options, onChange, ...props }: OmComboboxProps) {
-	return <Combobox {...props} items={toItems(options)} onValueChange={onChange} placeholder="Sem OM · buscar…" emptyLabel="Nenhuma OM com esse nome" />
+export function OmCombobox({ onChange, ...props }: OmComboboxProps) {
+	return <Combobox {...props} onValueChange={onChange} placeholder="Sem OM · buscar…" emptyLabel="Nenhuma OM com esse nome" />
 }

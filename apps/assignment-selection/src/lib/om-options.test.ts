@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { buildOmOptions, estadoForOm } from "./om-options"
+import { buildOmOptions, estadoForOm, hasVacancyBoard } from "./om-options"
 
 describe("buildOmOptions", () => {
 	const vacancies = [
@@ -23,10 +23,11 @@ describe("buildOmOptions", () => {
 		expect(options.find((o) => o.value === "GAP RJ")).toMatchObject({ confirmed: 0, total: 4 })
 	})
 
-	it("sem quadro cadastrado, cai nas localidades FAB", () => {
-		const options = buildOmOptions([], [])
-		expect(options.length).toBeGreaterThan(10)
-		expect(options.every((o) => o.total === null)).toBe(true)
+	it("sem quadro cadastrado não oferece nada (o banco recusaria todas)", () => {
+		expect(buildOmOptions([], [{ localidade: "GAP RJ", hide_card: false }])).toEqual([])
+		expect(hasVacancyBoard([])).toBe(false)
+		expect(hasVacancyBoard([{ om: null }])).toBe(false)
+		expect(hasVacancyBoard(vacancies)).toBe(true)
 	})
 
 	it("mantém a OM já gravada que saiu do quadro", () => {

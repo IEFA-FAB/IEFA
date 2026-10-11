@@ -16,7 +16,8 @@ export interface OmOption {
  *
  * Vêm do quadro de vagas da edição, não do mapa de todas as localidades FAB: a função do
  * banco recusa OM fora do quadro, então oferecê-la só adiaria o erro para o meio do evento.
- * Sem quadro cadastrado, cai no mapa de localidades para a tela não ficar sem opção.
+ * Sem quadro cadastrado a lista é vazia, e a tela diz isso (`hasVacancyBoard`): oferecer as
+ * localidades FAB seria oferecer só opções que o banco recusa.
  * OM já gravada num militar e ausente do quadro entra também, para o campo não aparecer vazio.
  */
 export function buildOmOptions(
@@ -37,9 +38,7 @@ export function buildOmOptions(
 			total: (prev?.total ?? 0) + (v.total_vagas ?? 0),
 		})
 	}
-	if (byOm.size === 0) {
-		for (const [om, estado] of Object.entries(localidadesFab)) byOm.set(om, { estado, total: null })
-	}
+	if (byOm.size === 0) return []
 	for (const p of persons) {
 		if (p.localidade && !byOm.has(p.localidade)) byOm.set(p.localidade, { estado: localidadesFab[p.localidade] ?? "", total: null })
 	}
@@ -53,6 +52,11 @@ export function buildOmOptions(
 			total,
 		}))
 		.sort((a, b) => a.value.localeCompare(b.value, "pt-BR"))
+}
+
+/** A edição tem quadro de vagas: sem ele nenhuma OM pode ser escolhida. */
+export function hasVacancyBoard(vacancies: readonly Pick<Vacancy, "om">[]): boolean {
+	return vacancies.some((v) => !!v.om)
 }
 
 /** Estado gravado junto com a OM (o mapa do telão destaca por ele). */

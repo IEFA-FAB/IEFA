@@ -1,17 +1,30 @@
 import type { Person } from "@iefa/database/assignment-selection"
 import { CheckCircle2, Eye, Megaphone, TriangleAlert } from "lucide-react"
-import { useState } from "react"
+import { useId, useState } from "react"
+import { NO_BOARD_MESSAGE, REVEALED_OM_WARNING } from "@/components/controller/copy"
 import { OmCombobox } from "@/components/controller/OmCombobox"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import type { ComboboxOption } from "@/components/ui/combobox"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { byClassification, type PersonStatus, personStatus } from "@/lib/conduct"
-import type { OmOption } from "@/lib/om-options"
+import { cn } from "@/lib/utils"
 
 interface PrepareTableProps {
 	persons: Person[]
-	omOptions: OmOption[]
-	onChangeOm: (personId: number, om: string) => void
+	/** Itens do combobox de OM, memoizados por quem chama. */
+	omItems: ComboboxOption[]
+	hasVacancyBoard: boolean
+	onChangeOm: (person: Person, om: string) => void
+}
+
+/**
+ * Quem já aparece no telão com a OM: trocar aqui muda a projeção na hora. A troca segue
+ * possível (o militar pode mudar a escolha na hora), mas não sem aviso.
+ */
+const LIVE_OM_WARNING: Partial<Record<PersonStatus, string>> = {
+	revealed: REVEALED_OM_WARNING,
+	confirmed: "Já confirmado: trocar a OM muda o mapa do telão na hora.",
 }
 
 const STATUS: Record<PersonStatus, { label: string; variant: "neutral" | "info" | "success" | "warning"; icon?: typeof Eye }> = {
@@ -26,7 +39,8 @@ const STATUS: Record<PersonStatus, { label: string; variant: "neutral" | "info" 
  * Preparo antes do evento: a lista por classificação com a OM de cada um, editável em
  * sequência. O combobox grava ao escolher; Tab leva ao campo da linha de baixo.
  */
-export function PrepareTable({ persons, omOptions, onChangeOm }: PrepareTableProps) {
+export function PrepareTable({ persons, omItems, hasVacancyBoard, onChangeOm }: PrepareTableProps) {
+	const warningPrefix = useId()
 	const [onlyMissing, setOnlyMissing] = useState(false)
 	const ordered = byClassification(persons)
 	const missing = ordered.filter((p) => personStatus(p) === "missing-om").length
@@ -53,6 +67,13 @@ export function PrepareTable({ persons, omOptions, onChangeOm }: PrepareTablePro
 				</Button>
 			</div>
 
+			{!hasVacancyBoard && (
+				<div role="status" className="flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning">
+					<TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+					<p>{NO_BOARD_MESSAGE} Cadastre as vagas da edição antes de preencher a lista.</p>
+				</div>
+			)}
+
 			<div className="overflow-hidden rounded-xl border border-border bg-card">
 				<Table>
 					<TableHeader>
@@ -72,19 +93,39 @@ export function PrepareTable({ persons, omOptions, onChangeOm }: PrepareTablePro
 							</TableRow>
 						) : (
 							rows.map((p) => {
-								const status = STATUS[personStatus(p)]
+								const statusKey = personStatus(p)
+								const status = STATUS[statusKey]
 								const Icon = status.icon
+								const warning = LIVE_OM_WARNING[statusKey]
+								const warningId = `${warningPrefix}-${p.id}`
 								return (
 									<TableRow key={p.id}>
 										<TableCell className="pl-4 text-right font-medium tabular-nums text-muted-foreground">{p.classificacao}º</TableCell>
 										<TableCell className="font-medium text-foreground">{p.nome}</TableCell>
 										<TableCell className="py-1.5">
-											<OmCombobox
-												value={p.localidade}
-												options={omOptions}
-												onChange={(om) => onChangeOm(p.id, om)}
-												aria-label={`OM de ${p.classificacao}º ${p.nome}`}
-											/>
+											<div className="group/om">
+												{hasVacancyBoard ? (
+													<OmCombobox
+														value={p.localidade}
+														items={omItems}
+														onChange={(om) => onChangeOm(p, om)}
+														aria-label={`OM de ${p.classificacao}º ${p.nome}`}
+														aria-describedby={warning ? warningId : undefined}
+													/>
+												) : (
+													<span className="text-sm text-muted-foreground">{p.localidade ?? "—"}</span>
+												)}
+												{warning && hasVacancyBoard && (
+													// Revelado é um militar só e está no telão agora: aviso sempre à vista. Os
+													// confirmados são a maioria no dia; o aviso deles aparece ao mexer no campo.
+													<p
+														id={warningId}
+														className={cn("mt-1 text-xs whitespace-normal text-warning", statusKey === "confirmed" && "hidden group-focus-within/om:block")}
+													>
+														{warning}
+													</p>
+												)}
+											</div>
 										</TableCell>
 										<TableCell className="pr-4">
 											{status.variant === "neutral" ? (

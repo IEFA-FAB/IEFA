@@ -1,28 +1,19 @@
 import { AlertCircle, Loader2, LogOut, ShieldAlert } from "lucide-react"
-import { type SyntheticEvent, useId, useState } from "react"
+import { type SyntheticEvent, useId } from "react"
+import { Crest } from "@/components/Crest"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-
-/** Brasão do IEFA; se o arquivo faltar, cai no símbolo do app. */
-const CREST_SRC = "/dom/IEFA.png"
-const CREST_FALLBACK = "/favicon.svg"
 
 /**
  * Porta de entrada do controle: fundo liso, identidade em uma linha, formulário direto.
  * Escura como o controle e o telão; nada de brilho ou vidro, que competiriam com o campo.
  */
 export function AuthShell({ children }: { children: React.ReactNode }) {
-	const [crest, setCrest] = useState(CREST_SRC)
 	return (
 		<div className="flex min-h-screen w-full items-center justify-center bg-background px-4 py-12 text-foreground">
 			<div className="flex w-full max-w-sm flex-col gap-6">
 				<div className="flex items-center gap-3">
-					<img
-						src={crest}
-						alt=""
-						className="size-10 shrink-0 object-contain"
-						onError={() => setCrest((current) => (current === CREST_SRC ? CREST_FALLBACK : current))}
-					/>
+					<Crest alt="" className="size-10 shrink-0 object-contain" />
 					<div>
 						<p className="text-base font-semibold leading-tight text-foreground">Escolha de Vagas</p>
 						<p className="text-sm text-muted-foreground">CPAINT · Força Aérea Brasileira</p>

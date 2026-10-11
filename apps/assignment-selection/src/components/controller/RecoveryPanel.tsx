@@ -21,11 +21,14 @@ import { byClassification } from "@/lib/conduct"
 
 export type PersonChanges = Partial<Pick<Person, "classificacao" | "nome" | "show_card" | "show_om" | "hide_card">>
 
+/** `onError`: a gravação falhou; o campo volta ao valor do servidor. */
+export type UpdatePerson = (person: Person, changes: PersonChanges, options?: { onError?: () => void }) => void
+
 interface RecoveryPanelProps {
 	persons: Person[]
 	editionName: string
 	busy?: boolean
-	onUpdate: (id: number, changes: PersonChanges) => void
+	onUpdate: UpdatePerson
 	onResetScreen: () => void
 	onClearChoices: () => void
 	/** Já aberto (captura de tela). */
@@ -157,7 +160,7 @@ export function ResetEditionDialog({
 	)
 }
 
-function FlagsTable({ persons, onUpdate }: { persons: Person[]; onUpdate: (id: number, changes: PersonChanges) => void }) {
+function FlagsTable({ persons, onUpdate }: { persons: Person[]; onUpdate: UpdatePerson }) {
 	if (persons.length === 0) return null
 	return (
 		<div className="max-h-96 overflow-auto rounded-lg border border-border">
@@ -175,37 +178,86 @@ function FlagsTable({ persons, onUpdate }: { persons: Person[]; onUpdate: (id: n
 					{byClassification(persons).map((p) => (
 						<TableRow key={p.id}>
 							<TableCell>
-								<Input
+								<BlurField
+									// A chave muda com o valor do servidor: o campo remonta com o dado novo.
+									key={`c:${p.classificacao}`}
 									type="number"
-									defaultValue={p.classificacao}
-									aria-label={`Classificação de ${p.nome}`}
-									onBlur={(e) => {
-										const value = e.target.valueAsNumber
-										if (Number.isInteger(value) && value !== p.classificacao) onUpdate(p.id, { classificacao: value })
-									}}
+									value={String(p.classificacao)}
+									label={`Classificação de ${p.nome}`}
 									className="w-20"
+									parse={(raw) => {
+										const n = Number(raw)
+										return Number.isInteger(n) ? n : null
+									}}
+									onCommit={(value, onError) => onUpdate(p, { classificacao: value }, { onError })}
 								/>
 							</TableCell>
 							<TableCell>
-								<Input
+								<BlurField
+									key={`n:${p.nome}`}
 									type="text"
-									defaultValue={p.nome}
-									aria-label={`Nome do ${p.classificacao}º`}
-									onBlur={(e) => {
-										const value = e.target.value.trim()
-										if (value && value !== p.nome) onUpdate(p.id, { nome: value })
-									}}
+									value={p.nome}
+									label={`Nome do ${p.classificacao}º`}
 									className="min-w-40"
+									parse={(raw) => raw.trim() || null}
+									onCommit={(value, onError) => onUpdate(p, { nome: value }, { onError })}
 								/>
 							</TableCell>
-							<FlagCell label={`${p.nome} no telão`} checked={p.show_card} onChange={(v) => onUpdate(p.id, { show_card: v })} />
-							<FlagCell label={`OM de ${p.nome} revelada`} checked={p.show_om} onChange={(v) => onUpdate(p.id, { show_om: v })} />
-							<FlagCell label={`${p.nome} confirmado`} checked={p.hide_card} onChange={(v) => onUpdate(p.id, { hide_card: v })} />
+							{/* A marca vai com o valor que a tela mostrava: se outro controle mudou, o servidor recusa. */}
+							<FlagCell label={`${p.nome} no telão`} checked={p.show_card} onChange={(v) => onUpdate(p, { show_card: v })} />
+							<FlagCell label={`OM de ${p.nome} revelada`} checked={p.show_om} onChange={(v) => onUpdate(p, { show_om: v })} />
+							<FlagCell label={`${p.nome} confirmado`} checked={p.hide_card} onChange={(v) => onUpdate(p, { hide_card: v })} />
 						</TableRow>
 					))}
 				</TableBody>
 			</Table>
 		</div>
+	)
+}
+
+/**
+ * Campo que grava ao sair, e só se o valor mudou desde que ganhou o foco: passar com Tab
+ * por um campo não regrava nada, nem desfaz o que outro controle gravou enquanto isso.
+ * Se a gravação falhar, volta ao valor do servidor.
+ */
+function BlurField<T>({
+	type,
+	value,
+	label,
+	className,
+	parse,
+	onCommit,
+}: {
+	type: "text" | "number"
+	value: string
+	label: string
+	className?: string
+	parse: (raw: string) => T | null
+	onCommit: (value: T, onError: () => void) => void
+}) {
+	return (
+		<Input
+			type={type}
+			defaultValue={value}
+			aria-label={label}
+			className={className}
+			onFocus={(e) => {
+				e.currentTarget.dataset.initial = e.currentTarget.value
+			}}
+			onBlur={(e) => {
+				const input = e.currentTarget
+				const raw = input.value
+				if (raw === (input.dataset.initial ?? value)) return
+				const parsed = parse(raw)
+				if (parsed === null) {
+					input.value = value
+					return
+				}
+				onCommit(parsed, () => {
+					input.value = value
+				})
+			}}
+		/>
 	)
 }
 

@@ -1,11 +1,14 @@
+import type { Person } from "@iefa/database/assignment-selection"
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, redirect } from "@tanstack/react-router"
-import { type ControllerActions, type ControllerTab, ControllerView } from "@/components/controller/ControllerView"
+import { type ControllerActions, type ControllerTab, ControllerView, type PendingAction } from "@/components/controller/ControllerView"
 import { LegalNotice } from "@/components/LegalNotice"
 import { toast } from "@/components/ui/toast"
 import { useAuth } from "@/hooks/useAuth"
 import { useBoardRealtime } from "@/hooks/useBoardRealtime"
+import { useSkipped } from "@/hooks/useSkipped"
 import { authQueryOptions } from "@/lib/auth"
+import { expectedForChanges, expectedState } from "@/lib/person-changes"
 import { controllerBoardQueryOptions } from "@/lib/queries"
 import { callPersonFn, resetEditionFn, setActiveEditionFn, setEditionLockFn, updatePersonFn } from "@/server/assignment.fn"
 
@@ -53,30 +56,44 @@ function ControllerPage() {
 		navigate({ to: "/auth" })
 	}
 
-	// Executa qualquer ação de escrita e revalida o quadro ao terminar.
+	const { skipped, skip, unskip } = useSkipped(editionId)
+
+	// Executa qualquer ação de escrita e revalida o quadro ao terminar. Recusa por tela
+	// velha (outro controle andou antes) também revalida: a tela passa a mostrar o atual.
 	const mutation = useMutation({
-		mutationFn: ({ action }: { action: () => Promise<unknown>; done?: string }) => action(),
+		mutationFn: ({ action }: { kind: PendingAction; action: () => Promise<unknown>; done?: string }) => action(),
 		onSuccess: (_result, { done }) => {
 			if (done) toast.success(done)
 		},
 		onError: (err) => toast.error(err instanceof Error ? err.message : "Erro ao atualizar"),
 		onSettled: () => queryClient.invalidateQueries({ queryKey: controllerBoardQueryOptions(edition).queryKey }),
 	})
-	const run = (action: () => Promise<unknown>, done?: string) => mutation.mutate({ action, done })
-	const updatePerson = (id: number, changes: Parameters<typeof updatePersonFn>[0]["data"]["changes"]) => run(() => updatePersonFn({ data: { id, changes } }))
+	const run = (kind: PendingAction, action: () => Promise<unknown>, options?: { done?: string; onError?: () => void }) =>
+		mutation.mutate({ kind, action, done: options?.done }, { onError: options?.onError })
+
+	type Changes = Parameters<typeof updatePersonFn>[0]["data"]["changes"]
+	// Condução: a escrita leva tudo o que a tela viu do militar, e o servidor só grava se
+	// a linha ainda estiver assim.
+	const conductWrite = (kind: PendingAction, person: Person, changes: Changes) =>
+		run(kind, () => updatePersonFn({ data: { id: person.id, changes, expected: expectedState(person) } }))
 
 	const actions: ControllerActions = {
-		call: (personId) => editionId && run(() => callPersonFn({ data: { editionId, personId } })),
-		reveal: (personId) => updatePerson(personId, { show_om: true }),
-		confirm: (personId) => updatePerson(personId, { hide_card: true }),
-		changeOm: (personId, om, estado) => updatePerson(personId, { localidade: om, estado }),
-		undo: (undo) => updatePerson(undo.person.id, undo.changes),
-		activate: () => editionId && run(() => setActiveEditionFn({ data: { editionId } })),
+		call: (person) => editionId && run("call", () => callPersonFn({ data: { editionId, personId: person.id, expected: expectedState(person) } })),
+		reveal: (person) => conductWrite("reveal", person, { show_om: true }),
+		confirm: (person) => conductWrite("confirm", person, { hide_card: true }),
+		changeOm: (person, om, estado) => conductWrite("om", person, { localidade: om, estado }),
+		undo: (undo) => conductWrite("undo", undo.person, undo.changes),
+		activate: () => editionId && run("screen", () => setActiveEditionFn({ data: { editionId } })),
 		// O bloqueio é sempre da edição que está no telão, não da que o controlador está olhando.
-		setLock: (locked) => activeEdition && run(() => setEditionLockFn({ data: { editionId: activeEdition.id, locked } })),
-		resetScreen: () => editionId && run(() => resetEditionFn({ data: { editionId, clearChoices: false } }), "Todos saíram do telão."),
-		clearChoices: () => editionId && run(() => resetEditionFn({ data: { editionId, clearChoices: true } }), "OMs apagadas."),
-		updatePerson,
+		setLock: (locked) => activeEdition && run("screen", () => setEditionLockFn({ data: { editionId: activeEdition.id, locked } })),
+		resetScreen: () => editionId && run("screen", () => resetEditionFn({ data: { editionId, clearChoices: false } }), { done: "Todos saíram do telão." }),
+		clearChoices: () => editionId && run("screen", () => resetEditionFn({ data: { editionId, clearChoices: true } }), { done: "OMs apagadas." }),
+		updatePerson: (person, changes, options) =>
+			run("person", () => updatePersonFn({ data: { id: person.id, changes, expected: expectedForChanges(person, changes) } }), {
+				onError: options?.onError,
+			}),
+		skip,
+		unskip,
 	}
 
 	return (
@@ -89,6 +106,8 @@ function ControllerPage() {
 				userEmail={user?.email}
 				onSignOut={handleSignOut}
 				busy={mutation.isPending}
+				pendingAction={mutation.isPending ? (mutation.variables?.kind ?? null) : null}
+				skipped={skipped}
 				actions={actions}
 			/>
 			<LegalNotice />
