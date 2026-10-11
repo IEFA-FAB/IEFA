@@ -135,7 +135,7 @@ function UnitDashboardPage() {
 						{completedQuantityEstimates.map((quantityEstimate) => (
 							<Card key={quantityEstimate.id} className="hover:border-primary/30 transition-colors">
 								<CardHeader className="pb-2 pt-4">
-									<CardTitle className="text-sm flex items-start gap-2">
+									<CardTitle className="flex items-start gap-2">
 										<FileText className="size-4 text-muted-foreground shrink-0 mt-0.5" />
 										<span className="line-clamp-2 leading-snug">{quantityEstimate.title}</span>
 									</CardTitle>

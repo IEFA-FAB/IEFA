@@ -34,7 +34,7 @@ export function ProductionTaskCard({ item, onSelect, onUpdateStatus, isUpdating 
 		>
 			<CardHeader className="border-b border-border/50 pb-2">
 				<div className="flex items-start justify-between gap-2">
-					<CardTitle className="text-sm leading-snug line-clamp-2 flex-1">{recipeName}</CardTitle>
+					<CardTitle className="line-clamp-2 flex-1">{recipeName}</CardTitle>
 				</div>
 				{mealType?.name && (
 					<Badge variant="secondary" className="w-fit mt-0.5">

@@ -207,7 +207,7 @@ export function ScanConference({ receiptId, lines, events, editable, scannerProp
 			{editable && (
 				<Card className="print:hidden">
 					<CardHeader className="pb-2">
-						<CardTitle className="flex items-center gap-2 text-subheading">
+						<CardTitle className="flex items-center gap-2">
 							<PackageCheck className="size-4" />
 							Conferência
 						</CardTitle>
@@ -267,7 +267,7 @@ export function ScanConference({ receiptId, lines, events, editable, scannerProp
 
 			<Card className="print:border-0 print:shadow-none">
 				<CardHeader className="pb-2">
-					<CardTitle className="text-subheading">Linhas conferidas</CardTitle>
+					<CardTitle>Linhas conferidas</CardTitle>
 				</CardHeader>
 				<CardContent className="space-y-2">
 					{lines.map((line) => {

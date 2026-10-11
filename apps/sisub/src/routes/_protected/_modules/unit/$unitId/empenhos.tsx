@@ -256,7 +256,7 @@ function EmpenhosPage() {
 
 			<Card>
 				<CardHeader className="pb-2">
-					<CardTitle className="text-subheading">Documentos</CardTitle>
+					<CardTitle>Documentos</CardTitle>
 				</CardHeader>
 				<CardContent className="px-0 pb-0">
 					{empenhos.length === 0 ? (

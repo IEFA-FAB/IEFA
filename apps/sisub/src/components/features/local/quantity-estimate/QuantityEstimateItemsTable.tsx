@@ -96,7 +96,7 @@ export function QuantityEstimateItemsTable({ data, isLoading, onPesquisarPreco, 
 			{Object.entries(groupedData).map(([category, items]) => (
 				<Card key={category}>
 					<CardHeader className="pb-3">
-						<CardTitle className="flex items-center gap-2 text-base">
+						<CardTitle className="flex items-center gap-2">
 							<Package className="size-4 text-primary" aria-hidden="true" />
 							{category}
 						</CardTitle>

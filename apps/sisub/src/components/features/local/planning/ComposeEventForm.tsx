@@ -72,7 +72,7 @@ export function ComposeEventForm({ kitchenId, templateIds, listLink, editorLink 
 			<div className="mx-auto w-full max-w-2xl space-y-6">
 				<Card>
 					<CardHeader className="pb-3">
-						<CardTitle className="text-sm flex items-center gap-2">
+						<CardTitle className="flex items-center gap-2">
 							<Layers className="size-4 text-muted-foreground" />
 							Modelos escolhidos
 						</CardTitle>

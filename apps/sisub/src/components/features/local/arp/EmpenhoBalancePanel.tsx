@@ -444,7 +444,7 @@ export function EmpenhoBalancePanel({ arp, unitId, quantityEstimateId }: Empenho
 			<CardHeader className="pb-3">
 				<div className="flex items-start justify-between gap-4 flex-wrap">
 					<div className="space-y-0.5">
-						<CardTitle className="text-heading flex items-center gap-2">
+						<CardTitle className="flex items-center gap-2">
 							ARP {arp.numero_ata}
 							<Badge suppressHydrationWarning variant={isVencida ? "destructive" : "default"} className="text-xs">
 								{isVencida ? "Vencida" : "Ativa"}

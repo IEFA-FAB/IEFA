@@ -73,7 +73,7 @@ function ReceivingListPage() {
 
 			<Card>
 				<CardHeader className="pb-2">
-					<CardTitle className="text-subheading">Notas aguardando recebimento</CardTitle>
+					<CardTitle>Notas aguardando recebimento</CardTitle>
 				</CardHeader>
 				<CardContent>
 					{receivableNotes.length === 0 ? (
@@ -102,7 +102,7 @@ function ReceivingListPage() {
 
 			<Card>
 				<CardHeader className="pb-2">
-					<CardTitle className="text-subheading">Histórico</CardTitle>
+					<CardTitle>Histórico</CardTitle>
 				</CardHeader>
 				<CardContent>
 					{receipts.length === 0 ? (

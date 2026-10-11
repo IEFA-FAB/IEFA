@@ -135,7 +135,7 @@ export function MilitaryRecordPanel({ status, api, now }: { status: SaramStatus;
 						<Icon className="size-5 text-muted-foreground" aria-hidden />
 						<Badge variant={TONE_BADGE[view.tone]}>{view.badge}</Badge>
 					</div>
-					<CardTitle className="text-heading text-foreground">
+					<CardTitle className="text-foreground">
 						<h2>{view.title}</h2>
 					</CardTitle>
 					<CardDescription className="max-w-prose text-body">{view.description}</CardDescription>
@@ -614,7 +614,7 @@ function PendingRequestCard({ status, busy, onWithdraw }: { status: SaramStatus;
 	return (
 		<Card>
 			<CardHeader>
-				<CardTitle className="text-subheading text-foreground">
+				<CardTitle className="text-foreground">
 					<span className="flex items-center gap-2">
 						<Clock className="size-4 text-muted-foreground" aria-hidden />
 						{isDispute ? "Sua contestação" : "Seu pedido"}

@@ -312,7 +312,7 @@ function QuantityEstimateDetailPage() {
 			{quantityEstimate.kitchens.length > 0 && (
 				<Card>
 					<CardHeader className="pb-3">
-						<CardTitle className="text-subheading">Cozinhas Participantes</CardTitle>
+						<CardTitle>Cozinhas Participantes</CardTitle>
 					</CardHeader>
 					<CardContent>
 						<div className="space-y-4">

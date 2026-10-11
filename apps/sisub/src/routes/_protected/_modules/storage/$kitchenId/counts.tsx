@@ -161,7 +161,7 @@ function CountsPage() {
 			{!sheet && (
 				<Card>
 					<CardHeader className="pb-2">
-						<CardTitle className="flex items-center gap-2 text-subheading">
+						<CardTitle className="flex items-center gap-2">
 							<Plus className="size-4" />
 							Abrir inventário
 						</CardTitle>
@@ -224,7 +224,7 @@ function CountsPage() {
 			{sheet && (
 				<Card>
 					<CardHeader className="pb-2">
-						<CardTitle className="flex flex-wrap items-center gap-2 text-subheading">
+						<CardTitle className="flex flex-wrap items-center gap-2">
 							<ClipboardCheck className="size-4" />
 							{TYPE_LABELS[sheet.count.type] ?? sheet.count.type} · {SCOPE_LABELS[sheet.count.scope] ?? sheet.count.scope}
 							<Badge variant="secondary">{STATUS_LABELS[sheet.count.status] ?? sheet.count.status}</Badge>
@@ -540,7 +540,7 @@ function CountsPage() {
 
 			<Card>
 				<CardHeader className="pb-2">
-					<CardTitle className="text-subheading">Inventários da cozinha</CardTitle>
+					<CardTitle>Inventários da cozinha</CardTitle>
 				</CardHeader>
 				<CardContent>
 					<Table>

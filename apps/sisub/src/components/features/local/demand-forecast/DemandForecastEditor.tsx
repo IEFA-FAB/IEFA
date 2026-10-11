@@ -86,7 +86,7 @@ export function DemandForecastEditor({
 	const renderTemplateList = (templates: TemplateWithItemCounts[], label: string) => (
 		<Card>
 			<CardHeader className="pb-3">
-				<CardTitle className="text-subheading">{label}</CardTitle>
+				<CardTitle>{label}</CardTitle>
 			</CardHeader>
 			<CardContent>
 				{isLoadingTemplates ? (

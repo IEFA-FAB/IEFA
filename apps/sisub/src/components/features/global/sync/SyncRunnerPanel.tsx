@@ -144,7 +144,7 @@ export function SyncRunnerPanel({ config }: { config: SyncPanelConfig }) {
 						<CardHeader>
 							<div className="flex items-start justify-between gap-4">
 								<div>
-									<CardTitle className="text-base">
+									<CardTitle>
 										Sync #{sync.id}
 										<span className="ml-2 text-sm font-normal text-muted-foreground">— disparada por {sync.triggered_by}</span>
 									</CardTitle>
@@ -189,7 +189,7 @@ export function SyncRunnerPanel({ config }: { config: SyncPanelConfig }) {
 					{sync.steps.length > 0 && (
 						<Card>
 							<CardHeader>
-								<CardTitle className="text-base">Progresso por {config.stepColumnHeader}</CardTitle>
+								<CardTitle>Progresso por {config.stepColumnHeader}</CardTitle>
 							</CardHeader>
 							<CardContent className="p-0">
 								<div className="overflow-x-auto">

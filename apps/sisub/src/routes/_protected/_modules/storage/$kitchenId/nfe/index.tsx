@@ -109,7 +109,7 @@ function NfeListPage() {
 
 			<Card>
 				<CardHeader className="pb-2">
-					<CardTitle className="flex items-center gap-2 text-subheading">
+					<CardTitle className="flex items-center gap-2">
 						<ScanLine className="size-4" />
 						Chave do DANFE
 					</CardTitle>

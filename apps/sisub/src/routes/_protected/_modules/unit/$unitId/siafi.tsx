@@ -105,7 +105,7 @@ function SiafiPage() {
 
 			<Card>
 				<CardHeader className="pb-2">
-					<CardTitle className="text-subheading">Importar relatório</CardTitle>
+					<CardTitle>Importar relatório</CardTitle>
 				</CardHeader>
 				<CardContent className="space-y-3">
 					<div className="space-y-1">
@@ -170,7 +170,7 @@ function SiafiPage() {
 
 			<Card>
 				<CardHeader className="pb-2">
-					<CardTitle className="text-subheading">Lotes importados</CardTitle>
+					<CardTitle>Lotes importados</CardTitle>
 				</CardHeader>
 				<CardContent className="px-0 pb-0">
 					{batches.length === 0 ? (

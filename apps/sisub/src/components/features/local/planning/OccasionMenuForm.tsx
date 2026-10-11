@@ -162,7 +162,7 @@ export function OccasionMenuForm({ templateType, kitchenId, forkFrom, folderId, 
 					baseTemplate && (
 						<Card className="border-dashed">
 							<CardHeader className="pb-3">
-								<CardTitle className="text-sm flex items-center gap-2">
+								<CardTitle className="flex items-center gap-2">
 									<GitFork className="size-4 text-muted-foreground" />
 									Modelo de origem
 								</CardTitle>

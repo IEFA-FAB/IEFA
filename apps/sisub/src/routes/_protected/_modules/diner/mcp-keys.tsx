@@ -61,7 +61,7 @@ function McpKeysPage() {
 			{/* Info card */}
 			<Card className="border-dashed bg-muted/30">
 				<CardHeader className="pb-2">
-					<CardTitle className="text-subheading flex items-center gap-2">
+					<CardTitle className="flex items-center gap-2">
 						<Terminal className="size-4 text-muted-foreground" />
 						Como usar
 					</CardTitle>
