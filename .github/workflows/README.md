@@ -45,8 +45,8 @@ Quais apps existem, a URL do smoke test e as tarefas que liberam cada um ficam n
 
 ## Reusáveis (prefixo `_`)
 
-`_release.yml` (de um app: `build` com bake, push no ECR e Trivy da imagem; depois `deploy` com
-rollout no ECS e smoke test) e `_terraform-apply.yml`. Não disparam sozinhos.
+`_release.yml` (de um app: `build` com bake e push no ECR, que varre a imagem no push; depois
+`deploy` com rollout no ECS e smoke test) e `_terraform-apply.yml`. Não disparam sozinhos.
 
 ## Onde cada job roda
 

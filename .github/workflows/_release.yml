@@ -1,4 +1,4 @@
-# Reusable: release de UM app do ECS — `build` (bake + push no ECR + Trivy da imagem) e, se
+# Reusable: release de UM app do ECS — `build` (bake + push no ECR, que varre a imagem) e, se
 # ele passar, `deploy` (rollout no ECS + smoke test). Chamado pela matriz `release` do
 # deploy.yml, uma vez por app que passou no `verify`; na aba Actions cada app aparece como
 # `release <app> / build` e `release <app> / deploy`.
@@ -147,23 +147,11 @@ jobs:
         env: *bake-env
         with: *bake-with
 
-      # Varredura da imagem que ACABOU de ser publicada — a única camada que enxerga o
-      # que veio da imagem base e dos pacotes de SO (opengrep/codeql só olham o código).
-      # `exit-code: 0` de propósito: isto é observação, não gate. Bloquear o deploy por
-      # CVE de pacote de SO sem fix disponível pararia a entrega sem ganho real.
-      # `continue-on-error` pelo mesmo motivo: o `exit-code: 0` só cobre achado, não erro do
-      # próprio scanner. Em 2026-09-09/10 um `failed to analyze layer` do trivy derrubou 14
-      # builds já publicados no ECR e deixou os deploys `skipped`.
-      - name: Trivy — scan da imagem
-        continue-on-error: true
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
-        with:
-          scan-type: image
-          image-ref: ${{ vars.ECR_REGISTRY }}/${{ vars.ECR_REPOSITORY_PREFIX }}/${{ inputs.service }}:${{ steps.meta.outputs.tag }}
-          format: table
-          severity: HIGH,CRITICAL
-          ignore-unfixed: true
-          exit-code: "0"
+      # Sem Trivy aqui: a varredura da imagem (pacotes de SO e da imagem base, que opengrep e
+      # CodeQL não enxergam) é a do próprio ECR, `scan_on_push` em todo repositório (achados no
+      # console do ECR, por imagem). O Trivy baixava cada imagem publicada do ECR para o runner,
+      # fora da AWS: ~70 MB de saída de dados por build, US$ 7 em 2026-09, para um relatório que
+      # só ia para o log e nunca bloqueava.
 
   deploy:
     needs: [build]
