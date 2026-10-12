@@ -214,10 +214,6 @@ Atenciosamente,
 SUCONT-3 • DIREF • COMAER`
 	}
 
-	// Só monta a consolidada quando a seção está aberta: ela varre o ranking inteiro
-	// e seria remontada a cada tecla digitada em qualquer uma das mensagens.
-	const consolidatedMessage = showConsolidated ? drafts.of(CONSOLIDATED_DRAFT_KEY, generateConsolidatedMessage()) : null
-
 	const handleCopyMessage = (e: React.MouseEvent, ug: UGAnalysis) => {
 		e.stopPropagation()
 		navigator.clipboard.writeText(drafts.of(ug.ug, generateMessage(ug)).text)
@@ -231,6 +227,12 @@ SUCONT-3 • DIREF • COMAER`
 		if (selectedConferente === "ALL") return ugsComInconsistencias
 		return ugsComInconsistencias.filter((ug) => ug.conferente === selectedConferente)
 	}, [ugsComInconsistencias, selectedConferente])
+
+	// Só monta a consolidada quando a seção está aberta: ela varre o ranking inteiro
+	// e seria remontada a cada tecla digitada em qualquer uma das mensagens.
+	// Vem depois de `filteredUgs`, que a geração lê: chamada antes, a abertura da seção
+	// derrubava a tela com `ReferenceError` (TDZ).
+	const consolidatedMessage = showConsolidated ? drafts.of(CONSOLIDATED_DRAFT_KEY, generateConsolidatedMessage()) : null
 
 	const percentualInconsistentes = ((ugsComInconsistencias.length / ranking.length) * 100).toFixed(1)
 	const riscoSistemico = Number(percentualInconsistentes) > 30 ? "ALTO" : Number(percentualInconsistentes) > 10 ? "MÉDIO" : "BAIXO"
