@@ -11,8 +11,10 @@
 #     A stack without an entry is skipped (plan needs its variables).
 #
 # Caveat: because the real tfvars live in the secret (not the repo), a PR that only
-# changes service config (cpu/hosts) does NOT diff here — only .tf / module / new
-# resource changes do. That's the tradeoff of keeping tfvars private.
+# changes service config (hosts, logs) does NOT diff here — only .tf / module / new
+# resource changes do. That's the tradeoff of keeping tfvars private. Sizing (cpu,
+# memory, task count, autoscaling) is the exception: it lives in the versioned
+# `infra/<stack>/sizing.auto.tfvars`, which overrides the secret and does diff here.
 
 name: terraform-plan
 

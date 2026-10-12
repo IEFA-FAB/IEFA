@@ -1,46 +1,37 @@
-# Escala horizontal automática (Application Auto Scaling, target tracking).
+# Número de tasks do serviço (Application Auto Scaling).
 #
-# Ligado quando `autoscaling_max_count` > 0. O ECS mantém a média de CPU e a de memória do
-# serviço perto dos alvos: passou do alvo por ~3 min, sobe tasks (até o máximo); ficou abaixo
-# por ~15 min, desce (até o mínimo). Sobe rápido e desce devagar de propósito: task nova em
-# Spot leva ~1–2 min para ficar saudável, e descer cedo demais oscilaria.
+# Todo serviço tem um scalable target: é ele, e não o `desired_count` do aws_ecs_service
+# (ignorado depois da criação, ver ecs.tf), que diz quantas tasks rodam. Sem autoscaling
+# (`autoscaling_max_count` até o `desired_count`), mínimo = máximo = `desired_count` e o
+# serviço fica fixo; mudar o `desired_count` move os dois limites e o ECS ajusta as tasks sem
+# redeploy.
 #
-# O mínimo é o `desired_count`. Um `terraform apply` neste stack volta o serviço para o
-# mínimo, e o autoscaling o sobe de novo em poucos minutos se a carga continuar; para
-# segurar mais tasks durante um evento, suba o `desired_count` (vira o novo mínimo) em vez de
-# mexer no serviço à mão.
-
-locals {
-  # `cluster_id` é o ARN do cluster (`arn:aws:ecs:<região>:<conta>:cluster/<nome>`); o
-  # Application Auto Scaling identifica o serviço pelo nome.
-  cluster_name = element(split("/", var.cluster_id), 1)
-}
+# Com `autoscaling_max_count` acima do `desired_count`, uma política de target tracking mantém
+# a média de CPU do serviço perto de `autoscaling_cpu_target`: passou do alvo por ~3 min,
+# sobe tasks (até o máximo); ficou abaixo por ~15 min, desce (até o `desired_count`). Sobe
+# rápido e desce devagar de propósito: task nova em Spot leva ~1–2 min para ficar saudável.
+#
+# Só CPU, de propósito: o RSS do Bun não volta depois de um pico, então uma política de
+# memória subiria tasks e não deixaria descer (mais tasks não diminuem a memória das que já
+# estão de pé). Memória é protegida pelo health check, que tira a task da rotação perto do
+# limite.
 
 resource "aws_appautoscaling_target" "this" {
-  count = var.autoscaling_max_count > 0 ? 1 : 0
-
   service_namespace  = "ecs"
   scalable_dimension = "ecs:service:DesiredCount"
-  resource_id        = "service/${local.cluster_name}/${aws_ecs_service.this.name}"
+  resource_id        = "service/${var.cluster_name}/${aws_ecs_service.this.name}"
   min_capacity       = var.desired_count
-  max_capacity       = var.autoscaling_max_count
-
-  lifecycle {
-    precondition {
-      condition     = var.autoscaling_max_count >= var.desired_count
-      error_message = "autoscaling_max_count precisa ser >= desired_count (o mínimo do autoscaling)."
-    }
-  }
+  max_capacity       = max(var.desired_count, var.autoscaling_max_count)
 }
 
 resource "aws_appautoscaling_policy" "cpu" {
-  count = var.autoscaling_max_count > 0 ? 1 : 0
+  count = var.autoscaling_max_count > var.desired_count ? 1 : 0
 
   name               = "${var.service_name}-cpu"
   policy_type        = "TargetTrackingScaling"
-  service_namespace  = aws_appautoscaling_target.this[0].service_namespace
-  scalable_dimension = aws_appautoscaling_target.this[0].scalable_dimension
-  resource_id        = aws_appautoscaling_target.this[0].resource_id
+  service_namespace  = aws_appautoscaling_target.this.service_namespace
+  scalable_dimension = aws_appautoscaling_target.this.scalable_dimension
+  resource_id        = aws_appautoscaling_target.this.resource_id
 
   target_tracking_scaling_policy_configuration {
     target_value       = var.autoscaling_cpu_target
@@ -49,26 +40,6 @@ resource "aws_appautoscaling_policy" "cpu" {
 
     predefined_metric_specification {
       predefined_metric_type = "ECSServiceAverageCPUUtilization"
-    }
-  }
-}
-
-resource "aws_appautoscaling_policy" "memory" {
-  count = var.autoscaling_max_count > 0 ? 1 : 0
-
-  name               = "${var.service_name}-memory"
-  policy_type        = "TargetTrackingScaling"
-  service_namespace  = aws_appautoscaling_target.this[0].service_namespace
-  scalable_dimension = aws_appautoscaling_target.this[0].scalable_dimension
-  resource_id        = aws_appautoscaling_target.this[0].resource_id
-
-  target_tracking_scaling_policy_configuration {
-    target_value       = var.autoscaling_memory_target
-    scale_out_cooldown = 60
-    scale_in_cooldown  = 300
-
-    predefined_metric_specification {
-      predefined_metric_type = "ECSServiceAverageMemoryUtilization"
     }
   }
 }

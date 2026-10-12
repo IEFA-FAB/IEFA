@@ -129,7 +129,7 @@ variable "image_tag_mutability" {
 }
 
 variable "autoscaling_max_count" {
-  description = "Teto do autoscaling (CPU e memória); o mínimo é o desired_count. 0 desliga."
+  description = "Teto do autoscaling por CPU; o mínimo é o desired_count. Até o desired_count, o serviço fica fixo."
   type        = number
   default     = 0
 }

@@ -211,8 +211,13 @@ variable "secret_recovery_window_in_days" {
   default = 7
 }
 
+variable "cluster_name" {
+  description = "Nome do cluster ECS (output ecs_cluster_name da foundation); o Application Auto Scaling identifica o serviço por ele."
+  type        = string
+}
+
 variable "autoscaling_max_count" {
-  description = "Teto de tasks do autoscaling (CPU e memória, target tracking). 0 desliga; o mínimo é o desired_count. Ver autoscaling.tf."
+  description = "Teto de tasks do autoscaling por CPU. Até o desired_count (padrão 0), o serviço fica fixo no desired_count. Ver autoscaling.tf."
   type        = number
   default     = 0
 }
@@ -220,11 +225,17 @@ variable "autoscaling_max_count" {
 variable "autoscaling_cpu_target" {
   description = "Média de CPU do serviço (%) que o autoscaling procura manter."
   type        = number
-  default     = 50
+  default     = 40
 }
 
-variable "autoscaling_memory_target" {
-  description = "Média de memória do serviço (%) que o autoscaling procura manter."
+variable "health_check_timeout_seconds" {
+  description = "Timeout de cada health check do ALB (menor que o intervalo de 15 s)."
   type        = number
-  default     = 70
+  default     = 5
+}
+
+variable "health_check_unhealthy_threshold" {
+  description = "Falhas seguidas do health check antes de o ALB tirar a task da rotação."
+  type        = number
+  default     = 2
 }

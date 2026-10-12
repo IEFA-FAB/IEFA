@@ -256,14 +256,16 @@ CPU, memória, número de tasks e teto do autoscaling ficam em
 `infra/<stack>/sizing.auto.tfvars`, no git (exceção explícita no `.gitignore`). O
 arquivo sobrepõe o `terraform.tfvars` que o CI monta do segredo `TF_TFVARS_JSON`, então
 mudança de tamanho passa por PR e aparece no `terraform-plan`. Hoje: `sisub` (2 × 0,25 vCPU /
-1 GB, até 6 tasks) e `alpha` (1 × 0,25 vCPU / 512 MB, até 3).
+1 GB, até 6 tasks) e `alpha` (1 × 0,5 vCPU / 1 GB, até 3).
 
-Com `autoscaling_max_count > 0` o módulo cria target tracking de CPU (50%) e memória (70%):
-passou do alvo por ~3 min, sobe tasks; abaixo por ~15 min, desce até o `desired_count`, que é
-o mínimo. Task nova em Spot leva ~1–2 min para ficar saudável.
+Todo serviço tem um scalable target do Application Auto Scaling, e é ele que diz quantas
+tasks rodam: o Terraform ignora o `desired_count` do serviço depois da criação. Sem
+`autoscaling_max_count` (ou com ele igual ao `desired_count`), mínimo = máximo e o serviço
+fica fixo. Acima disso, uma política de target tracking por CPU (padrão 40%) sobe tasks
+depois de ~3 min acima do alvo e desce depois de ~15 min abaixo, até o `desired_count`. Só
+CPU: o RSS do Bun não volta depois de um pico, e uma política de memória não deixaria descer.
 
-**Escala rápida, sem PR** (evento previsto, incidente). Sobe o mínimo do autoscaling na hora;
-vale até o próximo `terraform apply` do stack, que volta ao `desired_count` do arquivo:
+**Escala rápida, sem PR** (evento previsto, incidente). Sobe o mínimo na hora:
 
 ```bash
 aws application-autoscaling register-scalable-target --region sa-east-1 \
@@ -271,9 +273,12 @@ aws application-autoscaling register-scalable-target --region sa-east-1 \
   --resource-id service/iefa-prod-cluster/sisub --min-capacity 4 --max-capacity 8
 ```
 
-Para durar, suba `desired_count` (e `autoscaling_max_count`) no `sizing.auto.tfvars`. Para
-voltar ao tamanho antigo de uma vez, reverta o PR do arquivo: o apply troca a task definition
-e o rollout do ECS é sem queda (`deployment_minimum_healthy_percent = 100`).
+O próximo `terraform apply` do stack (qualquer merge em `infra/sisub/**` ou
+`infra/modules/**`) volta os limites ao arquivo. Para durar, suba `desired_count` e
+`autoscaling_max_count` no `sizing.auto.tfvars`: o apply move os limites e o ECS ajusta as
+tasks sem redeploy. Para voltar ao tamanho antigo, reverta o PR do arquivo: trocar CPU ou
+memória troca a task definition, e o rollout é sem queda
+(`deployment_minimum_healthy_percent = 100`).
 
 ### Where the money goes
 
