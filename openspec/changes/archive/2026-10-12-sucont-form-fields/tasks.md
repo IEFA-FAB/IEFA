@@ -39,5 +39,5 @@
 
 ## Workflow follow-up
 
-- O gate contra regressão ficou no teste de contrato `apps/sucont/src/test/form-fields.contract.test.ts` (roda o lint de Tailwind e reprova restilo em campo), sem mudar a configuração do lint.
+- O gate contra regressão ficou no `scripts/lint-tailwind.ts`: o restilo de campo conta à parte (`shadcn/no-restyle:campo`), e o baseline do sucont não tem a chave (teto zero).
 - Arquivar a change depois que os PRs de área entrarem.

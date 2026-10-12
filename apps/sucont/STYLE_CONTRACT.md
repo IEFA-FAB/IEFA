@@ -513,9 +513,11 @@ temas.
 | `inputClassName` no `Combobox` | 1 prop | Removida |
 
 **Regra:** campo não recebe aparência por `className`, só layout (largura, margem, `flex-1`,
-altura de área de texto). `src/test/form-fields.contract.test.ts` roda o lint de Tailwind e
-reprova qualquer restilo em campo. O baseline de `no-restyle` do app caiu de 801 para 275 com
-essa migração; o que sobra é de botão, badge e casca.
+altura de área de texto). O lint de Tailwind conta o restilo de campo (`Input`, `SelectTrigger`,
+`Combobox`, `Textarea`, `Checkbox`, `InputGroup*`) à parte, como `shadcn/no-restyle:campo`, e o
+baseline do sucont não tem essa chave: teto zero, então qualquer restilo novo em campo reprova o
+lint. O `no-restyle` restante caiu de 801 para 275 com essa migração; o que sobra é de botão,
+badge e casca.
 
 ### Exceções permitidas, com o motivo
 
@@ -526,7 +528,8 @@ listados para que ninguém os "corrija" de novo.
 |------|------|---------|
 | `<input type="file">` nativo | `components/ui/file-dropzone.tsx`, e só ali | O primitivo `Input` é text-like; o campo é `sr-only` e o alvo de clique é o `<label>`. Fora do primitivo é dívida, e o teste de contrato reprova |
 | `<input type="checkbox">` nativo | "Lembrar e-mail" no login | Mesma razão — o primitivo não cobre |
-| 12 `<input>` e 5 `<textarea>` nativos | `plataforma-doc/fab-document.tsx` | Campos inline dentro de um ofício A4 (`w-[210mm]`, tamanho em `pt`, sem borda). O primitivo traz `h-9`, borda e sombra: transformaria o ofício num formulário. Todos têm foco por `focus-visible:` com a cor `ring` |
+| 12 `<input>` e 5 `<textarea>` nativos | `plataforma-doc/fab-document.tsx` | Campos inline dentro de um ofício A4 (`w-[210mm]`, tamanho em `pt`, sem borda). O primitivo traz `h-9`, borda e sombra: transformaria o ofício num formulário. Todos têm o anel do tema só no teclado (`focus-visible:ring-3 ring-ring/50`, sem o contorno do navegador) |
+| `<input type="radio">` nativo | candidatos do vínculo SARAM em `military-record.tsx` | Não há primitivo de grupo de opções no app; o rádio fica dentro de um `<label>` com borda que marca a escolha (`has-checked:`) |
 | `<textarea>` nativo | `editable-message.tsx` e a pré-visualização do `SiafiMessageModal` | Superfície de texto da mensagem, que ocupa o painel inteiro com fonte própria. Os dois têm anel `focus-visible:` com a cor `ring` |
 | `<button>` nativo | tabs/segmentos, cards clicáveis inteiros, véus `inset-0` de clique-fora, `motion.button` | O primitivo brigaria com o layout, ou (no caso do Framer Motion) com o encadeamento de ref/animação. **Todos receberam `focus-visible:ring-[3px] focus-visible:ring-ring/50`** |
 | `backdrop-blur` | véu de modal, barra fixa/sticky, tooltip de gráfico | Há sobreposição real de conteúdo — é o caso que §6 admite |
