@@ -110,7 +110,6 @@ export function SucontPeopleManager() {
 							placeholder="Como a seção chama a pessoa — ex.: 3S VANESSA"
 							required
 							minLength={2}
-							className="border-border bg-muted/50 text-foreground focus:border-tech-cyan"
 						/>
 					</div>
 					<div className="flex gap-2">
@@ -254,14 +253,7 @@ function RosterLinker({ person, onDone }: { person: SectionPerson; onDone: () =>
 					<label htmlFor={inputId} className="font-mono text-label text-muted-foreground">
 						Nome de guerra no efetivo
 					</label>
-					<Input
-						id={inputId}
-						value={term}
-						onChange={(e) => setTerm(e.target.value)}
-						minLength={3}
-						required
-						className="border-border bg-card text-foreground focus:border-tech-cyan"
-					/>
+					<Input id={inputId} value={term} onChange={(e) => setTerm(e.target.value)} minLength={3} required size="sm" />
 				</div>
 				<Button type="submit" variant="outline" size="sm">
 					<Search className="size-3.5" /> Buscar
@@ -329,15 +321,7 @@ function AccountLinker({ person, onDone }: { person: SectionPerson; onDone: () =
 				<label htmlFor={inputId} className="font-mono text-label text-muted-foreground">
 					E-mail da conta no ERP
 				</label>
-				<Input
-					id={inputId}
-					type="email"
-					value={email}
-					onChange={(e) => setEmail(e.target.value)}
-					required
-					placeholder="nome@fab.mil.br"
-					className="border-border bg-card text-foreground focus:border-tech-cyan"
-				/>
+				<Input id={inputId} type="email" value={email} onChange={(e) => setEmail(e.target.value)} required placeholder="nome@fab.mil.br" size="sm" />
 			</div>
 			<Button type="submit" disabled={link.isPending} variant="outline" size="sm">
 				{link.isPending && <Loader2 className="size-3 animate-spin" />} Vincular
