@@ -73,9 +73,13 @@ function requireSisprovModule(ctx: UserContext, module: SisprovModule, minLevel:
 		return
 	}
 	const scope: PermissionScope = { type: "unit", id: options.unitId }
-	// Global, escopo direto, ou escopo numa apoiadora que cubra a OM alvo. O deny é respeitado
-	// em cada checagem por `hasPermission`.
-	const granted = coveringUnits(options.unitId, options.supportGraph).some((id) => hasPermission(ctx.permissions, module, minLevel, { type: "unit", id }))
+	const covering = coveringUnits(options.unitId, options.supportGraph)
+	// Deny explícito na OM alvo ou em qualquer apoiadora da cadeia vence: um allow na apoiadora
+	// não pode reabrir o que foi bloqueado embaixo (mesma regra de `resolveModuleUnitCoverage`).
+	const denied = ctx.permissions.some((p) => p.module === module && p.level <= 0 && p.unit_id !== null && covering.includes(p.unit_id))
+	if (denied) throw new PermissionDeniedError(module, minLevel, scope)
+	// Global, escopo direto, ou escopo numa apoiadora que cubra a OM alvo.
+	const granted = covering.some((id) => hasPermission(ctx.permissions, module, minLevel, { type: "unit", id }))
 	if (!granted) throw new PermissionDeniedError(module, minLevel, scope)
 }
 

@@ -57,11 +57,12 @@ export const searchUsersByEmailFn = createServerFn({ method: "GET" })
 		return searchUsersByEmail(getCoreReadClient(), data.email)
 	})
 
-export type UnitOption = { id: number; code: string; display_name: string | null }
+export type UnitOption = { id: number; code: string; display_name: string | null; is_training: boolean }
 
 /**
  * OMs que o administrador alcança, para o seletor de escopo da concessão. Global: todas as
- * unidades compradoras; escopado: só a cobertura (OM e apoiadas). A lista é de referência
+ * unidades; escopado: só a cobertura (OM e apoiadas). A OM sentinela do treino ENTRA, rotulada:
+ * é nela que os almoxarifes se capacitam antes do piloto (D3 do design). Lista de referência
  * (código e nome), sem dado pessoal.
  */
 export const listGrantableUnitsFn = createServerFn({ method: "GET" }).handler(async (): Promise<{ coverage: "all" | number[]; units: UnitOption[] }> => {
@@ -69,7 +70,7 @@ export const listGrantableUnitsFn = createServerFn({ method: "GET" }).handler(as
 	const core = getCoreReadClient()
 	const graph = await fetchUnitSupportGraph(core)
 	const coverage = resolveModuleUnitCoverage(ctx.permissions, SISPROV_ADMIN_MODULE, graph, SISPROV_GRANT_ADMIN_LEVEL)
-	const { data, error } = await core.from("units").select("id, code, display_name").eq("is_training", false).order("code").limit(500)
+	const { data, error } = await core.from("units").select("id, code, display_name, is_training").order("code").limit(500)
 	if (error) throw new Error(`Erro ao listar unidades: ${error.message}`)
 	const units = (data ?? []) as UnitOption[]
 	if (coverage === "all") return { coverage: "all", units }

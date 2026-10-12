@@ -44,7 +44,15 @@ export function requireSupply(minLevel: 1 | 2 = 1, unitId?: number): Promise<Use
 	return auth.requireLevel(SISPROV_SUPPLY_MODULE, minLevel, unitScope(unitId))
 }
 
-/** SDAB: 2 = gestão sistêmica, 3 = gerenciar grants dos três módulos. */
+/**
+ * SDAB: 2 = gestão sistêmica, 3 = gerenciar grants dos três módulos.
+ *
+ * Sem escopo, `requireLevel` aceita também o grant ESCOPADO por OM. Para a administração de
+ * grants isso é correto: a cobertura (`resolveModuleUnitCoverage`) decide em que OMs o ator
+ * concede. Para dado que agrega a rede inteira (curva global, grupos da SDAB), a server function
+ * delega à operation, que exige o grant global por `requireSisprovAdmin(ctx, 2)` do domínio
+ * (`requireUnscopedPermission`). Não usar este gate sozinho para listagens sistêmicas.
+ */
 export function requireSisprovAdmin(minLevel: 2 | 3 = 2): Promise<UserContext> {
 	return auth.requireLevel(SISPROV_ADMIN_MODULE, minLevel)
 }

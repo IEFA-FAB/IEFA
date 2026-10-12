@@ -24,12 +24,14 @@
 --   sisprov-planning  1 consulta / 2 informa a previsão da OM
 --   sisprov-supply    1 consulta / 2 recebe OF, distribui
 --   sisprov-admin     2 gestão sistêmica (SDAB) / 3 gerencia grants
--- RLS: leitura a autenticados nas tabelas futuras (default privileges), escrita só por
--- service role, como no sucont e no rumaer. Tabela com dado pessoal (ficha de tamanhos por
--- SARAM) decide a própria policy na migration que a cria.
+-- Acesso ao schema: SÓ `service_role` (as server functions). Desde `20260920230000` o navegador
+-- só alcança os schemas da `CLIENT_SCHEMA_ALLOWLIST` de `audit-rls.ts` (Realtime do sisub e do
+-- telão); `grant usage` a `anon`/`authenticated` aqui faria o `audit:rls` reprovar com
+-- `client_schema_usage`. O modelo é `20260902150925_create_documents_schema.sql`, não o do sucont
+-- (anterior à regra). Tabela que um dia precisar de Realtime entra na allowlist com motivo.
 
 create schema if not exists sisprov;
-grant usage on schema sisprov to anon, authenticated, service_role;
+grant usage on schema sisprov to service_role;
 
 -- ── Helper: trigger updated_at ────────────────────────────────────────────────
 -- `set search_path = ''`: função nova fixa o search_path (regra
@@ -45,11 +47,11 @@ begin
 end;
 $$;
 
--- ── Default privileges para as tabelas e sequências futuras do schema ─────────
--- Gate a nível de tabela; RLS a nível de linha; PBAC nas server functions.
-alter default privileges in schema sisprov grant select on tables to authenticated;
-alter default privileges in schema sisprov grant all    on tables to service_role;
+-- ── Default privileges para os objetos futuros do schema ──────────────────────
+-- Só o service_role; o PBAC nas server functions é a autorização. Nada para cliente.
+alter default privileges in schema sisprov grant all on tables to service_role;
 alter default privileges in schema sisprov grant usage, select on sequences to service_role;
+alter default privileges in schema sisprov grant execute on functions to service_role;
 
 -- ── Expor schema no PostgREST (append à lista existente) ──────────────────────
 -- A lista é a de `20260705180000_create_sucont_schema.sql` mais os schemas que entraram depois

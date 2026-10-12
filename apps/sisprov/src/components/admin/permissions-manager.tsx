@@ -1,13 +1,6 @@
 "use no memo"
 
-import {
-	SISPROV_ADMIN_MODULE,
-	SISPROV_MODULE_LABELS,
-	SISPROV_MODULE_LEVELS,
-	SISPROV_MODULES,
-	type SisprovModule,
-	sisprovLevelLabel,
-} from "@iefa/sisprov-domain/modules"
+import { SISPROV_MODULE_LABELS, SISPROV_MODULE_LEVELS, SISPROV_MODULES, type SisprovModule, sisprovLevelLabel } from "@iefa/sisprov-domain/modules"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Search, ShieldCheck, Trash2, UserPlus } from "lucide-react"
 import { useState } from "react"
@@ -29,6 +22,7 @@ import {
 	revokeSisprovPermissionFn,
 	type SisprovUserSearchResult,
 	searchUsersByEmailFn,
+	type UnitOption,
 } from "@/server/permissions.fn"
 
 const GLOBAL_SCOPE = "global"
@@ -44,7 +38,7 @@ export function SisprovPermissionsManager() {
 	const [selected, setSelected] = useState<SisprovUserSearchResult | null>(null)
 	const [module, setModule] = useState<SisprovModule>("sisprov-supply")
 	const [level, setLevel] = useState<number>(1)
-	const [scope, setScope] = useState<string>(GLOBAL_SCOPE)
+	const [scope, setScope] = useState<string | null>(null)
 
 	const term = email.trim()
 	const search = useQuery({
@@ -69,9 +63,11 @@ export function SisprovPermissionsManager() {
 	const grant = useMutation({
 		mutationFn: () => {
 			if (!selected) throw new Error("Nenhum usuário selecionado")
-			const unitId = scope === GLOBAL_SCOPE ? null : Number(scope)
+			const unitId = effectiveScope === GLOBAL_SCOPE ? null : Number(effectiveScope)
 			// O par é validado de novo no servidor; aqui o cast só segue o seletor restrito.
-			return grantSisprovPermissionFn({ data: { userId: selected.id, module, level, unitId } as Parameters<typeof grantSisprovPermissionFn>[0]["data"] })
+			return grantSisprovPermissionFn({
+				data: { userId: selected.id, module, level: effectiveLevel, unitId } as Parameters<typeof grantSisprovPermissionFn>[0]["data"],
+			})
 		},
 		onSuccess: () => {
 			toast.success("Acesso concedido")
@@ -92,7 +88,12 @@ export function SisprovPermissionsManager() {
 	const levelsFor = SISPROV_MODULE_LEVELS[module]
 	const effectiveLevel = levelsFor.includes(level) ? level : (levelsFor[0] as number)
 	const unitName = (unitId: number | null) => (unitId === null ? "Toda a rede" : (units.data?.units.find((u) => u.id === unitId)?.code ?? `OM ${unitId}`))
-	const scopeDisabled = module === SISPROV_ADMIN_MODULE && units.data?.coverage !== "all"
+	// Escopo padrão dentro da cobertura: global só para o administrador global; o escopado começa
+	// na primeira OM que alcança. Sem isso a concessão sairia com `unitId: null` e o servidor recusaria.
+	const canGrantGlobal = units.data?.coverage === "all"
+	const effectiveScope = scope ?? (canGrantGlobal ? GLOBAL_SCOPE : units.data?.units[0] ? String(units.data.units[0].id) : null)
+	const unitLabel = (u: UnitOption) =>
+		`${u.code}${u.display_name && u.display_name !== u.code ? ` · ${u.display_name}` : ""}${u.is_training ? " (treino)" : ""}`
 
 	return (
 		<div className="space-y-6">
@@ -228,21 +229,22 @@ export function SisprovPermissionsManager() {
 							<Field>
 								<FieldLabel>Escopo</FieldLabel>
 								<Select
-									value={scope}
+									value={effectiveScope}
 									onValueChange={(v) => {
 										if (v) setScope(v)
 									}}
 									disabled={units.isLoading}
 								>
 									<SelectTrigger>
-										<SelectValue>{scope === GLOBAL_SCOPE ? "Toda a rede" : unitName(Number(scope))}</SelectValue>
+										<SelectValue>
+											{effectiveScope === null ? "Nenhuma OM alcançável" : effectiveScope === GLOBAL_SCOPE ? "Toda a rede" : unitName(Number(effectiveScope))}
+										</SelectValue>
 									</SelectTrigger>
 									<SelectContent>
 										{units.data?.coverage === "all" && <SelectItem value={GLOBAL_SCOPE}>Toda a rede (SDAB)</SelectItem>}
 										{units.data?.units.map((u) => (
 											<SelectItem key={u.id} value={String(u.id)}>
-												{u.code}
-												{u.display_name && u.display_name !== u.code ? ` · ${u.display_name}` : ""}
+												{unitLabel(u)}
 											</SelectItem>
 										))}
 									</SelectContent>
@@ -252,7 +254,7 @@ export function SisprovPermissionsManager() {
 								</FieldDescription>
 							</Field>
 						</FieldGroup>
-						<Button onClick={() => grant.mutate()} disabled={grant.isPending || units.isLoading || scopeDisabled}>
+						<Button onClick={() => grant.mutate()} disabled={grant.isPending || units.isLoading || effectiveScope === null}>
 							{grants.data && grants.data.length > 0 ? <ShieldCheck className="size-4" /> : <UserPlus className="size-4" />}
 							Conceder acesso
 						</Button>

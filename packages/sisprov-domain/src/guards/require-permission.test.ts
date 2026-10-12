@@ -50,6 +50,12 @@ describe("guards por OM com hierarquia de apoio", () => {
 		expect(() => requirePlanning(ctx(grant("sisprov-planning", 1, IAE)), 2, { unitId: IAE })).toThrow(PermissionDeniedError)
 	})
 
+	test("deny na OM alvo vence o allow da apoiadora", () => {
+		const blocked = ctx(grant("sisprov-supply", 2, GAP_SJ), grant("sisprov-supply", 0, IAE))
+		expect(() => requireSupply(blocked, 2, { unitId: IAE, supportGraph: GRAPH })).toThrow(PermissionDeniedError)
+		expect(() => requireSupply(blocked, 2, { unitId: DCTA, supportGraph: GRAPH })).not.toThrow()
+	})
+
 	test("deny escopado recorta um allow global", () => {
 		const denied = ctx(grant("sisprov-planning", 2), grant("sisprov-planning", 0, DCTA))
 		expect(() => requirePlanning(denied, 2, { unitId: IAE })).not.toThrow()
