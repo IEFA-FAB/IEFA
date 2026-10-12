@@ -598,7 +598,7 @@ function AddTaskForm({
 					</div>
 				)}
 				<Input name="path" placeholder="Caminho/Sistema (Opcional)" className="md:col-span-2" />
-				<Textarea name="description" placeholder="Descrição da atividade" className="md:col-span-2 min-h-20" />
+				<Textarea name="description" placeholder="Descrição da atividade" className="md:col-span-2 min-h-20 max-h-40" />
 				<div className="flex gap-2 md:col-span-2 justify-end">
 					<Button type="button" variant="subtle" onClick={onCancel}>
 						CANCELAR
@@ -618,7 +618,7 @@ function AddNoticeForm({ onSave, onCancel, pending }: { onSave: (content: string
 
 	return (
 		<motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="bg-card border border-tech-cyan/30 p-4 rounded-lg mb-4 shadow-md">
-			<Textarea value={content} onChange={(e) => setContent(e.target.value)} placeholder="Novo aviso..." className="mb-2 min-h-20" />
+			<Textarea value={content} onChange={(e) => setContent(e.target.value)} placeholder="Novo aviso..." className="mb-2 min-h-20 max-h-40" />
 			<div className="flex justify-between items-center">
 				<Select items={{ info: "INFORMATIVO", alert: "ALERTA" }} value={type} onValueChange={(value) => setType(value as "info" | "alert")}>
 					<SelectTrigger size="sm">
@@ -630,14 +630,15 @@ function AddNoticeForm({ onSave, onCancel, pending }: { onSave: (content: string
 					</SelectContent>
 				</Select>
 				<div className="flex gap-2">
-					<Button type="button" variant="subtle" onClick={onCancel} className="h-auto p-0 hover:bg-transparent">
+					<Button type="button" variant="subtle" size="sm" onClick={onCancel}>
 						CANCELAR
 					</Button>
 					<Button
 						type="button"
+						size="sm"
 						disabled={pending}
 						onClick={() => content && onSave(content, type)}
-						className="bg-tech-cyan text-white hover:bg-tech-cyan/90 h-auto px-3 py-1 shadow-sm"
+						className="bg-tech-cyan text-white hover:bg-tech-cyan/90 shadow-sm"
 					>
 						{pending && <Loader2 className="w-3 h-3 animate-spin" />} SALVAR
 					</Button>

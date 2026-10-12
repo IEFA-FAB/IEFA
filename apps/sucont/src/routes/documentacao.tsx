@@ -138,7 +138,7 @@ function PlataformaDoc() {
 									value={draft}
 									onChange={(e) => setDraft(e.target.value)}
 									placeholder={docType === "FAB_OFFICE" ? "Ex: Baixa de parafuso de US$ 208 mil por erro de 2010..." : "Cole aqui os dados da mensagem..."}
-									className="min-h-[350px] resize-none"
+									className="min-h-[350px] max-h-[60vh] resize-none"
 								/>
 								{/* Fora do campo: sobreposto, o contador cobria a última linha do texto. */}
 								<div className="mt-2 flex justify-end">

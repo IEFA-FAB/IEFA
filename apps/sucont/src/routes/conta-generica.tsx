@@ -1356,7 +1356,7 @@ function MessageControls({
 		<div className="flex flex-wrap items-center gap-3">
 			<div className="flex items-center gap-3 bg-card px-3 py-1.5 rounded-lg border border-border">
 				<span className="text-label text-muted-foreground">Nº Mensagem:</span>
-				<Input type="text" value={msgNumber} onChange={(e) => setMsgNumber(e.target.value)} placeholder="Ex: 001" size="sm" className="w-16 text-center" />
+				<Input type="text" value={msgNumber} onChange={(e) => setMsgNumber(e.target.value)} placeholder="Ex: 001" size="sm" className="w-20 text-center" />
 			</div>
 			<div className="flex items-center gap-3 bg-card px-3 py-1.5 rounded-lg border border-border">
 				<span className="text-label text-muted-foreground">Data:</span>

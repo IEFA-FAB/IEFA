@@ -131,7 +131,7 @@ function Reports() {
 						>
 							<Input name="title" placeholder="Título do Relatório" required />
 							<Input name="url" placeholder="URL do Relatório" required />
-							<Textarea name="description" placeholder="Descrição breve" className="md:col-span-2 min-h-20" />
+							<Textarea name="description" placeholder="Descrição breve" className="md:col-span-2 min-h-20 max-h-40" />
 							<div className="flex gap-2 md:col-span-2 justify-end">
 								<Button type="button" variant="subtle" size="sm" onClick={() => setIsAdding(false)} className="px-4 py-2">
 									CANCELAR
