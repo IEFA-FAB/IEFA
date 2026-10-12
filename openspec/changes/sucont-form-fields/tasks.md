@@ -5,7 +5,7 @@
 - [x] 1.1 [sucont] `Input` com `size` (`default`/`sm`) via `data-size`, omitindo o `size` nativo do tipo; verificar com `bun run typecheck` e um uso de cada size lado a lado com `SelectTrigger` de mesmo size (mesma altura no screenshot)
 - [x] 1.2 [sucont] Estado somente leitura (`read-only:not-disabled:`) em `Input` e `Textarea`, mantendo o anel de foco; verificar no navegador que o campo `readOnly` aceita seleção e cópia, não aceita edição, mostra o anel pelo Tab e se distingue de editável e de desabilitado (o `Input disabled` do SARAM em `military-record.tsx` não fica tracejado), no claro e no escuro
 - [x] 1.3 [sucont] Portar `input-group.tsx` do sisub com os tokens do sucont e o seletor de foco do sisub (`has-[[data-slot=input-group-control]:focus-visible]`); verificar por Tab que o anel aparece no contorno do grupo quando o foco está no campo, e só no botão (sem anel no grupo) quando está no botão interno
-- [x] 1.4 [sucont] `Combobox`: adicionar `size` e trocar o campo de busca para `text-base md:text-sm` (`inputClassName` continua até a 4.3); verificar `bun run typecheck` e, no celular ou no emulador, que focar a busca não dá zoom
+- [x] 1.4 [sucont] `Combobox`: adicionar `size` e o campo de busca em 16px no mobile (`text-sm max-md:text-base` enquanto o `inputClassName` existir; volta a `text-base md:text-sm` na 4.3, quando ele sai); verificar `bun run typecheck` e, no celular ou no emulador, que focar a busca não dá zoom
 - [x] 1.5 [sucont] Registrar `size`, somente leitura e `InputGroup` no §4.2 do `STYLE_CONTRACT.md`, e no §8 ("Continua em aberto") registrar que o `InputGroup` veio do sisub e que `field.tsx`/`item.tsx` seguem faltando; verificar que o §8 não contradiz o §4.2
 
 ## 2. Área `components/`

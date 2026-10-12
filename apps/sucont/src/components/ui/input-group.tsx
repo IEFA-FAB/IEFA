@@ -29,9 +29,13 @@ function InputGroup({ className, size = "default", ...props }: React.ComponentPr
 				"has-[[data-slot][aria-invalid=true]]:border-destructive has-[[data-slot][aria-invalid=true]]:ring-3 has-[[data-slot][aria-invalid=true]]:ring-destructive/20 dark:has-[[data-slot][aria-invalid=true]]:ring-destructive/40",
 				// Só o campo desabilitado apaga o grupo: o "enviar" desabilitado com o campo vazio, não.
 				"has-[[data-slot=input-group-control]:disabled]:opacity-50",
-				// Somente leitura, como no `Input`: quem desenha o contorno aqui é o grupo.
-				"has-[[data-slot=input-group-control]:read-only:not(:disabled)]:border-dashed has-[[data-slot=input-group-control]:read-only:not(:disabled)]:bg-muted dark:has-[[data-slot=input-group-control]:read-only:not(:disabled)]:bg-muted/50",
+				// Somente leitura, como em `READ_ONLY_FIELD` (`field-states.ts`): quem desenha o contorno aqui
+				// é o grupo, então a regra é a mesma escrita a partir dele.
+				"has-[[data-slot=input-group-control][readonly]:not(:disabled)]:border-dashed has-[[data-slot=input-group-control][readonly]:not(:disabled)]:bg-muted dark:has-[[data-slot=input-group-control][readonly]:not(:disabled)]:bg-muted/50",
 				"has-[>textarea]:h-auto",
+				// O `data-[size=sm]:h-8` pesa mais que o `has-*:h-auto`; com textarea ou addon de bloco o
+				// grupo cresce também no `sm`.
+				"data-[size=sm]:has-[>textarea]:h-auto data-[size=sm]:has-[>[data-align=block-end]]:h-auto data-[size=sm]:has-[>[data-align=block-start]]:h-auto",
 				"has-[>[data-align=block-end]]:h-auto has-[>[data-align=block-end]]:flex-col has-[>[data-align=block-start]]:h-auto has-[>[data-align=block-start]]:flex-col",
 				"has-[>[data-align=block-end]]:[&>input]:pt-3 has-[>[data-align=block-start]]:[&>input]:pb-3 has-[>[data-align=inline-end]]:[&>input]:pr-1.5 has-[>[data-align=inline-start]]:[&>input]:pl-1.5",
 				className
@@ -42,7 +46,7 @@ function InputGroup({ className, size = "default", ...props }: React.ComponentPr
 }
 
 const inputGroupAddonVariants = cva(
-	"flex h-auto cursor-text items-center justify-center gap-2 py-1.5 text-sm font-medium text-muted-foreground select-none [&>svg:not([class*='size-'])]:size-4",
+	"flex h-auto cursor-text items-center justify-center gap-2 py-1.5 text-sm font-medium text-muted-foreground select-none group-has-[[data-slot=input-group-control][readonly]]/input-group:cursor-default [&>svg:not([class*='size-'])]:size-4",
 	{
 		variants: {
 			align: {
@@ -58,20 +62,22 @@ const inputGroupAddonVariants = cva(
 	}
 )
 
-function InputGroupAddon({ className, align = "inline-start", ...props }: React.ComponentProps<"div"> & VariantProps<typeof inputGroupAddonVariants>) {
+function InputGroupAddon({ className, align = "inline-start", onClick, ...props }: React.ComponentProps<"div"> & VariantProps<typeof inputGroupAddonVariants>) {
 	return (
 		<div
 			role="group"
 			data-slot="input-group-addon"
 			data-align={align}
 			className={cn(inputGroupAddonVariants({ align }), className)}
+			{...props}
+			// O `onClick` de quem usa soma ao repasse de foco, em vez de substituí-lo.
 			onClick={(e) => {
-				if ((e.target as HTMLElement).closest("button")) {
+				onClick?.(e)
+				if (e.defaultPrevented || (e.target as HTMLElement).closest("button")) {
 					return
 				}
 				e.currentTarget.parentElement?.querySelector<HTMLElement>("input, textarea")?.focus()
 			}}
-			{...props}
 		/>
 	)
 }
