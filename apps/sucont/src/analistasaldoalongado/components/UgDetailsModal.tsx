@@ -5,6 +5,7 @@ import { EditableMessage } from "#/components/editable-message"
 import { Button } from "#/components/ui/button"
 import { Input } from "#/components/ui/input"
 import { InputGroup, InputGroupAddon, InputGroupInput } from "#/components/ui/input-group"
+import { Label } from "#/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 import { useMessageDraft } from "#/hooks/use-editable-message"
 import { getConferente } from "#/lib/ug/registry"
@@ -340,9 +341,7 @@ export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsM
 						<div className="p-4 border-b border-border bg-card space-y-4">
 							<div className="grid grid-cols-2 gap-4">
 								<div className="space-y-1.5">
-									<label htmlFor="ug-msg-number" className="text-caption text-foreground">
-										Número da Mensagem
-									</label>
+									<Label htmlFor="ug-msg-number">Número da Mensagem</Label>
 									<Input
 										id="ug-msg-number"
 										type="text"
@@ -353,17 +352,13 @@ export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsM
 									/>
 								</div>
 								<div className="space-y-1.5">
-									<label htmlFor="ug-msg-date" className="text-caption text-foreground">
-										Data da Mensagem
-									</label>
+									<Label htmlFor="ug-msg-date">Data da Mensagem</Label>
 									<Input id="ug-msg-date" type="date" size="sm" value={messageDate} onChange={(e) => setMessageDate(e.target.value)} />
 								</div>
 							</div>
 
 							<div className="space-y-2">
-								<label htmlFor="ug-msg-type" className="text-caption text-foreground">
-									Tipo de Mensagem
-								</label>
+								<Label htmlFor="ug-msg-type">Tipo de Mensagem</Label>
 								<Select
 									items={{ COM_PRAZO: "Ação com Prazo", SEM_PRAZO: "Ação sem Prazo", ALERTA: "Apenas Alerta" }}
 									value={messageType}
@@ -381,9 +376,7 @@ export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsM
 
 								{messageType === "COM_PRAZO" && (
 									<div className="pt-2">
-										<label htmlFor="ug-msg-deadline" className="text-caption text-foreground mb-1.5 block">
-											Data Limite
-										</label>
+										<Label htmlFor="ug-msg-deadline">Data Limite</Label>
 										<Input id="ug-msg-deadline" type="date" size="sm" value={deadlineDate} onChange={(e) => setDeadlineDate(e.target.value)} />
 									</div>
 								)}

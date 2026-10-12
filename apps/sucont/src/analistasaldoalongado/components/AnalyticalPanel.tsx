@@ -117,15 +117,7 @@ export function AnalyticalPanel({ data }: AnalyticalPanelProps) {
 			<div className="bg-card p-4 rounded-xl border border-border shadow-sm flex items-center justify-end gap-4">
 				<div className="flex items-center gap-2">
 					<Label htmlFor="analytical-rac-filter">Questão RAC</Label>
-					<Combobox
-						id="analytical-rac-filter"
-						value={selectedRac}
-						onValueChange={setSelectedRac}
-						items={racItems}
-						size="sm"
-						className="w-44"
-						aria-label="Questão RAC"
-					/>
+					<Combobox id="analytical-rac-filter" value={selectedRac} onValueChange={setSelectedRac} items={racItems} size="sm" className="w-44" />
 				</div>
 			</div>
 

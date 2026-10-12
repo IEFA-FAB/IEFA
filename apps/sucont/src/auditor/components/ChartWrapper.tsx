@@ -66,7 +66,9 @@ export const ChartWrapper: React.FC<ChartWrapperProps> = ({
 		})
 	}, [allData, localMonth, hierarchyFilter, localGroup, hierarchyLevel, localRisk])
 
-	const Controls = () => (
+	// JSX, não componente: um componente definido no render seria um tipo novo a cada render, e o
+	// Select remontaria (o foco do teclado cairia no `<body>` a cada escolha).
+	const controls = (
 		<div className="flex flex-wrap items-center gap-2 mt-2 sm:mt-0">
 			<div className="relative">
 				<Select
@@ -211,7 +213,7 @@ export const ChartWrapper: React.FC<ChartWrapperProps> = ({
 				<div className={`flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2 flex-shrink-0 ${isExpanded ? "border-b pb-4" : ""}`}>
 					<h2 className={cn("text-foreground", isExpanded ? "text-display" : "text-heading")}>{title}</h2>
 					<div className="flex items-center gap-4">
-						<Controls />
+						{controls}
 						{isExpanded && (
 							<Button
 								variant="ghost"

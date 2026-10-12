@@ -806,7 +806,7 @@ const DEFAULT_DEADLINE_DAYS = 3
  * `<input type="date">` lê e grava. O texto da mensagem cita a data em `DD/MM/AAAA`,
  * e quem converte é o `generateMessage`.
  */
-export const defaultMessageDeadline = (now: Date = new Date()): string => addDays(todayInBrasilia(now), DEFAULT_DEADLINE_DAYS)
+export const getDefaultMessageDeadline = (now: Date = new Date()): string => addDays(todayInBrasilia(now), DEFAULT_DEADLINE_DAYS)
 
 /**
  * `deadline` chega em ISO (`AAAA-MM-DD`, o valor do campo de data) e sai no texto como
@@ -830,9 +830,6 @@ export const generateMessage = (
 		return "ERRO AO GERAR MENSAGEM. VERIFIQUE OS DADOS."
 	}
 }
-
-export const generateSiafiMessageText = (record: FinancialRecord, msgNumber: string, deadline: string, history?: FinancialRecord[]) =>
-	generateHeatmapMessage(record, msgNumber, formatBrDate(deadline), history || [])
 
 /**
  * Reescreve o número da MSG num corpo já redigido.
@@ -869,4 +866,13 @@ export const dedupeBalanceGrain = <T extends { period: string; ugCodigo: string;
 		byGrain.set(key, row)
 	}
 	return { rows: [...byGrain.values()], duplicates }
+}
+
+/**
+ * Texto da pré-visualização depois de trocar o prazo. Intocado (igual ao último gerado), vira o
+ * texto regerado; editado pelo operador, mantém a edição e só troca a data antiga pela nova.
+ */
+export function applyDeadlineChange(current: string, lastGenerated: string, regenerated: string, previousDeadline: string, nextDeadline: string): string {
+	if (current === lastGenerated) return regenerated
+	return current.replaceAll(formatBrDate(previousDeadline), formatBrDate(nextDeadline))
 }

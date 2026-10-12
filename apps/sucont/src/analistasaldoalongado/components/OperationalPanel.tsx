@@ -135,7 +135,7 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 			{/* Filters */}
 			<div className="flex flex-col sm:flex-row items-center justify-between gap-4">
 				{selectedRac !== "Geral" ? (
-					<Button type="button" onClick={() => setIsConsolidatedModalOpen(true)}>
+					<Button type="button" size="sm" onClick={() => setIsConsolidatedModalOpen(true)}>
 						<MessageSquare className="w-4 h-4" />
 						Gerar Mensagem Única ({selectedRac})
 					</Button>
@@ -166,15 +166,7 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 
 					<div className="flex items-center gap-2">
 						<Label htmlFor="operational-rac-filter">Questão RAC</Label>
-						<Combobox
-							id="operational-rac-filter"
-							value={selectedRac}
-							onValueChange={setSelectedRac}
-							items={racItems}
-							size="sm"
-							className="w-44"
-							aria-label="Questão RAC"
-						/>
+						<Combobox id="operational-rac-filter" value={selectedRac} onValueChange={setSelectedRac} items={racItems} size="sm" className="w-44" />
 					</div>
 				</div>
 			</div>

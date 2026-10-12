@@ -3,6 +3,7 @@ import { useMemo, useState } from "react"
 import { EditableMessage } from "#/components/editable-message"
 import { Button } from "#/components/ui/button"
 import { Input } from "#/components/ui/input"
+import { Label } from "#/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 import { useMessageDraft } from "#/hooks/use-editable-message"
 import type { UgConsolidated } from "../utils/analytics"
@@ -142,9 +143,7 @@ export function ConsolidatedMessageModal({ data, racFilter, onClose }: Consolida
 
 						<div className="p-4 space-y-4">
 							<div className="space-y-1.5">
-								<label htmlFor="cons-msg-number" className="text-caption text-foreground">
-									Número da Mensagem
-								</label>
+								<Label htmlFor="cons-msg-number">Número da Mensagem</Label>
 								<Input
 									id="cons-msg-number"
 									type="text"
@@ -155,16 +154,12 @@ export function ConsolidatedMessageModal({ data, racFilter, onClose }: Consolida
 								/>
 							</div>
 							<div className="space-y-1.5">
-								<label htmlFor="cons-msg-date" className="text-caption text-foreground">
-									Data da Mensagem
-								</label>
+								<Label htmlFor="cons-msg-date">Data da Mensagem</Label>
 								<Input id="cons-msg-date" type="date" size="sm" value={messageDate} onChange={(e) => setMessageDate(e.target.value)} />
 							</div>
 
 							<div className="space-y-2">
-								<label htmlFor="cons-msg-type" className="text-caption text-foreground">
-									Tipo de Mensagem
-								</label>
+								<Label htmlFor="cons-msg-type">Tipo de Mensagem</Label>
 								<Select
 									items={{ COM_PRAZO: "Ação com Prazo", SEM_PRAZO: "Ação sem Prazo", ALERTA: "Apenas Alerta" }}
 									value={messageType}
@@ -182,9 +177,7 @@ export function ConsolidatedMessageModal({ data, racFilter, onClose }: Consolida
 
 								{messageType === "COM_PRAZO" && (
 									<div className="pt-2">
-										<label htmlFor="cons-msg-deadline" className="text-caption text-foreground mb-1.5 block">
-											Data Limite
-										</label>
+										<Label htmlFor="cons-msg-deadline">Data Limite</Label>
 										<Input id="cons-msg-deadline" type="date" size="sm" value={deadlineDate} onChange={(e) => setDeadlineDate(e.target.value)} />
 									</div>
 								)}

@@ -10,11 +10,12 @@ import { beforeAll, describe, expect, it } from "bun:test"
 import { AccountGroup, ImpactLevel, ProbabilityLevel, type RawInputRow, RiskLevel, type StoredBalanceRow } from "../types"
 import { buildFixtureFile, installFileReaderPolyfill } from "./__fixtures__/report"
 import {
+	applyDeadlineChange,
 	applyMessageNumber,
 	applyRiskClassification,
 	dedupeBalanceGrain,
-	defaultMessageDeadline,
 	generateMessage,
+	getDefaultMessageDeadline,
 	normalizeData,
 	parseDateString,
 	rawRowsFromStoredBalances,
@@ -291,16 +292,16 @@ describe("prazo da mensagem SIAFI", () => {
 
 	it("abre preenchido: o padrão é ISO, o único formato que o campo de data exibe", () => {
 		// 12h de 30/09 em Brasília
-		expect(defaultMessageDeadline(new Date("2026-09-30T15:00:00Z"))).toBe("2026-10-03")
+		expect(getDefaultMessageDeadline(new Date("2026-09-30T15:00:00Z"))).toBe("2026-10-03")
 	})
 
 	it("conta o prazo a partir do dia de Brasília, não do UTC", () => {
 		// 23h de 30/09 em Brasília já é 01/10 em UTC
-		expect(defaultMessageDeadline(new Date("2026-10-01T02:00:00Z"))).toBe("2026-10-03")
+		expect(getDefaultMessageDeadline(new Date("2026-10-01T02:00:00Z"))).toBe("2026-10-03")
 	})
 
 	it("o padrão inicial chega ao texto em DD/MM/AAAA nos dois modelos", () => {
-		const deadline = defaultMessageDeadline(new Date("2026-09-30T15:00:00Z"))
+		const deadline = getDefaultMessageDeadline(new Date("2026-09-30T15:00:00Z"))
 		for (const type of ["RANKING", "HEATMAP"] as const) {
 			const msg = generateMessage(type, record(), "XXX", deadline)
 			expect(msg).toContain("03/10/2026")
@@ -457,4 +458,15 @@ describe("generateMessage — escopo não-mensal ainda mostra variação", () =>
 			expect(linhas.slice(1).every((l) => l.includes("%"))).toBe(true)
 		})
 	}
+})
+
+describe("applyDeadlineChange", () => {
+	it("texto intocado vira o regerado", () => {
+		expect(applyDeadlineChange("até 03/10/2026", "até 03/10/2026", "até 05/10/2026", "2026-10-03", "2026-10-05")).toBe("até 05/10/2026")
+	})
+
+	it("texto editado mantém a edição e só troca a data", () => {
+		const edited = "Prezados, regularizar até 03/10/2026. Obrigado."
+		expect(applyDeadlineChange(edited, "até 03/10/2026", "até 05/10/2026", "2026-10-03", "2026-10-05")).toBe("Prezados, regularizar até 05/10/2026. Obrigado.")
+	})
 })
