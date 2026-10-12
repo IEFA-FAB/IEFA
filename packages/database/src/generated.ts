@@ -1794,7 +1794,28 @@ export type Database = {
     }
     Functions: {
       apply_person_choice: {
-        Args: { p_changes: Json; p_person_id: number }
+        Args: { p_changes: Json; p_expected?: Json; p_person_id: number }
+        Returns: {
+          classificacao: number
+          created_at: string
+          edition_id: string
+          estado: string | null
+          hide_card: boolean
+          id: number
+          localidade: string | null
+          nome: string
+          show_card: boolean
+          show_om: boolean
+        }
+        SetofOptions: {
+          from: "*"
+          to: "person"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      call_person: {
+        Args: { p_edition_id: string; p_expected?: Json; p_person_id: number }
         Returns: {
           classificacao: number
           created_at: string

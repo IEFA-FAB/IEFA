@@ -1,24 +1,23 @@
+import type { Person } from "@iefa/database/assignment-selection"
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, redirect } from "@tanstack/react-router"
-import { Eye, Lock, LogOut, MonitorPlay, RotateCcw, Trash2 } from "lucide-react"
-import { ConductPanel } from "@/components/ConductPanel"
-import { ControllerTable, type PersonChanges } from "@/components/ControllerTable"
-import { EditionSelect } from "@/components/EditionSelect"
+import { type ControllerActions, type ControllerTab, ControllerView, type PendingAction } from "@/components/controller/ControllerView"
 import { LegalNotice } from "@/components/LegalNotice"
-import { Button } from "@/components/ui/button"
 import { toast } from "@/components/ui/toast"
 import { useAuth } from "@/hooks/useAuth"
 import { useBoardRealtime } from "@/hooks/useBoardRealtime"
+import { useSkipped } from "@/hooks/useSkipped"
 import { authQueryOptions } from "@/lib/auth"
-import { localidadesFab } from "@/lib/localidades"
+import { callRequest, expectedForChanges, expectedState } from "@/lib/person-changes"
 import { controllerBoardQueryOptions } from "@/lib/queries"
 import { callPersonFn, resetEditionFn, setActiveEditionFn, setEditionLockFn, updatePersonFn } from "@/server/assignment.fn"
 
-type ControllerSearch = { edition?: string }
+type ControllerSearch = { edition?: string; tab?: ControllerTab }
 
 export const Route = createFileRoute("/controller")({
 	validateSearch: (search: Record<string, unknown>): ControllerSearch => ({
 		edition: typeof search.edition === "string" ? search.edition : undefined,
+		tab: search.tab === "conduct" || search.tab === "prepare" ? search.tab : undefined,
 	}),
 	// Gate de acesso: exige sessão + concessão (PBAC). O telão "/" segue público.
 	beforeLoad: async ({ context, location }) => {
@@ -38,11 +37,18 @@ export const Route = createFileRoute("/controller")({
 })
 
 function ControllerPage() {
-	const { edition } = Route.useSearch()
+	const { edition, tab } = Route.useSearch()
 	const navigate = Route.useNavigate()
 	const queryClient = useQueryClient()
 	const { user, signOut } = useAuth()
 	const { data } = useSuspenseQuery(controllerBoardQueryOptions(edition))
+
+	useBoardRealtime(data.editionId, controllerBoardQueryOptions(edition).queryKey)
+
+	const editionId = data.editionId
+	const activeEdition = data.editions.find((e) => e.active)
+	// Sem aba na URL: no dia (edição no telão) abre na condução; antes, no preparo.
+	const currentTab: ControllerTab = tab ?? (editionId && activeEdition?.id === editionId ? "conduct" : "prepare")
 
 	const handleSignOut = async () => {
 		await signOut()
@@ -50,125 +56,60 @@ function ControllerPage() {
 		navigate({ to: "/auth" })
 	}
 
-	useBoardRealtime(data.editionId, controllerBoardQueryOptions(edition).queryKey)
+	const { skipped, skip, unskip } = useSkipped(editionId)
 
-	const activeEdition = data.editions.find((e) => e.active)
-	const isActiveOnBoard = !!data.editionId && activeEdition?.id === data.editionId
-	// O bloqueio é sempre da edição que está no telão, não da que o controlador
-	// está olhando — o painel segue a ativa, então bloquear outra seria um no-op
-	// silencioso no meio do evento.
-	const isLocked = activeEdition?.locked ?? false
-
-	// Executa qualquer ação de escrita e revalida o quadro ao terminar.
+	// Executa qualquer ação de escrita e revalida o quadro ao terminar. Recusa por tela
+	// velha (outro controle andou antes) também revalida: a tela passa a mostrar o atual.
 	const mutation = useMutation({
-		mutationFn: (action: () => Promise<unknown>) => action(),
+		mutationFn: ({ action }: { kind: PendingAction; action: () => Promise<unknown>; done?: string }) => action(),
+		onSuccess: (_result, { done }) => {
+			if (done) toast.success(done)
+		},
 		onError: (err) => toast.error(err instanceof Error ? err.message : "Erro ao atualizar"),
 		onSettled: () => queryClient.invalidateQueries({ queryKey: controllerBoardQueryOptions(edition).queryKey }),
 	})
-	const run = (action: () => Promise<unknown>) => mutation.mutate(action)
-	const editionId = data.editionId
+	const run = (kind: PendingAction, action: () => Promise<unknown>, options?: { done?: string; onError?: () => void }) =>
+		mutation.mutate({ kind, action, done: options?.done }, { onError: options?.onError })
 
-	const handleManualUpdate = (id: number, changes: PersonChanges) => run(() => updatePersonFn({ data: { id, changes } }))
+	type Changes = Parameters<typeof updatePersonFn>[0]["data"]["changes"]
+	// Condução: a escrita leva tudo o que a tela viu do militar, e o servidor só grava se
+	// a linha ainda estiver assim.
+	const conductWrite = (kind: PendingAction, person: Person, changes: Changes) =>
+		run(kind, () => updatePersonFn({ data: { id: person.id, changes, expected: expectedState(person) } }))
+
+	const actions: ControllerActions = {
+		call: (person) => editionId && run("call", () => callPersonFn({ data: callRequest(editionId, person) })),
+		reveal: (person) => conductWrite("reveal", person, { show_om: true }),
+		confirm: (person) => conductWrite("confirm", person, { hide_card: true }),
+		changeOm: (person, om, estado) => conductWrite("om", person, { localidade: om, estado }),
+		undo: (undo) => conductWrite("undo", undo.person, undo.changes),
+		activate: () => editionId && run("screen", () => setActiveEditionFn({ data: { editionId } })),
+		// O bloqueio é sempre da edição que está no telão, não da que o controlador está olhando.
+		setLock: (locked) => activeEdition && run("screen", () => setEditionLockFn({ data: { editionId: activeEdition.id, locked } })),
+		resetScreen: () => editionId && run("screen", () => resetEditionFn({ data: { editionId, clearChoices: false } }), { done: "Todos saíram do telão." }),
+		clearChoices: () => editionId && run("screen", () => resetEditionFn({ data: { editionId, clearChoices: true } }), { done: "OMs apagadas." }),
+		updatePerson: (person, changes, options) =>
+			run("person", () => updatePersonFn({ data: { id: person.id, changes, expected: expectedForChanges(person, changes) } }), {
+				onError: options?.onError,
+			}),
+		skip,
+		unskip,
+	}
 
 	return (
-		<div className="min-h-screen w-full bg-stage-deep p-4 md:p-8">
-			<div className="mx-auto max-w-6xl">
-				<div className="overflow-hidden rounded-2xl bg-card text-card-foreground shadow-xl">
-					<header className="flex flex-wrap items-center justify-between gap-4 border-b border-border px-6 py-4">
-						<div>
-							<h1 className="text-2xl font-bold text-foreground">Painel de Controle</h1>
-							<p className="text-sm text-muted-foreground">
-								{data.persons.length} militares · edição {data.editions.find((e) => e.id === editionId)?.name ?? "—"}
-							</p>
-						</div>
-						<div className="flex flex-wrap items-center gap-2">
-							<EditionSelect editions={data.editions} value={editionId} onChange={(id) => navigate({ search: { edition: id } })} />
-							<Button
-								variant={isActiveOnBoard ? "secondary" : "default"}
-								onClick={() => editionId && run(() => setActiveEditionFn({ data: { editionId } }))}
-								disabled={mutation.isPending || !editionId || isActiveOnBoard}
-							>
-								<MonitorPlay /> {isActiveOnBoard ? "No telão" : "Ativar no telão"}
-							</Button>
-							<Button
-								variant={isLocked ? "default" : "outline"}
-								onClick={() => activeEdition && run(() => setEditionLockFn({ data: { editionId: activeEdition.id, locked: !isLocked } }))}
-								disabled={mutation.isPending || !activeEdition}
-								title={isLocked ? "Tirar a tela de espera do telão" : "Cobrir o telão com a tela de espera"}
-							>
-								{isLocked ? <Eye /> : <Lock />} {isLocked ? "Revelar telão" : "Bloquear telão"}
-							</Button>
-							<div className="flex items-center gap-2 border-l border-border pl-2">
-								{user?.email && (
-									<span className="hidden max-w-[16ch] truncate text-xs text-muted-foreground sm:inline" title={user.email}>
-										{user.email}
-									</span>
-								)}
-								<Button variant="ghost" size="icon-sm" onClick={handleSignOut} title="Sair">
-									<LogOut />
-								</Button>
-							</div>
-						</div>
-					</header>
-
-					<div className="space-y-6 p-6">
-						{/* O operador conduz de costas para a projeção: sem este aviso ele
-							    chamaria e revelaria militares por trás da tela de espera. */}
-						{isLocked && (
-							<div className="flex items-center gap-3 rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-warning">
-								<Lock className="size-5 shrink-0" />
-								<p className="text-sm font-semibold">
-									Telão bloqueado — a plateia está vendo a tela de espera. Nada do que for chamado ou revelado aparece até "Revelar telão".
-								</p>
-							</div>
-						)}
-
-						{editionId && (
-							<ConductPanel
-								persons={data.persons}
-								busy={mutation.isPending}
-								onCall={(personId) => run(() => callPersonFn({ data: { editionId, personId } }))}
-								onArmOm={(personId, om) =>
-									run(() => updatePersonFn({ data: { id: personId, changes: { localidade: om, estado: localidadesFab[om] ?? "N/A" } } }))
-								}
-								onReveal={(personId) => run(() => updatePersonFn({ data: { id: personId, changes: { show_om: true } } }))}
-								onConfirm={(personId) => run(() => updatePersonFn({ data: { id: personId, changes: { hide_card: true } } }))}
-							/>
-						)}
-
-						<div className="flex flex-wrap items-center gap-2">
-							<Button
-								variant="outline"
-								onClick={() => editionId && run(() => resetEditionFn({ data: { editionId, clearChoices: false } }))}
-								disabled={mutation.isPending || !editionId}
-							>
-								<RotateCcw /> Resetar telão
-							</Button>
-							<Button
-								variant="destructive"
-								onClick={() => {
-									if (editionId && window.confirm("Apagar TODAS as escolhas desta edição (OMs e cards) e reiniciar do zero?")) {
-										run(() => resetEditionFn({ data: { editionId, clearChoices: true } }))
-									}
-								}}
-								disabled={mutation.isPending || !editionId}
-							>
-								<Trash2 /> Resetar escolhas
-							</Button>
-						</div>
-
-						<details className="group rounded-xl border border-border">
-							<summary className="cursor-pointer select-none px-4 py-3 text-sm font-semibold text-muted-foreground hover:bg-muted">
-								Edição manual da tabela
-							</summary>
-							<div className="max-h-[60vh] overflow-auto p-3">
-								<ControllerTable persons={data.persons} onUpdate={handleManualUpdate} updatingId={null} />
-							</div>
-						</details>
-					</div>
-				</div>
-			</div>
-
+		<div className="min-h-screen">
+			<ControllerView
+				data={data}
+				tab={currentTab}
+				onTabChange={(next) => navigate({ search: (prev) => ({ ...prev, tab: next }), replace: true })}
+				onEditionChange={(id) => navigate({ search: (prev) => ({ ...prev, edition: id }) })}
+				userEmail={user?.email}
+				onSignOut={handleSignOut}
+				busy={mutation.isPending}
+				pendingAction={mutation.isPending ? (mutation.variables?.kind ?? null) : null}
+				skipped={skipped}
+				actions={actions}
+			/>
 			<LegalNotice />
 		</div>
 	)

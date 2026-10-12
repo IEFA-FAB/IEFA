@@ -29,7 +29,10 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 
 function RootDocument() {
 	return (
-		<html lang="pt-BR">
+		// Escuro no app inteiro: o telão é escuro, e o controle roda num notebook ao lado dele,
+		// no auditório com a luz baixada. Os popups (combobox, diálogo) vão para o `body` por
+		// portal, então o tema tem de estar acima dele. O card do militar volta ao claro com `light`.
+		<html lang="pt-BR" className="dark">
 			<head>
 				<HeadContent />
 			</head>
