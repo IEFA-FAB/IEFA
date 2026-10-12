@@ -13,7 +13,7 @@ import { ModuleSwitcher } from "#/components/module-switcher"
 import { NotificationBell } from "#/components/notification-bell"
 import { Badge } from "#/components/ui/badge"
 import { Button } from "#/components/ui/button"
-import { Input } from "#/components/ui/input"
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "#/components/ui/input-group"
 import { PageHeader } from "#/components/ui/page-header"
 import { Separator } from "#/components/ui/separator"
 import {
@@ -445,25 +445,28 @@ function HubSearchBar() {
 	}
 
 	return (
-		<div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 shadow-sm">
-			<Search className="ml-2 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+		<InputGroup>
 			<label htmlFor={inputId} className="sr-only">
 				Buscar no hub
 			</label>
-			<Input
+			<InputGroupAddon>
+				<Search aria-hidden="true" />
+			</InputGroupAddon>
+			<InputGroupInput
 				id={inputId}
 				type="search"
 				placeholder="Buscar por módulo, assunto, Q35, SIAFI, Restos a Pagar..."
-				className="h-auto w-full border-none bg-transparent p-0 text-body text-muted-foreground shadow-none outline-none focus-visible:border-none focus-visible:ring-0 dark:bg-transparent"
 				value={draft}
 				onChange={(e) => onChange(e.target.value)}
 			/>
 			{draft !== "" && (
-				<Button type="button" onClick={clear} aria-label="Limpar busca" variant="subtle" size="icon-xs" className="size-7 shrink-0 rounded-full">
-					<X className="size-3.5" />
-				</Button>
+				<InputGroupAddon align="inline-end">
+					<InputGroupButton onClick={clear} aria-label="Limpar busca" variant="subtle" size="icon-xs">
+						<X />
+					</InputGroupButton>
+				</InputGroupAddon>
 			)}
-		</div>
+		</InputGroup>
 	)
 }
 

@@ -1,7 +1,7 @@
 import { Bot, Search, Send } from "lucide-react"
 import { useState } from "react"
 import { Button } from "#/components/ui/button"
-import { Input } from "#/components/ui/input"
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "#/components/ui/input-group"
 import { getOrganizacao } from "#/lib/analista/organizacao"
 
 interface MangerialData {
@@ -127,21 +127,25 @@ export function ChatAssistant({ managerialData, estrategicoData, decisaoData }: 
 			</h3>
 			<p className="text-body text-muted-foreground mb-4">Assistente técnico e estratégico especializado em Contabilidade Pública Federal (COMAER).</p>
 
-			<form onSubmit={handleSearch} className="flex gap-2">
-				<div className="relative flex-1">
-					<Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-					<Input
+			<form onSubmit={handleSearch}>
+				<InputGroup>
+					<InputGroupAddon>
+						<Search aria-hidden="true" />
+					</InputGroupAddon>
+					<InputGroupInput
 						type="text"
 						value={query}
 						onChange={(e) => setQuery(e.target.value)}
 						placeholder="Ex: Qual ODS tem mais inconsistências?"
-						className="h-auto w-full rounded-xl border-border bg-card py-2 pl-10 pr-4 text-foreground shadow-none transition-all focus:border-action focus:ring-2 focus-visible:ring-ring"
+						aria-label="Pergunta ao Oráculo SUCONT"
 					/>
-				</div>
-				<Button type="submit" className="rounded-xl bg-surface-inverted text-surface-inverted-foreground hover:bg-surface-inverted/80">
-					<Send className="w-4 h-4 mr-2" />
-					Perguntar
-				</Button>
+					<InputGroupAddon align="inline-end">
+						<InputGroupButton type="submit" variant="default" size="sm">
+							<Send aria-hidden="true" />
+							Perguntar
+						</InputGroupButton>
+					</InputGroupAddon>
+				</InputGroup>
 			</form>
 
 			{answer && (

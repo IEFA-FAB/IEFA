@@ -7,7 +7,6 @@ import {
 	ChevronUp,
 	Copy,
 	FileText,
-	Filter,
 	ListOrdered,
 	PieChart,
 	Send,
@@ -20,6 +19,7 @@ import { useMemo, useState } from "react"
 import { EditableMessage } from "#/components/editable-message"
 import { Button } from "#/components/ui/button"
 import { Input } from "#/components/ui/input"
+import { Label } from "#/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 import { CONSOLIDATED_DRAFT_KEY, useMessageDrafts } from "#/hooks/use-editable-message"
 import type { ReportData, UGAnalysis } from "#/lib/cruzamento/analyzer"
@@ -529,7 +529,7 @@ SUCONT-3 • DIREF • COMAER`
 							RANKING DE PRIORIDADE
 						</h2>
 						<div className="flex items-center gap-2">
-							<Filter className="w-4 h-4 text-muted-foreground" />
+							<Label htmlFor="report-conferente-filter">Conferente</Label>
 							<Select
 								items={{
 									ALL: "Modo Geral (Todos os Conferentes)",
@@ -539,7 +539,7 @@ SUCONT-3 • DIREF • COMAER`
 								value={selectedConferente}
 								onValueChange={(v) => setSelectedConferente(v ?? "ALL")}
 							>
-								<SelectTrigger className="bg-card border border-border text-foreground text-subheading rounded-lg focus-visible:ring-ring focus-visible:border-action p-2">
+								<SelectTrigger id="report-conferente-filter">
 									<SelectValue />
 								</SelectTrigger>
 								<SelectContent>
@@ -672,7 +672,8 @@ SUCONT-3 • DIREF • COMAER`
 											type="text"
 											value={consolidatedConfig.msgNum}
 											onChange={(e) => setConsolidatedConfig({ ...consolidatedConfig, msgNum: e.target.value })}
-											className="px-3 py-1.5 border border-border rounded-md text-body w-24 focus:outline-none focus:ring-2 focus:ring-action"
+											size="sm"
+											className="w-24"
 											placeholder="___"
 										/>
 									</div>
@@ -685,7 +686,7 @@ SUCONT-3 • DIREF • COMAER`
 											type="date"
 											value={consolidatedConfig.msgDate}
 											onChange={(e) => setConsolidatedConfig({ ...consolidatedConfig, msgDate: e.target.value })}
-											className="px-3 py-1.5 border border-border rounded-md text-body focus:outline-none focus:ring-2 focus:ring-action"
+											size="sm"
 										/>
 									</div>
 									<div className="flex flex-col gap-1.5">
@@ -702,10 +703,7 @@ SUCONT-3 • DIREF • COMAER`
 												})
 											}
 										>
-											<SelectTrigger
-												id="cons-report-msg-type"
-												className="px-3 py-1.5 border border-border rounded-md text-body focus-visible:ring-2 focus-visible:ring-action"
-											>
+											<SelectTrigger id="cons-report-msg-type" size="sm">
 												<SelectValue />
 											</SelectTrigger>
 											<SelectContent>
@@ -730,7 +728,7 @@ SUCONT-3 • DIREF • COMAER`
 														deadlineDate: e.target.value,
 													})
 												}
-												className="px-3 py-1.5 border border-border rounded-md text-body focus:outline-none focus:ring-2 focus:ring-action"
+												size="sm"
 											/>
 										</div>
 									)}
@@ -893,7 +891,8 @@ SUCONT-3 • DIREF • COMAER`
 																type="text"
 																value={getConfig(ug.ug).msgNum}
 																onChange={(e) => updateConfig(ug.ug, { msgNum: e.target.value })}
-																className="px-3 py-1.5 border border-border rounded-md text-body w-24 focus:outline-none focus:ring-2 focus:ring-action"
+																size="sm"
+																className="w-24"
 																placeholder="___"
 															/>
 														</div>
@@ -906,7 +905,7 @@ SUCONT-3 • DIREF • COMAER`
 																type="date"
 																value={getConfig(ug.ug).msgDate}
 																onChange={(e) => updateConfig(ug.ug, { msgDate: e.target.value })}
-																className="px-3 py-1.5 border border-border rounded-md text-body focus:outline-none focus:ring-2 focus:ring-action"
+																size="sm"
 															/>
 														</div>
 														<div className="flex flex-col gap-1.5">
@@ -922,10 +921,7 @@ SUCONT-3 • DIREF • COMAER`
 																	})
 																}
 															>
-																<SelectTrigger
-																	id={`ug-report-msg-type-${ug.ug}`}
-																	className="px-3 py-1.5 border border-border rounded-md text-body focus-visible:ring-2 focus-visible:ring-action"
-																>
+																<SelectTrigger id={`ug-report-msg-type-${ug.ug}`} size="sm">
 																	<SelectValue />
 																</SelectTrigger>
 																<SelectContent>
@@ -945,7 +941,7 @@ SUCONT-3 • DIREF • COMAER`
 																	type="date"
 																	value={getConfig(ug.ug).deadlineDate}
 																	onChange={(e) => updateConfig(ug.ug, { deadlineDate: e.target.value })}
-																	className="px-3 py-1.5 border border-border rounded-md text-body focus:outline-none focus:ring-2 focus:ring-action"
+																	size="sm"
 																/>
 															</div>
 														)}
