@@ -3,15 +3,7 @@ import type { Edition, Person, Vacancy } from "@iefa/database/assignment-selecti
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAccess } from "@/lib/auth.server"
-import {
-	type CallPersonRpcArgs,
-	callPersonRpcArgs,
-	conductErrorMessage,
-	type ExpectedState,
-	expectedFilters,
-	STALE_SCREEN_MESSAGE,
-	splitPersonChanges,
-} from "@/lib/person-changes"
+import { callPersonRpcArgs, conductErrorMessage, type ExpectedState, expectedFilters, STALE_SCREEN_MESSAGE, splitPersonChanges } from "@/lib/person-changes"
 import { maskUnannouncedChoice } from "@/lib/person-visibility"
 import { getAssignmentServerClient } from "@/lib/supabase.server"
 
@@ -150,13 +142,7 @@ type AssignmentClient = ReturnType<typeof getAssignmentServerClient>
  * edição e confere o estado que a tela viu.
  */
 function applyPersonChoice(supabase: AssignmentClient, personId: number, changes: Record<string, unknown>, expected: ExpectedState | null) {
-	// `p_expected` (migration 20261011130000) ainda não está nos tipos gerados; o cast some
-	// depois do `db:types`.
-	const rpc = supabase.rpc.bind(supabase) as unknown as (
-		fn: "apply_person_choice",
-		args: { p_person_id: number; p_changes: Json; p_expected: Json | null }
-	) => PromiseLike<{ data: Person | null; error: { message: string; code?: string } | null }>
-	return rpc("apply_person_choice", { p_person_id: personId, p_changes: changes as Json, p_expected: expected as Json | null })
+	return supabase.rpc("apply_person_choice", { p_person_id: personId, p_changes: changes as Json, p_expected: expected as Json })
 }
 
 /** Ativa uma edição no telão (marca active=true e desmarca as demais). */
@@ -193,13 +179,8 @@ export const callPersonFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }): Promise<void> => {
 		await requireAccess()
 		const supabase = getAssignmentServerClient()
-		// `call_person` (migration 20261011130000) ainda não está nos tipos gerados; o cast
-		// some depois do `db:types`.
-		const rpc = supabase.rpc.bind(supabase) as unknown as (
-			fn: "call_person",
-			args: CallPersonRpcArgs
-		) => PromiseLike<{ data: Person | null; error: { message: string; code?: string } | null }>
-		const { error } = await rpc("call_person", callPersonRpcArgs(data))
+		const args = callPersonRpcArgs(data)
+		const { error } = await supabase.rpc("call_person", { ...args, p_expected: args.p_expected as Json })
 		if (error) throw new Error(conductErrorMessage(error))
 	})
 
