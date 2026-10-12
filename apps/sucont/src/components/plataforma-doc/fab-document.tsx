@@ -34,13 +34,13 @@ export function FabDocument({ data, onChange }: FabDocumentProps) {
 					<input
 						value={data.organization}
 						onChange={(e) => handleFieldChange("organization", e.target.value)}
-						className="w-full bg-transparent text-center border-none focus:ring-1 focus-visible:ring-ring rounded p-0 uppercase"
+						className="w-full bg-transparent text-center border-none focus-visible:ring-1 focus-visible:ring-ring rounded p-0 uppercase"
 					/>
 					{data.subOrganization !== undefined && (
 						<input
 							value={data.subOrganization}
 							onChange={(e) => handleFieldChange("subOrganization", e.target.value)}
-							className="w-full bg-transparent text-center border-none focus:ring-1 focus-visible:ring-ring rounded p-0 uppercase text-[10pt] mt-0.5"
+							className="w-full bg-transparent text-center border-none focus-visible:ring-1 focus-visible:ring-ring rounded p-0 uppercase text-[10pt] mt-0.5"
 						/>
 					)}
 				</div>
@@ -54,19 +54,19 @@ export function FabDocument({ data, onChange }: FabDocumentProps) {
 						<input
 							value={data.documentNumber}
 							onChange={(e) => handleFieldChange("documentNumber", e.target.value)}
-							className="bg-transparent border-none focus:ring-1 focus-visible:ring-ring rounded p-0 w-12 ml-1 font-bold"
+							className="bg-transparent border-none focus-visible:ring-1 focus-visible:ring-ring rounded p-0 w-12 ml-1 font-bold"
 						/>
 						/
 						<input
 							value={data.acronym}
 							onChange={(e) => handleFieldChange("acronym", e.target.value)}
-							className="bg-transparent border-none focus:ring-1 focus-visible:ring-ring rounded p-0 w-24 font-bold"
+							className="bg-transparent border-none focus-visible:ring-1 focus-visible:ring-ring rounded p-0 w-24 font-bold"
 						/>
 						/
 						<input
 							value={data.year}
 							onChange={(e) => handleFieldChange("year", e.target.value)}
-							className="bg-transparent border-none focus:ring-1 focus-visible:ring-ring rounded p-0 w-12 font-bold"
+							className="bg-transparent border-none focus-visible:ring-1 focus-visible:ring-ring rounded p-0 w-12 font-bold"
 						/>
 					</div>
 					<div className="text-[10pt] flex items-center mt-1 text-muted-foreground">
@@ -74,7 +74,7 @@ export function FabDocument({ data, onChange }: FabDocumentProps) {
 						<input
 							value={data.protocol}
 							onChange={(e) => handleFieldChange("protocol", e.target.value)}
-							className="bg-transparent border-none focus:ring-1 focus-visible:ring-ring rounded p-0 flex-1 italic"
+							className="bg-transparent border-none focus-visible:ring-1 focus-visible:ring-ring rounded p-0 flex-1 italic"
 						/>
 					</div>
 				</div>
@@ -82,13 +82,13 @@ export function FabDocument({ data, onChange }: FabDocumentProps) {
 					<input
 						value={data.city}
 						onChange={(e) => handleFieldChange("city", e.target.value)}
-						className="bg-transparent border-none focus:ring-1 focus-visible:ring-ring rounded p-0 text-right w-24"
+						className="bg-transparent border-none focus-visible:ring-1 focus-visible:ring-ring rounded p-0 text-right w-24"
 					/>
 					,
 					<input
 						value={data.date}
 						onChange={(e) => handleFieldChange("date", e.target.value)}
-						className="bg-transparent border-none focus:ring-1 focus-visible:ring-ring rounded p-0 text-right w-48 ml-1"
+						className="bg-transparent border-none focus-visible:ring-1 focus-visible:ring-ring rounded p-0 text-right w-48 ml-1"
 					/>
 					.
 				</div>
@@ -101,7 +101,7 @@ export function FabDocument({ data, onChange }: FabDocumentProps) {
 					<input
 						value={data.sender}
 						onChange={(e) => handleFieldChange("sender", e.target.value)}
-						className="bg-transparent border-none focus:ring-1 focus-visible:ring-ring rounded p-0 flex-1"
+						className="bg-transparent border-none focus-visible:ring-1 focus-visible:ring-ring rounded p-0 flex-1"
 					/>
 				</div>
 				<div className="flex items-start">
@@ -109,7 +109,7 @@ export function FabDocument({ data, onChange }: FabDocumentProps) {
 					<textarea
 						value={data.recipient}
 						onChange={(e) => handleFieldChange("recipient", e.target.value)}
-						className="bg-transparent border-none focus:ring-1 focus-visible:ring-ring rounded p-0 flex-1 resize-none"
+						className="bg-transparent border-none focus-visible:ring-1 focus-visible:ring-ring rounded p-0 flex-1 resize-none"
 						rows={2}
 					/>
 				</div>
@@ -121,7 +121,7 @@ export function FabDocument({ data, onChange }: FabDocumentProps) {
 				<textarea
 					value={data.subject}
 					onChange={(e) => handleFieldChange("subject", e.target.value)}
-					className="bg-transparent border-none focus:ring-1 focus-visible:ring-ring rounded p-0 flex-1 resize-none font-bold uppercase"
+					className="bg-transparent border-none focus-visible:ring-1 focus-visible:ring-ring rounded p-0 flex-1 resize-none font-bold uppercase"
 					rows={2}
 				/>
 			</div>
@@ -137,7 +137,7 @@ export function FabDocument({ data, onChange }: FabDocumentProps) {
 								<textarea
 									value={ref}
 									onChange={(e) => handleArrayChange("references", idx, e.target.value)}
-									className="bg-transparent border-none focus:ring-1 focus-visible:ring-ring rounded p-0 flex-1 resize-none italic"
+									className="bg-transparent border-none focus-visible:ring-1 focus-visible:ring-ring rounded p-0 flex-1 resize-none italic"
 									rows={1}
 								/>
 							</div>
@@ -157,7 +157,7 @@ export function FabDocument({ data, onChange }: FabDocumentProps) {
 								<textarea
 									value={annex}
 									onChange={(e) => handleArrayChange("annexes", idx, e.target.value)}
-									className="bg-transparent border-none focus:ring-1 focus-visible:ring-ring rounded p-0 flex-1 resize-none italic"
+									className="bg-transparent border-none focus-visible:ring-1 focus-visible:ring-ring rounded p-0 flex-1 resize-none italic"
 									rows={1}
 								/>
 							</div>
@@ -174,7 +174,7 @@ export function FabDocument({ data, onChange }: FabDocumentProps) {
 						<textarea
 							value={p}
 							onChange={(e) => handleArrayChange("paragraphs", idx, e.target.value)}
-							className="bg-transparent border-none focus:ring-1 focus-visible:ring-ring rounded p-0 flex-1 resize-none text-justify leading-relaxed"
+							className="bg-transparent border-none focus-visible:ring-1 focus-visible:ring-ring rounded p-0 flex-1 resize-none text-justify leading-relaxed"
 							rows={Math.max(2, Math.ceil(p.length / 85))}
 						/>
 					</div>
@@ -188,19 +188,19 @@ export function FabDocument({ data, onChange }: FabDocumentProps) {
 					<input
 						value={data.signerName}
 						onChange={(e) => handleFieldChange("signerName", e.target.value)}
-						className="bg-transparent border-none focus:ring-1 focus-visible:ring-ring rounded p-0 text-center font-bold text-[12pt] w-full"
+						className="bg-transparent border-none focus-visible:ring-1 focus-visible:ring-ring rounded p-0 text-center font-bold text-[12pt] w-full"
 					/>
 					<div className="flex items-center justify-center gap-1 mt-1">
 						<input
 							value={data.signerRank}
 							onChange={(e) => handleFieldChange("signerRank", e.target.value)}
-							className="bg-transparent border-none focus:ring-1 focus-visible:ring-ring rounded p-0 text-center font-bold w-24"
+							className="bg-transparent border-none focus-visible:ring-1 focus-visible:ring-ring rounded p-0 text-center font-bold w-24"
 						/>
 						<span className="font-bold">-</span>
 						<input
 							value={data.signerPosition}
 							onChange={(e) => handleFieldChange("signerPosition", e.target.value)}
-							className="bg-transparent border-none focus:ring-1 focus-visible:ring-ring rounded p-0 text-center text-[10pt] w-48"
+							className="bg-transparent border-none focus-visible:ring-1 focus-visible:ring-ring rounded p-0 text-center text-[10pt] w-48"
 						/>
 					</div>
 				</div>

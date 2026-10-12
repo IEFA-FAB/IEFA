@@ -498,6 +498,25 @@ Verificação: `scripts/migrate-typography.mjs` é idempotente — rodá-lo de n
 árvore migrada não muda nada. O `bun run harness:shot` confirma a casca nos dois
 temas.
 
+**Zerados em 2026-10-12** — a dívida de **campos** (change `sucont-form-fields`, PRs #616, #617,
+#619, #620 e #621).
+
+| O que era | Volume | Onde foi parar |
+|-----------|--------|----------------|
+| Restilos em `Input`/`SelectTrigger`/`Combobox`/`Textarea` via `className` | ~520 | `size`, `readOnly`, `aria-invalid` e `InputGroup` (§4.2) |
+| Receitas do mesmo grupo de 4 campos da mensagem (nº, data, tipo, prazo) | 4, em 5 telas | `size="sm"` em todas |
+| Cores de foco (`action`, `tech-cyan`, `tech-blue`, além do `ring`) | 4 | `ring` do primitivo |
+| Campos embutidos sem foco visível (busca do hub, chat, filtros em pílula) | 5 | `InputGroup`: o foco do campo acende o grupo |
+| Fundos de campo só no tema claro (`bg-card`, `bg-muted/50`) | ~40 | `bg-background` no claro, `input/30` no escuro, no primitivo |
+| `<textarea>` nativo em formulário | 5 | `Textarea` |
+| Pílula sem borda como filtro | 3 | `Label` + seletor `size="sm"` (§4.7) |
+| `inputClassName` no `Combobox` | 1 prop | Removida |
+
+**Regra:** campo não recebe aparência por `className`, só layout (largura, margem, `flex-1`,
+altura de área de texto). `src/test/form-fields.contract.test.ts` roda o lint de Tailwind e
+reprova qualquer restilo em campo. O baseline de `no-restyle` do app caiu de 801 para 275 com
+essa migração; o que sobra é de botão, badge e casca.
+
 ### Exceções permitidas, com o motivo
 
 O que sobrou **não é dívida**: são casos em que a regra geral não se aplica. Estão
@@ -507,8 +526,8 @@ listados para que ninguém os "corrija" de novo.
 |------|------|---------|
 | `<input type="file">` nativo | `components/ui/file-dropzone.tsx`, e só ali | O primitivo `Input` é text-like; o campo é `sr-only` e o alvo de clique é o `<label>`. Fora do primitivo é dívida, e o teste de contrato reprova |
 | `<input type="checkbox">` nativo | "Lembrar e-mail" no login | Mesma razão — o primitivo não cobre |
-| 12 `<input>` nativos | `plataforma-doc/fab-document.tsx` | Campos inline dentro de um ofício A4 (`w-[210mm]`, tamanho em `pt`, sem borda). O primitivo traz `h-9`, borda e sombra: transformaria o ofício num formulário. Todos têm `focus-visible:ring-ring` |
-| 3 `<input>` nativos | cabeçalho de `subitens-genericos` | Design de sublinhado (`bg-transparent border-b`, sem padding). Já têm `focus:border-fab-gold` |
+| 12 `<input>` e 5 `<textarea>` nativos | `plataforma-doc/fab-document.tsx` | Campos inline dentro de um ofício A4 (`w-[210mm]`, tamanho em `pt`, sem borda). O primitivo traz `h-9`, borda e sombra: transformaria o ofício num formulário. Todos têm foco por `focus-visible:` com a cor `ring` |
+| `<textarea>` nativo | `editable-message.tsx` e a pré-visualização do `SiafiMessageModal` | Superfície de texto da mensagem, que ocupa o painel inteiro com fonte própria. Os dois têm anel `focus-visible:` com a cor `ring` |
 | `<button>` nativo | tabs/segmentos, cards clicáveis inteiros, véus `inset-0` de clique-fora, `motion.button` | O primitivo brigaria com o layout, ou (no caso do Framer Motion) com o encadeamento de ref/animação. **Todos receberam `focus-visible:ring-[3px] focus-visible:ring-ring/50`** |
 | `backdrop-blur` | véu de modal, barra fixa/sticky, tooltip de gráfico | Há sobreposição real de conteúdo — é o caso que §6 admite |
 | `rounded-[2px]` | seta do `Tooltip` | Detalhe de forma de uma seta de 10px, não radius de superfície |

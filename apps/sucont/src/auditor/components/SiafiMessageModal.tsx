@@ -165,7 +165,7 @@ export const SiafiMessageModal: React.FC<SiafiMessageModalProps> = ({
 						<textarea
 							value={editedMessage}
 							onChange={(e) => setEditedMessage(e.target.value)}
-							className="w-full h-full p-6 bg-transparent font-mono text-body text-foreground whitespace-pre-wrap leading-relaxed outline-none resize-none custom-scrollbar overflow-y-auto box-border"
+							className="w-full h-full p-6 bg-transparent font-mono text-body text-foreground whitespace-pre-wrap leading-relaxed outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50 resize-none custom-scrollbar overflow-y-auto box-border"
 							spellCheck={false}
 						/>
 					</div>
