@@ -1352,18 +1352,15 @@ function MessageControls({
 	deadline: string
 	setDeadline: (v: string) => void
 }) {
-	const inputCls =
-		"px-2 py-1 bg-muted/50 border border-border rounded text-caption text-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-tech-blue transition-all"
-
 	return (
 		<div className="flex flex-wrap items-center gap-3">
 			<div className="flex items-center gap-3 bg-card px-3 py-1.5 rounded-lg border border-border">
 				<span className="text-label text-muted-foreground">Nº Mensagem:</span>
-				<Input type="text" value={msgNumber} onChange={(e) => setMsgNumber(e.target.value)} placeholder="Ex: 001" className={`${inputCls} w-16 text-center`} />
+				<Input type="text" value={msgNumber} onChange={(e) => setMsgNumber(e.target.value)} placeholder="Ex: 001" size="sm" className="w-16 text-center" />
 			</div>
 			<div className="flex items-center gap-3 bg-card px-3 py-1.5 rounded-lg border border-border">
 				<span className="text-label text-muted-foreground">Data:</span>
-				<Input type="date" value={msgDate} onChange={(e) => setMsgDate(e.target.value)} className={inputCls} />
+				<Input type="date" value={msgDate} onChange={(e) => setMsgDate(e.target.value)} size="sm" />
 			</div>
 			<div className="flex items-center gap-3 bg-card px-3 py-1.5 rounded-lg border border-border">
 				<span className="text-label text-muted-foreground">Tipo:</span>
@@ -1372,7 +1369,7 @@ function MessageControls({
 					value={messageType}
 					onValueChange={(value) => setMessageType(value as typeof messageType)}
 				>
-					<SelectTrigger className={`data-[size=default]:h-auto shadow-none ${inputCls}`}>
+					<SelectTrigger size="sm">
 						<SelectValue />
 					</SelectTrigger>
 					<SelectContent>
@@ -1385,7 +1382,7 @@ function MessageControls({
 			{messageType === "prazo" && (
 				<div className="flex items-center gap-3 animate-in fade-in slide-in-from-left-2 duration-300 bg-card px-3 py-1.5 rounded-lg border border-border">
 					<span className="text-label text-foreground">Data Limite:</span>
-					<Input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} className={inputCls} />
+					<Input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} size="sm" />
 				</div>
 			)}
 		</div>

@@ -9,6 +9,7 @@ import { FabDocument } from "#/components/plataforma-doc/fab-document"
 import { Alert, AlertDescription, AlertTitle } from "#/components/ui/alert"
 import { Button } from "#/components/ui/button"
 import { SegmentedControl } from "#/components/ui/segmented-control"
+import { Textarea } from "#/components/ui/textarea"
 import { MAX_DRAFT_CHARS } from "#/lib/document-prompt"
 import type { DataAnalysisData, DocumentType, FabDocumentData } from "#/server/document-ai.fn"
 import { adaptDraftFn } from "#/server/document-ai.fn"
@@ -132,15 +133,16 @@ function PlataformaDoc() {
 								</p>
 							</div>
 
-							<div className="relative group">
-								<textarea
+							<div>
+								<Textarea
 									value={draft}
 									onChange={(e) => setDraft(e.target.value)}
 									placeholder={docType === "FAB_OFFICE" ? "Ex: Baixa de parafuso de US$ 208 mil por erro de 2010..." : "Cole aqui os dados da mensagem..."}
-									className="w-full border border-border rounded-xl p-4 text-foreground focus:outline-none focus:ring-2 focus-visible:ring-ring font-sans bg-card min-h-[350px] text-heading resize-none shadow-sm focus:border-action transition-all"
+									className="min-h-[350px] resize-none"
 								/>
-								<div className="absolute bottom-4 right-4 flex items-center gap-2">
-									<span className="text-muted-foreground font-mono text-label">{draft.length} caracteres</span>
+								{/* Fora do campo: sobreposto, o contador cobria a última linha do texto. */}
+								<div className="mt-2 flex justify-end">
+									<span className="text-muted-foreground tabular-nums text-label">{draft.length} caracteres</span>
 								</div>
 							</div>
 

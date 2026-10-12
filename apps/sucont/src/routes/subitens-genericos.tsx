@@ -869,7 +869,7 @@ function SubitensGenericos() {
 																					value={ugConfig.msgNumber}
 																					onChange={(e) => updateUgConfig(group.ug, "msgNumber", e.target.value)}
 																					placeholder="___"
-																					className="font-mono"
+																					size="sm"
 																				/>
 																			</div>
 																			<div className="flex flex-col gap-2">
@@ -881,7 +881,7 @@ function SubitensGenericos() {
 																					type="date"
 																					value={ugConfig.msgDate}
 																					onChange={(e) => updateUgConfig(group.ug, "msgDate", e.target.value)}
-																					className="font-mono"
+																					size="sm"
 																				/>
 																			</div>
 																		</div>
@@ -896,7 +896,7 @@ function SubitensGenericos() {
 																					value={ugConfig.messageType}
 																					onValueChange={(value) => updateUgConfig(group.ug, "messageType", value as "com_prazo" | "sem_prazo" | "alerta")}
 																				>
-																					<SelectTrigger id={`ug-msg-type-${idx}`} className="w-full">
+																					<SelectTrigger id={`ug-msg-type-${idx}`} size="sm" className="w-full">
 																						<SelectValue />
 																					</SelectTrigger>
 																					<SelectContent>
@@ -924,7 +924,7 @@ function SubitensGenericos() {
 																								type="date"
 																								value={ugConfig.deadlineDate || new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]}
 																								onChange={(e) => updateUgConfig(group.ug, "deadlineDate", e.target.value)}
-																								className="font-mono"
+																								size="sm"
 																							/>
 																						</div>
 																					</motion.div>
@@ -1044,7 +1044,7 @@ function SubitensGenericos() {
 																					value={racConfig.msgNumber}
 																					onChange={(e) => updateRacConfig(racId, "msgNumber", e.target.value)}
 																					placeholder="___"
-																					className="font-mono"
+																					size="sm"
 																				/>
 																			</div>
 																			<div className="flex flex-col gap-2">
@@ -1056,7 +1056,7 @@ function SubitensGenericos() {
 																					type="date"
 																					value={racConfig.msgDate}
 																					onChange={(e) => updateRacConfig(racId, "msgDate", e.target.value)}
-																					className="font-mono"
+																					size="sm"
 																				/>
 																			</div>
 																		</div>
@@ -1071,7 +1071,7 @@ function SubitensGenericos() {
 																					value={racConfig.messageType}
 																					onValueChange={(value) => updateRacConfig(racId, "messageType", value as "com_prazo" | "sem_prazo" | "alerta")}
 																				>
-																					<SelectTrigger id={`rac-msg-type-${idx}`} className="w-full">
+																					<SelectTrigger id={`rac-msg-type-${idx}`} size="sm" className="w-full">
 																						<SelectValue />
 																					</SelectTrigger>
 																					<SelectContent>
@@ -1099,7 +1099,7 @@ function SubitensGenericos() {
 																								type="date"
 																								value={racConfig.deadlineDate || new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]}
 																								onChange={(e) => updateRacConfig(racId, "deadlineDate", e.target.value)}
-																								className="font-mono"
+																								size="sm"
 																							/>
 																						</div>
 																					</motion.div>

@@ -9,6 +9,7 @@ import { ReadOnlyNotice } from "#/components/read-only-notice"
 import { ToolCard } from "#/components/tool-card"
 import { Button } from "#/components/ui/button"
 import { Input } from "#/components/ui/input"
+import { Textarea } from "#/components/ui/textarea"
 import { toast } from "#/components/ui/toast"
 import { useHubFilters } from "#/lib/hub-filters"
 import { reportsQueryOptions } from "#/lib/queries"
@@ -128,23 +129,9 @@ function Reports() {
 							}}
 							className="grid grid-cols-1 md:grid-cols-2 gap-4"
 						>
-							<Input
-								name="title"
-								placeholder="Título do Relatório"
-								required
-								className="bg-muted/50 border border-border p-2 rounded text-caption text-foreground focus:border-tech-cyan outline-none"
-							/>
-							<Input
-								name="url"
-								placeholder="URL do Relatório"
-								required
-								className="bg-muted/50 border border-border p-2 rounded text-caption text-foreground focus:border-tech-cyan outline-none"
-							/>
-							<textarea
-								name="description"
-								placeholder="Descrição breve"
-								className="bg-muted/50 border border-border p-2 rounded text-caption text-foreground md:col-span-2 h-20 focus:border-tech-cyan outline-none"
-							/>
+							<Input name="title" placeholder="Título do Relatório" required />
+							<Input name="url" placeholder="URL do Relatório" required />
+							<Textarea name="description" placeholder="Descrição breve" className="md:col-span-2 min-h-20" />
 							<div className="flex gap-2 md:col-span-2 justify-end">
 								<Button type="button" variant="subtle" size="sm" onClick={() => setIsAdding(false)} className="px-4 py-2">
 									CANCELAR
