@@ -87,6 +87,25 @@ Mesma ordem de prioridade do sisub:
   o Base UI, e o `placeholder` do trigger só aparece com `null`.
 - **`onValueChange` entrega `string | null`.** Mapear o `null` para o sentinela de
   "sem filtro" da tela (`"TODOS"`, `"Geral"`, `"all"`), não para `""`.
+- **Densidade é `size`, não `className`.** `Input`, `SelectTrigger`, `Combobox` e
+  `InputGroup` aceitam `size="default"` (h-9) ou `size="sm"` (h-8), exposto em
+  `data-size`. Campo e seletor da mesma faixa de controles usam o mesmo `size`; não
+  existe degrau menor que o `sm`. O `size` nativo do `<input>` (largura em
+  caracteres) fica fora do tipo. Nos campos de digitação (`Input`, `Combobox`,
+  `InputGroup`) a fonte é 16px no mobile e `text-sm` a partir de `md`, nos dois
+  tamanhos: abaixo de 16px o iOS dá zoom ao focar.
+- **Somente leitura é o atributo `readOnly`.** `Input`, `Textarea` e `InputGroup` se
+  pintam sozinhos (`read-only:not-disabled:`): fundo `muted`, borda tracejada,
+  cursor padrão. O campo continua focável por Tab, com o anel do tema, e
+  selecionável. Desabilitado segue com a opacidade do `disabled:` e nunca fica
+  tracejado. Não se pinta somente leitura por `className`.
+- **Ícone ou ação dentro do campo é `InputGroup`** (`InputGroupAddon`,
+  `InputGroupInput`, `InputGroupTextarea`, `InputGroupButton`, `InputGroupText`):
+  busca com lupa, senha com "mostrar", chat com "enviar". O grupo desenha borda,
+  fundo e foco; o anel acende quando o foco está no CAMPO
+  (`has-[[data-slot=input-group-control]:focus-visible]`), e o `InputGroupButton`
+  tem anel próprio, sem acender o grupo junto. Ícone posicionado com `absolute`
+  sobre um `Input` com `pl-9` não é mais o padrão.
 - **Não deve** ser sobreposto no call site com `className` que substitua por
   completo sua cor ou formato. Se o visual se repete, muda-se o CVA.
 - **Polimorfismo:** o Base UI usa a prop `render`, não `asChild`. Link com cara de
@@ -517,7 +536,7 @@ com hex literal.
 | `font-medium`/`semibold`/`bold` SEM tamanho na mesma `className` | 150 | Ênfase em linha, herdando o tamanho do pai. Mapeá-las mecanicamente para um nível semântico MUDARIA o tamanho — `.text-subheading` é 0.875rem, e várias vivem dentro de blocos `.text-caption`. Cada uma exige decidir se é `<strong>`, `.text-subheading` ou nada |
 | Painéis ainda montados à mão | ~40 | `bg-card … rounded-xl border border-border` escrito no lugar de `<Card>`. Já têm a MESMA aparência que o primitivo; a migração é de forma, não de pixel |
 | Primitivo `Table` | 16 tabelas cruas | O cabeçalho já está normalizado (linha acima), então a divergência VISÍVEL foi fechada; falta a estrutural. Migrar exige lidar com ordenação, `colSpan` e célula composta, uma a uma e com a tela na frente |
-| Patterns `field.tsx` / `item.tsx` | inexistentes | O sisub os tem; enquanto não existirem aqui, formulário e lista seguem a composição atual — mas não se cria uma terceira convenção |
+| Patterns `field.tsx` / `item.tsx` | inexistentes | O sisub os tem; enquanto não existirem aqui, formulário e lista seguem a composição atual — mas não se cria uma terceira convenção. O `InputGroup` (§4.2) foi o primeiro pattern do sisub a vir para cá, portado com o raio e as alturas do sucont; `field.tsx` e `item.tsx` seguem faltando |
 
 O que NÃO é dívida na coluna acima: os 22 `font-*`, 9 `uppercase` e 4 `tracking-*`
 do `plataforma-doc/fab-document.tsx`. É um ofício A4 com tamanhos em `pt` — a
