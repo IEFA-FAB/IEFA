@@ -10,10 +10,10 @@
 
 ## 2. Área `components/`
 
-- [ ] 2.1 [sucont] Grupo de 4 campos da mensagem (`analista/ug-card`, `analista/consolidated-message-card`, `cruzamento/Report`): primitivo puro em `size="sm"` (design, decisão 6); verificar mesma altura nos quatro campos por screenshot claro e escuro
-- [ ] 2.2 [sucont] `admin/people-manager` e filtro de `cruzamento/Report`: primitivo puro e filtro com `Label`; verificar que nenhum foco usa `tech-cyan`/`action`
-- [ ] 2.3 [sucont] Busca de `admin/permissions-manager`, `analista/chat-assistant` e `hub-layout` para `InputGroup`; verificar foco visível por Tab no cabeçalho do hub e valor digitado na cor do texto principal
-- [ ] 2.4 [sucont] Baixar o baseline (`bun scripts/lint-tailwind.ts sucont --update`); verificar que `no-restyle` caiu e que `bun run lint:tailwind` passa
+- [x] 2.1 [sucont] Grupo de 4 campos da mensagem (`analista/ug-card`, `analista/consolidated-message-card`, `cruzamento/Report`): primitivo puro em `size="sm"` (design, decisão 6); verificar mesma altura nos quatro campos por screenshot claro e escuro
+- [x] 2.2 [sucont] `admin/people-manager` e filtro de `cruzamento/Report`: primitivo puro e filtro com `Label`; verificar que nenhum foco usa `tech-cyan`/`action`
+- [x] 2.3 [sucont] Busca de `admin/permissions-manager`, `analista/chat-assistant` e `hub-layout` para `InputGroup`; verificar foco visível por Tab no cabeçalho do hub e valor digitado na cor do texto principal
+- [x] 2.4 [sucont] Baixar o baseline (`bun scripts/lint-tailwind.ts sucont --update`); verificar que `no-restyle` caiu e que `bun run lint:tailwind` passa
 
 ## 3. Área `routes/`
 
