@@ -233,8 +233,8 @@ of a single service via its target group, but not multi-service routing).
   zero-downtime regardless, because `deployment_minimum_healthy_percent = 100`
   starts the replacement task before stopping the old one. A second task only buys
   survival of a Spot reclamation or an AZ failure, and it costs twice: Fargate
-  hours *and* a second public IPv4. `sisub` and `portal` set `desired_count = 2` in
-  their tfvars; everything else runs one task.
+  hours *and* a second public IPv4. `sisub` and `portal` run two tasks (`sisub` in its
+  `sizing.auto.tfvars`, `portal` in its tfvars); everything else runs one.
 - **Spot by default** (`fargate_on_demand_base = 0`): cheapest, but a Spot
   reclamation can drop every task of a service at once. For user-facing SSR apps
   set `fargate_on_demand_base = 1` in the service tfvars to pin one on-demand task.
@@ -249,6 +249,36 @@ of a single service via its target group, but not multi-service routing).
   set `image_tag_mutability = "IMMUTABLE"` and pin `image_tag` to a git sha.
 - **No NAT**: tasks get public IPs (egress via IGW). Cheaper than NAT, but every
   task carries a public IPv4; SGs only allow inbound from the ALB.
+
+### Sizing e autoscaling (versionados)
+
+CPU, memória, número de tasks e teto do autoscaling ficam em
+`infra/<stack>/sizing.auto.tfvars`, no git (exceção explícita no `.gitignore`). O
+arquivo sobrepõe o `terraform.tfvars` que o CI monta do segredo `TF_TFVARS_JSON`, então
+mudança de tamanho passa por PR e aparece no `terraform-plan`. Hoje: `sisub` (2 × 0,25 vCPU /
+1 GB, até 6 tasks) e `alpha` (1 × 0,5 vCPU / 1 GB, até 3).
+
+Todo serviço tem um scalable target do Application Auto Scaling, e é ele que diz quantas
+tasks rodam: o Terraform ignora o `desired_count` do serviço depois da criação. Sem
+`autoscaling_max_count` (ou com ele igual ao `desired_count`), mínimo = máximo e o serviço
+fica fixo. Acima disso, uma política de target tracking por CPU (padrão 40%) sobe tasks
+depois de ~3 min acima do alvo e desce depois de ~15 min abaixo, até o `desired_count`. Só
+CPU: o RSS do Bun não volta depois de um pico, e uma política de memória não deixaria descer.
+
+**Escala rápida, sem PR** (evento previsto, incidente). Sobe o mínimo na hora:
+
+```bash
+aws application-autoscaling register-scalable-target --region sa-east-1 \
+  --service-namespace ecs --scalable-dimension ecs:service:DesiredCount \
+  --resource-id service/iefa-prod-cluster/sisub --min-capacity 4 --max-capacity 8
+```
+
+O próximo `terraform apply` do stack (qualquer merge em `infra/sisub/**` ou
+`infra/modules/**`) volta os limites ao arquivo. Para durar, suba `desired_count` e
+`autoscaling_max_count` no `sizing.auto.tfvars`: o apply move os limites e o ECS ajusta as
+tasks sem redeploy. Para voltar ao tamanho antigo, reverta o PR do arquivo: trocar CPU ou
+memória troca a task definition, e o rollout é sem queda
+(`deployment_minimum_healthy_percent = 100`).
 
 ### Where the money goes
 

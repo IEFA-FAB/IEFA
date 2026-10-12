@@ -69,6 +69,10 @@ coverage
 *.tfstate.*
 *.tfvars
 *.tfvars.json
+# Exceção: o tamanho de cada stack (CPU, memória, tasks, autoscaling) é versionado. Não é
+# segredo, e no git a mudança passa por PR e pelo plan. O `.auto.tfvars` sobrepõe o
+# `terraform.tfvars` que o CI monta do segredo TF_TFVARS_JSON.
+!infra/*/sizing.auto.tfvars
 infra/*/secrets/*.local.json
 # Real backend configs (copied from backend.tf.example); keep the examples.
 infra/*/backend.tf

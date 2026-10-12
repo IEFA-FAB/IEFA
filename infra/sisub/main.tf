@@ -56,6 +56,7 @@ module "service" {
   alb_security_group_id   = local.f.alb_security_group_id
   tasks_security_group_id = local.f.tasks_security_group_id
   cluster_id              = local.f.ecs_cluster_id
+  cluster_name            = local.f.ecs_cluster_name
   execution_role_arn      = local.f.task_execution_role_arn
   task_role_arn           = local.task_role_arn
   alb_dns_name            = local.f.alb_dns_name
@@ -77,12 +78,16 @@ module "service" {
   path_patterns         = var.path_patterns
 
   # Rollout knobs
-  image_tag                = var.image_tag
-  desired_count            = var.desired_count
-  fargate_on_demand_base   = var.fargate_on_demand_base
-  fargate_on_demand_weight = var.fargate_on_demand_weight
-  assign_public_ip         = var.assign_public_ip
-  enable_cloudwatch_logs   = var.enable_cloudwatch_logs
+  image_tag             = var.image_tag
+  desired_count         = var.desired_count
+  autoscaling_max_count = var.autoscaling_max_count
+
+  health_check_timeout_seconds     = var.health_check_timeout_seconds
+  health_check_unhealthy_threshold = var.health_check_unhealthy_threshold
+  fargate_on_demand_base           = var.fargate_on_demand_base
+  fargate_on_demand_weight         = var.fargate_on_demand_weight
+  assign_public_ip                 = var.assign_public_ip
+  enable_cloudwatch_logs           = var.enable_cloudwatch_logs
 
   cloudwatch_log_retention_days = var.cloudwatch_log_retention_days
   image_tag_mutability          = var.image_tag_mutability
