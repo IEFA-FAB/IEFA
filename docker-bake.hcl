@@ -48,6 +48,14 @@ variable "VITE_RUMAER_SUPABASE_URL" {
   default = ""
 }
 
+variable "VITE_SISPROV_SUPABASE_PUBLISHABLE_KEY" {
+  default = ""
+}
+
+variable "VITE_SISPROV_SUPABASE_URL" {
+  default = ""
+}
+
 variable "VITE_SISUB_SUPABASE_PUBLISHABLE_KEY" {
   default = ""
 }
@@ -65,7 +73,7 @@ variable "VITE_SUCONT_SUPABASE_URL" {
 }
 
 group "default" {
-  targets = ["api", "portal", "rumaer", "sucont", "assignment-selection", "sisub", "forms", "contrate", "alpha", "docs", "sisub-mcp", "5s", "pdf"]
+  targets = ["api", "portal", "rumaer", "sisprov", "sucont", "assignment-selection", "sisub", "forms", "contrate", "alpha", "docs", "sisub-mcp", "5s", "pdf"]
 }
 
 target "base" {
@@ -113,6 +121,18 @@ target "rumaer" {
   args = {
     VITE_RUMAER_SUPABASE_URL             = VITE_RUMAER_SUPABASE_URL
     VITE_RUMAER_SUPABASE_PUBLISHABLE_KEY = VITE_RUMAER_SUPABASE_PUBLISHABLE_KEY
+  }
+}
+
+target "sisprov" {
+  inherits = ["base"]
+  target = "sisprov"
+  tags = ["${REGISTRY}/${REPOSITORY_PREFIX}/sisprov:${TAG}"]
+  cache-from = ["type=gha,scope=deps", "type=gha,scope=sisprov"]
+  cache-to = ["type=gha,scope=sisprov,mode=max"]
+  args = {
+    VITE_SISPROV_SUPABASE_URL             = VITE_SISPROV_SUPABASE_URL
+    VITE_SISPROV_SUPABASE_PUBLISHABLE_KEY = VITE_SISPROV_SUPABASE_PUBLISHABLE_KEY
   }
 }
 

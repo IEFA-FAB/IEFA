@@ -1,0 +1,55 @@
+---
+title: SISPROV
+description: O Sistema de Provisões (fardamento gratuito) do Projeto SIA — o que é, como está organizado no monorepo e o que ainda não faz.
+---
+
+O **SISPROV** é a frente de **fardamento gratuito** do Projeto SIA (Convênio 001/IEFA/2025, IEFA × FCMF). Ele inverte a lógica de provisão da FAB: em vez de o estoque perseguir o consumo passado, o sistema parte do **efetivo previsto** (incorporação e renovação), aplica o **enxoval** do grupo de demanda e a **curva de tamanhos por gênero**, desconta o estoque da rede e gera a **ordem de fornecimento** ao depósito central, com aprovação humana.
+
+```
+Efetivo previsto (SIGPES + previsão de incorporação, por OM, posto, quadro, especialidade e gênero)
+  × Enxoval do grupo de demanda (itens, quantidade, frequência de renovação)
+  × Curva de tamanhos (individual → OM → região → global)
+  − Estoque disponível na rede
+  = Necessidade líquida → Ordem de fornecimento (aprovação humana) → Recebimento na OM → Distribuição ao militar
+```
+
+O legado (fab-provisao, 2013 a 2015) foi entregue e nunca implantado; serve de **especificação executável**, nunca de dependência. A decisão de plataforma e o desenho da fundação estão em `openspec/changes/sisprov-foundation`.
+
+## Estado
+
+<Callout type="warn">
+**Em fundação.** Nesta versão existem o app, o login, o hub por permissão, os três módulos como casca, a concessão de acessos e o schema `sisprov` vazio. Nenhuma tela de negócio. Cada módulo diz, na própria tela, o que vem a seguir e em que change.
+</Callout>
+
+## Papéis e acesso
+
+Três módulos do PBAC, escopados por OM (`unit_id`), com cobertura pela hierarquia de apoio (grant no GAP-SJ cobre IAE, DCTA e IEFA-SJ). Detalhe em [PBAC › Módulos](/docs/pbac/modulos).
+
+| Módulo | Quem | Nível 1 | Nível 2 | Nível 3 |
+|---|---|---|---|---|
+| `sisprov-planning` | Elo SISPROV na OM | consulta a previsão e a adesão | informa e ajusta a previsão de incorporação da OM | — |
+| `sisprov-supply` | Almoxarifado da OM | consulta OF e estoque | recebe OF, distribui, troca, devolve | — |
+| `sisprov-admin` | SDAB | — | gestão sistêmica (grupos, enxovais, curvas, períodos, aprovação de OF) | gerencia os grants |
+
+O militar que preenche a própria ficha de tamanhos ou confirma o próprio recebimento não tem módulo: é a sessão autenticada, identificada pelo SARAM verificado.
+
+## Como está organizado
+
+| Peça | Onde | Observação |
+|---|---|---|
+| App | `apps/sisprov` | TanStack Start + Nitro; design system do sisub com contrato próprio (`STYLE_CONTRACT.md`) |
+| Domínio | `packages/sisprov-domain` | Mesma estrutura do `sisub-domain`; módulos, guards por papel; operations chegam com o catálogo |
+| Schema | `sisprov` | Criado vazio; tabela só nasce depois de declarada no guard de reset de treino do sisub |
+| Item de fardamento | `core.item` (`kind = material`) + perfil em `sisprov` | Uma identidade, três camadas: núcleo, regulamento (`rumaer.piece`), grade de tamanhos |
+| Glossário | `openspec/changes/sisprov-foundation/specs/sisprov-glossary` | Um nome por conceito, antes da primeira tabela |
+
+## O que vem a seguir
+
+Na ordem: `sisprov-catalog` (catálogo e grade), `sisprov-demand-groups` (grupos de demanda e enxovais), `sisprov-size-records` (ficha de tamanhos e coleta, com RIPD), `sisprov-size-curve` (curva versionada), `core-sigpes-sync` (efetivo do SIGPES, no núcleo), `sisprov-core-inventory` (o ledger aceita itens de fardamento), `sisprov-engine` (previsão, necessidade líquida, OF), `sisprov-distribution` (distribuição ao militar e aderência).
+
+## O que o SISPROV não faz nesta versão, de propósito
+
+- Não opera a logística física do depósito central (localização, SSCC, separação, portaria): o depósito segue no sistema atual da SDAB; a OF chega por documento acordado e o saldo por carga periódica.
+- Não recebe nota fiscal do SIA: a entrada de material continua no fluxo atual do depósito.
+- Não produz MOMAT, DEMOP nem balanço até a SDAB confirmar a exigência para o estoque da OM.
+- Não carrega efetivo por planilha: a fonte é o SIGPES, pela integração do núcleo.

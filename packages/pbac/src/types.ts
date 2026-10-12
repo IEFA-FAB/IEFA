@@ -57,6 +57,23 @@
  * o escopo do PBAC é um id numérico de unidade/cozinha/refeitório — a divisão da SUCONT não
  * é nenhum dos três. É o mesmo recorte que o sisub faz com `global` × `admin`: quem trabalha
  * na SUCONT-3 não passa a enxergar as telas da SUCONT-4 por ter acesso ao app.
+ *
+ * - sisprov-planning:    Elo SISPROV na OM (fardamento gratuito) — sisprov, escopado por `unit_id`
+ *                          (OM; nulo = global). level 1 = consultar previsão e adesão da coleta de
+ *                          tamanhos; level 2 = informar e ajustar a previsão de incorporação da OM.
+ * - sisprov-supply:      Almoxarifado da OM — sisprov, escopado por `unit_id`. level 1 = consultar
+ *                          OF e estoque de fardamento da OM; level 2 = receber OF, distribuir ao
+ *                          militar, registrar troca e devolução.
+ * - sisprov-admin:       SDAB — sisprov. level 2 = gestão sistêmica (grupos de demanda, enxovais,
+ *                          curvas, períodos, aprovação de OF); level 3 = gerenciar os grants dos três
+ *                          módulos. Sem escopo para a SDAB; escopável por OM se a gestão for delegada.
+ *
+ *                        Papéis são módulos (e não níveis de um `sisprov` único) pelo mesmo motivo
+ *                        do α: almoxarife e elo são papéis diferentes na mesma OM, com o mesmo nível
+ *                        2, e um não implica o outro. O escopo desce pela hierarquia de apoio, como
+ *                        nos módulos `alpha-*`. O militar que preenche a própria ficha de tamanhos ou
+ *                        confirma o próprio recebimento não tem módulo: é sessão autenticada, como o
+ *                        `diner`. Decisão registrada em `openspec/changes/sisprov-foundation`.
  */
 export type AppModule =
 	| "diner"
@@ -78,6 +95,9 @@ export type AppModule =
 	| "alpha-procurement"
 	| "alpha-aci"
 	| "alpha-admin"
+	| "sisprov-planning"
+	| "sisprov-supply"
+	| "sisprov-admin"
 
 /**
  * Permissão individual de um usuário.

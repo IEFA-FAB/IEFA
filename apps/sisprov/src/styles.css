@@ -1,0 +1,479 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@font-face {
+	font-family: "Manrope";
+	src: url("/fonts/Manrope-Variable.woff2") format("woff2");
+	font-weight: 200 800;
+	font-style: normal;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: "JetBrains Mono";
+	src: url("/fonts/JetBrainsMono-Variable.woff2") format("woff2");
+	font-weight: 100 800;
+	font-style: normal;
+	font-display: swap;
+}
+
+/* `dark:` vale nos dois casos: classe explícita no <html> (escolha do usuário,
+   vinda do cookie e renderizada pelo servidor) e preferência do SO de quem ainda
+   não escolheu. Sem o segundo caso, quem está no escuro do sistema veria os
+   tokens escuros mas os utilitários `dark:` no claro. */
+@custom-variant dark {
+  &:is(.dark *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:is(:root:where(:not(.light)) *) {
+      @slot;
+    }
+  }
+}
+
+:root {
+  --background: oklch(1.0000 0 0);
+  --foreground: oklch(0.1884 0.0128 248.5103);
+  --card: oklch(0.9784 0.0011 197.1387);
+  --card-foreground: oklch(0.1884 0.0128 248.5103);
+  --popover: oklch(1.0000 0 0);
+  --popover-foreground: oklch(0.1884 0.0128 248.5103);
+  --primary: oklch(0.6723 0.1606 244.9955);
+  --primary-foreground: oklch(1.0000 0 0);
+  --secondary: oklch(0.1884 0.0128 248.5103);
+  --secondary-foreground: oklch(1.0000 0 0);
+  --muted: oklch(0.9222 0.0013 286.3737);
+  --muted-foreground: oklch(0.5100 0.0128 248.5103);
+  --accent: oklch(0.9392 0.0166 250.8453);
+  --accent-foreground: oklch(0.6723 0.1606 244.9955);
+  --destructive: oklch(0.6188 0.2376 25.7658);
+  --destructive-foreground: oklch(1.0000 0 0);
+  --border: oklch(0.9317 0.0118 231.6594);
+  --input: oklch(0.9809 0.0025 228.7836);
+  --ring: oklch(0.6818 0.1584 243.3540);
+  /* Status tokens — mapeiam aos chart colors já calibrados */
+  --success: oklch(0.6907 0.1554 160.3454);
+  --success-foreground: oklch(1.0000 0 0);
+  --warning: oklch(0.7500 0.1400 82.5337);
+  --warning-foreground: oklch(0.2000 0 0);
+  --info: oklch(0.6723 0.1606 244.9955);
+  --info-foreground: oklch(1.0000 0 0);
+  --governance: oklch(0.6200 0.1550 290.0000);
+  --governance-foreground: oklch(1.0000 0 0);
+  --chart-1: oklch(0.6723 0.1606 244.9955);
+  --chart-2: oklch(0.6907 0.1554 160.3454);
+  --chart-3: oklch(0.8214 0.1600 82.5337);
+  --chart-4: oklch(0.7064 0.1822 151.7125);
+  --chart-5: oklch(0.5919 0.2186 10.5826);
+  --sidebar: oklch(0.9784 0.0011 197.1387);
+  --sidebar-foreground: oklch(0.1884 0.0128 248.5103);
+  --sidebar-primary: oklch(0.6723 0.1606 244.9955);
+  --sidebar-primary-foreground: oklch(1.0000 0 0);
+  --sidebar-accent: oklch(0.9392 0.0166 250.8453);
+  --sidebar-accent-foreground: oklch(0.6723 0.1606 244.9955);
+  --sidebar-border: oklch(0.9271 0.0101 238.5177);
+  --sidebar-ring: oklch(0.6818 0.1584 243.3540);
+  --font-sans: 'Manrope', ui-sans-serif, system-ui;
+  --font-serif: Georgia, serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  /* Radius: 0.5rem = padrão shadcn/zinc, shapes técnicos sem pill excessivo */
+  --radius: 0.5rem;
+  --shadow-2xs: 0px 1px 2px 0px oklch(0 0 0 / 0.06);
+  --shadow-xs: 0px 1px 3px 0px oklch(0 0 0 / 0.08);
+  --shadow-sm: 0px 1px 3px 0px oklch(0 0 0 / 0.10), 0px 1px 2px -1px oklch(0 0 0 / 0.06);
+  --shadow: 0px 2px 4px 0px oklch(0 0 0 / 0.10), 0px 1px 2px -1px oklch(0 0 0 / 0.06);
+  --shadow-md: 0px 4px 8px 0px oklch(0 0 0 / 0.10), 0px 2px 4px -2px oklch(0 0 0 / 0.06);
+  --shadow-lg: 0px 8px 16px 0px oklch(0 0 0 / 0.12), 0px 4px 6px -4px oklch(0 0 0 / 0.06);
+  --shadow-xl: 0px 16px 24px 0px oklch(0 0 0 / 0.14), 0px 8px 10px -6px oklch(0 0 0 / 0.06);
+  --shadow-2xl: 0px 24px 40px 0px oklch(0 0 0 / 0.18);
+  --tracking-tight: -0.02em;
+  --tracking-normal: 0em;
+  --tracking-label: 0.05em;
+  --tracking-wide: 0.2em;
+  --spacing: 0.25rem;
+  /* Scrollbar tokens */
+  --scrollbar-size: 6px;
+  --scrollbar-thumb: oklch(0.8600 0.0118 231.6594);
+  --scrollbar-thumb-hover: var(--primary);
+  --scrollbar-track: transparent;
+}
+
+/* Duas portas para o MESMO conjunto de tokens, e as duas precisam existir:
+   - `.dark`: escolha explícita do usuário. Vem do cookie `theme` e é renderizada
+     pelo servidor no <html>, então já está no HTML da primeira pintura.
+   - a media query: preferência do SO de quem ainda não escolheu — a única coisa
+     que o servidor não tem como saber. Antes, um script inline aplicava a classe
+     antes da hidratação; o React 19 tratava isso como divergência do <html>
+     (erro #418), descartava a árvore e voltava para o claro. Era o flash.
+   Mexeu em um bloco, mexa no outro. */
+.dark {
+  --background: oklch(0 0 0);
+  --foreground: oklch(0.9328 0.0025 228.7857);
+  --card: oklch(0.2097 0.0080 274.5332);
+  --card-foreground: oklch(0.8853 0 0);
+  --popover: oklch(0 0 0);
+  --popover-foreground: oklch(0.9328 0.0025 228.7857);
+  --primary: oklch(0.6692 0.1607 245.0110);
+  --primary-foreground: oklch(1.0000 0 0);
+  --secondary: oklch(0.9622 0.0035 219.5331);
+  --secondary-foreground: oklch(0.1884 0.0128 248.5103);
+  --muted: oklch(0.2090 0 0);
+  --muted-foreground: oklch(0.5637 0.0078 247.9662);
+  --accent: oklch(0.1928 0.0331 242.5459);
+  --accent-foreground: oklch(0.6692 0.1607 245.0110);
+  --destructive: oklch(0.6188 0.2376 25.7658);
+  --destructive-foreground: oklch(1.0000 0 0);
+  --border: oklch(0.2674 0.0047 248.0045);
+  --input: oklch(0.3020 0.0288 244.8244);
+  --ring: oklch(0.6818 0.1584 243.3540);
+  /* Status tokens */
+  --success: oklch(0.6907 0.1554 160.3454);
+  --success-foreground: oklch(1.0000 0 0);
+  --warning: oklch(0.7500 0.1400 82.5337);
+  --warning-foreground: oklch(0.2000 0 0);
+  --info: oklch(0.6723 0.1606 244.9955);
+  --info-foreground: oklch(1.0000 0 0);
+  --governance: oklch(0.6200 0.1550 290.0000);
+  --governance-foreground: oklch(1.0000 0 0);
+  --chart-1: oklch(0.6723 0.1606 244.9955);
+  --chart-2: oklch(0.6907 0.1554 160.3454);
+  --chart-3: oklch(0.8214 0.1600 82.5337);
+  --chart-4: oklch(0.7064 0.1822 151.7125);
+  --chart-5: oklch(0.5919 0.2186 10.5826);
+  --sidebar: oklch(0.2097 0.0080 274.5332);
+  --sidebar-foreground: oklch(0.8853 0 0);
+  --sidebar-primary: oklch(0.6818 0.1584 243.3540);
+  --sidebar-primary-foreground: oklch(1.0000 0 0);
+  --sidebar-accent: oklch(0.1928 0.0331 242.5459);
+  --sidebar-accent-foreground: oklch(0.6692 0.1607 245.0110);
+  --sidebar-border: oklch(0.3795 0.0220 240.5943);
+  --sidebar-ring: oklch(0.6818 0.1584 243.3540);
+  /* Alinhado com Manrope — DM Sans não estava sendo carregada */
+  --font-sans: 'Manrope', ui-sans-serif, system-ui;
+  --font-serif: Georgia, serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  /* Radius consistente com light mode */
+  --radius: 0.5rem;
+  --shadow-2xs: 0px 1px 2px 0px oklch(0 0 0 / 0.20);
+  --shadow-xs: 0px 1px 3px 0px oklch(0 0 0 / 0.25);
+  --shadow-sm: 0px 1px 3px 0px oklch(0 0 0 / 0.30), 0px 1px 2px -1px oklch(0 0 0 / 0.20);
+  --shadow: 0px 2px 4px 0px oklch(0 0 0 / 0.30), 0px 1px 2px -1px oklch(0 0 0 / 0.20);
+  --shadow-md: 0px 4px 8px 0px oklch(0 0 0 / 0.30), 0px 2px 4px -2px oklch(0 0 0 / 0.20);
+  --shadow-lg: 0px 8px 16px 0px oklch(0 0 0 / 0.35), 0px 4px 6px -4px oklch(0 0 0 / 0.20);
+  --shadow-xl: 0px 16px 24px 0px oklch(0 0 0 / 0.40), 0px 8px 10px -6px oklch(0 0 0 / 0.20);
+  --shadow-2xl: 0px 24px 40px 0px oklch(0 0 0 / 0.50);
+  /* Scrollbar tokens — dark mode */
+  --scrollbar-thumb: oklch(0.3200 0.0080 248.0045);
+  --scrollbar-thumb-hover: var(--primary);
+  --scrollbar-track: transparent;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:where(:not(.light)) {
+    --background: oklch(0 0 0);
+    --foreground: oklch(0.9328 0.0025 228.7857);
+    --card: oklch(0.2097 0.0080 274.5332);
+    --card-foreground: oklch(0.8853 0 0);
+    --popover: oklch(0 0 0);
+    --popover-foreground: oklch(0.9328 0.0025 228.7857);
+    --primary: oklch(0.6692 0.1607 245.0110);
+    --primary-foreground: oklch(1.0000 0 0);
+    --secondary: oklch(0.9622 0.0035 219.5331);
+    --secondary-foreground: oklch(0.1884 0.0128 248.5103);
+    --muted: oklch(0.2090 0 0);
+    --muted-foreground: oklch(0.5637 0.0078 247.9662);
+    --accent: oklch(0.1928 0.0331 242.5459);
+    --accent-foreground: oklch(0.6692 0.1607 245.0110);
+    --destructive: oklch(0.6188 0.2376 25.7658);
+    --destructive-foreground: oklch(1.0000 0 0);
+    --border: oklch(0.2674 0.0047 248.0045);
+    --input: oklch(0.3020 0.0288 244.8244);
+    --ring: oklch(0.6818 0.1584 243.3540);
+    /* Status tokens */
+    --success: oklch(0.6907 0.1554 160.3454);
+    --success-foreground: oklch(1.0000 0 0);
+    --warning: oklch(0.7500 0.1400 82.5337);
+    --warning-foreground: oklch(0.2000 0 0);
+    --info: oklch(0.6723 0.1606 244.9955);
+    --info-foreground: oklch(1.0000 0 0);
+    --governance: oklch(0.6200 0.1550 290.0000);
+    --governance-foreground: oklch(1.0000 0 0);
+    --chart-1: oklch(0.6723 0.1606 244.9955);
+    --chart-2: oklch(0.6907 0.1554 160.3454);
+    --chart-3: oklch(0.8214 0.1600 82.5337);
+    --chart-4: oklch(0.7064 0.1822 151.7125);
+    --chart-5: oklch(0.5919 0.2186 10.5826);
+    --sidebar: oklch(0.2097 0.0080 274.5332);
+    --sidebar-foreground: oklch(0.8853 0 0);
+    --sidebar-primary: oklch(0.6818 0.1584 243.3540);
+    --sidebar-primary-foreground: oklch(1.0000 0 0);
+    --sidebar-accent: oklch(0.1928 0.0331 242.5459);
+    --sidebar-accent-foreground: oklch(0.6692 0.1607 245.0110);
+    --sidebar-border: oklch(0.3795 0.0220 240.5943);
+    --sidebar-ring: oklch(0.6818 0.1584 243.3540);
+    /* Alinhado com Manrope — DM Sans não estava sendo carregada */
+    --font-sans: 'Manrope', ui-sans-serif, system-ui;
+    --font-serif: Georgia, serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+    /* Radius consistente com light mode */
+    --radius: 0.5rem;
+    --shadow-2xs: 0px 1px 2px 0px oklch(0 0 0 / 0.20);
+    --shadow-xs: 0px 1px 3px 0px oklch(0 0 0 / 0.25);
+    --shadow-sm: 0px 1px 3px 0px oklch(0 0 0 / 0.30), 0px 1px 2px -1px oklch(0 0 0 / 0.20);
+    --shadow: 0px 2px 4px 0px oklch(0 0 0 / 0.30), 0px 1px 2px -1px oklch(0 0 0 / 0.20);
+    --shadow-md: 0px 4px 8px 0px oklch(0 0 0 / 0.30), 0px 2px 4px -2px oklch(0 0 0 / 0.20);
+    --shadow-lg: 0px 8px 16px 0px oklch(0 0 0 / 0.35), 0px 4px 6px -4px oklch(0 0 0 / 0.20);
+    --shadow-xl: 0px 16px 24px 0px oklch(0 0 0 / 0.40), 0px 8px 10px -6px oklch(0 0 0 / 0.20);
+    --shadow-2xl: 0px 24px 40px 0px oklch(0 0 0 / 0.50);
+    /* Scrollbar tokens — dark mode */
+    --scrollbar-thumb: oklch(0.3200 0.0080 248.0045);
+    --scrollbar-thumb-hover: var(--primary);
+    --scrollbar-track: transparent;
+  }
+}
+
+/* O `color-scheme` acompanha os tokens. Sem ele, quem está no escuro do sistema
+   ganha os tokens escuros mas scrollbar, date picker e autofill nativos claros.
+   Na escolha explícita o servidor também manda no `style` do <html>. */
+:root {
+  color-scheme: light;
+}
+
+.dark {
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:where(:not(.light)) {
+    color-scheme: dark;
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-governance: var(--governance);
+  --color-governance-foreground: var(--governance-foreground);
+
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --font-serif: var(--font-serif);
+
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 4px);
+  --radius-xl: calc(var(--radius) + 8px);
+
+  --shadow-2xs: var(--shadow-2xs);
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow: var(--shadow);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-xl: var(--shadow-xl);
+  --shadow-2xl: var(--shadow-2xl);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  /*
+   * Ponteiro em tudo que é clicável.
+   *
+   * O preflight do Tailwind v4 não devolve mais o `cursor: pointer` que o v3 dava
+   * a `button` — e os gatilhos do Base UI (menu, aba, opção, combobox) são `div`
+   * com `role`, que nunca tiveram ponteiro de agente de usuário. Sem esta regra só
+   * ganha ponteiro quem escreve a utilitária no próprio elemento, um a um.
+   *
+   * Desabilitado fica de fora pelos três dialetos em uso no repo: o `disabled`
+   * nativo, o `aria-disabled` e o `data-disabled` do Base UI.
+   *
+   * `[role="combobox"]` exclui campo editável de propósito: quando o gatilho é um
+   * `<input>`, o Base UI põe o papel no próprio input de busca, e ali o cursor
+   * certo é o de texto.
+   *
+   * `:where()` zera a especificidade da lista, então um `cursor-*` utilitário
+   * escrito no elemento continua vencendo.
+   */
+  :where(
+    button,
+    summary,
+    select,
+    input[type="checkbox"],
+    input[type="radio"],
+    input[type="file"],
+    label:has(> input[type="checkbox"], > input[type="radio"]),
+    [role="button"],
+    [role="checkbox"],
+    [role="combobox"]:not(input, textarea, [contenteditable]),
+    [role="menuitem"],
+    [role="menuitemcheckbox"],
+    [role="menuitemradio"],
+    [role="option"],
+    [role="radio"],
+    [role="switch"],
+    [role="tab"]
+  ):not(:disabled, [aria-disabled="true"], [data-disabled]) {
+    cursor: pointer;
+  }
+
+  /* ─── WebKit scrollbars (Chrome, Safari, Edge) ─── */
+  ::-webkit-scrollbar {
+    width: var(--scrollbar-size);
+    height: var(--scrollbar-size);
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--scrollbar-thumb);
+    border-radius: 9999px;
+    transition: background-color 150ms ease;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--scrollbar-thumb-hover);
+  }
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  /* ─── Tabelas: scrollbar aparece ao hover (hover-reveal) ─── */
+  /* Firefox */
+  [data-slot="table-container"] {
+    scrollbar-color: transparent transparent;
+    transition: scrollbar-color 200ms ease;
+  }
+  [data-slot="table-container"]:hover {
+    scrollbar-color: var(--scrollbar-thumb) transparent;
+  }
+  /* WebKit */
+  [data-slot="table-container"]::-webkit-scrollbar-thumb {
+    background-color: transparent;
+  }
+  [data-slot="table-container"]:hover::-webkit-scrollbar-thumb {
+    background-color: var(--scrollbar-thumb);
+  }
+  [data-slot="table-container"]:hover::-webkit-scrollbar-thumb:hover {
+    background-color: var(--scrollbar-thumb-hover);
+  }
+
+}
+
+/* Theme toggle view transition — circular reveal from button position */
+::view-transition-new(root) {
+	animation: vt-theme-reveal var(--vt-duration, 400ms) ease-in-out;
+	clip-path: circle(0px at var(--vt-clip-x, 50%) var(--vt-clip-y, 50%));
+}
+
+::view-transition-old(root) {
+	animation: none;
+}
+
+@keyframes vt-theme-reveal {
+	from {
+		clip-path: circle(0px at var(--vt-clip-x, 50%) var(--vt-clip-y, 50%));
+	}
+	to {
+		clip-path: circle(var(--vt-clip-r, 100vmax) at var(--vt-clip-x, 50%) var(--vt-clip-y, 50%));
+	}
+}
+
+/* ─── Hierarquia Tipográfica ─── */
+@utility text-display {
+  font-size: 1.375rem;
+  font-weight: 800;
+  letter-spacing: var(--tracking-tight);
+  line-height: 1.2;
+}
+
+@utility text-heading {
+  font-size: 1.125rem;
+  font-weight: 600;
+  letter-spacing: var(--tracking-tight);
+  line-height: 1.3;
+}
+
+@utility text-subheading {
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: var(--tracking-normal);
+  line-height: 1.5;
+}
+
+@utility text-body {
+  font-size: 0.875rem;
+  font-weight: 400;
+  letter-spacing: var(--tracking-normal);
+  line-height: 1.5;
+}
+
+@utility text-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  line-height: 1.4;
+}
+
+@utility text-caption {
+  font-size: 0.75rem;
+  font-weight: 400;
+  letter-spacing: var(--tracking-normal);
+  line-height: 1.5;
+}
+
+@utility text-hint {
+  font-size: 0.6875rem;
+  font-weight: 400;
+  letter-spacing: var(--tracking-normal);
+  line-height: 1.5;
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}

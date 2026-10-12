@@ -26,6 +26,8 @@ Um arquivo por módulo, com o nome que aparece no seletor de módulos do app:
 | Catálogo Global (modelos da SDAB) | `modules/catalogo-global.md` |
 | Análises da Unidade e Análises Globais: Efetivo dos Refeitórios (matriz de efetivo da SDAB) | `modules/efetivo.md` |
 | Contrate: demanda do requisitante (Projeto α) | `modules/contrate-demanda.md` |
+| SISPROV: Planejamento (previsão de incorporação, coleta de tamanhos, curva) | `modules/sisprov-planejamento.md` |
+| SISPROV: Almoxarifado (OF recebida, distribuição, troca e devolução) | `modules/sisprov-almoxarifado.md` |
 
 ## Formato de um caso
 

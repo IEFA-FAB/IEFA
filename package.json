@@ -36,6 +36,7 @@
     "sisub-mcp:start": "bun --cwd ./apps/sisub-mcp start",
     "portal:dev": "bun --cwd ./apps/portal dev",
     "rumaer:dev": "bun --cwd ./apps/rumaer dev",
+    "sisprov:dev": "bun --cwd ./apps/sisprov dev",
     "assignment-selection:dev": "bun --cwd ./apps/assignment-selection dev",
     "api:dev": "bun --cwd ./apps/api dev",
     "api:test:integration": "API_RUN_INTEGRATION=true turbo run test:integration --filter=@iefa/api",

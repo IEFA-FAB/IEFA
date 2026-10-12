@@ -16,6 +16,7 @@ Bun monorepo, Turborepo, Biome. Repositório público.
 | `contrate` | TanStack Start + Nitro | Front do Projeto α (contratações), extraído do portal |
 | `sucont` | TanStack Start + Nitro | Hub SUCONT-4, acompanhamento contábil |
 | `rumaer` | TanStack Start + Nitro | Uniformes da FAB (RUMAER) |
+| `sisprov` | TanStack Start + Nitro | Sistema de Provisões (fardamento gratuito, Projeto SIA): previsão de demanda, OF ao depósito, distribuição. Em fundação: ver `openspec/changes/sisprov-foundation` |
 | `forms` | TanStack Start + Nitro | Questionários; multi-tenant (tenant `cinco-s` = deploy `5s`) |
 | `assignment-selection` | TanStack Start + Nitro | Escolha de vagas / CPAINT: telão + controlador |
 | `docs` | TanStack Start + Fumadocs | Documentação interna |
@@ -29,7 +30,7 @@ Todos os apps web usam React 19.
 ## Packages
 
 `database` (tipos + migrations Supabase) · `sisub-domain` (operações, guards, contrato das tools de
-IA) · `supabase-kit` (clients service-role/browser/SSR com deadlines de fetch) · `auth-kit` · `pbac`
+IA) · `sisprov-domain` (domínio do SISPROV, mesma estrutura) · `supabase-kit` (clients service-role/browser/SSR com deadlines de fetch) · `auth-kit` · `pbac`
 (autorização módulo + nível + escopo) · `legal-kit` · `ai-provider` · `agent-web` · `compras-api` ·
 `compras-api-codegen` · `hono-client` · `alpha-client` · `tsconfig`.
 

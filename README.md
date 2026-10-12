@@ -18,6 +18,7 @@ the Instituto de Economia, Finanças e Administração da Aeronáutica (IEFA).
 | `apps/contrate` | TanStack Start + Nitro SSR | Front do Projeto α (contratações), extraído do portal |
 | `apps/sucont` | TanStack Start + Nitro SSR | Hub SUCONT-4 — acompanhamento contábil |
 | `apps/rumaer` | TanStack Start + Nitro SSR | Uniformes da FAB (RUMAER) |
+| `apps/sisprov` | TanStack Start + Nitro SSR | Sistema de Provisões — fardamento gratuito (Projeto SIA): previsão de demanda, OF ao depósito, distribuição. Em fundação |
 | `apps/forms` | TanStack Start + Nitro SSR | Questionários e pesquisas internas; multi-tenant (tenant `cinco-s` = deploy `5s`) |
 | `apps/assignment-selection` | TanStack Start + Nitro SSR | Escolha de vagas / CPAINT — telão + controlador |
 | `apps/api` | Bun + Hono + OpenAPI (Scalar) | API pública — alimentos, preços, sync workers |
@@ -32,6 +33,7 @@ the Instituto de Economia, Finanças e Administração da Aeronáutica (IEFA).
 |---------|---------|
 | `@iefa/database` | Tipos TS + migrations Supabase (schemas por domínio) |
 | `@iefa/sisub-domain` | Operações de domínio do sisub (schemas, guards, operations, contrato de tools de IA) |
+| `@iefa/sisprov-domain` | Operações de domínio do SISPROV (mesma estrutura do sisub-domain; guards por papel) |
 | `@iefa/supabase-kit` | Clients Supabase: service-role, browser e SSR (subpath `/start`) |
 | `@iefa/auth-kit` | Ações de auth, tradução de erro do GoTrue, trava de login (subpath `/react`) |
 | `@iefa/pbac` | Engine de autorização por política (módulo + nível + escopo) |

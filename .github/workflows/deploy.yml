@@ -17,6 +17,10 @@ on:
         description: "Force deploy rumaer — RUMAER"
         type: boolean
         default: false
+      force_sisprov:
+        description: "Force deploy sisprov — SISPROV (fardamento gratuito — Projeto SIA)"
+        type: boolean
+        default: false
       force_sucont:
         description: "Force deploy sucont — SUCONT (HUB SUCONT-4 — acompanhamento contábil)"
         type: boolean
@@ -77,6 +81,7 @@ jobs:
       api: ${{ steps.final.outputs.api }}
       portal: ${{ steps.final.outputs.portal }}
       rumaer: ${{ steps.final.outputs.rumaer }}
+      sisprov: ${{ steps.final.outputs.sisprov }}
       sucont: ${{ steps.final.outputs.sucont }}
       assignment_selection: ${{ steps.final.outputs.assignment_selection }}
       sisub: ${{ steps.final.outputs.sisub }}
@@ -107,6 +112,7 @@ jobs:
           FORCE_API: ${{ inputs.force_api }}
           FORCE_PORTAL: ${{ inputs.force_portal }}
           FORCE_RUMAER: ${{ inputs.force_rumaer }}
+          FORCE_SISPROV: ${{ inputs.force_sisprov }}
           FORCE_SUCONT: ${{ inputs.force_sucont }}
           FORCE_ASSIGNMENT_SELECTION: ${{ inputs.force_assignment_selection }}
           FORCE_SISUB: ${{ inputs.force_sisub }}
@@ -120,6 +126,7 @@ jobs:
           FILTER_API: ${{ steps.filter.outputs.api }}
           FILTER_PORTAL: ${{ steps.filter.outputs.portal }}
           FILTER_RUMAER: ${{ steps.filter.outputs.rumaer }}
+          FILTER_SISPROV: ${{ steps.filter.outputs.sisprov }}
           FILTER_SUCONT: ${{ steps.filter.outputs.sucont }}
           FILTER_ASSIGNMENT_SELECTION: ${{ steps.filter.outputs.assignment_selection }}
           FILTER_SISUB: ${{ steps.filter.outputs.sisub }}
@@ -138,6 +145,7 @@ jobs:
               echo "api=$FORCE_API"
               echo "portal=$FORCE_PORTAL"
               echo "rumaer=$FORCE_RUMAER"
+              echo "sisprov=$FORCE_SISPROV"
               echo "sucont=$FORCE_SUCONT"
               echo "assignment_selection=$FORCE_ASSIGNMENT_SELECTION"
               echo "sisub=$FORCE_SISUB"
@@ -156,6 +164,7 @@ jobs:
               echo "api=$FILTER_API"
               echo "portal=$FILTER_PORTAL"
               echo "rumaer=$FILTER_RUMAER"
+              echo "sisprov=$FILTER_SISPROV"
               echo "sucont=$FILTER_SUCONT"
               echo "assignment_selection=$FILTER_ASSIGNMENT_SELECTION"
               echo "sisub=$FILTER_SISUB"
@@ -183,6 +192,7 @@ jobs:
       needs.changes.outputs.api == 'true' ||
       needs.changes.outputs.portal == 'true' ||
       needs.changes.outputs.rumaer == 'true' ||
+      needs.changes.outputs.sisprov == 'true' ||
       needs.changes.outputs.sucont == 'true' ||
       needs.changes.outputs.assignment_selection == 'true' ||
       needs.changes.outputs.sisub == 'true' ||
@@ -403,6 +413,60 @@ jobs:
       service: rumaer
       health_url: ${{ vars.RUMAER_HEALTH_URL }}
       concurrency_suffix: rumaer
+
+  # ============================================================
+  # SISPROV (fardamento gratuito — Projeto SIA) ── check → build → deploy
+  # Mesmo projeto Supabase do sisub → reutiliza vars/secrets do sisub,
+  # mapeados para os nomes VITE_SISPROV_* no build. Secrets de runtime ficam
+  # no Secrets Manager (ver infra/sisprov/secrets/sisprov.example.json).
+  # ============================================================
+  check-sisprov:
+    needs: [changes]
+    if: needs.changes.outputs.sisprov == 'true'
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: "1.4.0"
+      - uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: ${{ runner.os }}-bun-
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Lint · types · tests
+        run: bunx turbo run lint typecheck test --filter=./apps/sisprov
+        env:
+          VITE_SISPROV_SUPABASE_URL: ${{ vars.VITE_SISUB_SUPABASE_URL }}
+          VITE_SISPROV_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
+
+  build-sisprov:
+    permissions:
+      contents: read
+      id-token: write
+    needs: [check-sisprov, warm-deps]
+    uses: ./.github/workflows/_app-build.yml
+    with:
+      service: sisprov
+      bake_set: |
+        sisprov.args.VITE_SISPROV_SUPABASE_URL=${{ vars.VITE_SISUB_SUPABASE_URL }}
+        sisprov.args.VITE_SISPROV_SUPABASE_PUBLISHABLE_KEY=${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
+
+  deploy-sisprov:
+    permissions:
+      contents: read
+      id-token: write
+    needs: [build-sisprov]
+    uses: ./.github/workflows/_app-deploy.yml
+    with:
+      service: sisprov
+      health_url: ${{ vars.SISPROV_HEALTH_URL }}
+      concurrency_suffix: sisprov
 
   # ============================================================
   # SUCONT (HUB SUCONT-4) ── check → build → deploy

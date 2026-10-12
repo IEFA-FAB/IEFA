@@ -42,6 +42,7 @@ export const SUPABASE_SCHEMAS = [
 	"sucont",
 	"alpha",
 	"documents",
+	"sisprov",
 ] as const
 
 export type SupabaseCommand = "types" | "pull" | "diff" | "link"

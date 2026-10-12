@@ -48,6 +48,15 @@
       "buildArgs": ["VITE_RUMAER_SUPABASE_URL", "VITE_RUMAER_SUPABASE_PUBLISHABLE_KEY"]
     },
     {
+      "key": "sisprov",
+      "title": "SISPROV (fardamento gratuito — Projeto SIA)",
+      "workspace": "@iefa/sisprov",
+      "path": "apps/sisprov",
+      "kind": "nitro",
+      "port": 3000,
+      "buildArgs": ["VITE_SISPROV_SUPABASE_URL", "VITE_SISPROV_SUPABASE_PUBLISHABLE_KEY"]
+    },
+    {
       "key": "sucont",
       "title": "SUCONT (HUB SUCONT-4 — acompanhamento contábil)",
       "workspace": "sucont",

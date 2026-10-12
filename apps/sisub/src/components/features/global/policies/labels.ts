@@ -9,9 +9,10 @@ import type { AppModule } from "@/types/domain/permissions"
  * o nome antigo deixou os quatro vazarem para dentro do `Record<SisubModule, …>`
  * abaixo — e o typecheck do sisub quebrou por uma mudança feita no sucont. Com o
  * padrão, um quinto módulo do sucont não chega aqui. O α segue o mesmo recorte
- * (`alpha-${string}`: os quatro módulos de papel).
+ * (`alpha-${string}`: os quatro módulos de papel), e o SISPROV também
+ * (`sisprov-${string}`: planning, supply e admin, geridos em `apps/sisprov`).
  */
-export type SisubModule = Exclude<AppModule, "rumaer" | `sucont-${string}` | `alpha-${string}`>
+export type SisubModule = Exclude<AppModule, "rumaer" | `sucont-${string}` | `alpha-${string}` | `sisprov-${string}`>
 
 export const MODULE_LABELS: Record<SisubModule, string> = {
 	diner: "Comensal",
