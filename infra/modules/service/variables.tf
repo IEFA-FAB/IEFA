@@ -210,3 +210,21 @@ variable "secret_recovery_window_in_days" {
   type    = number
   default = 7
 }
+
+variable "autoscaling_max_count" {
+  description = "Teto de tasks do autoscaling (CPU e memória, target tracking). 0 desliga; o mínimo é o desired_count. Ver autoscaling.tf."
+  type        = number
+  default     = 0
+}
+
+variable "autoscaling_cpu_target" {
+  description = "Média de CPU do serviço (%) que o autoscaling procura manter."
+  type        = number
+  default     = 50
+}
+
+variable "autoscaling_memory_target" {
+  description = "Média de memória do serviço (%) que o autoscaling procura manter."
+  type        = number
+  default     = 70
+}

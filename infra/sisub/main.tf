@@ -79,6 +79,7 @@ module "service" {
   # Rollout knobs
   image_tag                = var.image_tag
   desired_count            = var.desired_count
+  autoscaling_max_count    = var.autoscaling_max_count
   fargate_on_demand_base   = var.fargate_on_demand_base
   fargate_on_demand_weight = var.fargate_on_demand_weight
   assign_public_ip         = var.assign_public_ip

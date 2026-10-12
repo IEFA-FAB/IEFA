@@ -127,3 +127,9 @@ variable "image_tag_mutability" {
   type    = string
   default = "MUTABLE"
 }
+
+variable "autoscaling_max_count" {
+  description = "Teto do autoscaling (CPU e memória); o mínimo é o desired_count. 0 desliga."
+  type        = number
+  default     = 0
+}
