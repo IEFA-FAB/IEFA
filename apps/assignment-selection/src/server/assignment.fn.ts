@@ -3,7 +3,15 @@ import type { Edition, Person, Vacancy } from "@iefa/database/assignment-selecti
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAccess } from "@/lib/auth.server"
-import { type ExpectedState, expectedFilters, STALE_SCREEN_MESSAGE, splitPersonChanges } from "@/lib/person-changes"
+import {
+	type CallPersonRpcArgs,
+	callPersonRpcArgs,
+	conductErrorMessage,
+	type ExpectedState,
+	expectedFilters,
+	STALE_SCREEN_MESSAGE,
+	splitPersonChanges,
+} from "@/lib/person-changes"
 import { maskUnannouncedChoice } from "@/lib/person-visibility"
 import { getAssignmentServerClient } from "@/lib/supabase.server"
 
@@ -117,7 +125,7 @@ export const updatePersonFn = createServerFn({ method: "POST" })
 		let row: Person | null = null
 		if (hasChoice) {
 			const { data: applied, error } = await applyPersonChoice(supabase, data.id, choice, expected ?? null)
-			if (error) throw new Error(error.code === SERIALIZATION_FAILURE ? STALE_SCREEN_MESSAGE : error.message)
+			if (error) throw new Error(conductErrorMessage(error))
 			row = applied
 		}
 		if (hasRest || !row) {
@@ -134,9 +142,6 @@ export const updatePersonFn = createServerFn({ method: "POST" })
 		}
 		return row
 	})
-
-/** `serialization_failure`: `apply_person_choice` achou a linha diferente do `p_expected`. */
-const SERIALIZATION_FAILURE = "40001"
 
 type AssignmentClient = ReturnType<typeof getAssignmentServerClient>
 
@@ -180,26 +185,22 @@ export const setEditionLockFn = createServerFn({ method: "POST" })
  * Chama um militar ao telão: exibe só o card dele (show_card), esconde os demais
  * e reseta a revelação da OM (show_om=false) até ele anunciar a vaga.
  *
- * O militar acende primeiro, num update condicional: tem de ser da edição informada (sem
- * isto um id de outra edição apagava este telão) e, com `expected`, ainda estar como a
- * tela viu. Só depois os demais apagam; zero linhas no primeiro passo não mexe em nada.
+ * Tudo em `assignment_selection.call_person`, numa transação: trava as linhas da edição,
+ * confere que o militar é dela e, com `expected`, que ainda está como a tela viu.
  */
 export const callPersonFn = createServerFn({ method: "POST" })
 	.validator(z.object({ editionId: z.uuid(), personId: z.number().int(), expected: expectedSchema.optional() }))
 	.handler(async ({ data }): Promise<void> => {
 		await requireAccess()
 		const supabase = getAssignmentServerClient()
-
-		let show = supabase.from("person").update({ show_card: true, show_om: false }).eq("id", data.personId).eq("edition_id", data.editionId)
-		for (const f of data.expected ? expectedFilters(data.expected) : []) {
-			show = f.op === "is" ? show.is(f.column, null) : show.eq(f.column, f.value as string | boolean)
-		}
-		const { data: shown, error: showError } = await show.select("id").maybeSingle()
-		if (showError) throw new Error(showError.message)
-		if (!shown) throw new Error(data.expected ? STALE_SCREEN_MESSAGE : "Militar não pertence a esta edição")
-
-		const clear = await supabase.from("person").update({ show_card: false, show_om: false }).eq("edition_id", data.editionId).neq("id", data.personId)
-		if (clear.error) throw new Error(clear.error.message)
+		// `call_person` (migration 20261011130000) ainda não está nos tipos gerados; o cast
+		// some depois do `db:types`.
+		const rpc = supabase.rpc.bind(supabase) as unknown as (
+			fn: "call_person",
+			args: CallPersonRpcArgs
+		) => PromiseLike<{ data: Person | null; error: { message: string; code?: string } | null }>
+		const { error } = await rpc("call_person", callPersonRpcArgs(data))
+		if (error) throw new Error(conductErrorMessage(error))
 	})
 
 /**

@@ -71,3 +71,27 @@ export function expectedFilters(expected: ExpectedState): { column: keyof Expect
 		return { column: key, op: value === null ? "is" : "eq", value }
 	})
 }
+
+/** `serialization_failure`: a função do banco achou a linha diferente do `p_expected`. */
+export const SERIALIZATION_FAILURE = "40001"
+
+/** Mensagem de erro das RPCs da condução: a recusa por tela velha vira a frase do operador. */
+export function conductErrorMessage(error: { message: string; code?: string }): string {
+	return error.code === SERIALIZATION_FAILURE ? STALE_SCREEN_MESSAGE : error.message
+}
+
+export interface CallPersonRpcArgs {
+	p_edition_id: string
+	p_person_id: number
+	p_expected: ExpectedState | null
+}
+
+/** Argumentos de `assignment_selection.call_person` a partir do pedido do controle. */
+export function callPersonRpcArgs(data: { editionId: string; personId: number; expected?: ExpectedState }): CallPersonRpcArgs {
+	return { p_edition_id: data.editionId, p_person_id: data.personId, p_expected: data.expected ?? null }
+}
+
+/** Pedido de chamada que o controle manda: o militar e tudo o que a tela viu dele. */
+export function callRequest(editionId: string, person: Pick<Person, "id" | (typeof EXPECTED_KEYS)[number]>) {
+	return { editionId, personId: person.id, expected: expectedState(person) }
+}

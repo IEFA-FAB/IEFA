@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest"
-import { expectedFilters, expectedForChanges, expectedState, splitPersonChanges } from "./person-changes"
+import {
+	callPersonRpcArgs,
+	callRequest,
+	conductErrorMessage,
+	expectedFilters,
+	expectedForChanges,
+	expectedState,
+	STALE_SCREEN_MESSAGE,
+	splitPersonChanges,
+} from "./person-changes"
 
 describe("splitPersonChanges", () => {
 	it("manda localidade/estado/hide_card para a escolha e o resto para o update comum", () => {
@@ -67,5 +76,31 @@ describe("expectedForChanges", () => {
 
 	it("nome e classificação não levam estado esperado", () => {
 		expect(expectedForChanges(person, { nome: "FULANO" })).toBeUndefined()
+	})
+})
+
+describe("chamada ao telão", () => {
+	const person = { id: 7, nome: "FULANO", localidade: null, show_card: false, show_om: false, hide_card: false }
+
+	it("o controle manda o militar e o que a tela viu dele", () => {
+		expect(callRequest("e26", person)).toEqual({
+			editionId: "e26",
+			personId: 7,
+			expected: { localidade: null, show_card: false, show_om: false, hide_card: false },
+		})
+	})
+
+	it("vira os argumentos de call_person; sem expected, p_expected nulo", () => {
+		expect(callPersonRpcArgs(callRequest("e26", person))).toEqual({
+			p_edition_id: "e26",
+			p_person_id: 7,
+			p_expected: { localidade: null, show_card: false, show_om: false, hide_card: false },
+		})
+		expect(callPersonRpcArgs({ editionId: "e26", personId: 7 }).p_expected).toBeNull()
+	})
+
+	it("40001 vira a frase do operador; o resto passa como veio", () => {
+		expect(conductErrorMessage({ code: "40001", message: "O telão mudou em outro controle" })).toBe(STALE_SCREEN_MESSAGE)
+		expect(conductErrorMessage({ code: "P0002", message: "Militar não pertence a esta edição" })).toBe("Militar não pertence a esta edição")
 	})
 })

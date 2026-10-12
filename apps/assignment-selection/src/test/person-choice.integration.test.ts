@@ -1,10 +1,11 @@
-import { afterAll, beforeAll, expect, it } from "vitest"
+import { afterAll, beforeAll, describe, expect, it } from "vitest"
 import { createServiceClient, describeIntegration, getTestEnv } from "./supabase"
 
 // `assignment_selection.apply_person_choice` contra o banco compartilhado. Cobre a regra da
 // migration 20261011120000: a escolha não tem teto (confirmar numa OM que já completou
 // passa) e continua recusando OM fora do quadro da edição; e a de 20261011130000: com
-// `p_expected`, recusa (40001) quando a linha não está como a tela viu. Tudo nasce numa edição inativa
+// `p_expected`, `apply_person_choice` e `call_person` recusam (40001) quando a linha não
+// está como a tela viu, e `call_person` deixa um card só aceso na edição. Tudo nasce numa edição inativa
 // com o prefixo `zzz-test-audit-` (fora do telão) e sai no afterAll.
 
 const TEST_PREFIX = "zzz-test-audit-"
@@ -89,5 +90,45 @@ describeIntegration("assignment_selection · apply_person_choice (prod DB, com c
 		})
 		expect(fresh.error).toBeNull()
 		expect(fresh.data?.hide_card).toBe(false)
+	})
+
+	describe("call_person", () => {
+		// `call_person` ainda não está nos tipos gerados; o cast some depois do `db:types`.
+		const callPerson = (args: { p_edition_id: string; p_person_id: number; p_expected: Record<string, unknown> | null }) =>
+			(
+				service.rpc.bind(service) as unknown as (
+					fn: "call_person",
+					a: typeof args
+				) => PromiseLike<{ data: { id: number; show_card: boolean } | null; error: { code?: string } | null }>
+			)("call_person", args)
+
+		const shownIds = async () => {
+			const { data, error } = await service.from("person").select("id").eq("edition_id", editionId).eq("show_card", true)
+			if (error) throw error
+			return (data ?? []).map((p) => p.id)
+		}
+
+		it("acende só o card do chamado na edição", async () => {
+			const first = await callPerson({ p_edition_id: editionId, p_person_id: personIds[1], p_expected: null })
+			expect(first.error).toBeNull()
+			expect(await shownIds()).toEqual([personIds[1]])
+
+			const second = await callPerson({ p_edition_id: editionId, p_person_id: personIds[0], p_expected: null })
+			expect(second.error).toBeNull()
+			expect(second.data?.show_card).toBe(true)
+			expect(await shownIds()).toEqual([personIds[0]])
+		})
+
+		it("recusa com 40001 quando o chamado não está como a tela viu", async () => {
+			// O 1º está no telão (teste anterior); uma tela velha o via fora dele.
+			const { error } = await callPerson({ p_edition_id: editionId, p_person_id: personIds[0], p_expected: { show_card: false } })
+			expect(error?.code).toBe("40001")
+			expect(await shownIds()).toEqual([personIds[0]])
+		})
+
+		it("recusa militar de outra edição", async () => {
+			const { error } = await callPerson({ p_edition_id: crypto.randomUUID(), p_person_id: personIds[0], p_expected: null })
+			expect(error?.code).toBe("P0002")
+		})
 	})
 })

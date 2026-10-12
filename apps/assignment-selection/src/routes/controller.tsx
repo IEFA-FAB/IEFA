@@ -8,7 +8,7 @@ import { useAuth } from "@/hooks/useAuth"
 import { useBoardRealtime } from "@/hooks/useBoardRealtime"
 import { useSkipped } from "@/hooks/useSkipped"
 import { authQueryOptions } from "@/lib/auth"
-import { expectedForChanges, expectedState } from "@/lib/person-changes"
+import { callRequest, expectedForChanges, expectedState } from "@/lib/person-changes"
 import { controllerBoardQueryOptions } from "@/lib/queries"
 import { callPersonFn, resetEditionFn, setActiveEditionFn, setEditionLockFn, updatePersonFn } from "@/server/assignment.fn"
 
@@ -78,7 +78,7 @@ function ControllerPage() {
 		run(kind, () => updatePersonFn({ data: { id: person.id, changes, expected: expectedState(person) } }))
 
 	const actions: ControllerActions = {
-		call: (person) => editionId && run("call", () => callPersonFn({ data: { editionId, personId: person.id, expected: expectedState(person) } })),
+		call: (person) => editionId && run("call", () => callPersonFn({ data: callRequest(editionId, person) })),
 		reveal: (person) => conductWrite("reveal", person, { show_om: true }),
 		confirm: (person) => conductWrite("confirm", person, { hide_card: true }),
 		changeOm: (person, om, estado) => conductWrite("om", person, { localidade: om, estado }),
