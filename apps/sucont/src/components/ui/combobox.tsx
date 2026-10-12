@@ -83,7 +83,7 @@ export function Combobox({
 						// 16px no mobile: abaixo disso o iOS dá zoom ao focar o campo. Escrito como `max-md:` (e não
 						// `text-base md:text-sm`, como no `Input`) enquanto existir `inputClassName`: a pílula passa
 						// `text-caption`, que derruba o `text-base`, e o `md:text-sm` sobrevivente a aumentaria no desktop.
-						"h-9 w-full min-w-0 cursor-pointer rounded-md border border-input bg-transparent py-1 pr-8 pl-3 text-sm shadow-xs outline-none transition-[color,box-shadow] data-[size=sm]:h-8 data-[size=sm]:pl-2.5 max-md:text-base",
+						"h-9 w-full min-w-0 cursor-pointer rounded-md border border-input bg-background py-1 pr-8 pl-3 text-sm shadow-xs outline-none transition-[color,box-shadow] data-[size=sm]:h-8 data-[size=sm]:pl-2.5 max-md:text-base",
 						"placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
 						"disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30",
 						inputClassName

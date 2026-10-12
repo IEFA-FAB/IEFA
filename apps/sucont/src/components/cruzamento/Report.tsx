@@ -175,7 +175,7 @@ Atenciosamente,
 SUCONT-3 • DIREF • COMAER`
 	}
 
-	const generateConsolidatedMessage = () => {
+	const generateConsolidatedMessage = (ugs: typeof ranking) => {
 		let acoesRequeridas =
 			"Solicitamos a análise tempestiva das contas correntes supracitadas e a adoção das medidas saneadoras no SIAFI, em conformidade com as normas contábeis vigentes."
 
@@ -186,7 +186,7 @@ SUCONT-3 • DIREF • COMAER`
 				"A presente mensagem possui caráter de ALERTA. Solicitamos a análise das contas correntes supracitadas e a adoção das medidas saneadoras no SIAFI. Ressalta-se que não é necessário o envio de resposta informando as ações realizadas ou justificativa para a permanência do saldo via Sistema de Atendimento ao Usuário (SAU), devendo este canal ser utilizado apenas em caso de dúvidas."
 		}
 
-		const ugsListText = filteredUgs
+		const ugsListText = ugs
 			.map((ug) => {
 				const detailsText = ug.details.map((d) => `  - CC ${d.contaCorrente}: ${d.status} (Diferença: ${formatCurrency(d.diferenca)})`).join("\n")
 				return `UG: ${ug.ug} - ${ug.ugName || "Desconhecida"}\n${detailsText}`
@@ -221,7 +221,7 @@ SUCONT-3 • DIREF • COMAER`
 		setTimeout(() => setCopiedUg(null), 2000)
 	}
 
-	const ugsComInconsistencias = ranking.filter((ug) => ug.status !== "REGULAR")
+	const ugsComInconsistencias = useMemo(() => ranking.filter((ug) => ug.status !== "REGULAR"), [ranking])
 
 	const filteredUgs = useMemo(() => {
 		if (selectedConferente === "ALL") return ugsComInconsistencias
@@ -230,9 +230,9 @@ SUCONT-3 • DIREF • COMAER`
 
 	// Só monta a consolidada quando a seção está aberta: ela varre o ranking inteiro
 	// e seria remontada a cada tecla digitada em qualquer uma das mensagens.
-	// Vem depois de `filteredUgs`, que a geração lê: chamada antes, a abertura da seção
-	// derrubava a tela com `ReferenceError` (TDZ).
-	const consolidatedMessage = showConsolidated ? drafts.of(CONSOLIDATED_DRAFT_KEY, generateConsolidatedMessage()) : null
+	// As UGs entram por parâmetro: lidas da closure, a geração chamada antes de
+	// `filteredUgs` existir derrubava a tela com `ReferenceError` (TDZ).
+	const consolidatedMessage = showConsolidated ? drafts.of(CONSOLIDATED_DRAFT_KEY, generateConsolidatedMessage(filteredUgs)) : null
 
 	const percentualInconsistentes = ((ugsComInconsistencias.length / ranking.length) * 100).toFixed(1)
 	const riscoSistemico = Number(percentualInconsistentes) > 30 ? "ALTO" : Number(percentualInconsistentes) > 10 ? "MÉDIO" : "BAIXO"
