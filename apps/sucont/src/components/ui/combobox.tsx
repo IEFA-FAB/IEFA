@@ -40,6 +40,8 @@ interface ComboboxProps {
 	 * dentro da caixa.
 	 */
 	inputClassName?: string
+	/** Mesma escala do `Input` e do `SelectTrigger`: campo e seletor da mesma faixa usam o mesmo. */
+	size?: "default" | "sm"
 	"aria-label"?: string
 }
 
@@ -52,6 +54,7 @@ export function Combobox({
 	emptyLabel = "Nenhum resultado",
 	className,
 	inputClassName,
+	size = "default",
 	...props
 }: ComboboxProps) {
 	const selected = items.find((i) => i.value === value) ?? null
@@ -75,8 +78,12 @@ export function Combobox({
 					id={id}
 					placeholder={placeholder}
 					aria-label={props["aria-label"]}
+					data-size={size}
 					className={cn(
-						"h-9 w-full min-w-0 cursor-pointer rounded-md border border-input bg-transparent py-1 pr-8 pl-3 text-sm shadow-xs outline-none transition-[color,box-shadow]",
+						// 16px no mobile: abaixo disso o iOS dá zoom ao focar o campo. Escrito como `max-md:` (e não
+						// `text-base md:text-sm`, como no `Input`) enquanto existir `inputClassName`: a pílula passa
+						// `text-caption`, que derruba o `text-base`, e o `md:text-sm` sobrevivente a aumentaria no desktop.
+						"h-9 w-full min-w-0 cursor-pointer rounded-md border border-input bg-transparent py-1 pr-8 pl-3 text-sm shadow-xs outline-none transition-[color,box-shadow] data-[size=sm]:h-8 data-[size=sm]:pl-2.5 max-md:text-base",
 						"placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
 						"disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30",
 						inputClassName
