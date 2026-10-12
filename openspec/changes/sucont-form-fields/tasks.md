@@ -17,10 +17,10 @@
 
 ## 3. Área `routes/`
 
-- [ ] 3.1 [sucont] `conta-generica` (`MessageControls`): trigger e inputs em `size="sm"`, sem `inputCls`; verificar mesma altura na faixa
-- [ ] 3.2 [sucont] `workspace` e `reports`: formulário de criação com primitivo puro; `<textarea>` nativo para `Textarea`; select de rodapé em `size="sm"` com valor na cor do texto; verificar foco visível por Tab em todos os campos
-- [ ] 3.3 [sucont] `subitens-genericos`: tirar o `font-mono` (ou trocar por `tabular-nums` onde o valor é número em coluna); `documentacao`: `<textarea>` nativo para `Textarea`; verificar foco visível nos campos tocados
-- [ ] 3.4 [sucont] Baixar o baseline; verificar `bun run lint:tailwind`
+- [x] 3.1 [sucont] `conta-generica` (`MessageControls`): trigger e inputs em `size="sm"`, sem `inputCls`; verificar mesma altura na faixa
+- [x] 3.2 [sucont] `workspace` e `reports`: formulário de criação com primitivo puro; `<textarea>` nativo para `Textarea`; select de rodapé em `size="sm"` com valor na cor do texto; verificar foco visível por Tab em todos os campos
+- [x] 3.3 [sucont] `subitens-genericos`: tirar o `font-mono` (ou trocar por `tabular-nums` onde o valor é número em coluna); `documentacao`: `<textarea>` nativo para `Textarea`; verificar foco visível nos campos tocados
+- [x] 3.4 [sucont] Baixar o baseline; verificar `bun run lint:tailwind`
 
 ## 4. Ferramentas portadas
 

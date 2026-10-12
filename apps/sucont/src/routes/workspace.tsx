@@ -11,6 +11,7 @@ import { Button } from "#/components/ui/button"
 import { Checkbox } from "#/components/ui/checkbox"
 import { Input } from "#/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
+import { Textarea } from "#/components/ui/textarea"
 import { toast } from "#/components/ui/toast"
 import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip"
 import { addDays, dateInBrasilia, formatBrDate, todayInBrasilia } from "#/lib/brasilia"
@@ -369,13 +370,13 @@ function Workspace() {
 							<StickyNote className="text-tech-cyan w-4 h-4" />
 							<h3 className="text-foreground text-label">Anotações da Seção</h3>
 						</div>
-						<textarea
+						<Textarea
 							value={notes}
 							onChange={(e) => onNotesChange(e.target.value)}
 							readOnly={!canEdit}
 							aria-readonly={!canEdit}
 							placeholder={canEdit ? "Digite aqui anotações importantes, pendências ou lembretes..." : "Sem anotações registradas."}
-							className="w-full h-64 bg-card border border-border rounded-lg p-4 text-muted-foreground text-body font-mono focus:outline-none focus:border-tech-cyan/40 transition-all resize-none shadow-sm read-only:bg-muted/50 read-only:text-muted-foreground"
+							className="h-64 resize-none"
 						/>
 						<div className="mt-2 flex justify-end">
 							<span className="font-mono text-label text-muted-foreground">
@@ -556,7 +557,7 @@ function AddTaskForm({
 				}}
 				className="grid grid-cols-1 md:grid-cols-2 gap-4"
 			>
-				<Input name="task" placeholder="Título da Tarefa" required className="bg-muted/50 border-border p-2 rounded text-foreground focus:border-tech-cyan" />
+				<Input name="task" placeholder="Título da Tarefa" required />
 				<div className="flex flex-col gap-1">
 					<span className="font-mono text-label text-muted-foreground">Responsáveis</span>
 					{/* Tarefa pode nascer sem dono — é melhor do que forçar um nome
@@ -568,7 +569,7 @@ function AddTaskForm({
 						Recorrência
 					</label>
 					<Select items={RECURRENCE_LABELS} value={recurrence} onValueChange={(value) => setRecurrence((value as ChecklistRecurrence | null) ?? "monthly")}>
-						<SelectTrigger id="task-recurrence" className="bg-muted/50 border-border text-foreground">
+						<SelectTrigger id="task-recurrence" className="w-full">
 							<SelectValue />
 						</SelectTrigger>
 						<SelectContent>
@@ -593,20 +594,11 @@ function AddTaskForm({
 							required
 							value={businessDay}
 							onChange={(e) => setBusinessDay(e.target.value)}
-							className="bg-muted/50 border-border p-2 rounded text-foreground focus:border-tech-cyan"
 						/>
 					</div>
 				)}
-				<Input
-					name="path"
-					placeholder="Caminho/Sistema (Opcional)"
-					className="bg-muted/50 border-border p-2 rounded text-foreground focus:border-tech-cyan md:col-span-2"
-				/>
-				<textarea
-					name="description"
-					placeholder="Descrição da atividade"
-					className="bg-muted/50 border border-border p-2 rounded text-caption text-foreground md:col-span-2 h-20 focus:border-tech-cyan outline-none"
-				/>
+				<Input name="path" placeholder="Caminho/Sistema (Opcional)" className="md:col-span-2" />
+				<Textarea name="description" placeholder="Descrição da atividade" className="md:col-span-2 min-h-20 max-h-40" />
 				<div className="flex gap-2 md:col-span-2 justify-end">
 					<Button type="button" variant="subtle" onClick={onCancel}>
 						CANCELAR
@@ -626,15 +618,10 @@ function AddNoticeForm({ onSave, onCancel, pending }: { onSave: (content: string
 
 	return (
 		<motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="bg-card border border-tech-cyan/30 p-4 rounded-lg mb-4 shadow-md">
-			<textarea
-				value={content}
-				onChange={(e) => setContent(e.target.value)}
-				placeholder="Novo aviso..."
-				className="w-full bg-muted/50 border border-border p-2 rounded text-caption text-foreground mb-2 h-20 outline-none focus:border-tech-cyan"
-			/>
+			<Textarea value={content} onChange={(e) => setContent(e.target.value)} placeholder="Novo aviso..." className="mb-2 min-h-20 max-h-40" />
 			<div className="flex justify-between items-center">
 				<Select items={{ info: "INFORMATIVO", alert: "ALERTA" }} value={type} onValueChange={(value) => setType(value as "info" | "alert")}>
-					<SelectTrigger className="data-[size=default]:h-auto bg-muted/50 border border-border text-hint text-muted-foreground p-1 rounded shadow-none">
+					<SelectTrigger size="sm">
 						<SelectValue />
 					</SelectTrigger>
 					<SelectContent>
@@ -643,14 +630,15 @@ function AddNoticeForm({ onSave, onCancel, pending }: { onSave: (content: string
 					</SelectContent>
 				</Select>
 				<div className="flex gap-2">
-					<Button type="button" variant="subtle" onClick={onCancel} className="h-auto p-0 hover:bg-transparent">
+					<Button type="button" variant="subtle" size="sm" onClick={onCancel}>
 						CANCELAR
 					</Button>
 					<Button
 						type="button"
+						size="sm"
 						disabled={pending}
 						onClick={() => content && onSave(content, type)}
-						className="bg-tech-cyan text-white hover:bg-tech-cyan/90 h-auto px-3 py-1 shadow-sm"
+						className="bg-tech-cyan text-white hover:bg-tech-cyan/90 shadow-sm"
 					>
 						{pending && <Loader2 className="w-3 h-3 animate-spin" />} SALVAR
 					</Button>
