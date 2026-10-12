@@ -24,7 +24,7 @@ function InputGroup({ className, size = "default", ...props }: React.ComponentPr
 			data-size={size}
 			role="group"
 			className={cn(
-				"group/input-group relative flex h-9 w-full min-w-0 items-center rounded-md border border-input bg-transparent shadow-xs transition-[color,box-shadow] outline-none data-[size=sm]:h-8 dark:bg-input/30",
+				"group/input-group relative flex h-9 w-full min-w-0 items-center rounded-md border border-input bg-background shadow-xs transition-[color,box-shadow] outline-none data-[size=sm]:h-8 dark:bg-input/30",
 				"has-[[data-slot=input-group-control]:focus-visible]:border-ring has-[[data-slot=input-group-control]:focus-visible]:ring-3 has-[[data-slot=input-group-control]:focus-visible]:ring-ring/50",
 				"has-[[data-slot][aria-invalid=true]]:border-destructive has-[[data-slot][aria-invalid=true]]:ring-3 has-[[data-slot][aria-invalid=true]]:ring-destructive/20 dark:has-[[data-slot][aria-invalid=true]]:ring-destructive/40",
 				// Só o campo desabilitado apaga o grupo: o "enviar" desabilitado com o campo vazio, não.
@@ -129,7 +129,9 @@ function InputGroupInput({ className, ...props }: Omit<React.ComponentProps<type
 			className={cn(
 				"h-auto flex-1 self-stretch rounded-none border-0 bg-transparent shadow-none ring-0 focus-visible:ring-0 aria-invalid:ring-0 dark:bg-transparent",
 				// A opacidade de desabilitado já vem do grupo; somada à do campo, o texto sumiria.
-				"read-only:not-disabled:bg-transparent dark:read-only:not-disabled:bg-transparent disabled:opacity-100 group-data-[size=sm]/input-group:px-2.5",
+				// Somente leitura e o "x" nativo da busca ficam com o grupo: o fundo é dele, e o botão de limpar
+				// do próprio grupo já existe onde faz sentido.
+				"[&[readonly]:not(:disabled)]:bg-transparent dark:[&[readonly]:not(:disabled)]:bg-transparent [&::-webkit-search-cancel-button]:appearance-none disabled:opacity-100 group-data-[size=sm]/input-group:px-2.5",
 				className
 			)}
 			{...props}
@@ -143,7 +145,7 @@ function InputGroupTextarea({ className, ...props }: React.ComponentProps<"texta
 			data-slot="input-group-control"
 			className={cn(
 				"flex-1 resize-none rounded-none border-0 bg-transparent py-2 shadow-none ring-0 focus-visible:ring-0 disabled:bg-transparent aria-invalid:ring-0 dark:bg-transparent dark:disabled:bg-transparent",
-				"read-only:not-disabled:bg-transparent dark:read-only:not-disabled:bg-transparent disabled:opacity-100",
+				"[&[readonly]:not(:disabled)]:bg-transparent dark:[&[readonly]:not(:disabled)]:bg-transparent disabled:opacity-100",
 				className
 			)}
 			{...props}

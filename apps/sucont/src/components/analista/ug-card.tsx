@@ -1,5 +1,5 @@
 import { Copy } from "lucide-react"
-import { useState } from "react"
+import { useId, useState } from "react"
 import { EditableMessage } from "#/components/editable-message"
 import { Badge } from "#/components/ui/badge"
 import { Button } from "#/components/ui/button"
@@ -37,6 +37,8 @@ const formatDeadlineDate = (dateString: string) => {
 }
 
 export function UGCard({ group, type, activeRacFilter }: UGCardProps) {
+	// Um card por UG e mês na mesma tela: id fixo faria o rótulo do terceiro card focar o campo do primeiro.
+	const fieldId = useId()
 	const [msgNumber, setMsgNumber] = useState("")
 	const [sendDate, setSendDate] = useState(new Date().toISOString().split("T")[0])
 	const [messageType, setMessageType] = useState<"SEM_PRAZO" | "COM_PRAZO" | "ALERTA">("SEM_PRAZO")
@@ -186,19 +188,26 @@ export function UGCard({ group, type, activeRacFilter }: UGCardProps) {
 
 						<div className="grid grid-cols-2 gap-3 mb-4">
 							<div>
-								<label htmlFor="ug-msg-number" className="block text-caption text-foreground mb-1">
+								<label htmlFor={`${fieldId}-msg-number`} className="block text-caption text-foreground mb-1">
 									Nº da Mensagem
 								</label>
-								<Input id="ug-msg-number" type="text" value={msgNumber} onChange={(e) => setMsgNumber(e.target.value)} placeholder="Ex: 123" size="sm" />
+								<Input
+									id={`${fieldId}-msg-number`}
+									type="text"
+									value={msgNumber}
+									onChange={(e) => setMsgNumber(e.target.value)}
+									placeholder="Ex: 123"
+									size="sm"
+								/>
 							</div>
 							<div>
-								<label htmlFor="ug-send-date" className="block text-caption text-foreground mb-1">
+								<label htmlFor={`${fieldId}-send-date`} className="block text-caption text-foreground mb-1">
 									Data de Envio
 								</label>
-								<Input id="ug-send-date" type="date" value={sendDate} onChange={(e) => setSendDate(e.target.value)} size="sm" />
+								<Input id={`${fieldId}-send-date`} type="date" value={sendDate} onChange={(e) => setSendDate(e.target.value)} size="sm" />
 							</div>
 							<div className="col-span-2">
-								<label htmlFor="ug-message-type" className="block text-caption text-foreground mb-1">
+								<label htmlFor={`${fieldId}-message-type`} className="block text-caption text-foreground mb-1">
 									Tipo de Mensagem
 								</label>
 								<Select
@@ -206,7 +215,7 @@ export function UGCard({ group, type, activeRacFilter }: UGCardProps) {
 									value={messageType}
 									onValueChange={(value) => setMessageType(value as "SEM_PRAZO" | "COM_PRAZO" | "ALERTA")}
 								>
-									<SelectTrigger id="ug-message-type" size="sm" className="mb-2 w-full">
+									<SelectTrigger id={`${fieldId}-message-type`} size="sm" className="mb-2 w-full">
 										<SelectValue />
 									</SelectTrigger>
 									<SelectContent>
@@ -217,10 +226,10 @@ export function UGCard({ group, type, activeRacFilter }: UGCardProps) {
 								</Select>
 								{messageType === "COM_PRAZO" && (
 									<div className="mt-2">
-										<label htmlFor="ug-deadline-date" className="block text-caption text-foreground mb-1">
+										<label htmlFor={`${fieldId}-deadline-date`} className="block text-caption text-foreground mb-1">
 											Data Limite
 										</label>
-										<Input id="ug-deadline-date" type="date" value={deadlineDate} onChange={(e) => setDeadlineDate(e.target.value)} size="sm" />
+										<Input id={`${fieldId}-deadline-date`} type="date" value={deadlineDate} onChange={(e) => setDeadlineDate(e.target.value)} size="sm" />
 									</div>
 								)}
 							</div>
