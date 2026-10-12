@@ -33,11 +33,11 @@
 
 ## 5. Contrato e integração
 
-- [ ] 5.1 [sucont] §8 do `STYLE_CONTRACT.md`: registrar a dívida zerada e a regra "campo não recebe aparência por `className`"; verificar que a contagem citada bate com o baseline
-- [ ] 5.2 [sucont] Varredura final: zero `focus:`/`focus-visible:`, `bg-*` e `text-body`/`text-caption` em `className` de campo (`rg` nos usos); verificar que sobra só layout
-- [ ] 5.3 [root] `bun run check`, `bun run lint --concurrency=2` e `bun run test --concurrency=2` verdes
+- [x] 5.1 [sucont] §8 do `STYLE_CONTRACT.md`: registrar a dívida zerada e a regra "campo não recebe aparência por `className`"; verificar que a contagem citada bate com o baseline
+- [x] 5.2 [sucont] Varredura final: zero `focus:`/`focus-visible:`, `bg-*` e `text-body`/`text-caption` em `className` de campo (`rg` nos usos); verificar que sobra só layout
+- [x] 5.3 [root] `bun run check`, `bun run lint --concurrency=2` e `bun run test --concurrency=2` verdes
 
 ## Workflow follow-up
 
-- Abrir, separado e para o mantenedor, o PR de gate que torna `no-restyle` erro para os campos do sucont em `.oxlintrc.tailwind.jsonc`.
+- O gate contra regressão ficou no `scripts/lint-tailwind.ts`: o restilo de campo conta à parte (`shadcn/no-restyle:campo`), e o baseline do sucont não tem a chave (teto zero).
 - Arquivar a change depois que os PRs de área entrarem.

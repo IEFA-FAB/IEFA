@@ -1,4 +1,5 @@
 {
   "shadcn/no-arbitrary-values": 51,
-  "shadcn/no-restyle": 167
+  "shadcn/no-restyle": 139,
+  "shadcn/no-restyle:campo": 28
 }
