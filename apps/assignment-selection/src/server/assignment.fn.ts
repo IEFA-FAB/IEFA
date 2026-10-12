@@ -1,3 +1,4 @@
+import type { Json } from "@iefa/database"
 import type { Edition, Person, Vacancy } from "@iefa/database/assignment-selection"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
@@ -93,10 +94,9 @@ export const updatePersonFn = createServerFn({ method: "POST" })
 		const supabase = getAssignmentServerClient()
 		const { choice, rest, hasChoice, hasRest } = splitPersonChanges(data.changes)
 
-		// OM e confirmação consomem vaga: vão pela função do banco, que trava a vaga e
-		// recusa OM fora da edição ou acima de `total_vagas` — inclusive com dois
-		// controladores confirmando ao mesmo tempo. Roda antes do update comum, para que
-		// uma recusa não deixe meia alteração gravada.
+		// OM e confirmação vão pela função do banco, que recusa OM fora do quadro da
+		// edição (sem teto de vagas: a escolha pode mudar na hora). Roda antes do update
+		// comum, para que uma recusa não deixe meia alteração gravada.
 		let row: Person | null = null
 		if (hasChoice) {
 			const { data: applied, error } = await applyPersonChoice(supabase, data.id, choice)
@@ -113,17 +113,9 @@ export const updatePersonFn = createServerFn({ method: "POST" })
 
 type AssignmentClient = ReturnType<typeof getAssignmentServerClient>
 
-/**
- * `assignment_selection.apply_person_choice` (migration 20260921160500) ainda não está
- * nos tipos gerados de `@iefa/database` — o cast some quando os tipos forem regenerados
- * depois de aplicar a migration.
- */
+/** `assignment_selection.apply_person_choice`: grava a escolha e recusa OM fora do quadro da edição. */
 function applyPersonChoice(supabase: AssignmentClient, personId: number, changes: Record<string, unknown>) {
-	const rpc = supabase.rpc.bind(supabase) as unknown as (
-		fn: "apply_person_choice",
-		args: { p_person_id: number; p_changes: Record<string, unknown> }
-	) => PromiseLike<{ data: Person | null; error: { message: string } | null }>
-	return rpc("apply_person_choice", { p_person_id: personId, p_changes: changes })
+	return supabase.rpc("apply_person_choice", { p_person_id: personId, p_changes: changes as Json })
 }
 
 /** Ativa uma edição no telão (marca active=true e desmarca as demais). */
