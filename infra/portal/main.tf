@@ -3,7 +3,7 @@
 # stack and instantiates the reusable `service` module.
 
 terraform {
-  required_version = ">= 1.10.0"
+  required_version = ">= 1.16.0"
 
   required_providers {
     aws = {

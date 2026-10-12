@@ -40,7 +40,7 @@ jobs:
 
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
-          bun-version: "1.4.0"
+          bun-version: "1.4.3"
 
       - uses: actions/cache@v6
         with:
@@ -51,8 +51,10 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      # Os `lint` dos apps são `biome lint`: formatação só era cobrada pelo pre-commit, que não
-      # existe em worktree sem `bun install` nem em commit feito pela interface do GitHub.
+      # O `lint` de cada workspace já é `biome check` (formatação inclusa), mas o turbo só roda os
+      # afetados e não enxerga o que fica fora dos workspaces (raiz, `scripts/`, `.claude/`). Este
+      # passo cobre o repo inteiro sem depender do pre-commit, que não existe em worktree sem
+      # `bun install` nem em commit feito pela interface do GitHub.
       - name: Format
         run: bun run format:check
 

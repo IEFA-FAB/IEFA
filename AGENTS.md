@@ -63,6 +63,13 @@ estoura a RAM das máquinas de desenvolvimento.
   Os serviços Hono (`alpha`, `api`) ainda montam `createClient` direto; isso é dívida, não padrão.
 - **Auth:** ações e mensagens de erro via `@iefa/auth-kit`; trava de login é `useLoginRateLimiter`
   de `@iefa/auth-kit/react`.
+- **Typecheck:** o script `typecheck` de todo workspace é `bun check` (type checker do Bun, port
+  do typescript-go 7.0.2). Por isso workspace não declara script `check`: ele teria precedência e
+  o typecheck sairia verde sem checar tipo (regra `workspace-check-script`). O Biome do workspace
+  roda no `lint` (`biome check`). O `check` da raiz é outro, o gate completo (`bun run check`).
+  `useRouterState({ select })` precisa de tipo de retorno anotado, e o que vem da URL sai de
+  `useLocation({ select })`: com route tree grande o `bun check` não infere o resultado (regra
+  `router-state-select-unannotated`). O pacote `typescript` continua: é o que o editor usa.
 - **tsconfig:** estender `@iefa/tsconfig/{react-app,bun-service,library}.json`; o app só declara
   `paths`. Imports `@/*` → `src/*` (o `sucont` também aceita `#/*`, legado).
 - **Arquivos gerados** não se editam à mão: `Dockerfile`, `docker-bake.hcl`,

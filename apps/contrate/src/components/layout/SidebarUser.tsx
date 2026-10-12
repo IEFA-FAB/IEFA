@@ -1,4 +1,4 @@
-import { Link, useRouterState } from "@tanstack/react-router"
+import { Link, useLocation } from "@tanstack/react-router"
 import { HalfMoon, LogIn, LogOut, MoreHoriz, SunLight } from "iconoir-react"
 import { useTheme } from "@/components/themeService"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -40,7 +40,7 @@ export function SidebarUser() {
 		actions: { signOut },
 	} = useAuth()
 	const { isMobile, setOpenMobile } = useSidebar()
-	const href = useRouterState({ select: (s) => s.location.href })
+	const href = useLocation({ select: (location) => location.href })
 
 	if (!isAuthenticated || !user) {
 		return (

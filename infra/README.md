@@ -32,6 +32,11 @@ target-group level while sharing the one network + ALB + cluster in `foundation/
 
 ## Apply order
 
+Terraform version: `infra/.terraform-version` (read by CI and by tfenv). Every stack's
+`required_version` matches it. Provider versions come from the committed
+`.terraform.lock.hcl`: CI runs `init -lockfile=readonly`, and Dependabot proposes the bumps,
+for all stacks at once. A new stack copies an existing lock file.
+
 ```bash
 # 1. State backend (once per account)
 cd infra/bootstrap && terraform init && terraform apply

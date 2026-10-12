@@ -109,9 +109,12 @@ jobs:
             # ../modules/service).
             modules_changed=false
             if grep -q '^infra/modules/' <<<"$changed"; then modules_changed=true; fi
+            # A versão do Terraform (infra/.terraform-version) vale para todo stack, foundation inclusive.
+            version_changed=false
+            if grep -qx 'infra/.terraform-version' <<<"$changed"; then version_changed=true; fi
 
             stacks="$(all_stacks | while read -r name; do
-              if grep -q "^infra/$name/" <<<"$changed"; then
+              if grep -q "^infra/$name/" <<<"$changed" || [ "$version_changed" = true ]; then
                 echo "$name"
               elif [ "$modules_changed" = true ] && [ "$name" != "foundation" ]; then
                 echo "$name"
