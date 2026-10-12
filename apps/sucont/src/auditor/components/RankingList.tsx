@@ -1,6 +1,7 @@
 import { Activity, ArrowDown, ArrowDownRight, ArrowRight, ArrowUpRight, MessageSquareText, TrendingDown, TrendingUp } from "lucide-react"
-import { useMemo, useState } from "react"
+import { useId, useMemo, useState } from "react"
 import { Button } from "#/components/ui/button"
+import { Label } from "#/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 import type { FinancialRecord } from "../types"
 import { AccountGroup } from "../types"
@@ -25,6 +26,7 @@ interface EnrichedRecord extends FinancialRecord {
 
 export const RankingList: React.FC<RankingListProps> = ({ data, historicalData = [], comparisonLabel, onSendMessage }) => {
 	const [categoryFilter, setCategoryFilter] = useState<Category | "TODOS">("TODOS")
+	const categoryFilterId = useId()
 
 	const enrichedData = useMemo(() => {
 		return data.map((item) => {
@@ -241,7 +243,7 @@ export const RankingList: React.FC<RankingListProps> = ({ data, historicalData =
 		<div className="flex flex-col h-full w-full gap-4 overflow-hidden">
 			<div className="flex items-center justify-between px-2">
 				<div className="flex items-center gap-2">
-					<span className={`text-caption text-muted-foreground`}>Filtro por Tipo:</span>
+					<Label htmlFor={categoryFilterId}>Filtro por Tipo</Label>
 					<Select
 						items={{
 							TODOS: "Todas as Categorias",
@@ -253,9 +255,7 @@ export const RankingList: React.FC<RankingListProps> = ({ data, historicalData =
 						value={categoryFilter}
 						onValueChange={(value) => setCategoryFilter(value as Category | "TODOS")}
 					>
-						<SelectTrigger
-							className={`data-[size=default]:h-auto pl-3 pr-2 py-1 rounded text-caption border shadow-none focus-visible:ring-2 focus-visible:ring-ring bg-muted/50 border-border text-foreground`}
-						>
+						<SelectTrigger id={categoryFilterId} size="sm">
 							<SelectValue />
 						</SelectTrigger>
 						<SelectContent>

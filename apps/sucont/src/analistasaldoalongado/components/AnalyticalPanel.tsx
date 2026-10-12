@@ -1,8 +1,9 @@
-import { Activity, AlertTriangle, BarChart3, FileImage, Filter, PieChart as PieChartIcon, Target, TrendingUp, X } from "lucide-react"
+import { Activity, AlertTriangle, BarChart3, FileImage, PieChart as PieChartIcon, Target, TrendingUp, X } from "lucide-react"
 import { useMemo, useState } from "react"
 import { Bar, BarChart, CartesianGrid, ComposedChart, Legend, Line, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import { Button } from "#/components/ui/button"
 import { Combobox } from "#/components/ui/combobox"
+import { Label } from "#/components/ui/label"
 import { StatTile } from "#/components/ui/stat-tile"
 import { chartChrome } from "#/lib/chart-theme"
 import type { UgConsolidated } from "../utils/analytics"
@@ -114,17 +115,9 @@ export function AnalyticalPanel({ data }: AnalyticalPanelProps) {
 		<div className="space-y-8">
 			{/* Filters */}
 			<div className="bg-card p-4 rounded-xl border border-border shadow-sm flex items-center justify-end gap-4">
-				<div className="flex items-center gap-2 px-3 py-1.5 bg-muted/50 border border-border rounded-lg">
-					<Filter className="w-4 h-4 text-muted-foreground" />
-					<span className="text-caption text-muted-foreground">Questão RAC:</span>
-					<Combobox
-						value={selectedRac}
-						onValueChange={setSelectedRac}
-						items={racItems}
-						className="w-44"
-						inputClassName="h-auto cursor-text border-none bg-transparent p-0 pr-7 text-caption text-action shadow-none focus-visible:ring-0 dark:bg-transparent"
-						aria-label="Questão RAC"
-					/>
+				<div className="flex items-center gap-2">
+					<Label htmlFor="analytical-rac-filter">Questão RAC</Label>
+					<Combobox id="analytical-rac-filter" value={selectedRac} onValueChange={setSelectedRac} items={racItems} size="sm" className="w-44" />
 				</div>
 			</div>
 

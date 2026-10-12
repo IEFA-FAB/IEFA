@@ -1,11 +1,13 @@
 import { useMutation } from "@tanstack/react-query"
 import { Check, Copy, Loader2, MessageSquareText, X } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Button } from "#/components/ui/button"
 import { Input } from "#/components/ui/input"
+import { Label } from "#/components/ui/label"
 import { toast } from "#/components/ui/toast"
+import { todayInBrasilia } from "#/lib/brasilia"
 import { registerAuditorMessageFn } from "#/server/auditor.fn"
-import { generateMessage } from "../services/dataProcessor"
+import { applyDeadlineChange, generateMessage, getDefaultMessageDeadline } from "../services/dataProcessor"
 import type { FinancialRecord, TimeFilter } from "../types"
 
 interface SiafiMessageModalProps {
@@ -36,28 +38,37 @@ export const SiafiMessageModal: React.FC<SiafiMessageModalProps> = ({
 	const [editedMessage, setEditedMessage] = useState("")
 	/** Número definitivo, atribuído pela sequência do banco no momento do registro. */
 	const [assignedNumber, setAssignedNumber] = useState<number | null>(null)
+	// O último texto gerado e o prazo que ele usou: comparando com eles, a troca de prazo sabe se
+	// o operador editou a pré-visualização e, nesse caso, troca só a data no texto dele.
+	const generatedRef = useRef("")
+	const deadlineRef = useRef("")
 
 	useEffect(() => {
 		if (isOpen && record) {
-			const date = new Date()
-			date.setDate(date.getDate() + 3)
-			const defaultDeadline = date.toLocaleDateString("pt-BR")
+			// ISO, como o `<input type="date">` grava; o texto da mensagem sai em DD/MM/AAAA.
+			const defaultDeadline = getDefaultMessageDeadline()
 			setDeadline(defaultDeadline)
 			setCopied(false)
 			setAssignedNumber(null)
 
 			const initialMsg = generateMessage(context as "RANKING" | "HEATMAP", record, PENDING_NUMBER, defaultDeadline, history, timeFilter)
+			generatedRef.current = initialMsg
+			deadlineRef.current = defaultDeadline
 			setEditedMessage(initialMsg)
 		}
 	}, [isOpen, record, context, history, timeFilter])
 
-	// Reconstrói o corpo quando o prazo muda — mas só antes do registro. Depois de
-	// registrada, a mensagem gravada é a prova do que foi enviado e não é regerada.
+	// Prazo novo, antes do registro: o texto intocado é regerado; o que o operador editou mantém a
+	// edição e só troca a data antiga pela nova. Data incompleta (o campo emite "" no meio da
+	// digitação) não mexe no texto. Depois de registrada, a mensagem gravada é a prova do envio.
 	useEffect(() => {
-		if (isOpen && record && assignedNumber === null) {
-			const newMsg = generateMessage(context as "RANKING" | "HEATMAP", record, PENDING_NUMBER, deadline, history, timeFilter)
-			setEditedMessage(newMsg)
-		}
+		if (!isOpen || !record || assignedNumber !== null || deadline === "" || deadline === deadlineRef.current) return
+		const newMsg = generateMessage(context as "RANKING" | "HEATMAP", record, PENDING_NUMBER, deadline, history, timeFilter)
+		const lastGenerated = generatedRef.current
+		const previousDeadline = deadlineRef.current
+		setEditedMessage((current) => applyDeadlineChange(current, lastGenerated, newMsg, previousDeadline, deadline))
+		generatedRef.current = newMsg
+		deadlineRef.current = deadline
 	}, [deadline, history, timeFilter, record, isOpen, context, assignedNumber])
 
 	const registerMutation = useMutation({
@@ -116,29 +127,29 @@ export const SiafiMessageModal: React.FC<SiafiMessageModalProps> = ({
 				{/* Configuration */}
 				<div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 bg-card">
 					<div className="space-y-2">
-						<label htmlFor="siafi-msg-number" className="text-label text-muted-foreground">
-							NR MENSAGEM
-						</label>
+						<Label htmlFor="siafi-msg-number">NR MENSAGEM</Label>
 						<Input
 							id="siafi-msg-number"
 							type="text"
+							size="sm"
 							readOnly
-							value={assignedNumber !== null ? String(assignedNumber) : "atribuído ao registrar"}
-							className="h-auto bg-muted py-3 px-4 text-body text-muted-foreground shadow-none"
+							// Antes do registro não há número: o aviso é placeholder, não valor, e sai apagado.
+							value={assignedNumber !== null ? String(assignedNumber) : ""}
+							placeholder="atribuído ao registrar"
 						/>
 						<p className="text-hint text-muted-foreground">Sequência compartilhada da seção — não é digitada.</p>
 					</div>
 					<div className="space-y-2">
-						<label htmlFor="siafi-msg-deadline" className="text-label text-muted-foreground">
-							PRAZO (DATA LIMITE)
-						</label>
+						<Label htmlFor="siafi-msg-deadline">PRAZO (DATA LIMITE)</Label>
 						<Input
 							id="siafi-msg-deadline"
-							type="text"
+							type="date"
+							size="sm"
+							min={todayInBrasilia()}
+							// Registrada, a mensagem não muda mais: trocar o prazo aqui não chegaria ao texto.
+							readOnly={assignedNumber !== null}
 							value={deadline}
 							onChange={(e) => setDeadline(e.target.value)}
-							className="h-auto bg-muted/50 py-3 px-4 text-body text-foreground shadow-none"
-							placeholder="DD/MM/AAAA"
 						/>
 					</div>
 				</div>

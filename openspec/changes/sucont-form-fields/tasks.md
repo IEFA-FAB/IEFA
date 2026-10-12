@@ -24,12 +24,12 @@
 
 ## 4. Ferramentas portadas
 
-- [ ] 4.1 [sucont] Modais (`ConsolidatedMessageModal`, `UgDetailsModal`, `SiafiMessageModal`): grupo da mensagem em `size="sm"`; nº atribuído com `readOnly`; prazo do `SiafiMessageModal` em `type="date"`, com o estado em ISO e o `generateMessage` formatando `DD/MM/AAAA` (design, decisão 7); verificar com teste que o padrão inicial aparece preenchido e que o texto da mensagem cita `DD/MM/AAAA`
-- [ ] 4.2 [sucont] Buscas do `OperationalPanel` e `UgDetailsModal` para `InputGroup`; verificar foco visível
-- [ ] 4.3 [sucont] Filtros em pílula de `AnalyticalPanel`, `ManagerialPanel` e `OperationalPanel` para `Label` + seletor `size="sm"`, e remover `inputClassName` do `Combobox` no mesmo PR; toolbar de `ChartWrapper` e `RankingList` para `size="sm"`; verificar `bun run typecheck`, foco visível e mesma altura na toolbar
-- [ ] 4.4 [sucont] `AuthScreen`: ícone e "mostrar senha" com `InputGroup`; erro por `aria-invalid` em vez de `border-destructive`; verificar com leitor de tela (ou com o atributo no DOM) que o campo inválido é anunciado
-- [ ] 4.5 [sucont] `AIAssistant`: campo de mensagem com `InputGroup` e botão de envio com `variant` do `Button` (sem `bg-tech-blue text-white`); verificar foco visível
-- [ ] 4.6 [sucont] Baixar o baseline; verificar `bun run lint:tailwind`
+- [x] 4.1 [sucont] Modais (`ConsolidatedMessageModal`, `UgDetailsModal`, `SiafiMessageModal`): grupo da mensagem em `size="sm"`; nº atribuído com `readOnly`; prazo do `SiafiMessageModal` em `type="date"`, com o estado em ISO e o `generateMessage` formatando `DD/MM/AAAA` (design, decisão 7); verificar com teste que o padrão inicial aparece preenchido e que o texto da mensagem cita `DD/MM/AAAA`
+- [x] 4.2 [sucont] Buscas do `OperationalPanel` e `UgDetailsModal` para `InputGroup`; verificar foco visível
+- [x] 4.3 [sucont] Filtros em pílula de `AnalyticalPanel`, `ManagerialPanel` e `OperationalPanel` para `Label` + seletor `size="sm"`, e remover `inputClassName` do `Combobox` no mesmo PR; toolbar de `ChartWrapper` e `RankingList` para `size="sm"`; verificar `bun run typecheck`, foco visível e mesma altura na toolbar
+- [x] 4.4 [sucont] `AuthScreen`: ícone e "mostrar senha" com `InputGroup`; erro por `aria-invalid` em vez de `border-destructive`; verificar com leitor de tela (ou com o atributo no DOM) que o campo inválido é anunciado
+- [x] 4.5 [sucont] `AIAssistant`: campo de mensagem com `InputGroup` e botão de envio com `variant` do `Button` (sem `bg-tech-blue text-white`); verificar foco visível
+- [x] 4.6 [sucont] Baixar o baseline; verificar `bun run lint:tailwind`
 
 ## 5. Contrato e integração
 
