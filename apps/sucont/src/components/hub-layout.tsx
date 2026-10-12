@@ -442,6 +442,8 @@ function HubSearchBar() {
 		if (timer.current) clearTimeout(timer.current)
 		setDraft("")
 		setQuery("")
+		// O botão some junto com o texto; sem isso o foco do teclado cairia no `<body>`.
+		document.getElementById(inputId)?.focus()
 	}
 
 	return (
