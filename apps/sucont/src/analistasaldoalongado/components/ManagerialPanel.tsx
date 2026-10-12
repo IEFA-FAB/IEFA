@@ -1,8 +1,9 @@
-import { Activity, AlertTriangle, FileImage, Filter, PieChart as PieChartIcon, Shield, TrendingUp, Users, X } from "lucide-react"
+import { Activity, AlertTriangle, FileImage, PieChart as PieChartIcon, Shield, TrendingUp, Users, X } from "lucide-react"
 import { useMemo, useState } from "react"
 import { Bar, BarChart, CartesianGrid, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import { Button } from "#/components/ui/button"
 import { Combobox } from "#/components/ui/combobox"
+import { Label } from "#/components/ui/label"
 import { chartChrome, fabScale } from "#/lib/chart-theme"
 import { getConferente } from "#/lib/ug/registry"
 import type { DashboardMetrics, UgConsolidated } from "../utils/analytics"
@@ -133,15 +134,15 @@ export function ManagerialPanel({ data }: ManagerialPanelProps) {
 		<div className="space-y-6">
 			{/* Filters */}
 			<div className="bg-card p-4 rounded-xl border border-border shadow-sm flex items-center justify-end gap-4">
-				<div className="flex items-center gap-2 px-3 py-1.5 bg-muted/50 border border-border rounded-lg">
-					<Filter className="w-4 h-4 text-muted-foreground" />
-					<span className="text-caption text-muted-foreground">Questão RAC:</span>
+				<div className="flex items-center gap-2">
+					<Label htmlFor="managerial-rac-filter">Questão RAC</Label>
 					<Combobox
+						id="managerial-rac-filter"
 						value={selectedRac}
 						onValueChange={setSelectedRac}
 						items={racItems}
+						size="sm"
 						className="w-44"
-						inputClassName="h-auto cursor-text border-none bg-transparent p-0 pr-7 text-caption text-action shadow-none focus-visible:ring-0 dark:bg-transparent"
 						aria-label="Questão RAC"
 					/>
 				</div>

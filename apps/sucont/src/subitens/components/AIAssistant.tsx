@@ -3,7 +3,7 @@ import { Bot, Loader2, MessageSquare, Send, User, X } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "#/components/ui/button"
-import { Input } from "#/components/ui/input"
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "#/components/ui/input-group"
 import { cn } from "#/lib/utils"
 
 interface AIAssistantProps {
@@ -171,26 +171,27 @@ export function AIAssistant({ dataContext }: AIAssistantProps) {
 
 						{/* Input */}
 						<div className="p-4 bg-card border-t border-border">
-							<div className="flex items-center gap-2 bg-muted/50 border border-border rounded-full p-1 pl-4">
-								<Input
+							<InputGroup>
+								<InputGroupInput
 									type="text"
 									value={input}
 									onChange={(e) => setInput(e.target.value)}
 									onKeyDown={(e) => e.key === "Enter" && handleSend()}
 									placeholder="Faça uma pergunta sobre os dados..."
-									className="h-auto flex-1 border-none bg-transparent p-0 text-body text-foreground shadow-none outline-none focus-visible:border-none focus-visible:ring-0"
+									aria-label="Pergunta ao assistente"
 								/>
-								<Button
-									onClick={isStreaming ? stop : handleSend}
-									disabled={!isStreaming && (!input.trim() || isLoading)}
-									type="button"
-									size="icon"
-									aria-label={isStreaming ? "Parar" : "Enviar"}
-									className="w-10 h-10 rounded-full bg-tech-blue text-white hover:bg-tech-blue disabled:cursor-not-allowed"
-								>
-									{isStreaming ? <X size={16} /> : <Send size={16} className="ml-1" />}
-								</Button>
-							</div>
+								<InputGroupAddon align="inline-end">
+									<InputGroupButton
+										onClick={isStreaming ? stop : handleSend}
+										disabled={!isStreaming && (!input.trim() || isLoading)}
+										variant="default"
+										size="icon-sm"
+										aria-label={isStreaming ? "Parar" : "Enviar"}
+									>
+										{isStreaming ? <X /> : <Send />}
+									</InputGroupButton>
+								</InputGroupAddon>
+							</InputGroup>
 						</div>
 					</motion.div>
 				)}

@@ -74,9 +74,7 @@ export const ChartWrapper: React.FC<ChartWrapperProps> = ({
 					value={localGroup}
 					onValueChange={(v) => setLocalGroup(v ?? "ALL")}
 				>
-					<SelectTrigger
-						className={`data-[size=default]:h-auto pl-3 pr-2 py-1 rounded text-caption border shadow-none focus-visible:ring-2 focus-visible:ring-ring bg-muted/50 border-border text-foreground`}
-					>
+					<SelectTrigger size="sm" aria-label="Grupo de contas">
 						<SelectValue />
 					</SelectTrigger>
 					<SelectContent>
@@ -95,9 +93,7 @@ export const ChartWrapper: React.FC<ChartWrapperProps> = ({
 						value={localMonth}
 						onValueChange={(v) => setLocalMonth(v ?? "TODOS")}
 					>
-						<SelectTrigger
-							className={`data-[size=default]:h-auto pl-3 pr-2 py-1 rounded text-caption border shadow-none focus-visible:ring-2 focus-visible:ring-ring bg-muted/50 border-border text-foreground`}
-						>
+						<SelectTrigger size="sm" aria-label="Mês">
 							<SelectValue />
 						</SelectTrigger>
 						<SelectContent>
@@ -126,9 +122,7 @@ export const ChartWrapper: React.FC<ChartWrapperProps> = ({
 							value={localRisk}
 							onValueChange={(v) => setLocalRisk(v ?? "TODOS")}
 						>
-							<SelectTrigger
-								className={`data-[size=default]:h-auto pl-3 pr-2 py-1 rounded text-caption border shadow-none focus-visible:ring-2 focus-visible:ring-ring bg-muted/50 border-border text-foreground`}
-							>
+							<SelectTrigger size="sm" aria-label="Nível de risco">
 								<SelectValue />
 							</SelectTrigger>
 							<SelectContent>

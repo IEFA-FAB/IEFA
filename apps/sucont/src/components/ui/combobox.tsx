@@ -33,13 +33,8 @@ interface ComboboxProps {
 	placeholder?: string
 	/** Texto do estado vazio da busca. */
 	emptyLabel?: string
+	/** Só layout (largura, margem): a aparência do campo é do primitivo. */
 	className?: string
-	/**
-	 * Sobrepõe o campo de busca. Existe para o filtro que mora DENTRO de uma
-	 * pílula ("Questão RAC: …"), onde a borda do campo desenharia uma caixa
-	 * dentro da caixa.
-	 */
-	inputClassName?: string
 	/** Mesma escala do `Input` e do `SelectTrigger`: campo e seletor da mesma faixa usam o mesmo. */
 	size?: "default" | "sm"
 	"aria-label"?: string
@@ -53,7 +48,6 @@ export function Combobox({
 	placeholder = "Selecione…",
 	emptyLabel = "Nenhum resultado",
 	className,
-	inputClassName,
 	size = "default",
 	...props
 }: ComboboxProps) {
@@ -80,13 +74,10 @@ export function Combobox({
 					aria-label={props["aria-label"]}
 					data-size={size}
 					className={cn(
-						// 16px no mobile: abaixo disso o iOS dá zoom ao focar o campo. Escrito como `max-md:` (e não
-						// `text-base md:text-sm`, como no `Input`) enquanto existir `inputClassName`: a pílula passa
-						// `text-caption`, que derruba o `text-base`, e o `md:text-sm` sobrevivente a aumentaria no desktop.
-						"h-9 w-full min-w-0 cursor-pointer rounded-md border border-input bg-background py-1 pr-8 pl-3 text-sm shadow-xs outline-none transition-[color,box-shadow] data-[size=sm]:h-8 data-[size=sm]:pl-2.5 max-md:text-base",
+						// 16px no mobile: abaixo disso o iOS dá zoom ao focar o campo.
+						"h-9 w-full min-w-0 cursor-pointer rounded-md border border-input bg-background py-1 pr-8 pl-3 text-base shadow-xs outline-none transition-[color,box-shadow] data-[size=sm]:h-8 data-[size=sm]:pl-2.5 md:text-sm",
 						"placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
-						"disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30",
-						inputClassName
+						"disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
 					)}
 				/>
 				<ComboboxPrimitive.Trigger

@@ -149,7 +149,7 @@ export function ConsolidatedMessageModal({ data, racFilter, onClose }: Consolida
 									id="cons-msg-number"
 									type="text"
 									placeholder="Ex: 123"
-									className="px-3 py-1.5 text-body border-border rounded-lg focus-visible:ring-ring focus-visible:border-ring bg-card text-foreground"
+									size="sm"
 									value={messageNumber}
 									onChange={(e) => setMessageNumber(e.target.value)}
 								/>
@@ -158,13 +158,7 @@ export function ConsolidatedMessageModal({ data, racFilter, onClose }: Consolida
 								<label htmlFor="cons-msg-date" className="text-caption text-foreground">
 									Data da Mensagem
 								</label>
-								<Input
-									id="cons-msg-date"
-									type="date"
-									className="px-3 py-1.5 text-body border-border rounded-lg focus-visible:ring-ring focus-visible:border-ring bg-card text-foreground"
-									value={messageDate}
-									onChange={(e) => setMessageDate(e.target.value)}
-								/>
+								<Input id="cons-msg-date" type="date" size="sm" value={messageDate} onChange={(e) => setMessageDate(e.target.value)} />
 							</div>
 
 							<div className="space-y-2">
@@ -176,10 +170,7 @@ export function ConsolidatedMessageModal({ data, racFilter, onClose }: Consolida
 									value={messageType}
 									onValueChange={(value) => setMessageType(value as MessageType)}
 								>
-									<SelectTrigger
-										id="cons-msg-type"
-										className="w-full px-3 py-1.5 text-body border border-border rounded-lg focus:ring-2 focus:ring-ring focus:border-ring bg-card text-foreground"
-									>
+									<SelectTrigger id="cons-msg-type" size="sm" className="w-full">
 										<SelectValue />
 									</SelectTrigger>
 									<SelectContent>
@@ -194,13 +185,7 @@ export function ConsolidatedMessageModal({ data, racFilter, onClose }: Consolida
 										<label htmlFor="cons-msg-deadline" className="text-caption text-foreground mb-1.5 block">
 											Data Limite
 										</label>
-										<Input
-											id="cons-msg-deadline"
-											type="date"
-											className="px-3 py-1.5 text-body border-border rounded-lg focus-visible:ring-ring focus-visible:border-ring bg-card text-foreground"
-											value={deadlineDate}
-											onChange={(e) => setDeadlineDate(e.target.value)}
-										/>
+										<Input id="cons-msg-deadline" type="date" size="sm" value={deadlineDate} onChange={(e) => setDeadlineDate(e.target.value)} />
 									</div>
 								)}
 							</div>

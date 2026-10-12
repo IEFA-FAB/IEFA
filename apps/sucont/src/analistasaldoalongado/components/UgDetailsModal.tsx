@@ -4,6 +4,7 @@ import * as XLSX from "xlsx"
 import { EditableMessage } from "#/components/editable-message"
 import { Button } from "#/components/ui/button"
 import { Input } from "#/components/ui/input"
+import { InputGroup, InputGroupAddon, InputGroupInput } from "#/components/ui/input-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 import { useMessageDraft } from "#/hooks/use-editable-message"
 import { getConferente } from "#/lib/ug/registry"
@@ -226,16 +227,12 @@ export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsM
 					<div className="flex-1 flex flex-col border-r border-border bg-card overflow-hidden">
 						<div className="p-4 border-b border-border bg-muted/50 flex flex-col sm:flex-row justify-between items-center gap-4">
 							<h3 className="text-subheading text-foreground">Tabela Detalhada de Ocorrências</h3>
-							<div className="relative w-full sm:w-64">
-								<Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-								<Input
-									type="text"
-									placeholder="Buscar conta..."
-									className="pl-9 pr-4 py-1.5 text-body border-border rounded-lg focus-visible:ring-ring focus-visible:border-ring bg-card text-foreground"
-									value={searchTerm}
-									onChange={(e) => setSearchTerm(e.target.value)}
-								/>
-							</div>
+							<InputGroup size="sm" className="w-full sm:w-64">
+								<InputGroupAddon>
+									<Search />
+								</InputGroupAddon>
+								<InputGroupInput type="text" placeholder="Buscar conta..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+							</InputGroup>
 						</div>
 
 						{racQuestions.length > 0 && (
@@ -350,7 +347,7 @@ export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsM
 										id="ug-msg-number"
 										type="text"
 										placeholder="Ex: 123"
-										className="px-3 py-1.5 text-body border-border rounded-lg focus-visible:ring-ring focus-visible:border-ring bg-card text-foreground"
+										size="sm"
 										value={messageNumber}
 										onChange={(e) => setMessageNumber(e.target.value)}
 									/>
@@ -359,13 +356,7 @@ export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsM
 									<label htmlFor="ug-msg-date" className="text-caption text-foreground">
 										Data da Mensagem
 									</label>
-									<Input
-										id="ug-msg-date"
-										type="date"
-										className="px-3 py-1.5 text-body border-border rounded-lg focus-visible:ring-ring focus-visible:border-ring bg-card text-foreground"
-										value={messageDate}
-										onChange={(e) => setMessageDate(e.target.value)}
-									/>
+									<Input id="ug-msg-date" type="date" size="sm" value={messageDate} onChange={(e) => setMessageDate(e.target.value)} />
 								</div>
 							</div>
 
@@ -378,10 +369,7 @@ export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsM
 									value={messageType}
 									onValueChange={(value) => setMessageType(value as MessageType)}
 								>
-									<SelectTrigger
-										id="ug-msg-type"
-										className="w-full px-3 py-1.5 text-body border border-border rounded-lg focus:ring-2 focus:ring-ring focus:border-ring bg-card text-foreground"
-									>
+									<SelectTrigger id="ug-msg-type" size="sm" className="w-full">
 										<SelectValue />
 									</SelectTrigger>
 									<SelectContent>
@@ -396,13 +384,7 @@ export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsM
 										<label htmlFor="ug-msg-deadline" className="text-caption text-foreground mb-1.5 block">
 											Data Limite
 										</label>
-										<Input
-											id="ug-msg-deadline"
-											type="date"
-											className="px-3 py-1.5 text-body border-border rounded-lg focus-visible:ring-ring focus-visible:border-ring bg-card text-foreground"
-											value={deadlineDate}
-											onChange={(e) => setDeadlineDate(e.target.value)}
-										/>
+										<Input id="ug-msg-deadline" type="date" size="sm" value={deadlineDate} onChange={(e) => setDeadlineDate(e.target.value)} />
 									</div>
 								)}
 							</div>

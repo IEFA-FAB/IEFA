@@ -5,7 +5,7 @@ import { Button } from "#/components/ui/button"
 import { Input } from "#/components/ui/input"
 import { toast } from "#/components/ui/toast"
 import { registerAuditorMessageFn } from "#/server/auditor.fn"
-import { generateMessage } from "../services/dataProcessor"
+import { defaultMessageDeadline, generateMessage } from "../services/dataProcessor"
 import type { FinancialRecord, TimeFilter } from "../types"
 
 interface SiafiMessageModalProps {
@@ -39,9 +39,8 @@ export const SiafiMessageModal: React.FC<SiafiMessageModalProps> = ({
 
 	useEffect(() => {
 		if (isOpen && record) {
-			const date = new Date()
-			date.setDate(date.getDate() + 3)
-			const defaultDeadline = date.toLocaleDateString("pt-BR")
+			// ISO, como o `<input type="date">` grava; o texto da mensagem sai em DD/MM/AAAA.
+			const defaultDeadline = defaultMessageDeadline()
 			setDeadline(defaultDeadline)
 			setCopied(false)
 			setAssignedNumber(null)
@@ -122,9 +121,11 @@ export const SiafiMessageModal: React.FC<SiafiMessageModalProps> = ({
 						<Input
 							id="siafi-msg-number"
 							type="text"
+							size="sm"
 							readOnly
-							value={assignedNumber !== null ? String(assignedNumber) : "atribuído ao registrar"}
-							className="h-auto bg-muted py-3 px-4 text-body text-muted-foreground shadow-none"
+							// Antes do registro não há número: o aviso é placeholder, não valor, e sai apagado.
+							value={assignedNumber !== null ? String(assignedNumber) : ""}
+							placeholder="atribuído ao registrar"
 						/>
 						<p className="text-hint text-muted-foreground">Sequência compartilhada da seção — não é digitada.</p>
 					</div>
@@ -132,14 +133,7 @@ export const SiafiMessageModal: React.FC<SiafiMessageModalProps> = ({
 						<label htmlFor="siafi-msg-deadline" className="text-label text-muted-foreground">
 							PRAZO (DATA LIMITE)
 						</label>
-						<Input
-							id="siafi-msg-deadline"
-							type="text"
-							value={deadline}
-							onChange={(e) => setDeadline(e.target.value)}
-							className="h-auto bg-muted/50 py-3 px-4 text-body text-foreground shadow-none"
-							placeholder="DD/MM/AAAA"
-						/>
+						<Input id="siafi-msg-deadline" type="date" size="sm" value={deadline} onChange={(e) => setDeadline(e.target.value)} />
 					</div>
 				</div>
 

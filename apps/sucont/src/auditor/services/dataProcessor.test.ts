@@ -13,6 +13,7 @@ import {
 	applyMessageNumber,
 	applyRiskClassification,
 	dedupeBalanceGrain,
+	defaultMessageDeadline,
 	generateMessage,
 	normalizeData,
 	parseDateString,
@@ -234,7 +235,7 @@ describe("generateMessage", () => {
 		const primeiro = data.find((r) => r.date === "2024-01" && r.group === AccountGroup.CONSUMO && r.cod === "120001")
 		if (!primeiro) throw new Error("fixture sem o registro esperado")
 
-		const msg = generateMessage("RANKING", primeiro, "123", "30/09/2026", [], "MENSAL")
+		const msg = generateMessage("RANKING", primeiro, "123", "2026-09-30", [], "MENSAL")
 
 		expect(msg).not.toContain("+100.00%")
 		expect(msg).not.toContain("AUMENTO NO PERÍODO")
@@ -248,7 +249,7 @@ describe("generateMessage", () => {
 		const abril = historico.find((r) => r.date === "2025-04")
 		if (!abril) throw new Error("fixture sem o registro esperado")
 
-		const msg = generateMessage("RANKING", abril, "123", "30/09/2026", historico, "MENSAL")
+		const msg = generateMessage("RANKING", abril, "123", "2026-09-30", historico, "MENSAL")
 		expect(msg).toContain("AUMENTO NO PERÍODO")
 	})
 
@@ -260,7 +261,7 @@ describe("generateMessage", () => {
 		const abril = historico.find((r) => r.date === "2025-04")
 		if (!abril) throw new Error("fixture sem o registro esperado")
 
-		const msg = generateMessage("HEATMAP", abril, "123", "30/09/2026", historico)
+		const msg = generateMessage("HEATMAP", abril, "123", "2026-09-30", historico)
 		// Linhas de dado da tabela de evolução: "ABR/25 | ... | ... | ... | ..."
 		const linhas = msg.split("\n").filter((l) => /^[A-Z]{3}\/\d{2}\s*\|/.test(l))
 		expect(linhas).toHaveLength(2)
@@ -272,8 +273,51 @@ describe("generateMessage", () => {
 
 	it("nunca devolve o texto de erro genérico para registros válidos", () => {
 		for (const record of build()) {
-			expect(generateMessage("HEATMAP", record, "1", "01/01/2027", [record])).not.toContain("ERRO AO GERAR")
+			expect(generateMessage("HEATMAP", record, "1", "2027-01-01", [record])).not.toContain("ERRO AO GERAR")
 		}
+	})
+})
+
+describe("prazo da mensagem SIAFI", () => {
+	// O campo é `<input type="date">`: lê e grava `AAAA-MM-DD`. O texto que vai para o
+	// SIAFI cita `DD/MM/AAAA`, e a conversão mora no `generateMessage`.
+	const record = () => {
+		const r = applyRiskClassification(recalculateDeltas(normalizeData(rawRows), "MENSAL")).find((x) => x.cod === "120001")
+		if (!r) throw new Error("fixture sem o registro esperado")
+		return r
+	}
+	const citedDates = (msg: string) => msg.match(/\d{2}\/\d{2}\/\d{4}/g) ?? []
+	const toIso = (br: string) => br.split("/").reverse().join("-")
+
+	it("abre preenchido: o padrão é ISO, o único formato que o campo de data exibe", () => {
+		// 12h de 30/09 em Brasília
+		expect(defaultMessageDeadline(new Date("2026-09-30T15:00:00Z"))).toBe("2026-10-03")
+	})
+
+	it("conta o prazo a partir do dia de Brasília, não do UTC", () => {
+		// 23h de 30/09 em Brasília já é 01/10 em UTC
+		expect(defaultMessageDeadline(new Date("2026-10-01T02:00:00Z"))).toBe("2026-10-03")
+	})
+
+	it("o padrão inicial chega ao texto em DD/MM/AAAA nos dois modelos", () => {
+		const deadline = defaultMessageDeadline(new Date("2026-09-30T15:00:00Z"))
+		for (const type of ["RANKING", "HEATMAP"] as const) {
+			const msg = generateMessage(type, record(), "XXX", deadline)
+			expect(msg).toContain("03/10/2026")
+			expect(msg).not.toContain("2026-10-03")
+		}
+	})
+
+	it("ida e volta: a data citada no texto devolve o valor do campo", () => {
+		for (const type of ["RANKING", "HEATMAP"] as const) {
+			const msg = generateMessage(type, record(), "XXX", "2026-12-31")
+			expect(citedDates(msg).map(toIso)).toContain("2026-12-31")
+		}
+	})
+
+	it("campo vazio cai no marcador de preencher", () => {
+		expect(generateMessage("RANKING", record(), "XXX", "")).toContain("[PREENCHER]")
+		expect(generateMessage("HEATMAP", record(), "XXX", "")).toContain("[PRAZO]")
 	})
 })
 
@@ -406,7 +450,7 @@ describe("generateMessage — escopo não-mensal ainda mostra variação", () =>
 			const atual = historico.find((r) => r.date === "2025-08")
 			if (!atual) throw new Error("fixture sem o registro esperado")
 
-			const msg = generateMessage("RANKING", atual, "1", "01/01/2027", historico, filtro)
+			const msg = generateMessage("RANKING", atual, "1", "2027-01-01", historico, filtro)
 			const linhas = msg.split("\n").filter((l) => /^[A-Z]{3}\/\d{2}\s*\|/.test(l))
 			expect(linhas.length).toBeGreaterThan(1)
 			// A série é mensal e contínua: tirando a primeira linha, todas têm variação.
