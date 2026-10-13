@@ -292,7 +292,6 @@ function ArranchamentoPage() {
 	}
 
 	const applyDefaultMessHallToAll = async (): Promise<void> => {
-		"use no memo"
 		const { cardsWithoutMessHall } = computedData
 		if (cardsWithoutMessHall.length === 0) return
 
@@ -345,7 +344,6 @@ function ArranchamentoPage() {
 	}
 
 	const applyMealTemplateToAll = async (template: DayMeals, options: { mode: "fill-missing" | "override" }): Promise<void> => {
-		"use no memo"
 		const targetDates = weekdayTargets
 		if (!targetDates.length) {
 			setShowBulkMealSelector(false)
@@ -428,7 +426,6 @@ function ArranchamentoPage() {
 	}
 
 	const handleApplyDefault = async () => {
-		"use no memo"
 		setIsApplyingDefaultMessHall(true)
 		try {
 			// Persiste o default no user_data e aplica aos cards em paralelo

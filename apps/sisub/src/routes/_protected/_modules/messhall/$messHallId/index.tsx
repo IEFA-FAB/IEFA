@@ -175,7 +175,6 @@ function ScannerTab({ filters, onFiltersChange }: { filters: FiscalFilters; onFi
 	}, [markScanned])
 
 	const onScanSuccess = useCallback((result: QrScanner.ScanResult) => {
-		"use no memo"
 		const raw = (result?.data || "").trim()
 		if (!raw) return
 		const uuid = extractUuid(raw)
@@ -190,7 +189,6 @@ function ScannerTab({ filters, onFiltersChange }: { filters: FiscalFilters; onFi
 		setIsProcessing(true)
 
 		;(async () => {
-			"use no memo"
 			try {
 				const { willEat } = await processScanRef.current(uuid, filtersRef.current)
 				if (!isMountedRef.current) return
@@ -214,7 +212,6 @@ function ScannerTab({ filters, onFiltersChange }: { filters: FiscalFilters; onFi
 	useEffect(() => {
 		let isCancelled = false
 		const startScanner = async () => {
-			"use no memo"
 			if (!videoRef.current) return
 			const overlay = qrBoxRef.current ?? undefined
 			try {
@@ -247,7 +244,6 @@ function ScannerTab({ filters, onFiltersChange }: { filters: FiscalFilters; onFi
 	}, [onScanFail, onScanSuccess])
 
 	const handleConfirmDialog = useCallback(async () => {
-		"use no memo"
 		if (!dialog.uuid) return
 		try {
 			await confirmPresence(dialog.uuid, dialog.willEnter === "sim")

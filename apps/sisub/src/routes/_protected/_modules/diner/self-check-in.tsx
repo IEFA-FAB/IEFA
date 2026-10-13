@@ -196,7 +196,6 @@ function SelfCheckin() {
 	}
 
 	const handleSubmit = async () => {
-		"use no memo"
 		if (submitting || !userId || !messHall) return
 		dispatch({ type: "SET_SUBMITTING", value: true })
 
