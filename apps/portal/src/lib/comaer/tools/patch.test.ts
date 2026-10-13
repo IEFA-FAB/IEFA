@@ -136,3 +136,85 @@ describe("numeração impressa no resumo", () => {
 		expect(printedOutline({ ...newDocument(), kind: "carta", paragraphs: [{ text: "A" }, { text: "B" }] })).toBe("(sem número); (sem número)")
 	})
 })
+
+describe("cada remendo: resumo, blocos tocados e recusas", () => {
+	it("remendo desconhecido é recusado, inclusive nome que existe em Object.prototype", () => {
+		expect(() => applyPatch(base(), "set_nup", {})).toThrow("Remendo desconhecido: set_nup")
+		expect(() => applyPatch(base(), "toString", {})).toThrow("Remendo desconhecido: toString")
+		expect(() => applyPatch(base(), "__proto__", {})).toThrow("Remendo desconhecido: __proto__")
+	})
+
+	it("set_form: opcionais ausentes mantêm o documento; sem texto, o resumo é só a forma", () => {
+		const doc = { ...base(), paragraphs: [{ text: " " }], classification: "reservado" as const, precedence: "superior" as const, decision: "DEFERIDO" as const }
+		const patch = applyPatch(doc, "set_form", {})
+		expect(patch.summary).toBe("Forma: oficio-comaer, âmbito comaer.")
+		expect(patch.touched).toEqual(["epigrafe", "numeracao", "fecho"])
+		expect([patch.document.classification, patch.document.precedence, patch.document.decision]).toEqual(["reservado", "superior", "DEFERIDO"])
+		const changed = applyPatch(doc, "set_form", { classification: "ostensivo", precedence: "igual", decision: "ARQUIVE-SE" }).document
+		expect([changed.classification, changed.precedence, changed.decision]).toEqual(["ostensivo", "igual", "ARQUIVE-SE"])
+	})
+
+	it("set_parties: remetente, endereçamento mesclado, vocativo e distribuição", () => {
+		const doc = {
+			...base(),
+			sender: { position: "Chefe", gender: "f" as const },
+			addressing: { formOfAddress: "excelencia" as const, gender: "f" as const, name: "Maria", position: "Prefeita", addressLines: ["Rua A"] },
+			vocativo: "Senhora Prefeita",
+		}
+		const patch = applyPatch(doc, "set_parties", { sender: { position: "Diretor" }, addressing: { name: "Ana" }, distribution: "circular" })
+		expect(patch.summary).toBe("Partes atualizadas.")
+		expect(patch.touched).toEqual(["preambulo", "enderecamento", "vocativo"])
+		expect(patch.document.sender).toEqual({ position: "Diretor", gender: "f" })
+		expect(patch.document.addressing).toEqual({ formOfAddress: "excelencia", gender: "f", name: "Ana", position: "Prefeita", addressLines: ["Rua A"] })
+		expect(patch.document.vocativo).toBe("Senhora Prefeita")
+		expect(patch.document.distribution).toBe("circular")
+		expect(patch.document.recipients).toEqual(doc.recipients)
+	})
+
+	it("set_parties: endereçamento novo sem anterior usa senhoria e masculino; remetente em branco não apaga", () => {
+		const doc = { ...base(), addressing: undefined, sender: { position: "Chefe", gender: "m" as const } }
+		const patch = applyPatch(doc, "set_parties", { addressing: {}, sender: { position: "  ", gender: "f" }, vocativo: "Senhor", recipients: "x" })
+		expect(patch.document.addressing).toEqual({ formOfAddress: "senhoria", gender: "m", name: undefined, position: undefined, addressLines: undefined })
+		expect(patch.document.sender).toEqual({ position: "Chefe", gender: "m" })
+		expect(patch.document.vocativo).toBe("Senhor")
+		const viaKept = applyPatch(doc, "set_parties", { recipients: [{ position: "A", gender: "f", via: "Via B" }, { position: 3 }] }).document.recipients
+		expect(viaKept).toEqual([{ position: "A", gender: "f", via: "Via B" }])
+		expect(applyPatch(doc, "set_parties", { sender: { position: "Novo", gender: "f" } }).document.sender).toEqual({ position: "Novo", gender: "f" })
+		expect(applyPatch(doc, "set_parties", { sender: null }).document.sender).toEqual({ position: "Chefe", gender: "m" })
+	})
+
+	it("set_ementa: troca o que veio e mantém o resto", () => {
+		const doc = { ...base(), subject: "Antigo", references: ["Ref 1"], annexes: ["Anexo 1"] }
+		const patch = applyPatch(doc, "set_ementa", { subject: "Novo" })
+		expect(patch).toMatchObject({ summary: "Ementa atualizada.", touched: ["ementa"] })
+		expect([patch.document.subject, patch.document.references, patch.document.annexes]).toEqual(["Novo", ["Ref 1"], ["Anexo 1"]])
+		const all = applyPatch(doc, "set_ementa", { references: [], annexes: ["B"] }).document
+		expect([all.subject, all.references, all.annexes]).toEqual(["Antigo", [], ["B"]])
+	})
+
+	it("write_body: lista obrigatória, não vazia, cada parágrafo com texto", () => {
+		expect(() => applyPatch(base(), "write_body", { paragraphs: "x" })).toThrow("O campo `paragraphs` precisa ser uma lista de parágrafos.")
+		expect(() => applyPatch(base(), "write_body", { paragraphs: [] })).toThrow("O texto precisa de ao menos um parágrafo.")
+		expect(() => applyPatch(base(), "write_body", { paragraphs: [{ text: 1 }] })).toThrow("Cada parágrafo precisa de `text`.")
+		expect(() => applyPatch(base(), "write_body", { paragraphs: [{ text: "a", items: [{}] }] })).toThrow("Cada item precisa de `text`.")
+		expect(() => applyPatch(base(), "write_body", { paragraphs: [{ text: "a", items: [{ text: "b", alineas: [{}] }] }] })).toThrow(
+			"Cada alínea precisa de `text`."
+		)
+		const patch = applyPatch(base(), "write_body", { paragraphs: [{ text: "Um." }, { text: "Dois." }] })
+		expect(patch).toMatchObject({ summary: "Texto reescrito com 2 parágrafo(s). Numeração impressa agora: 1; 2.", touched: ["texto"] })
+	})
+
+	it("replace, insert e remove: resumo com a posição e a numeração; limites do índice", () => {
+		expect(applyPatch(base(), "replace_paragraph", { number: 1, text: "X." }).summary).toBe("Parágrafo 1 substituído. Numeração impressa agora: 1; 2.")
+		expect(applyPatch(base(), "insert_paragraph", { number: 3, text: "Fim." }).summary).toBe(
+			"Parágrafo inserido na posição 3. Numeração impressa agora: 1; 2; 3."
+		)
+		const removed = applyPatch(base(), "remove_paragraph", { number: 2 })
+		expect(removed).toMatchObject({ summary: "Parágrafo 2 removido. Numeração impressa agora: (sem número).", touched: ["texto"] })
+		expect(removed.document.paragraphs).toEqual([{ text: "Primeiro." }])
+		expect(() => applyPatch(base(), "insert_paragraph", { number: 4, text: "x" })).toThrow("Parágrafo 4 não existe. O documento tem 2 parágrafo(s).")
+		expect(() => applyPatch(base(), "replace_paragraph", { number: "1", text: "x" })).toThrow("Parágrafo 1 não existe.")
+		expect(() => applyPatch(base(), "remove_paragraph", { number: 1.5 })).toThrow(PatchError)
+		expect(() => applyPatch(base(), "replace_paragraph", { number: 1 })).toThrow("Cada parágrafo precisa de `text`.")
+	})
+})
