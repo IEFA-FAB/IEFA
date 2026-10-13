@@ -418,9 +418,10 @@ function ArranchamentoPage() {
 
 			setSuccess(`Template de refeições aplicado a ${diasStr} no modo ${modoStr}: ${alteracoesStr}.`)
 			setShowBulkMealSelector(false)
-			setIsApplyingMealTemplate(false)
 		} catch (_err) {
 			setError("Erro ao aplicar template de refeições. Tente novamente.")
+		} finally {
+			// No finally: o retorno antecipado de "nenhuma alteração" deixava o seletor travado em "aplicando".
 			setIsApplyingMealTemplate(false)
 		}
 	}
