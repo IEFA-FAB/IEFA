@@ -10,7 +10,9 @@ import {
 	type OrderRule,
 	parseSortableOrderParam,
 	projectedColumns,
+	withUniqueTiebreak,
 } from "./query-params.ts"
+import { readUpTo } from "./read-up-to.ts"
 
 export type ApiConfig = {
 	table: string
@@ -20,6 +22,12 @@ export type ApiConfig = {
 	dateColumn?: string
 	dateColumnType?: "timestamp" | "date"
 	defaultOrder?: OrderRule[]
+	/**
+	 * Chave única da tabela (PK ou UNIQUE), desempate final de qualquer ordenação. Obrigatória: a
+	 * resposta é montada em páginas (`readUpTo`), e sem ordem total as páginas repetem e pulam
+	 * linhas.
+	 */
+	uniqueKey: readonly string[]
 	mapParams?: Record<string, string>
 	defaultLimit?: number
 	maxLimit?: number
@@ -50,6 +58,10 @@ export function createApiHandler(config: ApiConfig): [MiddlewareHandler, (c: any
 		dateColumnType = "timestamp",
 		defaultOrder = [],
 		mapParams = {},
+		// O teto é o do contrato publicado (OpenAPI de `routes.ts`), e agora é real: o PostgREST
+		// corta cada requisição em 1000 linhas calado, então `readUpTo` pagina até o `limit`.
+		// Baixar o teto para 1000 deixaria o documento honesto mas tiraria do consumidor o único
+		// jeito de ler mais que isso (a rota não tem `offset`).
 		defaultLimit = 100000,
 		maxLimit = 100000,
 		cacheControl = "public, max-age=300",
@@ -96,70 +108,74 @@ export function createApiHandler(config: ApiConfig): [MiddlewareHandler, (c: any
 				)
 			}
 
-			// Inicia query
-			let query = supabase.schema(schema).from(table).select(select).limit(limit)
-
-			// Filtros mapeados
-			for (const [param, column] of Object.entries(mapParams)) {
-				const ilikeVal = sp.get(`${param}_ilike`)
-				if (ilikeVal) {
-					// "Contém" sem sintaxe escondida: `%` e `_` do cliente são literais.
-					query = query.ilike(column, `%${escapeLikePattern(ilikeVal)}%`)
-					continue
-				}
-				const rawVal = sp.get(param)
-				if (!rawVal) continue
-				if (rawVal.includes(",")) {
-					const arr = commaListToArray(rawVal)
-					if (arr.length > 0) query = query.in(column, arr)
-				} else {
-					query = query.eq(column, rawVal)
-				}
-			}
-
-			// Filtro por data
-			if (dateColumn) {
-				const dateEq = sp.get("date")
-				const startDate = sp.get("startDate")
-				const endDate = sp.get("endDate")
-
-				if (dateEq) {
-					if (dateColumnType === "timestamp") {
-						const { start, end } = dayBounds(dateEq)
-						query = query.gte(dateColumn, start).lte(dateColumn, end)
-					} else {
-						query = query.eq(dateColumn, dateEq)
-					}
-				} else {
-					if (startDate) {
-						if (dateColumnType === "timestamp") {
-							const { start } = dayBounds(startDate)
-							query = query.gte(dateColumn, start)
-						} else {
-							query = query.gte(dateColumn, startDate)
-						}
-					}
-					if (endDate) {
-						if (dateColumnType === "timestamp") {
-							const { end } = dayBounds(endDate)
-							query = query.lte(dateColumn, end)
-						} else {
-							query = query.lte(dateColumn, endDate)
-						}
-					}
-				}
-			}
-
-			// Ordenação
+			// Ordenação: a pedida (ou a padrão) + a chave única como desempate
 			const requestedOrder = orderFromParam.order.map((rule) => ({ ...rule, column: orderAliases[rule.column] ?? rule.column }))
-			const finalOrder: OrderRule[] = requestedOrder.length ? requestedOrder : defaultOrder
-			for (const ord of finalOrder) {
-				if (!ord.column) continue
-				query = query.order(ord.column, { ascending: ord.ascending ?? true })
+			const finalOrder = withUniqueTiebreak(requestedOrder.length ? requestedOrder : defaultOrder, config.uniqueKey)
+
+			// Uma consulta nova por página: o builder do postgrest-js muda o próprio estado no `range`.
+			const buildQuery = () => {
+				let query = supabase.schema(schema).from(table).select(select)
+
+				// Filtros mapeados
+				for (const [param, column] of Object.entries(mapParams)) {
+					const ilikeVal = sp.get(`${param}_ilike`)
+					if (ilikeVal) {
+						// "Contém" sem sintaxe escondida: `%` e `_` do cliente são literais.
+						query = query.ilike(column, `%${escapeLikePattern(ilikeVal)}%`)
+						continue
+					}
+					const rawVal = sp.get(param)
+					if (!rawVal) continue
+					if (rawVal.includes(",")) {
+						const arr = commaListToArray(rawVal)
+						if (arr.length > 0) query = query.in(column, arr)
+					} else {
+						query = query.eq(column, rawVal)
+					}
+				}
+
+				// Filtro por data
+				if (dateColumn) {
+					const dateEq = sp.get("date")
+					const startDate = sp.get("startDate")
+					const endDate = sp.get("endDate")
+
+					if (dateEq) {
+						if (dateColumnType === "timestamp") {
+							const { start, end } = dayBounds(dateEq)
+							query = query.gte(dateColumn, start).lte(dateColumn, end)
+						} else {
+							query = query.eq(dateColumn, dateEq)
+						}
+					} else {
+						if (startDate) {
+							if (dateColumnType === "timestamp") {
+								const { start } = dayBounds(startDate)
+								query = query.gte(dateColumn, start)
+							} else {
+								query = query.gte(dateColumn, startDate)
+							}
+						}
+						if (endDate) {
+							if (dateColumnType === "timestamp") {
+								const { end } = dayBounds(endDate)
+								query = query.lte(dateColumn, end)
+							} else {
+								query = query.lte(dateColumn, endDate)
+							}
+						}
+					}
+				}
+
+				for (const ord of finalOrder) {
+					if (!ord.column) continue
+					query = query.order(ord.column, { ascending: ord.ascending ?? true })
+				}
+				return query
 			}
 
-			// Executa query
-			const { data: rows, error } = await query
+			// Executa em páginas até o `limit`
+			const { rows, error } = await readUpTo(limit, (from, to) => buildQuery().range(from, to))
 			if (error) {
 				// A mensagem do PostgREST (coluna, schema, hint SQL) fica no log do
 				// servidor — nunca no corpo da resposta pública, que é anônima. Vazar

@@ -175,6 +175,7 @@ function defineDocRoute<TSchema extends z.ZodType>(config: {
 // /api/opinion -> opinions
 const [, opinionHandler] = createApiHandler({
 	table: "opinions",
+	uniqueKey: ["id"],
 	schema: "kitchen",
 	select: 'id, created_at, value, question, "userId"',
 	dateColumn: "created_at",
@@ -217,6 +218,7 @@ const opinionRoute = defineDocRoute({
 // /api/arranchamentos -> kitchen.arranchamento
 const [, arranchamentoHandler] = createApiHandler({
 	table: "arranchamento",
+	uniqueKey: ["user_id", "date", "meal"],
 	schema: "kitchen",
 	select: "user_id, date, meal, will_eat, mess_hall_id, created_at, updated_at",
 	dateColumn: "date",
@@ -298,6 +300,7 @@ async function legacyArranchamentoHandler(c: Context): Promise<Response> {
 // /api/wherewhowhen -> meal_presences
 const [, presenceHandler] = createApiHandler({
 	table: "meal_presences",
+	uniqueKey: ["user_id", "date", "meal"],
 	schema: "kitchen",
 	select: "user_id, date, meal, mess_hall_id, created_at, updated_at",
 	dateColumn: "date",
@@ -348,6 +351,8 @@ const presenceRoute = defineDocRoute({
 // /api/user-military-data -> user_military_data
 const [, militaryDataHandler] = createApiHandler({
 	table: "user_military_data",
+	// `id` fica fora da projeção: é só o desempate interno da paginação, não ordem que o cliente escolhe.
+	uniqueKey: ["id"],
 	schema: "core",
 	select: `"${MIRROR_SARAM_COLUMN}", "nmGuerra", "nmPessoa", "sgPosto", "sgOrg", "dataAtualizacao"`,
 	dateColumn: "dataAtualizacao",
@@ -428,6 +433,7 @@ const militaryDataRoute = defineDocRoute({
 // /api/user-data -> user_data
 const [, userDataHandler] = createApiHandler({
 	table: "user_data",
+	uniqueKey: ["id"],
 	schema: "core",
 	// O campo obsoleto sai com o mesmo valor, lido da coluna nova (ver `saram-field.ts`).
 	select: `id, created_at, email, saram, ${LEGACY_SARAM_FIELD}:saram`,
@@ -503,6 +509,7 @@ const userDataRoute = defineDocRoute({
 // /api/units -> sisub.units
 const [, unitsHandler] = createApiHandler({
 	table: "units",
+	uniqueKey: ["id"],
 	schema: "core",
 	select: "id, code, display_name",
 	defaultOrder: [
@@ -559,6 +566,7 @@ const unitsRoute = defineDocRoute({
 // /api/mess-halls -> sisub.mess_halls
 const [, messHallsHandler] = createApiHandler({
 	table: "mess_halls",
+	uniqueKey: ["id"],
 	schema: "kitchen",
 	select: "id, unit_id, code, display_name",
 	defaultOrder: [
