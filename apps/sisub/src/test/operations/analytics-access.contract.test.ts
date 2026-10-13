@@ -30,28 +30,73 @@ describeIf("analytics: identidade sem dado pessoal e módulo sem escopo (DB)", (
 		await sql?.end({ timeout: 5 })
 	})
 
-	// Duas leituras, porque cada uma sozinha falha de um lado:
-	// - dependência de coluna (`pg_depend` da regra da view): pega qualquer coluna `*email*` lida,
-	//   de qualquer tabela, sem olhar o texto. É a prova principal.
-	// - texto da definição SEM os literais entre aspas: pega o e-mail que chega por expressão que
-	//   não deixa dependência de coluna (função, `to_jsonb(linha)`). Os literais saem porque
-	//   `saram_verified_by in ('email', 'cpf', …)` cita o VALOR "email": o regex no texto cru acusava
-	//   a `v_user_identity` desde 20261003100000 sem ela ler e-mail nenhum.
+	// O assistente lê o schema `analytics` com BYPASSRLS: e-mail ali vai direto ao modelo. Cinco
+	// leituras, cada uma fechando um caminho, com o rótulo de quem acusou:
+	// - `coluna`: a regra da view depende de coluna `*email*` (`pg_depend`), de qualquer tabela.
+	//   Filtrar ou juntar por e-mail também reprova: a view roda com o dono, e o filtro já revela
+	//   quem tem qual e-mail. Junte pelo id.
+	// - `linha`: referência à linha inteira (`to_jsonb(ud)`, `ud.*` em função) de tabela que tem
+	//   coluna `*email*`; o catálogo registra essa dependência sem coluna (`refobjsubid = 0`).
+	// - `função`: função chamada pela view com e-mail no nome ou no corpo.
+	// - `texto`: extração de chave JSON `email` (`->> 'email'`) no texto cru, e `email` em qualquer
+	//   lugar do texto SEM os literais entre aspas. Os literais saem porque `saram_verified_by in
+	//   ('email', 'cpf', …)` cita o VALOR "email": o regex no texto cru acusava a `v_user_identity`
+	//   desde 20261003100000 sem ela ler e-mail nenhum. Vale para view e view materializada.
+	// - `dado`: uma amostra de cada view não tem nada com cara de e-mail, seja qual for o caminho.
 	test("nenhuma view do schema analytics lê e-mail", async () => {
-		const byColumn = await sql<{ name: string }[]>`
-			select distinct n.nspname || '.' || v.relname || ' <- ' || a.attrelid::regclass::text || '.' || a.attname as name
-			from pg_class v
-			join pg_namespace n on n.oid = v.relnamespace
-			join pg_rewrite r on r.ev_class = v.oid
-			join pg_depend d on d.classid = 'pg_rewrite'::regclass and d.objid = r.oid and d.refobjsubid > 0
-			join pg_attribute a on a.attrelid = d.refobjid and a.attnum = d.refobjsubid
-			where n.nspname = 'analytics' and v.relkind in ('v', 'm') and a.attname ~* 'email'`
-		const byText = await sql<{ name: string }[]>`
-			select schemaname || '.' || viewname as name
-			from pg_views
-			where schemaname = 'analytics'
-				and regexp_replace(definition, $$'([^']|'')*'$$, '', 'g') ~* '\\memail\\M'`
-		expect([...byColumn, ...byText].map((r) => r.name)).toEqual([])
+		const catalog = await sql<{ finding: string }[]>`
+			with views as (
+				select c.oid, n.nspname || '.' || c.relname as name
+				from pg_class c
+				join pg_namespace n on n.oid = c.relnamespace
+				where n.nspname = 'analytics' and c.relkind in ('v', 'm')
+			),
+			deps as (
+				select v.name, d.refclassid, d.refobjid, d.refobjsubid
+				from views v
+				join pg_rewrite r on r.ev_class = v.oid
+				join pg_depend d on d.classid = 'pg_rewrite'::regclass and d.objid = r.oid
+				where d.refobjid <> v.oid
+			),
+			definitions as (
+				select schemaname || '.' || viewname as name, definition from pg_views where schemaname = 'analytics'
+				union all
+				select schemaname || '.' || matviewname, definition from pg_matviews where schemaname = 'analytics'
+			)
+			select 'coluna: ' || dp.name || ' <- ' || a.attrelid::regclass::text || '.' || a.attname as finding
+			from deps dp
+			join pg_attribute a on a.attrelid = dp.refobjid and a.attnum = dp.refobjsubid
+			where dp.refclassid = 'pg_class'::regclass and dp.refobjsubid > 0 and a.attname ~* 'email'
+			union all
+			select 'linha: ' || dp.name || ' <- ' || dp.refobjid::regclass::text
+			from deps dp
+			where dp.refclassid = 'pg_class'::regclass and dp.refobjsubid = 0
+				and exists (select 1 from pg_attribute a where a.attrelid = dp.refobjid and a.attnum > 0 and not a.attisdropped and a.attname ~* 'email')
+			union all
+			select 'função: ' || dp.name || ' <- ' || p.oid::regprocedure::text
+			from deps dp
+			join pg_proc p on p.oid = dp.refobjid
+			where dp.refclassid = 'pg_proc'::regclass and (p.proname ~* 'email' or p.prosrc ~* 'email')
+			union all
+			select 'texto: ' || df.name
+			from definitions df
+			where df.definition ~* $$(->>?|#>>?)\\s*'[^']*email$$
+				or regexp_replace(df.definition, $$'([^']|'')*'$$, '', 'g') ~* 'email'`
+
+		const views = await sql<{ name: string }[]>`
+			select quote_ident(n.nspname) || '.' || quote_ident(c.relname) as name
+			from pg_class c
+			join pg_namespace n on n.oid = c.relnamespace
+			where n.nspname = 'analytics' and c.relkind in ('v', 'm')`
+		const data: string[] = []
+		for (const { name } of views) {
+			const [row] = await sql.unsafe<{ hits: number }[]>(
+				`select count(*)::int as hits from (select * from ${name} limit 1000) t where row_to_json(t)::text ~* '[a-z0-9._%+-]+@[a-z0-9-]+(\\.[a-z0-9-]+)+'`
+			)
+			if (row.hits > 0) data.push(`dado: ${name} (${row.hits} linha(s) da amostra)`)
+		}
+
+		expect([...catalog.map((r) => r.finding), ...data]).toEqual([])
 	})
 
 	test("o rótulo de quem não tem nome de guerra é o id curto, e nenhum rótulo é e-mail", async () => {
