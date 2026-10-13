@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import type { ConverseStreamOutput } from "@aws-sdk/client-bedrock-runtime"
+import { withFallbackChain } from "../fallback.js"
 import { createAdapter } from "../index.js"
 import { createBedrockChat } from "./bedrock.js"
 
@@ -172,18 +173,47 @@ describe("bedrock adapter — chatStream, evento a evento", () => {
 		])
 	})
 
-	it("input de tool vazio ou inválido fecha com {}", async () => {
+	it("input de tool vazio fecha com {}: é a tool sem parâmetro", async () => {
 		const { out } = await run([
 			{ contentBlockStart: { start: { toolUse: { toolUseId: "a", name: "x" } }, contentBlockIndex: 0 } },
 			{ contentBlockStop: { contentBlockIndex: 0 } },
-			{ contentBlockStart: { start: { toolUse: { toolUseId: "b", name: "y" } }, contentBlockIndex: 1 } },
-			{ contentBlockDelta: { delta: { toolUse: { input: '{"quebrado":' } }, contentBlockIndex: 1 } },
-			{ contentBlockStop: { contentBlockIndex: 1 } },
 		])
-		expect(out.filter((e) => e.type === "TOOL_CALL_END").map((e) => [e.toolCallId, e.input])).toEqual([
-			["a", {}],
-			["b", {}],
-		])
+		expect(out.filter((e) => e.type === "TOOL_CALL_END").map((e) => [e.toolCallId, e.input])).toEqual([["a", {}]])
+		expect(out.at(-1)?.type).toBe("RUN_FINISHED")
+	})
+
+	// Resposta cortada por max_tokens no meio do argumento. Um TOOL_CALL_END com `{}` faria o
+	// engine executar a tool sem argumento; o run tem de acabar em RUN_ERROR, sem TOOL_CALL_END
+	// e sem RUN_FINISHED, ignorando o que o provider ainda mandar.
+	it("input de tool truncado encerra o run com RUN_ERROR, sem TOOL_CALL_END nem RUN_FINISHED", async () => {
+		const errs: string[] = []
+		const { out } = await run(
+			[
+				{ contentBlockStart: { start: { toolUse: { toolUseId: "b", name: "busca" } }, contentBlockIndex: 0 } },
+				{ contentBlockDelta: { delta: { toolUse: { input: '{"quebrado":' } }, contentBlockIndex: 0 } },
+				{ contentBlockStop: { contentBlockIndex: 0 } },
+				{ messageStop: { stopReason: "max_tokens" } },
+				{ contentBlockStart: { start: { toolUse: { toolUseId: "c", name: "outra" } }, contentBlockIndex: 1 } },
+			],
+			{ logger: { errors: (msg: string) => errs.push(msg) } }
+		)
+		expect(out.map((e) => e.type)).toEqual(["RUN_STARTED", "TOOL_CALL_START", "TOOL_CALL_ARGS", "RUN_ERROR"])
+		expect(out.at(-1)).toMatchObject({ code: "tool-call-args-invalid", model: "model-x" })
+		expect(String(out.at(-1)?.message)).toContain('"busca"')
+		expect(errs).toEqual(["bedrock.chatStream tool-args JSON inválido"])
+	})
+
+	it("RUN_ERROR de argumento truncado passa pela cadeia de reserva sem trocar de provider", async () => {
+		const primary = fakeClient([
+			{ contentBlockStart: { start: { toolUse: { toolUseId: "b", name: "busca" } }, contentBlockIndex: 0 } },
+			{ contentBlockDelta: { delta: { toolUse: { input: '{"q":' } }, contentBlockIndex: 0 } },
+			{ contentBlockStop: { contentBlockIndex: 0 } },
+		] as unknown as ConverseStreamOutput[])
+		const reserve = fakeClient([])
+		const chain = withFallbackChain(createBedrockChat("model-a", "us-east-1", primary.client), createBedrockChat("model-b", "us-east-1", reserve.client))
+		const out = await collect(chain.chatStream(opts({ messages: [{ role: "user", content: "x" }] })))
+		expect(out.map((e) => e.type)).toEqual(["RUN_STARTED", "TOOL_CALL_START", "TOOL_CALL_ARGS", "RUN_ERROR"])
+		expect(reserve.sent).toHaveLength(0)
 	})
 
 	it("delta e fim de bloco sem tool aberta no índice não emitem nada; bloco fechado sai do mapa", async () => {

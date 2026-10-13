@@ -154,6 +154,10 @@ function contentBlocksFromMessage(msg: TextOptions["messages"][number]): Content
 	// Tool calls do assistant → blocos toolUse.
 	if (msg.role === "assistant" && msg.toolCalls?.length) {
 		for (const tc of msg.toolCalls) {
+			// Tolerância deliberada, diferente do stream (ver `handleContentBlockStop`): aqui a
+			// tool call é HISTÓRICO reenviado, já executada (ou recusada) num turno anterior —
+			// trocar argumento ilegível por `{}` não executa nada. Lançar derrubaria a reabertura
+			// da conversa inteira por causa de um turno antigo que nunca mais roda.
 			let input: unknown = {}
 			try {
 				input = tc.function.arguments ? JSON.parse(tc.function.arguments) : {}
@@ -296,6 +300,9 @@ type ChatStreamState = {
 	usage: Usage | undefined
 	// Blocos de tool em aberto, indexados por contentBlockIndex.
 	toolBlocks: Map<number, { toolCallId: string; name: string; args: string }>
+	// Falha que encerra o run: depois do RUN_ERROR não sai mais nada (nem RUN_FINISHED).
+	failed: boolean
+	logger: TextOptions["logger"] | undefined
 }
 
 /** Início de um bloco toolUse. */
@@ -352,15 +359,40 @@ function* handleContentDelta(state: ChatStreamState, index: number, delta: Conte
 	else if (delta.toolUse?.input != null) yield* handleToolInputDelta(state, index, delta.toolUse.input)
 }
 
-/** Fim de um bloco: se for tool, fecha com o input acumulado. */
+/**
+ * Fim de um bloco: se for tool, fecha com o input acumulado.
+ *
+ * Argumento que não é JSON encerra o run com `RUN_ERROR` em vez de virar `{}`. O caso real é
+ * a resposta cortada por `max_tokens` no meio do argumento: o `TOOL_CALL_END` com `{}` faria o
+ * engine do @tanstack/ai EXECUTAR a tool sem argumento nenhum (ele normaliza o `input` para
+ * `{}`), e a tool rodaria sobre o recorte padrão como se o modelo tivesse pedido isso.
+ * `RUN_ERROR`, e não `throw`, porque é o evento de falha do protocolo: o engine para o loop
+ * sem executar tool, e o cliente já sabe mostrá-lo (mesmo caminho do teto de consumo).
+ * Argumento vazio continua valendo `{}`: é a tool sem parâmetro.
+ */
 function* handleContentBlockStop(state: ChatStreamState, index: number): Generator<StreamChunk> {
 	const block = state.toolBlocks.get(index)
 	if (!block) return
 	let parsedInput: unknown = {}
 	try {
 		parsedInput = block.args ? JSON.parse(block.args) : {}
-	} catch {
-		parsedInput = {}
+	} catch (error) {
+		state.failed = true
+		state.toolBlocks.delete(index)
+		state.logger?.errors?.("bedrock.chatStream tool-args JSON inválido", {
+			error,
+			source: "bedrock.chatStream",
+			toolName: block.name,
+			argsLength: block.args.length,
+		})
+		yield asChunk({
+			type: "RUN_ERROR",
+			model: state.model,
+			timestamp: state.timestamp,
+			code: "tool-call-args-invalid",
+			message: `A chamada da ferramenta "${block.name}" chegou com argumentos incompletos ou inválidos (resposta provavelmente cortada pelo limite de tokens) e não foi executada. Tente novamente.`,
+		})
+		return
 	}
 	yield asChunk({
 		type: "TOOL_CALL_END",
@@ -438,6 +470,8 @@ export function createBedrockChat(model: string, region?: string, client?: Bedro
 			stopReason: undefined,
 			usage: undefined,
 			toolBlocks: new Map(),
+			failed: false,
+			logger,
 		}
 
 		try {
@@ -459,6 +493,8 @@ export function createBedrockChat(model: string, region?: string, client?: Bedro
 			for await (const ev of (response.stream ?? []) as AsyncIterable<ConverseStreamOutput>) {
 				logger?.provider?.("provider=bedrock", { chunk: ev })
 				yield* handleStreamEvent(state, ev)
+				// RUN_ERROR já emitido: o resto do stream do provider não interessa a ninguém.
+				if (state.failed) return
 			}
 
 			if (state.textStarted) {
