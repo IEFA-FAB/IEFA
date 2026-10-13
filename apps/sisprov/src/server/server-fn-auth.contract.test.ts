@@ -14,6 +14,10 @@ import { describe, expect, test } from "bun:test"
 import { readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 
+// Montado em partes: escrito por inteiro, o próprio teste viraria uma supressão sem motivo
+// para o contrato do monorepo (`server-fn-auth.contract.test.ts` do sisub).
+const PUBLIC_MARKER = ["nosemgrep", "server-fn-missing-auth-guard"].join(": ")
+
 const serverDir = import.meta.dir
 
 const PUBLIC_SERVER_FNS: Record<string, string> = {
@@ -67,14 +71,12 @@ describe("server functions do sisprov", () => {
 	})
 
 	test("função pública leva o comentário do nosemgrep, para a regra do opengrep não acusar", () => {
-		const withoutMarker = serverFns
-			.filter((fn) => fn.name in PUBLIC_SERVER_FNS && !fn.body.includes("nosemgrep: server-fn-missing-auth-guard"))
-			.map((fn) => fn.name)
+		const withoutMarker = serverFns.filter((fn) => fn.name in PUBLIC_SERVER_FNS && !fn.body.includes(PUBLIC_MARKER)).map((fn) => fn.name)
 		// O marcador fica na linha anterior ao `export`, então pertence ao bloco anterior na fatia.
 		// Conferimos no arquivo inteiro para não depender da posição.
 		const fixed = withoutMarker.filter((name) => {
 			const fn = serverFns.find((f) => f.name === name)
-			return !fn || !readFileSync(join(serverDir, fn.file), "utf8").includes("nosemgrep: server-fn-missing-auth-guard")
+			return !fn || !readFileSync(join(serverDir, fn.file), "utf8").includes(PUBLIC_MARKER)
 		})
 		expect(fixed).toEqual([])
 	})

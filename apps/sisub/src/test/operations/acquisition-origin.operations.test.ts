@@ -88,8 +88,8 @@ describeIf("contratação de origem, NE com itens e OF por valor (DB)", () => {
 
 				// OF pelo valor: 500 + 400 = 900 de 1.150.
 				const [of] = await tx`
-					insert into procurement.supply_order (empenho_id, kitchen_id, sent_at, expected_delivery, status)
-					values (${ne.id}, ${kitchen.id}, '2026-09-02', '2026-09-10', 'sent') returning id`
+					insert into procurement.supply_order (empenho_id, location_id, sent_at, expected_delivery, status)
+					values (${ne.id}, inventory.kitchen_location(${kitchen.id}), '2026-09-02', '2026-09-10', 'sent') returning id`
 				await tx`insert into procurement.supply_order_item (supply_order_id, arp_item_id, ordered_qty) values (${of.id}, ${byNumber.get(3) as string}, 50)`
 				await tx`insert into procurement.supply_order_item (supply_order_id, arp_item_id, ordered_qty) values (${of.id}, ${byNumber.get(2) as string}, 50)`
 				// + 60 × 5 = 300 → 1.200 > 1.150
@@ -106,8 +106,8 @@ describeIf("contratação de origem, NE com itens e OF por valor (DB)", () => {
 
 				// OF aguardando empenho: a emergência acontece.
 				const [waiting] = await tx`
-					insert into procurement.supply_order (empenho_id, kitchen_id, sent_at, expected_delivery, status)
-					values (null, ${kitchen.id}, '2026-09-04', '2026-09-05', 'sent') returning id`
+					insert into procurement.supply_order (empenho_id, location_id, sent_at, expected_delivery, status)
+					values (null, inventory.kitchen_location(${kitchen.id}), '2026-09-04', '2026-09-05', 'sent') returning id`
 				await tx`insert into procurement.supply_order_item (supply_order_id, ordered_qty, unit_price) values (${waiting.id}, 10, 20)`
 
 				// Registro rápido da NE (só cabeçalho) e vínculo depois: o teto confere no vínculo.
@@ -123,8 +123,8 @@ describeIf("contratação de origem, NE com itens e OF por valor (DB)", () => {
 				const [cancelled] = await tx`
 					insert into finance.empenho (unit_id, numero_empenho, data_empenho, valor_total, status) values (${unit.id}, '2026NE000300', '2026-09-04', 500, 'anulado') returning id`
 				const [of2] = await tx`
-					insert into procurement.supply_order (empenho_id, kitchen_id, sent_at, expected_delivery, status)
-					values (${cancelled.id}, ${kitchen.id}, '2026-09-04', '2026-09-05', 'sent') returning id`
+					insert into procurement.supply_order (empenho_id, location_id, sent_at, expected_delivery, status)
+					values (${cancelled.id}, inventory.kitchen_location(${kitchen.id}), '2026-09-04', '2026-09-05', 'sent') returning id`
 				await expect(
 					tx.savepoint((sp) => sp`insert into procurement.supply_order_item (supply_order_id, ordered_qty, unit_price) values (${of2.id}, 1, 1)`)
 				).rejects.toThrow(/anulado/)
@@ -146,8 +146,8 @@ describeIf("contratação de origem, NE com itens e OF por valor (DB)", () => {
 				const [ne] =
 					await tx`insert into finance.empenho (unit_id, numero_empenho, data_empenho, valor_total) values (${unit.id}, '2026NE000950', '2026-09-01', 1000) returning id`
 				const [of] = await tx`
-					insert into procurement.supply_order (empenho_id, kitchen_id, sent_at, expected_delivery, status)
-					values (${ne.id}, ${kitchen.id}, '2026-09-02', '2026-09-10', 'sent') returning id`
+					insert into procurement.supply_order (empenho_id, location_id, sent_at, expected_delivery, status)
+					values (${ne.id}, inventory.kitchen_location(${kitchen.id}), '2026-09-02', '2026-09-10', 'sent') returning id`
 				await tx`insert into procurement.supply_order_item (supply_order_id, ordered_qty, unit_price) values (${of.id}, 10, 60)`
 
 				// 1.000 − 500 = 500 < 600 pedidos → recusa com a instrução

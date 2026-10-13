@@ -40,7 +40,7 @@ O SISPROV SHALL gerir grants de `storage`, `sisprov-planning` e `sisprov-admin` 
 
 #### Scenario: Grant de cozinha visto no SISPROV
 - **WHEN** o administrador do SISPROV abre um usuário com `storage` escopado a uma cozinha
-- **THEN** a linha aparece com o nome da cozinha e sem o botão de revogar, que fica com a tela do sisub
+- **THEN** a linha aparece identificada como da cozinha e sem o botão de revogar, que fica com a tela do sisub; a revogação pelo servidor também é recusada
 
 #### Scenario: Auto-revogação da administração
 - **WHEN** o último administrador tenta revogar o próprio `sisprov-admin` nível 3

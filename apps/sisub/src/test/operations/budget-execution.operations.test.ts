@@ -86,10 +86,10 @@ describeIf("budget execution chain (DB)", () => {
 					// termo do art. 140 não muda depois de assinado), e a ordem inversa
 					// só funcionava porque essa trava não existia.
 					const [receipt] = await tx`
-						insert into inventory.goods_receipt (kitchen_id, empenho_id, status)
-						values (${kitchenRow.id}, ${empenho.id}, 'provisional') returning id`
+						insert into inventory.goods_receipt (location_id, empenho_id, status)
+						values (inventory.kitchen_location(${kitchenRow.id}), ${empenho.id}, 'provisional') returning id`
 					await tx`
-						insert into inventory.goods_receipt_item (receipt_id, ingredient_id, invoiced_qty_base, received_qty_base, unit_cost)
+						insert into inventory.goods_receipt_item (receipt_id, item_id, invoiced_qty_base, received_qty_base, unit_cost)
 						values (${receipt.id}, ${ingredient.id}, 100, 96, 100)`
 					await tx`update inventory.goods_receipt set status = 'definitive', definitive_at = now() where id = ${receipt.id}`
 
@@ -235,10 +235,10 @@ describeIf("budget execution chain (DB)", () => {
 					// ── (F2) recebimento: 96 × R$ 100 = R$ 9.600 ────────────────────
 					const [ingredient] = await tx`insert into kitchen.ingredient (description, measure_unit) values ('ARROZ CMP', 'KG') returning id`
 					const [receipt] = await tx`
-						insert into inventory.goods_receipt (kitchen_id, empenho_id, status)
-						values (${kitchenRow.id}, ${empenho.id}, 'provisional') returning id`
+						insert into inventory.goods_receipt (location_id, empenho_id, status)
+						values (inventory.kitchen_location(${kitchenRow.id}), ${empenho.id}, 'provisional') returning id`
 					await tx`
-						insert into inventory.goods_receipt_item (receipt_id, ingredient_id, invoiced_qty_base, received_qty_base, unit_cost)
+						insert into inventory.goods_receipt_item (receipt_id, item_id, invoiced_qty_base, received_qty_base, unit_cost)
 						values (${receipt.id}, ${ingredient.id}, 100, 96, 100)`
 					await tx`update inventory.goods_receipt set status = 'definitive', definitive_at = now() where id = ${receipt.id}`
 

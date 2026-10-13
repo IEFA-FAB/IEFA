@@ -310,15 +310,17 @@ describeIf("execução do dia no estoque (DB)", () => {
 	async function kitchenWithRice(tx: postgres.TransactionSql, tag: string) {
 		const [unit] = await tx`insert into core.units (code, display_name) values (${`ZZTEST-ENB-${tag}`}, 'unit teste execução') returning id`
 		const [kitchenRow] = await tx`insert into core.kitchen (unit_id, display_name) values (${unit.id}, 'cozinha execução') returning id`
+		// o estoque é do local de estoque; o da cozinha nasce por trigger
+		const [location] = await tx`select inventory.kitchen_location(${kitchenRow.id}) as id`
 		const [arroz] = await tx`insert into kitchen.ingredient (description, measure_unit) values (${`ARROZ TESTE ENB ${tag}`}, 'KG') returning id`
 		const [lot] = await tx`
-			insert into inventory.stock_lot (kitchen_id, ingredient_id, lot_code, received_at)
-			values (${kitchenRow.id}, ${arroz.id}, ${`L-ENB-${tag}`}, now() - interval '20 days') returning id`
+			insert into inventory.stock_lot (location_id, item_id, lot_code, received_at)
+			values (${location.id}, ${arroz.id}, ${`L-ENB-${tag}`}, now() - interval '20 days') returning id`
 		await tx`
-			insert into inventory.stock_movement (kitchen_id, ingredient_id, lot_id, type, quantity, unit_cost)
-			values (${kitchenRow.id}, ${arroz.id}, ${lot.id}, 'receipt', 100, 10)`
+			insert into inventory.stock_movement (location_id, item_id, lot_id, type, quantity, unit_cost)
+			values (${location.id}, ${arroz.id}, ${lot.id}, 'receipt', 100, 10)`
 		const [user] = await tx`select id from auth.users limit 1`
-		return { kitchenId: Number(kitchenRow.id), ingredientId: String(arroz.id), lotId: String(lot.id), userId: String(user.id) }
+		return { kitchenId: Number(kitchenRow.id), locationId: Number(location.id), ingredientId: String(arroz.id), lotId: String(lot.id), userId: String(user.id) }
 	}
 
 	/**
@@ -334,34 +336,35 @@ describeIf("execução do dia no estoque (DB)", () => {
 					for (const [index, c] of ISSUE_VARIANCE_CONTRACT_CASES.entries()) {
 						const [unit] = await tx`insert into core.units (code, display_name) values (${`ZZTEST-ENB-TOL-${index}`}, 'unit contrato tolerância') returning id`
 						const [kitchenRow] = await tx`insert into core.kitchen (unit_id, display_name) values (${unit.id}, 'cozinha contrato tolerância') returning id`
+						const [location] = await tx`select inventory.kitchen_location(${kitchenRow.id}) as id`
 						const [ingredient] = await tx`insert into kitchen.ingredient (description, measure_unit) values (${`INSUMO CONTRATO ${index}`}, 'KG') returning id`
 						if (c.settings) {
 							await tx`
-								insert into inventory.kitchen_stock_settings (kitchen_id, issue_tolerance_pct, issue_tolerance_floor_value)
-								values (${kitchenRow.id}, ${c.settings.tolerancePct}, ${c.settings.toleranceFloorValue})`
+								insert into inventory.stock_location_settings (location_id, issue_tolerance_pct, issue_tolerance_floor_value)
+								values (${location.id}, ${c.settings.tolerancePct}, ${c.settings.toleranceFloorValue})`
 						}
-						// custo médio da cozinha: é o que vale quando nada saiu
+						// custo médio do local de estoque da cozinha: é o que vale quando nada saiu
 						await tx`
-							insert into inventory.stock_cost (kitchen_id, ingredient_id, avg_unit_cost)
-							values (${kitchenRow.id}, ${ingredient.id}, ${c.unitCost ?? 0})`
+							insert into inventory.stock_cost (location_id, item_id, avg_unit_cost)
+							values (${location.id}, ${ingredient.id}, ${c.unitCost ?? 0})`
 						const [request] = await tx`
-							insert into inventory.stock_issue_request (kitchen_id, issue_date, origin, created_by)
-							values (${kitchenRow.id}, ${brDay(tx, 2)}, 'production', ${user.id}) returning id`
+							insert into inventory.stock_issue_request (location_id, issue_date, origin, created_by)
+							values (${location.id}, ${brDay(tx, 2)}, 'production', ${user.id}) returning id`
 						await tx`
-							insert into inventory.stock_issue_request_item (request_id, ingredient_id, suggested_qty, variance_reason)
+							insert into inventory.stock_issue_request_item (request_id, item_id, suggested_qty, variance_reason)
 							values (${request.id}, ${ingredient.id}, ${c.suggestedQty}, ${c.reason ?? null})`
 						if (c.issuedQty > 0) {
 							await tx`
-								insert into inventory.stock_movement (kitchen_id, ingredient_id, type, quantity, unit_cost, issue_request_id)
-								values (${kitchenRow.id}, ${ingredient.id}, 'production_issue', ${c.issuedQty}, ${c.unitCost}, ${request.id})`
+								insert into inventory.stock_movement (location_id, item_id, type, quantity, unit_cost, issue_request_id)
+								values (${location.id}, ${ingredient.id}, 'production_issue', ${c.issuedQty}, ${c.unitCost}, ${request.id})`
 						}
 						if (c.returnedQty) {
 							await tx`
-								insert into inventory.stock_movement (kitchen_id, ingredient_id, type, quantity, unit_cost, issue_request_id)
-								values (${kitchenRow.id}, ${ingredient.id}, 'issue_return', ${c.returnedQty}, ${c.unitCost}, ${request.id})`
+								insert into inventory.stock_movement (location_id, item_id, type, quantity, unit_cost, issue_request_id)
+								values (${location.id}, ${ingredient.id}, 'issue_return', ${c.returnedQty}, ${c.unitCost}, ${request.id})`
 						}
 
-						await tx`select inventory.close_stale_issue_requests(${kitchenRow.id})`
+						await tx`select inventory.close_stale_issue_requests(${location.id})`
 						const [closed] = await tx`select status from inventory.stock_issue_request where id = ${request.id}`
 						expect({ caso: c.name, status: closed.status }).toEqual({ caso: c.name, status: c.pending ? "closed_unexplained" : "closed" })
 					}
@@ -377,31 +380,31 @@ describeIf("execução do dia no estoque (DB)", () => {
 		await expect(
 			sql
 				.begin(async (tx) => {
-					const { kitchenId, ingredientId, userId } = await kitchenWithRice(tx, "CLOSE")
+					const { locationId, ingredientId, userId } = await kitchenWithRice(tx, "CLOSE")
 					// sugeriu 10 KG, nada saiu: 100 % e R$ 100 — pede motivo
 					const [semMotivo] = await tx`
-							insert into inventory.stock_issue_request (kitchen_id, issue_date, origin, created_by)
-							values (${kitchenId}, ${brDay(tx, 2)}, 'production', ${userId}) returning id`
-					await tx`insert into inventory.stock_issue_request_item (request_id, ingredient_id, suggested_qty) values (${semMotivo.id}, ${ingredientId}, 10)`
+							insert into inventory.stock_issue_request (location_id, issue_date, origin, created_by)
+							values (${locationId}, ${brDay(tx, 2)}, 'production', ${userId}) returning id`
+					await tx`insert into inventory.stock_issue_request_item (request_id, item_id, suggested_qty) values (${semMotivo.id}, ${ingredientId}, 10)`
 					// sem sugestão: nada a justificar
 					const [semSugestao] = await tx`
-							insert into inventory.stock_issue_request (kitchen_id, issue_date, origin, created_by)
-							values (${kitchenId}, ${brDay(tx, 3)}, 'production', ${userId}) returning id`
+							insert into inventory.stock_issue_request (location_id, issue_date, origin, created_by)
+							values (${locationId}, ${brDay(tx, 3)}, 'production', ${userId}) returning id`
 					// hoje: continua aberto
 					const [hoje] = await tx`
-							insert into inventory.stock_issue_request (kitchen_id, issue_date, origin, created_by)
-							values (${kitchenId}, ${brDay(tx, 0)}, 'production', ${userId}) returning id`
+							insert into inventory.stock_issue_request (location_id, issue_date, origin, created_by)
+							values (${locationId}, ${brDay(tx, 0)}, 'production', ${userId}) returning id`
 
-					const [closed] = await tx`select inventory.close_stale_issue_requests(${kitchenId}) as n`
+					const [closed] = await tx`select inventory.close_stale_issue_requests(${locationId}) as n`
 					expect(Number(closed.n)).toBe(2)
-					const rows = await tx`select id, status, auto_closed_at from inventory.stock_issue_request where kitchen_id = ${kitchenId}`
+					const rows = await tx`select id, status, auto_closed_at from inventory.stock_issue_request where location_id = ${locationId}`
 					const byId = new Map(rows.map((r) => [r.id, r]))
 					expect(byId.get(semMotivo.id)?.status).toBe("closed_unexplained")
 					expect(byId.get(semMotivo.id)?.auto_closed_at).not.toBeNull()
 					expect(byId.get(semSugestao.id)?.status).toBe("closed")
 					expect(byId.get(hoje.id)?.status).toBe("open")
 					// idempotente: a segunda rodada não fecha nada
-					const [again] = await tx`select inventory.close_stale_issue_requests(${kitchenId}) as n`
+					const [again] = await tx`select inventory.close_stale_issue_requests(${locationId}) as n`
 					expect(Number(again.n)).toBe(0)
 					// e o job está agendado na migration
 					const [job] = await tx`select count(*)::int as n from cron.job where jobname = 'inventory-close-stale-issue-days'`
@@ -418,13 +421,13 @@ describeIf("execução do dia no estoque (DB)", () => {
 		await expect(
 			sql
 				.begin(async (tx) => {
-					const { kitchenId, ingredientId, lotId, userId } = await kitchenWithRice(tx, "LATE")
+					const { locationId, ingredientId, lotId, userId } = await kitchenWithRice(tx, "LATE")
 					const [dayRequest] = await tx`
-							insert into inventory.stock_issue_request (kitchen_id, issue_date, origin, status, closed_at, created_by)
-							values (${kitchenId}, ${brDay(tx, 2)}, 'production', 'closed', now(), ${userId}) returning id`
+							insert into inventory.stock_issue_request (location_id, issue_date, origin, status, closed_at, created_by)
+							values (${locationId}, ${brDay(tx, 2)}, 'production', 'closed', now(), ${userId}) returning id`
 
 					const [late] = await tx`
-							select * from inventory.register_late_issue(${kitchenId}, ${ingredientId}, 5, ${brDay(tx, 2)}, '[TEST] saiu sem requisição', ${userId}, 'enb-late-0001')`
+							select * from inventory.register_late_issue(${locationId}, ${ingredientId}, 5, ${brDay(tx, 2)}, '[TEST] saiu sem requisição', ${userId}, 'enb-late-0001')`
 					expect(Number(late.movements)).toBe(1)
 					expect(late.request_id).toBe(dayRequest.id) // ligada ao DIA, mesmo fechado
 					const [move] = await tx`
@@ -434,25 +437,25 @@ describeIf("execução do dia no estoque (DB)", () => {
 					expect(move.justification).toMatch(/Lançamento tardio.*saiu sem requisição/)
 					expect(move.lot_id).toBe(lotId)
 					// retry da mesma emissão não saca de novo
-					await tx`select * from inventory.register_late_issue(${kitchenId}, ${ingredientId}, 5, ${brDay(tx, 2)}, '[TEST] saiu sem requisição', ${userId}, 'enb-late-0001')`
+					await tx`select * from inventory.register_late_issue(${locationId}, ${ingredientId}, 5, ${brDay(tx, 2)}, '[TEST] saiu sem requisição', ${userId}, 'enb-late-0001')`
 					const [count] = await tx`select count(*)::int as n from inventory.stock_movement where emission_id = 'enb-late-0001'`
 					expect(count.n).toBe(1)
 
 					// sem motivo
 					await expect(
 						tx.savepoint(
-							(sp) => sp`select * from inventory.register_late_issue(${kitchenId}, ${ingredientId}, 1, ${brDay(tx, 2)}, '   ', ${userId}, 'enb-late-0002')`
+							(sp) => sp`select * from inventory.register_late_issue(${locationId}, ${ingredientId}, 1, ${brDay(tx, 2)}, '   ', ${userId}, 'enb-late-0002')`
 						)
 					).rejects.toThrow(/exige o motivo/)
 
 					// competência fechada é imprescindível
 					await tx`
-							insert into inventory.monthly_closing (kitchen_id, competencia, balance_snapshot, closed_by)
-							values (${kitchenId}, date_trunc('month', ${brDay(tx, 70)})::date, '[]'::jsonb, ${userId})`
+							insert into inventory.monthly_closing (location_id, competencia, balance_snapshot, closed_by)
+							values (${locationId}, date_trunc('month', ${brDay(tx, 70)})::date, '[]'::jsonb, ${userId})`
 					await expect(
 						tx.savepoint(
 							(sp) =>
-								sp`select * from inventory.register_late_issue(${kitchenId}, ${ingredientId}, 1, ${brDay(tx, 70)}, '[TEST] mês fechado', ${userId}, 'enb-late-0003')`
+								sp`select * from inventory.register_late_issue(${locationId}, ${ingredientId}, 1, ${brDay(tx, 70)}, '[TEST] mês fechado', ${userId}, 'enb-late-0003')`
 						)
 					).rejects.toThrow(/competência .* já foi fechada/)
 
@@ -464,7 +467,7 @@ describeIf("execução do dia no estoque (DB)", () => {
 					// a segunda baixa indevida. Só a abertura é recuada (07h do dia 5): o lançamento não pode ser
 					// anterior a ela, e não há caminho para abrir uma contagem no passado.
 					const [opened] = await tx`
-							select * from inventory.open_inventory_count(${kitchenId}, 'eventual', 'full', '{}'::jsonb, true, null, ${userId})`
+							select * from inventory.open_inventory_count(${locationId}, 'eventual', 'full', '{}'::jsonb, true, null, ${userId})`
 					await tx`
 							update inventory.inventory_count set created_at = (${brDay(tx, 5)} + time '07:00') at time zone 'America/Sao_Paulo'
 							where id = ${opened.count_id}`
@@ -480,27 +483,27 @@ describeIf("execução do dia no estoque (DB)", () => {
 					await expect(
 						tx.savepoint(
 							(sp) =>
-								sp`select * from inventory.register_late_issue(${kitchenId}, ${ingredientId}, 1, ${brDay(tx, 5)}, '[TEST] mesmo dia da contagem', ${userId}, 'enb-late-0004')`
+								sp`select * from inventory.register_late_issue(${locationId}, ${ingredientId}, 1, ${brDay(tx, 5)}, '[TEST] mesmo dia da contagem', ${userId}, 'enb-late-0004')`
 						)
 					).rejects.toThrow(/baixaria duas vezes/)
 					// dia anterior à contagem: também recusa (a contagem viu a prateleira depois)
 					await expect(
 						tx.savepoint(
 							(sp) =>
-								sp`select * from inventory.register_late_issue(${kitchenId}, ${ingredientId}, 1, ${brDay(tx, 6)}, '[TEST] antes da contagem', ${userId}, 'enb-late-0005')`
+								sp`select * from inventory.register_late_issue(${locationId}, ${ingredientId}, 1, ${brDay(tx, 6)}, '[TEST] antes da contagem', ${userId}, 'enb-late-0005')`
 						)
 					).rejects.toThrow(/baixaria duas vezes/)
 					// dia DEPOIS da contagem: a contagem não viu esta saída, passa
 					const [after] = await tx`
-							select * from inventory.register_late_issue(${kitchenId}, ${ingredientId}, 1, ${brDay(tx, 4)}, '[TEST] depois da contagem', ${userId}, 'enb-late-0006')`
+							select * from inventory.register_late_issue(${locationId}, ${ingredientId}, 1, ${brDay(tx, 4)}, '[TEST] depois da contagem', ${userId}, 'enb-late-0006')`
 					expect(Number(after.movements)).toBeGreaterThan(0)
 
 					// o retroativo continua recusado fora da saída tardia
 					await expect(
 						tx.savepoint(
 							(sp) => sp`
-									insert into inventory.stock_movement (kitchen_id, ingredient_id, lot_id, type, quantity, occurred_at, justification)
-									values (${kitchenId}, ${ingredientId}, ${lotId}, 'production_issue', 1, now() - interval '3 days', 'retroativo solto')`
+									insert into inventory.stock_movement (location_id, item_id, lot_id, type, quantity, occurred_at, justification)
+									values (${locationId}, ${ingredientId}, ${lotId}, 'production_issue', 1, now() - interval '3 days', 'retroativo solto')`
 						)
 					).rejects.toThrow(/retroativo só dentro do mesmo dia/)
 					throw new Rollback()
@@ -521,12 +524,12 @@ describeIf("execução do dia no estoque (DB)", () => {
 			await expect(
 				sql
 					.begin(async (tx) => {
-						const { kitchenId, ingredientId, userId } = await kitchenWithRice(tx, "RACE")
-						await tx`select * from inventory.register_late_issue(${kitchenId}, ${ingredientId}, 2, ${brDay(tx, 2)}, '[TEST] primeira', ${userId}, 'enb-race-0001')`
+						const { locationId, ingredientId, userId } = await kitchenWithRice(tx, "RACE")
+						await tx`select * from inventory.register_late_issue(${locationId}, ${ingredientId}, 2, ${brDay(tx, 2)}, '[TEST] primeira', ${userId}, 'enb-race-0001')`
 						const retry = await other
 							.begin(async (tx2) => {
 								await tx2`set local lock_timeout = '1s'`
-								await tx2`select * from inventory.register_late_issue(${kitchenId}, ${ingredientId}, 2, ${brDay(tx2, 2)}, '[TEST] primeira', ${userId}, 'enb-race-0001')`
+								await tx2`select * from inventory.register_late_issue(${locationId}, ${ingredientId}, 2, ${brDay(tx2, 2)}, '[TEST] primeira', ${userId}, 'enb-race-0001')`
 								return "inseriu"
 							})
 							.catch((e: { code?: string }) => e.code ?? "erro")
@@ -548,7 +551,7 @@ describeIf("execução do dia no estoque (DB)", () => {
 		await expect(
 			sql
 				.begin(async (tx) => {
-					const { kitchenId, ingredientId } = await kitchenWithRice(tx, "CNT")
+					const { kitchenId, locationId, ingredientId } = await kitchenWithRice(tx, "CNT")
 					const users = await tx`select id from auth.users limit 2`
 					expect(users.length).toBe(2)
 					const [autor, outro] = users as unknown as Array<{ id: string }>
@@ -558,7 +561,7 @@ describeIf("execução do dia no estoque (DB)", () => {
 							insert into kitchen.production_task (kitchen_id, menu_item_id, production_date, status)
 							values (${kitchenId}, ${prato.id}, ${brDay(tx, 0)}, 'DONE') returning id`
 					const [contagem] = await tx`
-							insert into inventory.inventory_count (kitchen_id, status, created_by) values (${kitchenId}, 'review', ${autor?.id}) returning id`
+							insert into inventory.inventory_count (location_id, status, created_by) values (${locationId}, 'review', ${autor?.id}) returning id`
 
 					// um SEGUNDO dia pendente: a ressalva registra os dois, não só o primeiro
 					const [prato2] = await tx`insert into kitchen.menu_items default values returning id`
@@ -579,8 +582,8 @@ describeIf("execução do dia no estoque (DB)", () => {
 
 					// a saída TARDIA de um insumo ligada à tarefa não é a baixa dela: segue pendente
 					await tx`
-							insert into inventory.stock_movement (kitchen_id, ingredient_id, type, quantity, production_task_id, is_late_issue, justification)
-							values (${kitchenId}, ${ingredientId}, 'production_issue', 1, ${task.id}, true, 'Lançamento tardio: [TEST] óleo')`
+							insert into inventory.stock_movement (location_id, item_id, type, quantity, production_task_id, is_late_issue, justification)
+							values (${locationId}, ${ingredientId}, 'production_issue', 1, ${task.id}, true, 'Lançamento tardio: [TEST] óleo')`
 					const stillPending = await tx
 						.savepoint((sp) => sp`select * from inventory.approve_inventory_count(${contagem.id}, ${outro?.id}, null)`)
 						.then(
@@ -593,7 +596,7 @@ describeIf("execução do dia no estoque (DB)", () => {
 					await tx
 						.savepoint(async (sp) => {
 							await sp`select * from inventory.register_production_issue(${task.id},
-								${sp.json([{ kitchen_id: kitchenId, ingredient_id: ingredientId, quantity: 1, override_lot_id: null, justification: null }])}, ${autor?.id})`
+								${sp.json([{ location_id: locationId, item_id: ingredientId, quantity: 1, override_lot_id: null, justification: null }])}, ${autor?.id})`
 							throw new Undo()
 						})
 						.catch((e) => {
@@ -621,13 +624,13 @@ describeIf("execução do dia no estoque (DB)", () => {
 
 					// o segundo dia baixado pela produção; o primeiro também: não trava mais
 					await tx`
-							insert into inventory.stock_movement (kitchen_id, ingredient_id, type, quantity, production_task_id)
-							select ${kitchenId}, ${ingredientId}, 'production_issue', 1, t.id from kitchen.production_task t where t.menu_item_id = ${prato2.id}`
+							insert into inventory.stock_movement (location_id, item_id, type, quantity, production_task_id)
+							select ${locationId}, ${ingredientId}, 'production_issue', 1, t.id from kitchen.production_task t where t.menu_item_id = ${prato2.id}`
 
 					// baixada pela "Baixa por Produção": não trava mais
 					await tx`
-							insert into inventory.stock_movement (kitchen_id, ingredient_id, type, quantity, production_task_id)
-							values (${kitchenId}, ${ingredientId}, 'production_issue', 1, ${task.id})`
+							insert into inventory.stock_movement (location_id, item_id, type, quantity, production_task_id)
+							values (${locationId}, ${ingredientId}, 'production_issue', 1, ${task.id})`
 					await tx`select * from inventory.approve_inventory_count(${contagem.id}, ${outro?.id}, null)`
 					const [approved] = await tx`select status, pending_production_waiver from inventory.inventory_count where id = ${contagem.id}`
 					expect(approved.status).toBe("approved")
@@ -644,7 +647,7 @@ describeIf("execução do dia no estoque (DB)", () => {
 		await expect(
 			sql
 				.begin(async (tx) => {
-					const { kitchenId, userId } = await kitchenWithRice(tx, "LEFT")
+					const { kitchenId, locationId, userId } = await kitchenWithRice(tx, "LEFT")
 					const [prato] = await tx`insert into kitchen.menu_items default values returning id`
 					const [task] = await tx`
 							insert into kitchen.production_task (kitchen_id, menu_item_id, production_date, status)
@@ -652,7 +655,7 @@ describeIf("execução do dia no estoque (DB)", () => {
 					const name = `[TEST] Estrogonofe ${Date.now()}`
 
 					const [first] = await tx`
-							select * from inventory.register_leftover_provisional(${kitchenId}, ${name}, 'KG', 3, 'SOBRA-T', ${brDay(tx, 0)}, 4, ${task.id}, false, null, ${userId})`
+							select * from inventory.register_leftover_provisional(${locationId}, ${name}, 'KG', 3, 'SOBRA-T', ${brDay(tx, 0)}, 4, ${task.id}, false, null, ${userId})`
 					const [prep] = await tx`
 							select provisional_kitchen_id, provisional_since, provisional_reviewed_at, shelf_life_days
 							from kitchen.frozen_preparation where id = ${first.frozen_preparation_id}`
@@ -668,7 +671,7 @@ describeIf("execução do dia no estoque (DB)", () => {
 							insert into kitchen.production_task (kitchen_id, menu_item_id, production_date, status)
 							values (${kitchenId}, ${prato2.id}, ${brDay(tx, 0)}, 'DONE') returning id`
 					const [second] = await tx`
-							select * from inventory.register_leftover_provisional(${kitchenId}, ${name.toLowerCase()}, 'KG', 3, 'SOBRA-T2', ${brDay(tx, 0)}, 2, ${task2.id}, false, null, ${userId})`
+							select * from inventory.register_leftover_provisional(${locationId}, ${name.toLowerCase()}, 'KG', 3, 'SOBRA-T2', ${brDay(tx, 0)}, 2, ${task2.id}, false, null, ${userId})`
 					expect(second.frozen_preparation_id).toBe(first.frozen_preparation_id)
 
 					// preparação provisória recusada no cardápio-modelo pelo gatilho

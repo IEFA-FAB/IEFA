@@ -37,7 +37,7 @@ import { currentFiscalYear } from "@/lib/expense-execution"
 import { purchaseUnitIdOfKitchen } from "@/lib/kitchen-purchase-unit.server"
 import { readAllPages, readAllPagesIn } from "@/lib/read-all-pages"
 import { checkSupplierSicaf } from "@/lib/sicaf.server"
-import { requireStorageForKitchen } from "@/lib/storage-auth.server"
+import { requireStockForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 
 /** Linha de `acquisition` pela costura frouxa de `loadUnitExecution`; colunas em `loadDispensaRoomByClass`. */
@@ -162,7 +162,7 @@ export interface ReplenishmentSuggestion {
 export const fetchReplenishmentSuggestionsFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive(), horizonDays: z.number().int().min(1).max(60).default(14) }))
 	.handler(async ({ data }): Promise<ReplenishmentSuggestion[]> => {
-		const ctx = await requireStorageForKitchen(1, data.kitchenId)
+		const { ctx, location } = await requireStockForKitchen(1, data.kitchenId)
 		// a sugestão é demanda − saldo: com o item em contagem cega, ela revela o saldo
 		await assertNoBlindCountHides(data.kitchenId, ctx, "A reposição")
 		const inv = inventory()
@@ -193,12 +193,11 @@ export const fetchReplenishmentSuggestionsFn = createServerFn({ method: "GET" })
 			readAllPagesIn("o saldo dos insumos", ingredientIds, (chunk, from, to) =>
 				inv
 					.from("v_stock_balance")
-					.select("ingredient_id, frozen_preparation_id, lot_id, balance, expiry_date")
-					.eq("kitchen_id", data.kitchenId)
-					.in("ingredient_id", chunk)
+					.select("item_id, lot_id, balance, expiry_date")
+					.eq("location_id", location.id)
+					.in("item_id", chunk)
 					.gt("balance", 0)
-					.order("ingredient_id")
-					.order("frozen_preparation_id")
+					.order("item_id")
 					.order("lot_id")
 					.range(from, to)
 			),
@@ -207,7 +206,7 @@ export const fetchReplenishmentSuggestionsFn = createServerFn({ method: "GET" })
 				proc
 					.from("supply_order")
 					.select("id, supply_order_item (purchase_item_id, ordered_qty)")
-					.eq("kitchen_id", data.kitchenId)
+					.eq("location_id", location.id)
 					.in("status", ["sent", "partially_received"])
 					.order("id")
 					.range(from, to)
@@ -223,7 +222,7 @@ export const fetchReplenishmentSuggestionsFn = createServerFn({ method: "GET" })
 			),
 			// (6) política
 			readAllPagesIn("as políticas de estoque", ingredientIds, (chunk, from, to) =>
-				inv.from("stock_policy").select("*").eq("kitchen_id", data.kitchenId).in("ingredient_id", chunk).order("id").range(from, to)
+				inv.from("stock_policy").select("*").eq("location_id", location.id).in("item_id", chunk).order("id").range(from, to)
 			),
 			purchaseUnitIdOfKitchen(data.kitchenId),
 		])
@@ -231,13 +230,13 @@ export const fetchReplenishmentSuggestionsFn = createServerFn({ method: "GET" })
 		const factorsById = new Map(ingredients.map((i) => [i.id, i]))
 		const stockById = new Map<string, { available: number; expiring: number }>()
 		for (const row of balances) {
-			if (row.ingredient_id == null) continue // filtrado no `.in()`; coluna de view sai nulável
-			const entry = stockById.get(row.ingredient_id) ?? { available: 0, expiring: 0 }
+			if (row.item_id == null) continue // filtrado no `.in()`; coluna de view sai nulável
+			const entry = stockById.get(row.item_id) ?? { available: 0, expiring: 0 }
 			const qty = Number(row.balance)
 			if (qty <= 0) continue
 			if (row.expiry_date != null && row.expiry_date <= horizonEnd) entry.expiring += qty
 			else entry.available += qty
-			stockById.set(row.ingredient_id, entry)
+			stockById.set(row.item_id, entry)
 		}
 		const purchaseQty = new Map<string, number>()
 		for (const order of transitOrders) {
@@ -259,7 +258,7 @@ export const fetchReplenishmentSuggestionsFn = createServerFn({ method: "GET" })
 				conversionFactor: Number(link.conversion_factor ?? 1) || 1,
 			})
 		}
-		const policyById = new Map(policies.map((p) => [p.ingredient_id, p]))
+		const policyById = new Map(policies.map((p) => [p.item_id, p]))
 
 		const [receiptItems, transitLinks, arpItems, leadTimes, classByCatmat] = await Promise.all([
 			// OF parcialmente recebida: o que já entrou em definitivo sai do trânsito
@@ -273,7 +272,7 @@ export const fetchReplenishmentSuggestionsFn = createServerFn({ method: "GET" })
 				return readAllPagesIn(
 					"os itens recebidos das OFs em trânsito",
 					receipts.map((r) => r.id),
-					(chunk, from, to) => inv.from("goods_receipt_item").select("id, ingredient_id, received_qty_base").in("receipt_id", chunk).order("id").range(from, to)
+					(chunk, from, to) => inv.from("goods_receipt_item").select("id, item_id, received_qty_base").in("receipt_id", chunk).order("id").range(from, to)
 				)
 			})(),
 			// conversão do trânsito por PURCHASE_ITEM da OF — sem exigir is_default
@@ -325,8 +324,8 @@ export const fetchReplenishmentSuggestionsFn = createServerFn({ method: "GET" })
 
 		const receivedByIngredient = new Map<string, number>()
 		for (const item of receiptItems) {
-			if (!item.ingredient_id) continue
-			receivedByIngredient.set(item.ingredient_id, (receivedByIngredient.get(item.ingredient_id) ?? 0) + Number(item.received_qty_base))
+			if (!item.item_id) continue
+			receivedByIngredient.set(item.item_id, (receivedByIngredient.get(item.item_id) ?? 0) + Number(item.received_qty_base))
 		}
 		const transitById = new Map<string, number>()
 		const seen = new Set<string>()

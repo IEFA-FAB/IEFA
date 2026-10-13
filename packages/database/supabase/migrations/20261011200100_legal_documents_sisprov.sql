@@ -7,7 +7,7 @@
 -- timestamp; o `ON CONFLICT DO NOTHING` do fim não tem efeito aqui (as três versões são novas),
 -- e fica pelo padrão dos arquivos anteriores.
 --
--- Motivo: o SISPROV (Sistema de Provisões, fardamento gratuito, Projeto SIA) entra no ar como
+-- Motivo: o SISPROV (Sistema de Provisões, dono do estoque de toda classe) entra no ar como
 -- app novo do monorepo (`openspec/changes/sisprov-foundation`). Pelo LGPD.md, app com dado
 -- pessoal entra na lista de sistemas dos Termos (seção 1) e da Privacidade (seção 2), e as
 -- chaves de armazenamento que ele grava (`theme`, `sidebar_state`, `auth_rate_limit`,
@@ -146,7 +146,7 @@ Esta Política vale para todos os sistemas digitais mantidos pelo IEFA:
 - **Portal IEFA** — portal institucional, acervo e periódico científico;
 - **SUCONT-4** — acompanhamento contábil;
 - **RUMAER** — consulta ao Regulamento de Uniformes da Aeronáutica;
-- **SISPROV** — Sistema de Provisões: previsão de demanda e distribuição de fardamento gratuito. Em implantação: nesta versão, só cadastro de acesso e perfis;
+- **SISPROV** — Sistema de Provisões: estoque de toda classe de suprimento (o da alimentação é operado pelas telas do SISUB) e fardamento gratuito. Em implantação: nesta versão, só cadastro de acesso e perfis;
 - **Formulários IEFA** — questionários e pesquisas internas;
 - **Escolha de Vagas (CPAINT)** — apoio à sessão de escolha de vagas;
 - **Contrate** — copiloto de aquisições do Projeto α: verificação de Estudo Técnico Preliminar e Termo de Referência, fila de conformidade e apoio à condução do pregão;
@@ -492,7 +492,7 @@ This Policy applies to every digital system maintained by IEFA:
 - **IEFA Portal** — institutional portal, repository and scientific journal;
 - **SUCONT-4** — accounting follow-up;
 - **RUMAER** — Brazilian Air Force uniform regulation reference;
-- **SISPROV** — Provisioning System: demand forecasting and distribution of free-issue uniforms. Being rolled out: this version covers access and roles only;
+- **SISPROV** — Provisioning System: stock of every supply class (food stock is operated from the SISUB screens) and free-issue uniforms. Being rolled out: this version covers access and roles only;
 - **IEFA Forms** — internal questionnaires and surveys;
 - **Assignment Selection (CPAINT)** — support for the assignment selection session;
 - **Contrate** — Project α procurement copilot: review of Preliminary Technical Studies and Terms of Reference, compliance queue and support for running the electronic auction;

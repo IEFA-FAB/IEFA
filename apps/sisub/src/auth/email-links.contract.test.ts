@@ -1,6 +1,6 @@
 /**
  * Contrato dos destinos de link de e-mail do Supabase — em TODOS os apps que
- * dividem o projeto (sisub, portal, forms, rumaer, sucont, contrate).
+ * dividem o projeto (sisub, portal, forms, rumaer, sucont, contrate, sisprov).
  *
  * A lista é varrida do disco: app novo com `src/auth/service.ts` entra sozinho nos
  * `targets` e derruba a asserção de conjunto abaixo até ser declarado aqui. Foi o que
@@ -82,12 +82,13 @@ describe("destinos de link de e-mail do Supabase", () => {
 		// Números exatos de propósito: um `>=` frouxo deixa a extração perder um
 		// caminho (basta um comentário crescer entre `redirectTo` e o template) sem
 		// que nada fique vermelho, e aí os casos abaixo testam menos do que parecem.
-		expect(new Set(targets.map((t) => t.app))).toEqual(new Set(["sisub", "portal", "rumaer", "forms", "sucont", "contrate"]))
+		expect(new Set(targets.map((t) => t.app))).toEqual(new Set(["sisub", "portal", "rumaer", "forms", "sucont", "contrate", "sisprov"]))
 		expect(targets.map((t) => `${t.app}${t.path}`).sort()).toEqual([
 			"contrate/auth",
 			"forms/auth",
 			"portal/auth",
 			"rumaer/auth",
+			"sisprov/auth",
 			"sisub/auth",
 			"sisub/auth/reset-password",
 			"sucont/auth",
@@ -111,7 +112,7 @@ describe("destinos de link de e-mail do Supabase", () => {
 	// que veio fazer. Todo guard que reage a "está autenticado" precisa saber
 	// distinguir os dois casos, senão leva o usuário embora do formulário e a
 	// senha antiga continua valendo — falha silenciosa, sem erro em lugar nenhum.
-	test.each(["sisub", "portal", "rumaer"])("%s: o guard de /auth isenta a sessão de recuperação", (app) => {
+	test.each(["sisub", "portal", "rumaer", "sisprov"])("%s: o guard de /auth isenta a sessão de recuperação", (app) => {
 		const source = readFileSync(join(appsDir, app, "src/routes/auth/route.tsx"), "utf8")
 		expect(source, `o beforeLoad de /auth do ${app} redireciona quem chegou por link de recuperação`).toMatch(/isPasswordRecovery\(\)/)
 		expect(source, `o beforeLoad de /auth do ${app} não cobre o primeiro load, antes de qualquer evento`).toMatch(/urlLooksLikeRecovery\(\)/)

@@ -35,7 +35,7 @@ import { z } from "zod"
 import { publicDbMessage } from "@/lib/db-error-message"
 import { purchaseUnitIdOfKitchen } from "@/lib/kitchen-purchase-unit.server"
 import { readAllPages, readAllPagesIn } from "@/lib/read-all-pages"
-import { requireStorageForKitchen } from "@/lib/storage-auth.server"
+import { requireStockForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 
 const inventory = () => getServerClient("inventory")
@@ -101,7 +101,7 @@ export const fetchIncomingFn = createServerFn({ method: "GET" })
 		})
 	)
 	.handler(async ({ data }) => {
-		await requireStorageForKitchen(1, data.kitchenId)
+		const { location } = await requireStockForKitchen(1, data.kitchenId)
 		const inv = inventory()
 		const proc = procurement()
 		const today = getBrasiliaToday()
@@ -115,7 +115,7 @@ export const fetchIncomingFn = createServerFn({ method: "GET" })
 			proc
 				.from("supply_order")
 				.select("id, empenho_id, number, sent_at, expected_delivery, status, notes")
-				.eq("kitchen_id", data.kitchenId)
+				.eq("location_id", location.id)
 				.in("status", ["sent", "partially_received"])
 				.order("id")
 				.range(from, to)
@@ -151,7 +151,7 @@ export const fetchIncomingFn = createServerFn({ method: "GET" })
 				inv
 					.from("goods_receipt")
 					.select("id, supply_order_id, definitive_at")
-					.eq("kitchen_id", data.kitchenId)
+					.eq("location_id", location.id)
 					.in("supply_order_id", chunk)
 					.neq("status", "rejected")
 					.order("id")
@@ -198,16 +198,15 @@ export const fetchIncomingFn = createServerFn({ method: "GET" })
 
 		// ── (b) NF-e sem recebimento efetivado ───────────────────────────────────
 		// Nota da cozinha E nota enviada à UNIDADE compradora que nenhuma cozinha
-		// reivindicou ainda (`kitchen_id` nulo). Estas são justamente as "prestes a
-		// chegar via NF-e": só `kitchen_id` fazia o painel dizer que não há nada
+		// reivindicou ainda (`location_id` nulo). Estas são justamente as "prestes a
+		// chegar via NF-e": só `location_id` fazia o painel dizer que não há nada
 		// pendente quando há.
 		const purchaseUnit = await purchaseUnitIdOfKitchen(data.kitchenId)
-		const scope =
-			purchaseUnit == null ? `kitchen_id.eq.${data.kitchenId}` : `kitchen_id.eq.${data.kitchenId},and(kitchen_id.is.null,unit_id.eq.${purchaseUnit})`
+		const scope = purchaseUnit == null ? `location_id.eq.${location.id}` : `location_id.eq.${location.id},and(location_id.is.null,unit_id.eq.${purchaseUnit})`
 		const noteRows = await readAllPages("as notas", (from, to) =>
 			inv
 				.from("nfe_document")
-				.select("id, access_key, supplier_name, supplier_cnpj, supplier_cpf, issued_at, total_value, status, situation_result, kitchen_id")
+				.select("id, access_key, supplier_name, supplier_cnpj, supplier_cpf, issued_at, total_value, status, situation_result, location_id")
 				.or(scope)
 				// Os estados em que a nota ainda representa algo a chegar ou a resolver.
 				// `received` já virou recebimento; `cancelled` e `refused` não vêm. Não
@@ -229,7 +228,7 @@ export const fetchIncomingFn = createServerFn({ method: "GET" })
 		const noteReceipts = await readAllPagesIn("os recebimentos das notas", noteIds, (chunk, from, to) =>
 			inv
 				.from("goods_receipt")
-				.select("id, nfe_document_id, kitchen_id, definitive_at")
+				.select("id, nfe_document_id, location_id, definitive_at")
 				.in("nfe_document_id", chunk)
 				.neq("status", "rejected")
 				.order("id")
@@ -238,7 +237,7 @@ export const fetchIncomingFn = createServerFn({ method: "GET" })
 		for (const row of noteReceipts) {
 			if (row.nfe_document_id == null) continue // filtrado no `.in()`
 			if (row.definitive_at != null) definitiveByNote.add(row.nfe_document_id)
-			else if (Number(row.kitchen_id) === data.kitchenId) openHereByNote.set(row.nfe_document_id, row.id)
+			else if (Number(row.location_id) === location.id) openHereByNote.set(row.nfe_document_id, row.id)
 			else openElsewhere.add(row.nfe_document_id)
 		}
 		// Itens ainda não casados, para dizer QUANTOS faltam em vez de "resolver".
@@ -274,7 +273,7 @@ export const fetchIncomingFn = createServerFn({ method: "GET" })
 					? "Cancelada na SEFAZ"
 					: openReceiptId
 						? "Recebimento em andamento"
-						: note.kitchen_id == null
+						: note.location_id == null
 							? "Enviada à unidade, ainda sem cozinha"
 							: note.status === "announced"
 								? "Anunciada pela chave, XML não recebido"
@@ -283,7 +282,7 @@ export const fetchIncomingFn = createServerFn({ method: "GET" })
 					? "Não receber — confirme com o fornecedor"
 					: openReceiptId
 						? "Concluir o recebimento"
-						: note.kitchen_id == null
+						: note.location_id == null
 							? "Assumir a nota para esta cozinha"
 							: note.status === "announced"
 								? "Importar o XML da nota"
@@ -293,7 +292,7 @@ export const fetchIncomingFn = createServerFn({ method: "GET" })
 				supplyOrderId: null,
 				nfeDocumentId: note.id,
 				goodsReceiptId: openReceiptId,
-				unclaimedNote: note.kitchen_id == null,
+				unclaimedNote: note.location_id == null,
 			})
 		}
 
@@ -316,7 +315,7 @@ export const fetchIncomingFn = createServerFn({ method: "GET" })
 			inv
 				.from("goods_receipt")
 				.select("id, supply_order_id, status, delivery_note_number, supplier_name, supplier_document, created_at")
-				.eq("kitchen_id", data.kitchenId)
+				.eq("location_id", location.id)
 				.is("nfe_document_id", null)
 				.neq("source", "nfe")
 				.eq("invoice_expected", true)
@@ -379,11 +378,11 @@ export const fetchIncomingFn = createServerFn({ method: "GET" })
 export const suggestNfeLinksFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive(), nfeDocumentId: z.uuid() }))
 	.handler(async ({ data }) => {
-		await requireStorageForKitchen(2, data.kitchenId)
+		const { location } = await requireStockForKitchen(2, data.kitchenId)
 		const inv = inventory()
 		const { data: note, error: noteError } = await inv
 			.from("nfe_document")
-			.select("id, kitchen_id, unit_id, supplier_cnpj, supplier_cpf, total_value")
+			.select("id, location_id, unit_id, supplier_cnpj, supplier_cpf, total_value")
 			.eq("id", data.nfeDocumentId)
 			.maybeSingle()
 		if (noteError) throw new Error(`Erro ao carregar a nota: ${publicDbMessage(noteError)}`)
@@ -394,8 +393,8 @@ export const suggestNfeLinksFn = createServerFn({ method: "GET" })
 		// da cozinha, não do `unit_id` da nota, que é nulo nas notas importadas
 		// antes de a coluna existir — e `.eq("unit_id", null)` nem é filtro válido.
 		const purchaseUnit = await purchaseUnitIdOfKitchen(data.kitchenId)
-		const ownKitchen = note.kitchen_id != null && Number(note.kitchen_id) === data.kitchenId
-		const unclaimedForUnit = note.kitchen_id == null && note.unit_id != null && Number(note.unit_id) === purchaseUnit
+		const ownKitchen = note.location_id != null && Number(note.location_id) === location.id
+		const unclaimedForUnit = note.location_id == null && note.unit_id != null && Number(note.unit_id) === purchaseUnit
 		if (!ownKitchen && !unclaimedForUnit) throw new Error("Nota não pertence a esta cozinha")
 		if (purchaseUnit == null) throw new Error("A cozinha não tem unidade compradora vinculada")
 
@@ -448,7 +447,7 @@ export const suggestNfeLinksFn = createServerFn({ method: "GET" })
 			procurement()
 				.from("supply_order")
 				.select("id, empenho_id, number, expected_delivery, status")
-				.eq("kitchen_id", data.kitchenId)
+				.eq("location_id", location.id)
 				.in("empenho_id", chunk)
 				.order("id")
 				.range(from, to)
@@ -467,7 +466,7 @@ export const suggestNfeLinksFn = createServerFn({ method: "GET" })
 				inv
 					.from("goods_receipt")
 					.select("id, delivery_note_number, created_at, status, supply_order_id")
-					.eq("kitchen_id", data.kitchenId)
+					.eq("location_id", location.id)
 					.in("supply_order_id", chunk)
 					.is("nfe_document_id", null)
 					.neq("source", "nfe")

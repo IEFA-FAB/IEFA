@@ -49,8 +49,11 @@ describe("finalize_goods_receipt — invariantes da definição vigente", () => 
 		expect(body).toMatch(/efetivação é única/)
 	})
 
-	test("a OF tem de ser da cozinha do recebimento", () => {
-		expect(body).toMatch(/OF pertence à cozinha/)
+	test("a OF tem de ser do local de estoque do recebimento", () => {
+		// Desde `inventory_multiclass` a OF e o recebimento são de um local de estoque,
+		// não de uma cozinha.
+		expect(body).toMatch(/OF pertence ao local de estoque/)
+		expect(body).toMatch(/is distinct from v_receipt\.location_id/)
 	})
 
 	test("só provisório ou divergente efetiva", () => {

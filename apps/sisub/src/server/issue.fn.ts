@@ -34,21 +34,22 @@ import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { getDb } from "@/lib/db.server"
 import { publicDbMessage } from "@/lib/db-error-message"
-import { requireStorageForKitchen } from "@/lib/storage-auth.server"
+import { classifyFoodItems, itemIdOf } from "@/lib/stock-item.server"
+import { requireStockForKitchen, requireStorageForKitchen, requireStorageForLocation } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 
 const inventory = () => getServerClient("inventory")
 const kitchen = () => getServerClient("kitchen")
 
-/** Tolerâncias da cozinha, com os defaults do banco. */
-async function toleranceFor(kitchenId: number) {
+/** Tolerâncias do local de estoque, com os defaults do banco. */
+async function toleranceFor(locationId: number) {
 	const { data: row, error } = await inventory()
-		.from("kitchen_stock_settings")
+		.from("stock_location_settings")
 		.select("issue_tolerance_pct, issue_tolerance_floor_value")
-		.eq("kitchen_id", kitchenId)
+		.eq("location_id", locationId)
 		.maybeSingle()
 	// Sem linha valem os defaults — mas leitura que FALHA não é "sem linha": cair
-	// no default aqui trocaria a tolerância da cozinha pela de fábrica em silêncio.
+	// no default aqui trocaria a tolerância do local pela de fábrica em silêncio.
 	if (error) throw new Error(`Erro ao carregar a tolerância da cozinha: ${publicDbMessage(error)}`)
 	return {
 		tolerancePct: Number(row?.issue_tolerance_pct ?? 10),
@@ -199,7 +200,7 @@ export const openIssueRequestFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }) => {
-		const ctx = await requireStorageForKitchen(2, data.kitchenId)
+		const { ctx, location } = await requireStockForKitchen(2, data.kitchenId)
 		const { userId } = ctx
 		const inv = inventory()
 		const issueDate = data.issueDate ?? getBrasiliaToday()
@@ -214,7 +215,7 @@ export const openIssueRequestFn = createServerFn({ method: "POST" })
 		}
 
 		const values = {
-			kitchen_id: data.kitchenId,
+			location_id: location.id,
 			issue_date: issueDate,
 			origin: data.origin,
 			destination: data.destination?.trim() || null,
@@ -233,7 +234,7 @@ export const openIssueRequestFn = createServerFn({ method: "POST" })
 		}
 
 		// A da PRODUÇÃO é uma por dia, e abri-la é check-then-act sobre o índice
-		// único parcial `(kitchen_id, issue_date) where origin = 'production'`: dois
+		// único parcial `(location_id, issue_date) where origin = 'production'`: dois
 		// operadores entrando na tela ao mesmo tempo — o normal, na troca de turno —
 		// não veem linha nenhuma, os dois inserem, e o segundo toma 23505. Quem
 		// resolve a corrida é o índice: o 23505 vira a leitura da linha que o outro
@@ -243,7 +244,7 @@ export const openIssueRequestFn = createServerFn({ method: "POST" })
 			const { data: row, error } = await inv
 				.from("stock_issue_request")
 				.select("id, status")
-				.eq("kitchen_id", data.kitchenId)
+				.eq("location_id", location.id)
 				.eq("issue_date", issueDate)
 				.eq("origin", "production")
 				.maybeSingle()
@@ -283,7 +284,11 @@ export const openIssueRequestFn = createServerFn({ method: "POST" })
 		// sair do estoque ainda deve justificativa (`evaluateVariance`).
 		const { error: refreshError } = await inv.rpc("refresh_issue_suggestion", {
 			p_request_id: requestId,
-			p_lines: lines.map((line) => ({ ingredient_id: line.ingredientId, meal_type_id: line.mealTypeId, suggested_qty: line.suggestedQty })),
+			p_lines: lines.map((line) => ({
+				item_id: itemIdOf({ ingredientId: line.ingredientId }),
+				meal_type_id: line.mealTypeId,
+				suggested_qty: line.suggestedQty,
+			})),
 		})
 		if (refreshError) throw new Error(`Erro ao gravar a sugestão do dia: ${publicDbMessage(refreshError)}`)
 
@@ -311,13 +316,13 @@ export const fetchTodayIssueRequestFn = createServerFn({ method: "GET" })
 		})
 	)
 	.handler(async ({ data }) => {
-		await requireStorageForKitchen(1, data.kitchenId)
+		const { location } = await requireStockForKitchen(1, data.kitchenId)
 		const issueDate = data.issueDate ?? getBrasiliaToday()
 		if (data.origin === "production") {
 			const { data: row, error } = await inventory()
 				.from("stock_issue_request")
 				.select("id")
-				.eq("kitchen_id", data.kitchenId)
+				.eq("location_id", location.id)
 				.eq("issue_date", issueDate)
 				.eq("origin", "production")
 				.maybeSingle()
@@ -330,7 +335,7 @@ export const fetchTodayIssueRequestFn = createServerFn({ method: "GET" })
 		const { data: rows, error } = await inventory()
 			.from("stock_issue_request")
 			.select("id, status, purpose, destination, created_at")
-			.eq("kitchen_id", data.kitchenId)
+			.eq("location_id", location.id)
 			.eq("issue_date", issueDate)
 			.eq("origin", "ad_hoc")
 			.order("created_at", { ascending: false })
@@ -382,10 +387,10 @@ export const issueStockFn = createServerFn({ method: "POST" })
 	)
 	.handler(async ({ data }) => {
 		const inv = inventory()
-		const { data: request, error: requestError } = await inv.from("stock_issue_request").select("kitchen_id").eq("id", data.requestId).maybeSingle()
+		const { data: request, error: requestError } = await inv.from("stock_issue_request").select("location_id").eq("id", data.requestId).maybeSingle()
 		if (requestError) throw new Error(`Erro ao carregar a requisição: ${publicDbMessage(requestError)}`)
 		if (!request) throw new Error("Requisição não encontrada")
-		const { userId } = await requireStorageForKitchen(2, Number(request.kitchen_id))
+		const { userId } = await requireStorageForLocation(2, request.location_id)
 		// A recusa de dia fechado é do `issue_stock`, DEPOIS de reconhecer o retry.
 		// Recusar aqui antes cortava o retry de uma saída que passou pouco antes do
 		// fechamento: a tela mandava abrir a requisição do dia seguinte, o operador
@@ -398,13 +403,13 @@ export const issueStockFn = createServerFn({ method: "POST" })
 			if (lotError) throw new Error(`Erro ao conferir o lote: ${publicDbMessage(lotError)}`)
 			if (lot?.quarantined_at) throw new Error("Lote em quarentena não sai para produção")
 			if (lot?.expiry_date && lot.expiry_date < getBrasiliaToday()) {
-				await requireStorageForKitchen(3, Number(request.kitchen_id))
+				await requireStorageForLocation(3, request.location_id)
 			}
 		}
 
 		const { data: result, error } = await inv.rpc("issue_stock", {
 			p_request_id: data.requestId,
-			p_ingredient_id: data.ingredientId,
+			p_item_id: itemIdOf({ ingredientId: data.ingredientId }),
 			p_quantity: data.quantity,
 			p_user: userId,
 			p_emission_id: data.emissionId,
@@ -423,10 +428,10 @@ export const returnIssueFn = createServerFn({ method: "POST" })
 	.validator(z.object({ requestId: z.uuid(), lotId: z.uuid(), quantity: ISSUE_QUANTITY, emissionId: z.string().min(8).max(64) }))
 	.handler(async ({ data }) => {
 		const inv = inventory()
-		const { data: request, error: requestError } = await inv.from("stock_issue_request").select("kitchen_id").eq("id", data.requestId).maybeSingle()
+		const { data: request, error: requestError } = await inv.from("stock_issue_request").select("location_id").eq("id", data.requestId).maybeSingle()
 		if (requestError) throw new Error(`Erro ao carregar a requisição: ${publicDbMessage(requestError)}`)
 		if (!request) throw new Error("Requisição não encontrada")
-		const { userId } = await requireStorageForKitchen(2, Number(request.kitchen_id))
+		const { userId } = await requireStorageForLocation(2, request.location_id)
 
 		const { data: result, error } = await inv.rpc("return_issue", {
 			p_request_id: data.requestId,
@@ -447,39 +452,40 @@ export const fetchIssueRequestFn = createServerFn({ method: "GET" })
 		const kit = kitchen()
 		const { data: request, error: requestError } = await inv
 			.from("stock_issue_request")
-			.select("id, kitchen_id, issue_date, origin, status, destination, purpose, closed_at, auto_closed_at, explained_at, explanation")
+			.select("id, location_id, issue_date, origin, status, destination, purpose, closed_at, auto_closed_at, explained_at, explanation")
 			.eq("id", data.requestId)
 			.maybeSingle()
 		if (requestError) throw new Error(`Erro ao carregar a requisição: ${publicDbMessage(requestError)}`)
 		if (!request) throw new Error("Requisição não encontrada")
-		await requireStorageForKitchen(1, Number(request.kitchen_id))
+		await requireStorageForLocation(1, request.location_id)
 
 		// Este retrato decide se o dia FECHA. Leitura que falha e vira lista vazia
 		// faz toda linha parecer não planejada, nenhum motivo é exigido — e
 		// `closeIssueRequestFn`, que monta o retrato por aqui, fecha o dia.
 		const [{ data: items, error: itemsError }, { data: movements, error: movementsError }, settings] = await Promise.all([
-			inv
-				.from("stock_issue_request_item")
-				.select("id, ingredient_id, meal_type_id, suggested_qty, variance_reason, variance_note")
-				.eq("request_id", data.requestId),
-			inv.from("stock_movement").select("ingredient_id, lot_id, type, quantity, unit_cost").eq("issue_request_id", data.requestId),
-			toleranceFor(Number(request.kitchen_id)),
+			inv.from("stock_issue_request_item").select("id, item_id, meal_type_id, suggested_qty, variance_reason, variance_note").eq("request_id", data.requestId),
+			inv.from("stock_movement").select("item_id, lot_id, type, quantity, unit_cost").eq("issue_request_id", data.requestId),
+			toleranceFor(request.location_id),
 		])
 		if (itemsError) throw new Error(`Erro ao carregar os itens do dia: ${publicDbMessage(itemsError)}`)
 		if (movementsError) throw new Error(`Erro ao carregar as saídas do dia: ${publicDbMessage(movementsError)}`)
 
+		// A requisição do rancho é de insumo: movimento de outro item (preparação congelada) não entra
+		// no retrato, como antes, quando ele vinha sem `ingredient_id`.
+		const refs = await classifyFoodItems((movements ?? []).map((move) => move.item_id))
 		const issued = new Map<string, number>()
 		const returned = new Map<string, number>()
 		const costs = new Map<string, number>()
 		for (const move of movements ?? []) {
-			if (move.ingredient_id == null) continue
+			const ingredientId = refs.get(move.item_id)?.ingredientId
+			if (ingredientId == null) continue
 			const target = move.type === "issue_return" ? returned : issued
-			target.set(move.ingredient_id, (target.get(move.ingredient_id) ?? 0) + Number(move.quantity))
-			if (move.unit_cost != null) costs.set(move.ingredient_id, Number(move.unit_cost))
+			target.set(ingredientId, (target.get(ingredientId) ?? 0) + Number(move.quantity))
+			if (move.unit_cost != null) costs.set(ingredientId, Number(move.unit_cost))
 		}
 
 		const rows = items ?? []
-		const ingredientIds = [...new Set([...rows.map((row) => row.ingredient_id), ...issued.keys()])]
+		const ingredientIds = [...new Set([...rows.map((row) => row.item_id), ...issued.keys()])]
 
 		// Custo médio para o item que NÃO teve movimento nesta requisição. Sem
 		// isso, o item planejado e nunca baixado ficava com custo nulo, o valor do
@@ -488,14 +494,13 @@ export const fetchIssueRequestFn = createServerFn({ method: "GET" })
 		if (ingredientIds.length > 0) {
 			const { data: averages, error: averagesError } = await inv
 				.from("stock_cost")
-				.select("ingredient_id, avg_unit_cost")
-				.eq("kitchen_id", Number(request.kitchen_id))
-				.in("ingredient_id", ingredientIds)
+				.select("item_id, avg_unit_cost")
+				.eq("location_id", request.location_id)
+				.in("item_id", ingredientIds)
 			// sem custo, o valor do desvio dá zero e o piso nunca é passado
 			if (averagesError) throw new Error(`Erro ao carregar os custos: ${publicDbMessage(averagesError)}`)
 			for (const row of averages ?? []) {
-				if (row.ingredient_id == null) continue
-				if (!costs.has(row.ingredient_id) && row.avg_unit_cost != null) costs.set(row.ingredient_id, Number(row.avg_unit_cost))
+				if (!costs.has(row.item_id) && row.avg_unit_cost != null) costs.set(row.item_id, Number(row.avg_unit_cost))
 			}
 		}
 
@@ -507,7 +512,7 @@ export const fetchIssueRequestFn = createServerFn({ method: "GET" })
 		}
 
 		const lines: IssueLineForVariance[] = ingredientIds.map((ingredientId) => {
-			const row = rows.find((item) => item.ingredient_id === ingredientId)
+			const row = rows.find((item) => item.item_id === ingredientId)
 			return {
 				ingredientId,
 				suggestedQty: row?.suggested_qty != null ? Number(row.suggested_qty) : null,
@@ -524,7 +529,7 @@ export const fetchIssueRequestFn = createServerFn({ method: "GET" })
 			canClose: closure.canClose,
 			lines: closure.verdicts.map((verdict) => ({
 				...verdict,
-				itemId: rows.find((row) => row.ingredient_id === verdict.ingredientId)?.id ?? null,
+				itemId: rows.find((row) => row.item_id === verdict.ingredientId)?.id ?? null,
 				description: names.get(verdict.ingredientId)?.description ?? "—",
 				measureUnit: names.get(verdict.ingredientId)?.measure_unit ?? null,
 				reason: lines.find((line) => line.ingredientId === verdict.ingredientId)?.reason ?? null,
@@ -540,10 +545,10 @@ export const setVarianceReasonFn = createServerFn({ method: "POST" })
 		const { data: item, error: itemError } = await inv.from("stock_issue_request_item").select("request_id").eq("id", data.itemId).maybeSingle()
 		if (itemError) throw new Error(`Erro ao carregar a linha: ${publicDbMessage(itemError)}`)
 		if (!item) throw new Error("Linha não encontrada")
-		const { data: request, error: requestError } = await inv.from("stock_issue_request").select("kitchen_id, status").eq("id", item.request_id).maybeSingle()
+		const { data: request, error: requestError } = await inv.from("stock_issue_request").select("location_id, status").eq("id", item.request_id).maybeSingle()
 		if (requestError) throw new Error(`Erro ao carregar a requisição: ${publicDbMessage(requestError)}`)
 		if (!request) throw new Error("Requisição não encontrada")
-		await requireStorageForKitchen(2, Number(request.kitchen_id))
+		await requireStorageForLocation(2, request.location_id)
 		// Dia fechado é dia fechado: a variância foi julgada no fechamento contra
 		// estes motivos, e trocá-los depois reescreveria o que foi aceito.
 		if (request.status !== "open") throw new Error("A requisição já foi fechada — o motivo registrado no fechamento é o que vale")
@@ -565,10 +570,10 @@ export const closeIssueRequestFn = createServerFn({ method: "POST" })
 	.validator(z.object({ requestId: z.uuid() }))
 	.handler(async ({ data }) => {
 		const inv = inventory()
-		const { data: request, error: requestError } = await inv.from("stock_issue_request").select("kitchen_id, status").eq("id", data.requestId).maybeSingle()
+		const { data: request, error: requestError } = await inv.from("stock_issue_request").select("location_id, status").eq("id", data.requestId).maybeSingle()
 		if (requestError) throw new Error(`Erro ao carregar a requisição: ${publicDbMessage(requestError)}`)
 		if (!request) throw new Error("Requisição não encontrada")
-		const { userId } = await requireStorageForKitchen(2, Number(request.kitchen_id))
+		const { userId } = await requireStorageForLocation(2, request.location_id)
 		if (request.status !== "open") throw new Error("Requisição já fechada")
 
 		// Contagem ANTES do retrato: é ela que o banco vai reconferir sob trava.
@@ -585,12 +590,12 @@ export const closeIssueRequestFn = createServerFn({ method: "POST" })
 		// não muda a contagem, mas muda o número contra o qual a tolerância é medida.
 		const { data: seenItems, error: seenItemsError } = await inv
 			.from("stock_issue_request_item")
-			.select("ingredient_id, suggested_qty")
+			.select("item_id, suggested_qty")
 			.eq("request_id", data.requestId)
 		if (seenItemsError) throw new Error(`Erro ao conferir a sugestão do dia: ${publicDbMessage(seenItemsError)}`)
 		const seenSuggestions = issueSuggestionFingerprint(
 			(seenItems ?? []).map((row) => ({
-				ingredientId: row.ingredient_id,
+				ingredientId: row.item_id,
 				suggestedQty: row.suggested_qty,
 			}))
 		)
@@ -617,7 +622,7 @@ export const closeIssueRequestFn = createServerFn({ method: "POST" })
 export const listIssueRequestsFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive(), limit: z.number().int().min(1).max(100).default(30) }))
 	.handler(async ({ data }) => {
-		await requireStorageForKitchen(1, data.kitchenId)
+		const { location } = await requireStockForKitchen(1, data.kitchenId)
 		const {
 			data: rows,
 			count,
@@ -625,7 +630,7 @@ export const listIssueRequestsFn = createServerFn({ method: "GET" })
 		} = await inventory()
 			.from("stock_issue_request")
 			.select("id, issue_date, origin, status, destination, purpose, closed_at", { count: "exact" })
-			.eq("kitchen_id", data.kitchenId)
+			.eq("location_id", location.id)
 			.order("issue_date", { ascending: false })
 			.limit(data.limit)
 		if (error) throw new Error(`Erro ao listar requisições: ${publicDbMessage(error)}`)
@@ -645,16 +650,16 @@ export const fetchReturnableLotsFn = createServerFn({ method: "GET" })
 	.validator(z.object({ requestId: z.uuid(), ingredientId: z.uuid() }))
 	.handler(async ({ data }) => {
 		const inv = inventory()
-		const { data: request, error: requestError } = await inv.from("stock_issue_request").select("kitchen_id").eq("id", data.requestId).maybeSingle()
+		const { data: request, error: requestError } = await inv.from("stock_issue_request").select("location_id").eq("id", data.requestId).maybeSingle()
 		if (requestError) throw new Error(`Erro ao carregar a requisição: ${publicDbMessage(requestError)}`)
 		if (!request) throw new Error("Requisição não encontrada")
-		await requireStorageForKitchen(1, Number(request.kitchen_id))
+		await requireStorageForLocation(1, request.location_id)
 
 		const { data: moves, error } = await inv
 			.from("stock_movement")
 			.select("lot_id, type, quantity")
 			.eq("issue_request_id", data.requestId)
-			.eq("ingredient_id", data.ingredientId)
+			.eq("item_id", itemIdOf({ ingredientId: data.ingredientId }))
 			.in("type", ["production_issue", "issue_return"])
 		if (error) throw new Error(`Erro ao carregar os lotes emitidos: ${publicDbMessage(error)}`)
 
@@ -795,11 +800,14 @@ export const registerLateIssueFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }) => {
-		const { userId } = await requireStorageForKitchen(2, data.kitchenId)
+		const {
+			ctx: { userId },
+			location,
+		} = await requireStockForKitchen(2, data.kitchenId)
 		if (data.occurredOn > getBrasiliaToday()) throw new Error("A data real da saída não pode ser futura")
 		const { data: result, error } = await inventory().rpc("register_late_issue", {
-			p_kitchen_id: data.kitchenId,
-			p_ingredient_id: data.ingredientId,
+			p_location_id: location.id,
+			p_item_id: itemIdOf({ ingredientId: data.ingredientId }),
 			p_quantity: data.quantity,
 			p_occurred_on: data.occurredOn,
 			p_reason: data.reason,
@@ -817,11 +825,11 @@ export const registerLateIssueFn = createServerFn({ method: "POST" })
 export const listUnexplainedIssueDaysFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive() }))
 	.handler(async ({ data }) => {
-		await requireStorageForKitchen(1, data.kitchenId)
+		const { location } = await requireStockForKitchen(1, data.kitchenId)
 		const { data: rows, error } = await inventory()
 			.from("stock_issue_request")
 			.select("id, issue_date, origin")
-			.eq("kitchen_id", data.kitchenId)
+			.eq("location_id", location.id)
 			.eq("status", "closed_unexplained")
 			.is("explained_at", null)
 			.order("issue_date", { ascending: false })
@@ -838,10 +846,10 @@ export const explainIssueRequestFn = createServerFn({ method: "POST" })
 	.validator(z.object({ requestId: z.uuid(), explanation: z.string().trim().min(5, "Justificativa com ao menos 5 letras").max(500) }))
 	.handler(async ({ data }) => {
 		const inv = inventory()
-		const { data: request, error: requestError } = await inv.from("stock_issue_request").select("kitchen_id, status").eq("id", data.requestId).maybeSingle()
+		const { data: request, error: requestError } = await inv.from("stock_issue_request").select("location_id, status").eq("id", data.requestId).maybeSingle()
 		if (requestError) throw new Error(`Erro ao carregar a requisição: ${publicDbMessage(requestError)}`)
 		if (!request) throw new Error("Requisição não encontrada")
-		const { userId } = await requireStorageForKitchen(2, Number(request.kitchen_id))
+		const { userId } = await requireStorageForLocation(2, request.location_id)
 		if (request.status !== "closed_unexplained") throw new Error("Só o dia que fechou sozinho sem explicação pede justificativa")
 		const { data: updated, error } = await inv
 			.from("stock_issue_request")

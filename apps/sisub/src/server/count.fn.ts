@@ -22,7 +22,7 @@
  */
 
 import type { Json } from "@iefa/database"
-import { hasPermission } from "@iefa/pbac"
+import { hasPermission, hasUnscopedPermission } from "@iefa/pbac"
 import { evaluateCountLine, INVENTORY_COUNT_TYPES } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
@@ -30,7 +30,8 @@ import { PENDING_PRODUCTION_SQLSTATE, parsePendingProductionDays } from "@/lib/c
 import { publicDbMessage } from "@/lib/db-error-message"
 import { itemDescription } from "@/lib/item-description"
 import { readAllPages, readAllPagesIn } from "@/lib/read-all-pages"
-import { requireStorageForKitchen } from "@/lib/storage-auth.server"
+import { classifyFoodItems, foodRefOf, itemIdOf } from "@/lib/stock-item.server"
+import { kitchenOfLocation, requireStockForKitchen, requireStorageForKitchen, requireStorageForLocation } from "@/lib/storage-auth.server"
 import { getServerClient, rpcWithNulls } from "@/lib/supabase.server"
 
 const inventory = () => getServerClient("inventory")
@@ -42,7 +43,7 @@ export const COUNT_SCOPES = ["full", "conservation_class", "location", "item_lis
 export const listInventoryCountsFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive(), limit: z.number().int().min(1).max(100).default(20) }))
 	.handler(async ({ data }) => {
-		await requireStorageForKitchen(1, data.kitchenId)
+		const { location } = await requireStockForKitchen(1, data.kitchenId)
 		const {
 			data: rows,
 			count,
@@ -52,7 +53,7 @@ export const listInventoryCountsFn = createServerFn({ method: "GET" })
 			.select("id, status, type, scope, blind, round, competencia, created_at, expires_at, approved_at, adjustment_id, approved_by_own_entry", {
 				count: "exact",
 			})
-			.eq("kitchen_id", data.kitchenId)
+			.eq("location_id", location.id)
 			.order("created_at", { ascending: false })
 			.limit(data.limit)
 		if (error) throw new Error(`Erro ao listar as contagens: ${publicDbMessage(error)}`)
@@ -73,13 +74,20 @@ export const openInventoryCountFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		// abrir inventário é decisão de nível 3: ele trava o escopo contra
 		// qualquer outra contagem da cozinha
-		const { userId } = await requireStorageForKitchen(3, data.kitchenId)
+		const {
+			ctx: { userId },
+			location,
+		} = await requireStockForKitchen(3, data.kitchenId)
+		// O escopo `item_list` do banco lê `item_ids`; a tela fala `ingredient_ids` (o id do insumo
+		// é o `item_id`).
+		const { ingredient_ids: ingredientIds, ...scopeParams } = data.scopeParams
+		if (ingredientIds !== undefined) scopeParams.item_ids = ingredientIds
 		// `p_blind_waiver_reason` não tem default no SQL e é nulo na contagem não cega.
 		const { data: result, error } = await rpcWithNulls("inventory", "open_inventory_count", {
-			p_kitchen_id: data.kitchenId,
+			p_location_id: location.id,
 			p_type: data.type,
 			p_scope: data.scope,
-			p_scope_params: data.scopeParams as Json,
+			p_scope_params: scopeParams as Json,
 			p_blind: data.blind,
 			p_blind_waiver_reason: data.blindWaiverReason?.trim() || null,
 			p_user: userId,
@@ -126,8 +134,7 @@ interface CountSheetLine {
  */
 type CountLineRow = {
 	lot_id: string | null
-	ingredient_id: string | null
-	frozen_preparation_id: string | null
+	item_id: string
 	owner_count_id: string
 	counted_qty: number | string | null
 	entries: number
@@ -155,17 +162,22 @@ export const fetchCountSheetFn = createServerFn({ method: "GET" })
 		const { data: count, error: countError } = await inv
 			.from("inventory_count")
 			.select(
-				"id, kitchen_id, status, type, scope, blind, round, parent_count_id, competencia, created_at, expires_at, created_by, approved_at, approval_exception_reason, approved_by, approved_by_own_entry"
+				"id, location_id, status, type, scope, blind, round, parent_count_id, competencia, created_at, expires_at, created_by, approved_at, approval_exception_reason, approved_by, approved_by_own_entry"
 			)
 			.eq("id", data.countId)
 			.maybeSingle()
 		if (countError) throw new Error(`Erro ao carregar a contagem: ${publicDbMessage(countError)}`)
 		if (!count) throw new Error("Inventário não encontrado")
-		const kitchenId = Number(count.kitchen_id)
+		const locationId = Number(count.location_id)
+		const kitchenId = await kitchenOfLocation(locationId)
 		const ctx = await requireStorageForKitchen(2, kitchenId)
 
 		const finished = ["approved", "rejected", "expired"].includes(String(count.status))
-		const isManager = hasPermission(ctx.permissions, "storage", 3, { type: "kitchen", id: kitchenId })
+		// local sem cozinha: só a permissão global chegou até aqui, e é ela que tem de ser nível 3
+		const isManager =
+			kitchenId == null
+				? hasUnscopedPermission(ctx.permissions, "storage", 3)
+				: hasPermission(ctx.permissions, "storage", 3, { type: "kitchen", id: kitchenId })
 		// A rodada SUBSTITUÍDA pela recontagem não se abre para o nível 2 enquanto
 		// a recontagem corre: ali estão as quantidades que a rodada anterior deu —
 		// e, se ela não era cega, o saldo — e a recontagem é cega justamente para
@@ -178,22 +190,16 @@ export const fetchCountSheetFn = createServerFn({ method: "GET" })
 		const rows = await readAllPages<CountLineRow>("as linhas da contagem", (from, to) =>
 			inv
 				.rpc("count_lines", { p_count_id: data.countId })
-				.order("ingredient_id", { ascending: true, nullsFirst: false })
-				.order("frozen_preparation_id", { ascending: true, nullsFirst: false })
+				.order("item_id", { ascending: true, nullsFirst: false })
 				.order("lot_id", { ascending: true, nullsFirst: true })
 				.order("owner_count_id", { ascending: true })
 				.range(from, to)
 		)
 
 		const scope = await readAllPages("o escopo da contagem", (from, to) =>
-			inv
-				.from("count_scope_item")
-				.select("id, ingredient_id, frozen_preparation_id, found, not_counted_accepted")
-				.eq("count_id", data.countId)
-				.order("id")
-				.range(from, to)
+			inv.from("count_scope_item").select("id, item_id, found, not_counted_accepted").eq("count_id", data.countId).order("id").range(from, to)
 		)
-		const scopeByItem = new Map(scope.map((item) => [item.ingredient_id ?? item.frozen_preparation_id ?? "", item]))
+		const scopeByItem = new Map(scope.map((item) => [item.item_id, item]))
 
 		const lotIds = rows.map((row) => row.lot_id).filter((id) => id != null)
 		const lots = await readAllPagesIn("os lotes da contagem", lotIds, (chunk, from, to) =>
@@ -201,8 +207,9 @@ export const fetchCountSheetFn = createServerFn({ method: "GET" })
 		)
 		const lotById = new Map(lots.map((lot) => [lot.id, lot]))
 
-		const ingredientIds = [...new Set(rows.map((row) => row.ingredient_id).filter((id) => id != null))]
-		const frozenIds = [...new Set(rows.map((row) => row.frozen_preparation_id).filter((id) => id != null))]
+		const refs = await classifyFoodItems(rows.map((row) => row.item_id))
+		const ingredientIds = [...new Set(rows.map((row) => foodRefOf(refs, row.item_id).ingredientId).filter((id) => id != null))]
+		const frozenIds = [...new Set(rows.map((row) => foodRefOf(refs, row.item_id).frozenPreparationId).filter((id) => id != null))]
 		const kit = kitchen()
 		const describe = new Map<string, { description: string; measureUnit: string | null }>()
 		for (const row of await readAllPagesIn("os insumos", ingredientIds, (chunk, from, to) =>
@@ -218,27 +225,20 @@ export const fetchCountSheetFn = createServerFn({ method: "GET" })
 
 		// Custo, para medir a divergência em DINHEIRO. Sem ele o valor da diferença
 		// era sempre zero, o piso nunca era passado e "recontar as divergentes"
-		// nunca aparecia. Lote: o custo do lote; item: o custo médio da cozinha.
+		// nunca aparecia. Lote: o custo do lote; item: o custo médio do local de estoque.
 		const avgCost = new Map<string, number>()
 		if (reveal) {
 			for (const row of await readAllPagesIn("os custos médios", [...ingredientIds, ...frozenIds], (chunk, from, to) =>
-				inv
-					.from("stock_cost")
-					.select("ingredient_id, frozen_preparation_id, avg_unit_cost")
-					.eq("kitchen_id", kitchenId)
-					.or(`ingredient_id.in.(${chunk.join(",")}),frozen_preparation_id.in.(${chunk.join(",")})`)
-					.order("ingredient_id", { ascending: true, nullsFirst: false })
-					.order("frozen_preparation_id", { ascending: true, nullsFirst: false })
-					.range(from, to)
+				inv.from("stock_cost").select("item_id, avg_unit_cost").eq("location_id", locationId).in("item_id", chunk).order("item_id").range(from, to)
 			)) {
-				const key = row.ingredient_id ?? row.frozen_preparation_id
-				if (key && row.avg_unit_cost != null) avgCost.set(key, Number(row.avg_unit_cost))
+				if (row.avg_unit_cost != null) avgCost.set(row.item_id, Number(row.avg_unit_cost))
 			}
 		}
-		const tolerance = await countToleranceFor(kitchenId)
+		const tolerance = await countToleranceFor(locationId)
 
 		const lines: CountSheetLine[] = rows.map((row) => {
-			const itemKey = row.ingredient_id ?? row.frozen_preparation_id ?? ""
+			const itemKey = row.item_id
+			const ref = foodRefOf(refs, row.item_id)
 			const lot = row.lot_id ? lotById.get(row.lot_id) : undefined
 			const counted = row.counted_qty == null ? 0 : Number(row.counted_qty)
 			const ledger = Number(row.ledger_qty)
@@ -250,8 +250,8 @@ export const fetchCountSheetFn = createServerFn({ method: "GET" })
 			return {
 				key: `${row.owner_count_id}:${row.lot_id ? `l:${row.lot_id}` : `i:${itemKey}`}`,
 				lotId: row.lot_id,
-				ingredientId: row.ingredient_id,
-				frozenPreparationId: row.frozen_preparation_id,
+				ingredientId: ref.ingredientId,
+				frozenPreparationId: ref.frozenPreparationId,
 				description: describe.get(itemKey)?.description ?? "(item sem cadastro)",
 				measureUnit: describe.get(itemKey)?.measureUnit ?? null,
 				lotLabel: lot?.short_code ?? lot?.lot_code ?? null,
@@ -283,11 +283,11 @@ export const fetchCountSheetFn = createServerFn({ method: "GET" })
  * Tolerância da CONTAGEM (`count_tolerance_*`), com os defaults do banco. A
  * folha usava a tolerância da SAÍDA do dia — outra regra, de outro documento.
  */
-async function countToleranceFor(kitchenId: number) {
+async function countToleranceFor(locationId: number) {
 	const { data: row, error } = await inventory()
-		.from("kitchen_stock_settings")
+		.from("stock_location_settings")
 		.select("count_tolerance_pct, count_tolerance_value")
-		.eq("kitchen_id", kitchenId)
+		.eq("location_id", locationId)
 		.maybeSingle()
 	if (error) throw new Error(`Erro ao carregar a tolerância da contagem: ${publicDbMessage(error)}`)
 	return {
@@ -329,12 +329,12 @@ export const postCountEntriesFn = createServerFn({ method: "POST" })
 		const inv = inventory()
 		const { data: count, error: countError } = await inv
 			.from("inventory_count")
-			.select("id, kitchen_id, status, created_at")
+			.select("id, location_id, status, created_at")
 			.eq("id", data.countId)
 			.maybeSingle()
 		if (countError) throw new Error(`Erro ao carregar a contagem: ${publicDbMessage(countError)}`)
 		if (!count) throw new Error("Inventário não encontrado")
-		const { userId } = await requireStorageForKitchen(2, Number(count.kitchen_id))
+		const { userId } = await requireStorageForLocation(2, Number(count.location_id))
 		if (!["draft", "counting"].includes(String(count.status))) {
 			throw new Error(`Inventário em "${count.status}" não aceita lançamento`)
 		}
@@ -349,7 +349,7 @@ export const postCountEntriesFn = createServerFn({ method: "POST" })
 		// preso à janela que o SERVIDOR conhece: da última entrega deste usuário
 		// nesta contagem (ou da abertura) até agora. Aceito como veio, o nível 2
 		// escolhia o instante de referência — antes de um recebimento, por exemplo
-		// — e com ele a diferença. Escopo e cozinha do lote são conferidos pelo
+		// — e com ele a diferença. Escopo e local de estoque do lote são conferidos pelo
 		// gatilho do banco, que também trava a contagem.
 		const receivedAt = new Date()
 		const { data: last, error: lastError } = await inv
@@ -375,8 +375,7 @@ export const postCountEntriesFn = createServerFn({ method: "POST" })
 				return {
 					count_id: data.countId,
 					lot_id: entry.lotId ?? null,
-					ingredient_id: entry.ingredientId ?? null,
-					frozen_preparation_id: entry.frozenPreparationId ?? null,
+					item_id: entry.lotId ? null : itemIdOf(entry),
 					quantity: entry.quantity,
 					client_event_id: entry.clientEventId,
 					counted_at: countedAt.toISOString(),
@@ -406,16 +405,15 @@ export const addFoundItemFn = createServerFn({ method: "POST" })
 			throw new Error("Informe o insumo OU a preparação")
 		}
 		const inv = inventory()
-		const { data: count, error: countError } = await inv.from("inventory_count").select("id, kitchen_id").eq("id", data.countId).maybeSingle()
+		const { data: count, error: countError } = await inv.from("inventory_count").select("id, location_id").eq("id", data.countId).maybeSingle()
 		if (countError) throw new Error(`Erro ao carregar a contagem: ${publicDbMessage(countError)}`)
 		if (!count) throw new Error("Inventário não encontrado")
-		await requireStorageForKitchen(2, Number(count.kitchen_id))
+		await requireStorageForLocation(2, Number(count.location_id))
 
-		// Insumo OU preparação: o outro vai nulo, e os dois parâmetros não têm default no SQL.
-		const { data: added, error } = await rpcWithNulls("inventory", "add_found_item", {
+		// Insumo OU preparação: o banco recebe um `item_id` só (o id de um ou de outro).
+		const { data: added, error } = await inv.rpc("add_found_item", {
 			p_count_id: data.countId,
-			p_ingredient_id: data.ingredientId ?? null,
-			p_frozen_preparation_id: data.frozenPreparationId ?? null,
+			p_item_id: itemIdOf(data),
 		})
 		if (error) throw new Error(`Erro ao incluir o achado: ${publicDbMessage(error)}`)
 		return { added: added === true }
@@ -433,18 +431,17 @@ export const acceptNotCountedFn = createServerFn({ method: "POST" })
 			throw new Error("Informe o insumo OU a preparação")
 		}
 		const inv = inventory()
-		const { data: count, error: countError } = await inv.from("inventory_count").select("id, kitchen_id").eq("id", data.countId).maybeSingle()
+		const { data: count, error: countError } = await inv.from("inventory_count").select("id, location_id").eq("id", data.countId).maybeSingle()
 		if (countError) throw new Error(`Erro ao carregar a contagem: ${publicDbMessage(countError)}`)
 		if (!count) throw new Error("Inventário não encontrado")
-		await requireStorageForKitchen(3, Number(count.kitchen_id))
+		await requireStorageForLocation(3, Number(count.location_id))
 
 		// pela função do banco: ela trava a CONTAGEM antes da linha do escopo, a
 		// ordem de todo o resto; o UPDATE direto invertia e dava deadlock com a
 		// aprovação
-		const { error } = await rpcWithNulls("inventory", "set_not_counted_accepted", {
+		const { error } = await inv.rpc("set_not_counted_accepted", {
 			p_count_id: data.countId,
-			p_ingredient_id: data.ingredientId ?? null,
-			p_frozen_preparation_id: data.frozenPreparationId ?? null,
+			p_item_id: itemIdOf(data),
 			p_accepted: data.accepted,
 		})
 		if (error) throw new Error(`Erro ao marcar o item: ${publicDbMessage(error)}`)
@@ -456,10 +453,10 @@ export const reviewInventoryCountFn = createServerFn({ method: "POST" })
 	.validator(z.object({ countId: z.uuid() }))
 	.handler(async ({ data }) => {
 		const inv = inventory()
-		const { data: count, error: countError } = await inv.from("inventory_count").select("id, kitchen_id").eq("id", data.countId).maybeSingle()
+		const { data: count, error: countError } = await inv.from("inventory_count").select("id, location_id").eq("id", data.countId).maybeSingle()
 		if (countError) throw new Error(`Erro ao carregar a contagem: ${publicDbMessage(countError)}`)
 		if (!count) throw new Error("Inventário não encontrado")
-		await requireStorageForKitchen(3, Number(count.kitchen_id))
+		await requireStorageForLocation(3, Number(count.location_id))
 
 		// condicional ao status E conferida: sem o `select`, mudar nada contava
 		// como sucesso
@@ -491,15 +488,15 @@ export const openRecountFn = createServerFn({ method: "POST" })
 	)
 	.handler(async ({ data }) => {
 		const inv = inventory()
-		const { data: count, error: countError } = await inv.from("inventory_count").select("id, kitchen_id, round").eq("id", data.countId).maybeSingle()
+		const { data: count, error: countError } = await inv.from("inventory_count").select("id, location_id, round").eq("id", data.countId).maybeSingle()
 		if (countError) throw new Error(`Erro ao carregar a contagem: ${publicDbMessage(countError)}`)
 		if (!count) throw new Error("Inventário não encontrado")
-		const { userId } = await requireStorageForKitchen(3, Number(count.kitchen_id))
+		const { userId } = await requireStorageForLocation(3, Number(count.location_id))
 
+		// insumo e preparação são o mesmo `item_id` no banco
 		const { data: created, error } = await inv.rpc("open_recount", {
 			p_count_id: data.countId,
-			p_ingredient_ids: [...new Set(data.ingredientIds)],
-			p_frozen_preparation_ids: [...new Set(data.frozenPreparationIds)],
+			p_item_ids: [...new Set([...data.ingredientIds, ...data.frozenPreparationIds])],
 			p_user: userId,
 		})
 		if (error) throw new Error(`Erro ao abrir a recontagem: ${publicDbMessage(error)}`)
@@ -524,10 +521,10 @@ export const approveInventoryCountFn = createServerFn({ method: "POST" })
 	)
 	.handler(async ({ data }) => {
 		const inv = inventory()
-		const { data: count, error: countError } = await inv.from("inventory_count").select("id, kitchen_id").eq("id", data.countId).maybeSingle()
+		const { data: count, error: countError } = await inv.from("inventory_count").select("id, location_id").eq("id", data.countId).maybeSingle()
 		if (countError) throw new Error(`Erro ao carregar a contagem: ${publicDbMessage(countError)}`)
 		if (!count) throw new Error("Inventário não encontrado")
-		const { userId } = await requireStorageForKitchen(3, Number(count.kitchen_id))
+		const { userId } = await requireStorageForLocation(3, Number(count.location_id))
 
 		// `approve_inventory_count_with_waiver`: migration 20260926217000.
 		const { data: result, error } = data.pendingProductionWaiver
@@ -563,10 +560,10 @@ export const rejectInventoryCountFn = createServerFn({ method: "POST" })
 	.validator(z.object({ countId: z.uuid(), reason: z.string().min(5).max(300) }))
 	.handler(async ({ data }) => {
 		const inv = inventory()
-		const { data: count, error: countError } = await inv.from("inventory_count").select("id, kitchen_id").eq("id", data.countId).maybeSingle()
+		const { data: count, error: countError } = await inv.from("inventory_count").select("id, location_id").eq("id", data.countId).maybeSingle()
 		if (countError) throw new Error(`Erro ao carregar a contagem: ${publicDbMessage(countError)}`)
 		if (!count) throw new Error("Inventário não encontrado")
-		const { userId } = await requireStorageForKitchen(3, Number(count.kitchen_id))
+		const { userId } = await requireStorageForLocation(3, Number(count.location_id))
 
 		const { error } = await inv.rpc("reject_inventory_count", { p_count_id: data.countId, p_actor: userId, p_reason: data.reason.trim() })
 		if (error) throw new Error(`Erro ao rejeitar a contagem: ${publicDbMessage(error)}`)

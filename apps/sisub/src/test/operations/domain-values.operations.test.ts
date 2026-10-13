@@ -131,14 +131,20 @@ describeSupabaseIntegration("valores de domínio do lote 5 (DB)", () => {
 	test("inventário: o tipo é o da norma, e o nome antigo é recusado", async () => {
 		await inRollback(async (tx) => {
 			const { kitchenId } = await seedKitchen(tx, "L5INV")
+			// a contagem é do local de estoque; o da cozinha nasce por trigger
+			const [location] = await tx`select inventory.kitchen_location(${kitchenId}) as id`
 			await expect(
-				tx.savepoint((sp) => sp`insert into inventory.inventory_count (kitchen_id, status, type, scope) values (${kitchenId}, 'expired', 'rotating', 'full')`)
+				tx.savepoint(
+					(sp) => sp`insert into inventory.inventory_count (location_id, status, type, scope) values (${location.id}, 'expired', 'rotating', 'full')`
+				)
 			).rejects.toThrow(/inventory_count_type_check/)
 			const [row] = await tx`
-				insert into inventory.inventory_count (kitchen_id, status, type, scope) values (${kitchenId}, 'expired', 'rotativo', 'full') returning type`
+				insert into inventory.inventory_count (location_id, status, type, scope) values (${location.id}, 'expired', 'rotativo', 'full') returning type`
 			expect(row.type).toBe("rotativo")
 			await expect(
-				tx.savepoint((sp) => sp`insert into inventory.inventory_count (kitchen_id, status, type, scope) values (${kitchenId}, 'expired', 'rotativa', 'full')`)
+				tx.savepoint(
+					(sp) => sp`insert into inventory.inventory_count (location_id, status, type, scope) values (${location.id}, 'expired', 'rotativa', 'full')`
+				)
 			).rejects.toThrow(/inventory_count_type_check/)
 		})
 	})

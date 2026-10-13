@@ -19,25 +19,28 @@ import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAuth } from "@/lib/auth.server"
 import { publicDbMessage } from "@/lib/db-error-message"
+import { purchaseUnitIdOfKitchen } from "@/lib/kitchen-purchase-unit.server"
 import { readAllPagesIn } from "@/lib/read-all-pages"
 import { checkSupplierSicaf } from "@/lib/sicaf.server"
-import { requireStorageForKitchen } from "@/lib/storage-auth.server"
+import { kitchenOfLocation, requireStockForKitchen, requireStorageForKitchen, requireStorageForLocation } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 import { sicafDecision, supplyOrderLinkProblems, supplyOrderLinkUpdateProblem } from "@/lib/supply-order-gate"
 
 const procurement = () => getServerClient("procurement")
 
+/** Cozinha do local de estoque da OF; `null` quando o local não é de cozinha. */
+
 /** OFs de uma cozinha, com itens e dados do empenho. */
 export const listSupplyOrdersFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive() }))
 	.handler(async ({ data }) => {
-		await requireStorageForKitchen(1, data.kitchenId)
+		const { location } = await requireStockForKitchen(1, data.kitchenId)
 		const proc = procurement()
 
 		const { data: orders, error } = await proc
 			.from("supply_order")
 			.select("id, empenho_id, number, sent_at, expected_delivery, status, sicaf_status, notes, created_at")
-			.eq("kitchen_id", data.kitchenId)
+			.eq("location_id", location.id)
 			.order("created_at", { ascending: false })
 			.limit(50)
 		if (error) throw new Error(`Erro ao listar OFs: ${publicDbMessage(error)}`)
@@ -177,7 +180,10 @@ export const createSupplyOrderFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }) => {
-		const { userId } = await requireStorageForKitchen(2, data.kitchenId)
+		const {
+			ctx: { userId },
+			location,
+		} = await requireStockForKitchen(2, data.kitchenId)
 		const proc = procurement()
 
 		// SICAF SERVER-SIDE (review: evidência vinda do cliente podia ser de
@@ -216,7 +222,7 @@ export const createSupplyOrderFn = createServerFn({ method: "POST" })
 			.from("supply_order")
 			.insert({
 				empenho_id: data.empenhoId ?? null,
-				kitchen_id: data.kitchenId,
+				location_id: location.id,
 				number: data.number?.trim() || null,
 				sent_at: getBrasiliaToday(),
 				expected_delivery: data.expectedDelivery,
@@ -265,12 +271,13 @@ export const linkSupplyOrderEmpenhoFn = createServerFn({ method: "POST" })
 		await requireAuth()
 		const { data: order, error: orderError } = await procurement()
 			.from("supply_order")
-			.select("kitchen_id, empenho_id, status")
+			.select("location_id, empenho_id, status")
 			.eq("id", data.supplyOrderId)
 			.maybeSingle()
 		if (orderError) throw new Error(`Erro ao buscar a OF: ${publicDbMessage(orderError)}`)
 		if (!order) throw new Error("OF não encontrada")
-		const { userId } = await requireStorageForKitchen(2, Number(order.kitchen_id))
+		const orderKitchenId = await kitchenOfLocation(Number(order.location_id))
+		const { userId } = await requireStorageForKitchen(2, orderKitchenId)
 		if (order.empenho_id != null) throw new Error("A OF já tem empenho vinculado")
 		if (order.status === "cancelled") throw new Error("OF cancelada não recebe empenho")
 
@@ -282,18 +289,14 @@ export const linkSupplyOrderEmpenhoFn = createServerFn({ method: "POST" })
 			.maybeSingle()
 		if (empenhoError) throw new Error(`Erro ao conferir o empenho: ${publicDbMessage(empenhoError)}`)
 		if (!empenhoRow) throw new Error("Empenho não encontrado")
-		const { data: kitchenRow, error: kitchenError } = await getServerClient("kitchen")
-			.from("kitchen")
-			.select("unit_id, purchase_unit_id")
-			.eq("id", order.kitchen_id)
-			.maybeSingle()
-		if (kitchenError) throw new Error(`Erro ao conferir a cozinha: ${publicDbMessage(kitchenError)}`)
+		// Local que não é de cozinha não tem unidade de compra de cozinha: o vínculo é recusado abaixo.
+		const kitchenPurchaseUnitId = orderKitchenId == null ? null : await purchaseUnitIdOfKitchen(orderKitchenId)
 		const { data: items, error: itemsError } = await procurement().from("supply_order_item").select("arp_item_id").eq("supply_order_id", data.supplyOrderId)
 		if (itemsError) throw new Error(`Erro ao ler os itens da OF: ${publicDbMessage(itemsError)}`)
 		const covered = await coveredArpItemIds(data.empenhoId)
 
 		const problems = supplyOrderLinkProblems({
-			kitchenPurchaseUnitId: resolvePurchaseUnitId({ unitId: kitchenRow?.unit_id ?? null, purchaseUnitId: kitchenRow?.purchase_unit_id ?? null }),
+			kitchenPurchaseUnitId,
 			empenho: {
 				unitId: empenhoRow.unit_id == null ? null : Number(empenhoRow.unit_id),
 				status: String(empenhoRow.status),
@@ -418,10 +421,10 @@ export const listEmpenhosForKitchenFn = createServerFn({ method: "GET" })
 export const cancelSupplyOrderFn = createServerFn({ method: "POST" })
 	.validator(z.object({ supplyOrderId: z.uuid() }))
 	.handler(async ({ data }) => {
-		const { data: order, error: orderError } = await procurement().from("supply_order").select("kitchen_id").eq("id", data.supplyOrderId).maybeSingle()
+		const { data: order, error: orderError } = await procurement().from("supply_order").select("location_id").eq("id", data.supplyOrderId).maybeSingle()
 		if (orderError) throw new Error(`Erro ao carregar a OF: ${publicDbMessage(orderError)}`)
 		if (!order) throw new Error("OF não encontrada")
-		await requireStorageForKitchen(2, Number(order.kitchen_id))
+		await requireStorageForLocation(2, Number(order.location_id))
 		const { error } = await procurement()
 			.from("supply_order")
 			.update({ status: "cancelled", updated_at: new Date().toISOString() })

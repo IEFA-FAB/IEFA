@@ -408,6 +408,7 @@
         "@iefa/database": "workspace:*",
         "@iefa/legal-kit": "workspace:*",
         "@iefa/pbac": "workspace:*",
+        "@iefa/sisprov-domain": "workspace:*",
         "@iefa/sisub-domain": "workspace:*",
         "@iefa/supabase-kit": "workspace:*",
         "@opentelemetry/api": "^1.9.1",

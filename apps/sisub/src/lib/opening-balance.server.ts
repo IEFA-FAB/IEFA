@@ -52,22 +52,24 @@ export async function loadCanonicalUnits(): Promise<Set<string>> {
 }
 
 /**
- * Insumos que já têm movimento nesta cozinha.
+ * Itens que já têm movimento no local de estoque (`locationId`, não o id da cozinha). O
+ * `item_id` é o próprio id do insumo; preparação que apareça no conjunto não casa com o
+ * catálogo de insumos e não atrapalha.
  *
  * Lido de `stock_cost`, e não do ledger: o gatilho de custeio cria a linha de custo no
  * PRIMEIRO movimento de cada item e nada mais escreve nela, então ela é o índice de "já
- * movimentou" com uma linha por item — ler `stock_movement` inteiro da cozinha para isso
+ * movimentou" com uma linha por item — ler `stock_movement` inteiro do local para isso
  * cresceria com cada saída do dia. É só a PRÉ-validação da tela: quem decide é
  * `post_opening_balance`, que olha o ledger sob trava.
  */
-export async function loadMovedIngredientIds(kitchenId: number): Promise<Set<string>> {
+export async function loadMovedIngredientIds(locationId: number): Promise<Set<string>> {
 	const rows = await readAllPages("os itens já movimentados", (from, to) =>
-		// Paginado por `ingredient_id`: filtrada por cozinha, a chave de negócio de `stock_cost` é
-		// o insumo — (kitchen_id, ingredient_id), única por índice parcial —, e ela já dá a ordem
-		// estável que a paginação exige. O `id` (PK física desde 20260926219000) não acrescenta nada.
-		inventory().from("stock_cost").select("ingredient_id").eq("kitchen_id", kitchenId).not("ingredient_id", "is", null).order("ingredient_id").range(from, to)
+		// Paginado por `item_id`: filtrada por local, a chave de negócio de `stock_cost` é o item
+		// — (location_id, item_id) —, e ela já dá a ordem estável que a paginação exige. O `id`
+		// (PK física desde 20260926219000) não acrescenta nada.
+		inventory().from("stock_cost").select("item_id").eq("location_id", locationId).order("item_id").range(from, to)
 	)
-	return new Set(rows.map((row) => row.ingredient_id).filter((id): id is string => Boolean(id)))
+	return new Set(rows.map((row) => row.item_id).filter((id): id is string => Boolean(id)))
 }
 
 /**

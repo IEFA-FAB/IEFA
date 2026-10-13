@@ -21,7 +21,13 @@ import { publicDbMessage } from "@/lib/db-error-message"
 import { purchaseUnitIdOfKitchen } from "@/lib/kitchen-purchase-unit.server"
 import { nfeOwnershipProblem } from "@/lib/nfe-ownership"
 import { readAllPagesIn } from "@/lib/read-all-pages"
-import { requireStorageForKitchen } from "@/lib/storage-auth.server"
+import {
+	type KitchenStockLocation,
+	kitchenOfLocation,
+	requireStockForKitchen,
+	requireStorageForKitchen,
+	requireStorageForLocation,
+} from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 
 const API_BASE = (process.env.IEFA_API_BASE_URL || "https://api.iefa.com.br").replace(/\/+$/, "")
@@ -31,13 +37,16 @@ const gs1 = () => getServerClient("gs1_integration")
 const kitchen = () => getServerClient("kitchen")
 const procurement = () => getServerClient("procurement")
 
-/** Autentica, resolve a cozinha do documento e aplica o guard escopado. */
+/** Cozinha de um local de estoque; `null` quando o local não é de cozinha. */
+
+/** Autentica, resolve a cozinha do local de estoque do documento e aplica o guard escopado. */
 async function requireStorageForDocument(level: 1 | 2, nfeDocumentId: string): Promise<{ userId: string }> {
 	const base = await requireAuthWithPermission("storage", level)
-	const { data: doc, error: docError } = await inventory().from("nfe_document").select("kitchen_id").eq("id", nfeDocumentId).maybeSingle()
+	const { data: doc, error: docError } = await inventory().from("nfe_document").select("location_id").eq("id", nfeDocumentId).maybeSingle()
 	if (docError) throw new Error(`Erro ao carregar a NF-e: ${publicDbMessage(docError)}`)
 	if (!doc) throw new Error("NF-e não encontrada")
-	await requireStorageForKitchen(level, doc.kitchen_id != null ? Number(doc.kitchen_id) : null)
+	if (doc.location_id != null) await requireStorageForLocation(level, Number(doc.location_id))
+	else await requireStorageForKitchen(level, null)
 	return { userId: base.userId }
 }
 
@@ -57,7 +66,8 @@ export interface NfeItemRow {
 	match_status: "pending" | "matched" | "review" | "no_match"
 	ingredient_item_id: string | null
 	purchase_item_id: string | null
-	ingredient_id: string | null
+	/** Insumo casado (`core.item.id`; a NF-e só traz insumo). */
+	item_id: string | null
 	matched_qty_base: number | null
 }
 
@@ -70,8 +80,8 @@ export interface NfeDocumentRow {
 	total_value: number | null
 	status: string
 	created_at: string
-	/** Nula enquanto a nota é da UNIDADE e nenhuma cozinha a assumiu. */
-	kitchen_id?: number | null
+	/** Local de estoque dono da nota; nulo enquanto a nota é da UNIDADE e nenhuma cozinha a assumiu. */
+	location_id?: number | null
 	unit_id?: number | null
 	destination_confirmed?: boolean
 	situation_result?: "authorized" | "cancelled" | "unknown" | null
@@ -214,7 +224,7 @@ async function runMatchingForDocument(nfeDocumentId: string): Promise<{ matched:
 			match_status: result.status,
 			ingredient_item_id: result.ingredientItemId,
 			purchase_item_id: result.purchaseItemId,
-			ingredient_id: result.ingredientId,
+			item_id: result.ingredientId,
 			matched_qty_base: result.matchedQtyBase,
 			updated_at: new Date().toISOString(),
 		})
@@ -288,7 +298,10 @@ export const uploadNfeFn = createServerFn({ method: "POST" })
 export const createNfeFromAccessKeyFn = createServerFn({ method: "POST" })
 	.validator(z.object({ kitchenId: z.number().int().positive(), accessKey: z.string().min(44).max(60) }))
 	.handler(async ({ data }) => {
-		const { userId } = await requireStorageForKitchen(2, data.kitchenId)
+		const {
+			ctx: { userId },
+			location,
+		} = await requireStockForKitchen(2, data.kitchenId)
 		const parsed = parseNfeAccessKey(data.accessKey)
 		if (!parsed) throw new Error("Chave de acesso inválida — confira o dígito verificador")
 
@@ -297,31 +310,32 @@ export const createNfeFromAccessKeyFn = createServerFn({ method: "POST" })
 
 		const { data: existing, error: existingError } = await inv
 			.from("nfe_document")
-			.select("id, status, kitchen_id, unit_id")
+			.select("id, status, location_id, unit_id")
 			.eq("access_key", parsed.key)
 			.maybeSingle()
 		if (existingError) throw new Error(`Erro ao carregar a NF-e pela chave: ${publicDbMessage(existingError)}`)
 		if (existing) {
 			// Nota já conhecida. As mesmas travas de `claimNfeForKitchenFn`: sem elas, ler a chave
 			// de uma nota de OUTRA unidade (ela está impressa no DANFE) bastava para assumi-la, e
-			// a nota de outra cozinha devolvia o id dela a quem não pode abri-la.
+			// a nota de outra cozinha devolvia o id dela a quem não pode abri-la. O dono é o local de
+			// estoque, um por cozinha: comparar locais é comparar cozinhas.
 			const problem = nfeOwnershipProblem({
-				docKitchenId: existing.kitchen_id != null ? Number(existing.kitchen_id) : null,
+				docKitchenId: existing.location_id != null ? Number(existing.location_id) : null,
 				docUnitId: existing.unit_id != null ? Number(existing.unit_id) : null,
-				kitchenId: data.kitchenId,
+				kitchenId: location.id,
 				kitchenPurchaseUnitId: unitId,
 			})
 			if (problem) throw new Error(problem)
-			// Sem dono: assume para esta cozinha. `is(kitchen_id, null)` fecha a corrida com outra
+			// Sem dono: assume para esta cozinha. `is(location_id, null)` fecha a corrida com outra
 			// cozinha assumindo ao mesmo tempo — desde que se confira que ESTE update pegou a linha:
 			// quem perde a corrida atualiza zero linhas, e sem a conferência receberia o id da nota
 			// que acabou de virar da outra cozinha.
-			if (existing.kitchen_id == null) {
+			if (existing.location_id == null) {
 				const { data: claimed, error } = await inv
 					.from("nfe_document")
-					.update({ kitchen_id: data.kitchenId })
+					.update({ location_id: location.id })
 					.eq("id", existing.id)
-					.is("kitchen_id", null)
+					.is("location_id", null)
 					.eq("unit_id", Number(existing.unit_id))
 					.select("id")
 				if (error) throw new Error(`Erro ao assumir a nota: ${publicDbMessage(error)}`)
@@ -342,7 +356,7 @@ export const createNfeFromAccessKeyFn = createServerFn({ method: "POST" })
 				access_key: parsed.key,
 				supplier_cnpj: parsed.issuerTaxId,
 				status: "announced",
-				kitchen_id: data.kitchenId,
+				location_id: location.id,
 				unit_id: unitId,
 				destination_confirmed: false,
 				issued_at: issuedMonth,
@@ -385,32 +399,33 @@ export const registerNfeSituationFn = createServerFn({ method: "POST" })
 export const claimNfeForKitchenFn = createServerFn({ method: "POST" })
 	.validator(z.object({ nfeDocumentId: z.uuid(), kitchenId: z.number().int().positive() }))
 	.handler(async ({ data }) => {
-		await requireStorageForKitchen(2, data.kitchenId)
+		const { location } = await requireStockForKitchen(2, data.kitchenId)
 		const inv = inventory()
-		const { data: doc, error: docError } = await inv.from("nfe_document").select("id, kitchen_id, unit_id").eq("id", data.nfeDocumentId).maybeSingle()
+		const { data: doc, error: docError } = await inv.from("nfe_document").select("id, location_id, unit_id").eq("id", data.nfeDocumentId).maybeSingle()
 		if (docError) throw new Error(`Erro ao carregar a nota: ${publicDbMessage(docError)}`)
 		if (!doc) throw new Error("NF-e não encontrada")
-		if (doc.kitchen_id != null && Number(doc.kitchen_id) === data.kitchenId) return { claimed: true }
+		if (doc.location_id != null && Number(doc.location_id) === location.id) return { claimed: true }
 
 		// A nota é da UNIDADE: cozinha de outra unidade não a assume, e nota sem unidade (triagem
 		// global, destinatário não reconhecido) não é de cozinha nenhuma até a triagem atribuí-la.
 		// Antes, `unit_id` nulo passava direto e qualquer cozinha tomava a nota da triagem.
+		// O dono é o local de estoque, um por cozinha: comparar locais é comparar cozinhas.
 		const problem = nfeOwnershipProblem({
-			docKitchenId: doc.kitchen_id != null ? Number(doc.kitchen_id) : null,
+			docKitchenId: doc.location_id != null ? Number(doc.location_id) : null,
 			docUnitId: doc.unit_id != null ? Number(doc.unit_id) : null,
-			kitchenId: data.kitchenId,
+			kitchenId: location.id,
 			kitchenPurchaseUnitId: await purchaseUnitIdOfKitchen(data.kitchenId),
 		})
 		if (problem) throw new Error(problem)
 
-		// `is(kitchen_id, null)` + conferir que ESTE update pegou a linha: duas cozinhas da mesma
+		// `is(location_id, null)` + conferir que ESTE update pegou a linha: duas cozinhas da mesma
 		// unidade assumindo ao mesmo tempo passavam as duas na leitura, e a segunda tomava a nota
 		// da primeira. Quem perde a corrida atualiza zero linhas.
 		const { data: claimed, error } = await inv
 			.from("nfe_document")
-			.update({ kitchen_id: data.kitchenId })
+			.update({ location_id: location.id })
 			.eq("id", data.nfeDocumentId)
-			.is("kitchen_id", null)
+			.is("location_id", null)
 			.eq("unit_id", Number(doc.unit_id))
 			.select("id")
 		if (error) throw new Error(`Erro ao assumir a nota: ${publicDbMessage(error)}`)
@@ -445,16 +460,17 @@ export const assignNfeUnitFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		await requireStorageForKitchen(3, null)
 		const inv = inventory()
-		const { data: doc, error: docError } = await inv.from("nfe_document").select("kitchen_id").eq("id", data.nfeDocumentId).maybeSingle()
+		const { data: doc, error: docError } = await inv.from("nfe_document").select("location_id").eq("id", data.nfeDocumentId).maybeSingle()
 		if (docError) throw new Error(`Erro ao carregar a nota: ${publicDbMessage(docError)}`)
 		if (!doc) throw new Error("NF-e não encontrada")
+		const docKitchenId = doc.location_id != null ? await kitchenOfLocation(Number(doc.location_id)) : null
 		// A nota enviada por uma cozinha com destinatário desconhecido fica com ela. Atribuída a OUTRA
 		// unidade, deixa de ser daquela cozinha e vai para as cozinhas da unidade atribuída — senão a
 		// cozinha que enviou seguiria dona de uma nota de outra OM.
-		const keepsKitchen = doc.kitchen_id != null && (await purchaseUnitIdOfKitchen(Number(doc.kitchen_id))) === data.unitId
+		const keepsKitchen = docKitchenId != null && (await purchaseUnitIdOfKitchen(docKitchenId)) === data.unitId
 		const { error } = await inv
 			.from("nfe_document")
-			.update({ unit_id: data.unitId, destination_confirmed: false, ...(keepsKitchen ? {} : { kitchen_id: null }) })
+			.update({ unit_id: data.unitId, destination_confirmed: false, ...(keepsKitchen ? {} : { location_id: null }) })
 			.eq("id", data.nfeDocumentId)
 		if (error) throw new Error(`Erro ao atribuir a unidade: ${publicDbMessage(error)}`)
 		return { assigned: true }
@@ -472,13 +488,15 @@ export const runNfeMatchingFn = createServerFn({ method: "POST" })
 export const listNfeDocumentsFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive().optional() }))
 	.handler(async ({ data }) => {
-		await requireStorageForKitchen(1, data.kitchenId ?? null)
+		let location: KitchenStockLocation | null = null
+		if (data.kitchenId != null) location = (await requireStockForKitchen(1, data.kitchenId)).location
+		else await requireStorageForKitchen(1, null)
 		const inv = inventory()
 
 		let query = inv
 			.from("nfe_document")
 			.select(
-				"id, access_key, supplier_cnpj, supplier_name, issued_at, total_value, status, created_at, kitchen_id, unit_id, destination_confirmed, situation_result"
+				"id, access_key, supplier_cnpj, supplier_name, issued_at, total_value, status, created_at, location_id, unit_id, destination_confirmed, situation_result"
 			)
 			.order("created_at", { ascending: false })
 			.limit(50)
@@ -486,9 +504,9 @@ export const listNfeDocumentsFn = createServerFn({ method: "GET" })
 		// sem cozinha: a NF-e chega no CNPJ da OM, não da cozinha, e é um operador
 		// de uma das cozinhas da unidade que a assume. Nota sem unidade resolvida
 		// não entra aqui — ela fica na triagem do nível 3 global.
-		if (data.kitchenId != null) {
+		if (data.kitchenId != null && location) {
 			const unitId = await purchaseUnitIdOfKitchen(data.kitchenId)
-			query = unitId != null ? query.or(`kitchen_id.eq.${data.kitchenId},and(unit_id.eq.${unitId},kitchen_id.is.null)`) : query.eq("kitchen_id", data.kitchenId)
+			query = unitId != null ? query.or(`location_id.eq.${location.id},and(unit_id.eq.${unitId},location_id.is.null)`) : query.eq("location_id", location.id)
 		}
 		const { data: docs, error } = await query
 		if (error) throw new Error(`Erro ao listar NF-e: ${publicDbMessage(error)}`)
@@ -648,7 +666,7 @@ export const resolveNfeItemFn = createServerFn({ method: "POST" })
 				match_status: qty != null ? "matched" : "review",
 				ingredient_item_id: link?.id ?? null,
 				purchase_item_id: purchaseItemId,
-				ingredient_id: ingredientId,
+				item_id: ingredientId,
 				matched_qty_base: qty,
 				updated_at: new Date().toISOString(),
 			})

@@ -41,6 +41,8 @@ describeIf("stock issue request (DB)", () => {
 				.begin(async (tx) => {
 					const [unit] = await tx`insert into core.units (code, display_name) values ('ZZTEST-ISSUE', 'unit teste saída') returning id`
 					const [kitchenRow] = await tx`insert into core.kitchen (unit_id, display_name) values (${unit.id}, 'cozinha saída') returning id`
+					// o estoque é do local de estoque; o da cozinha nasce por trigger
+					const [location] = await tx`select inventory.kitchen_location(${kitchenRow.id}) as id`
 					const [ingredient] = await tx`insert into kitchen.ingredient (description, measure_unit) values ('ARROZ TESTE SAIDA', 'KG') returning id`
 					const [author] = await tx`select id from auth.users limit 1`
 
@@ -50,23 +52,23 @@ describeIf("stock issue request (DB)", () => {
 					// no dia seguinte — `current_date - 1` seria o HOJE de Brasília e o
 					// lote "vencido" entraria na alocação, conforme a hora do dia.
 					const [vencido] = await tx`
-						insert into inventory.stock_lot (kitchen_id, ingredient_id, lot_code, expiry_date, received_at)
-						values (${kitchenRow.id}, ${ingredient.id}, 'L-VENC', ((now() at time zone 'America/Sao_Paulo')::date - 1), now() - interval '10 days') returning id`
+						insert into inventory.stock_lot (location_id, item_id, lot_code, expiry_date, received_at)
+						values (${location.id}, ${ingredient.id}, 'L-VENC', ((now() at time zone 'America/Sao_Paulo')::date - 1), now() - interval '10 days') returning id`
 					const [semValidade] = await tx`
-						insert into inventory.stock_lot (kitchen_id, ingredient_id, lot_code, expiry_date, received_at)
-						values (${kitchenRow.id}, ${ingredient.id}, 'L-SEM-VAL', null, now() - interval '5 days') returning id`
+						insert into inventory.stock_lot (location_id, item_id, lot_code, expiry_date, received_at)
+						values (${location.id}, ${ingredient.id}, 'L-SEM-VAL', null, now() - interval '5 days') returning id`
 					const [valido] = await tx`
-						insert into inventory.stock_lot (kitchen_id, ingredient_id, lot_code, expiry_date, received_at)
-						values (${kitchenRow.id}, ${ingredient.id}, 'L-VALIDO', ((now() at time zone 'America/Sao_Paulo')::date + 30), now() - interval '1 day') returning id`
+						insert into inventory.stock_lot (location_id, item_id, lot_code, expiry_date, received_at)
+						values (${location.id}, ${ingredient.id}, 'L-VALIDO', ((now() at time zone 'America/Sao_Paulo')::date + 30), now() - interval '1 day') returning id`
 					for (const lot of [vencido, semValidade, valido]) {
 						await tx`
-							insert into inventory.stock_movement (kitchen_id, ingredient_id, lot_id, type, quantity, unit_cost)
-							values (${kitchenRow.id}, ${ingredient.id}, ${lot.id}, 'receipt', 10, 4)`
+							insert into inventory.stock_movement (location_id, item_id, lot_id, type, quantity, unit_cost)
+							values (${location.id}, ${ingredient.id}, ${lot.id}, 'receipt', 10, 4)`
 					}
 
 					const [request] = await tx`
-						insert into inventory.stock_issue_request (kitchen_id, issue_date, origin, created_by)
-						values (${kitchenRow.id}, (now() at time zone 'America/Sao_Paulo')::date, 'production', ${author.id}) returning id`
+						insert into inventory.stock_issue_request (location_id, issue_date, origin, created_by)
+						values (${location.id}, (now() at time zone 'America/Sao_Paulo')::date, 'production', ${author.id}) returning id`
 
 					// ── alocação: pula o vencido, começa pelo sem validade (mais antigo) ──
 					const emission = "emissao-teste-0001"
@@ -148,46 +150,48 @@ describeIf("stock issue request (DB)", () => {
 				.begin(async (tx) => {
 					const [unit] = await tx`insert into core.units (code, display_name) values ('ZZTEST-ISSUE4', 'unit teste saída 4') returning id`
 					const [kitchenRow] = await tx`insert into core.kitchen (unit_id, display_name) values (${unit.id}, 'cozinha saída 4') returning id`
+					// o estoque é do local de estoque; o da cozinha nasce por trigger
+					const [location] = await tx`select inventory.kitchen_location(${kitchenRow.id}) as id`
 					const [feijao] = await tx`insert into kitchen.ingredient (description, measure_unit) values ('FEIJAO TESTE SAIDA4', 'KG') returning id`
 					const [arroz] = await tx`insert into kitchen.ingredient (description, measure_unit) values ('ARROZ TESTE SAIDA4', 'KG') returning id`
 					const [author] = await tx`select id from auth.users limit 1`
 					const [lotA] = await tx`
-						insert into inventory.stock_lot (kitchen_id, ingredient_id, lot_code, expiry_date, received_at)
-						values (${kitchenRow.id}, ${feijao.id}, 'L-A4', ((now() at time zone 'America/Sao_Paulo')::date + 30), now() - interval '2 days') returning id`
+						insert into inventory.stock_lot (location_id, item_id, lot_code, expiry_date, received_at)
+						values (${location.id}, ${feijao.id}, 'L-A4', ((now() at time zone 'America/Sao_Paulo')::date + 30), now() - interval '2 days') returning id`
 					const [lotB] = await tx`
-						insert into inventory.stock_lot (kitchen_id, ingredient_id, lot_code, expiry_date, received_at)
-						values (${kitchenRow.id}, ${feijao.id}, 'L-B4', ((now() at time zone 'America/Sao_Paulo')::date + 40), now() - interval '1 day') returning id`
+						insert into inventory.stock_lot (location_id, item_id, lot_code, expiry_date, received_at)
+						values (${location.id}, ${feijao.id}, 'L-B4', ((now() at time zone 'America/Sao_Paulo')::date + 40), now() - interval '1 day') returning id`
 					for (const lot of [lotA, lotB]) {
 						await tx`
-							insert into inventory.stock_movement (kitchen_id, ingredient_id, lot_id, type, quantity, unit_cost)
-							values (${kitchenRow.id}, ${feijao.id}, ${lot.id}, 'receipt', 10, 5)`
+							insert into inventory.stock_movement (location_id, item_id, lot_id, type, quantity, unit_cost)
+							values (${location.id}, ${feijao.id}, ${lot.id}, 'receipt', 10, 5)`
 					}
 					const today = tx`(now() at time zone 'America/Sao_Paulo')::date`
 					const [request] = await tx`
-						insert into inventory.stock_issue_request (kitchen_id, issue_date, origin, created_by)
-						values (${kitchenRow.id}, ${today}, 'production', ${author.id}) returning id`
+						insert into inventory.stock_issue_request (location_id, issue_date, origin, created_by)
+						values (${location.id}, ${today}, 'production', ${author.id}) returning id`
 					await tx`
-						insert into inventory.stock_issue_request_item (request_id, ingredient_id, suggested_qty)
+						insert into inventory.stock_issue_request_item (request_id, item_id, suggested_qty)
 						values (${request.id}, ${feijao.id}, 12.5), (${request.id}, ${arroz.id}, null)`
 
 					// ── recalcular: grava, atualiza e ZERA o que saiu do plano ─────────
 					// (20260920190000: numa função que trava linhas → requisição, a
 					// ordem do fechamento)
 					const [{ refresh_issue_suggestion: gravadas }] = await tx`select inventory.refresh_issue_suggestion(${request.id},
-						${tx.json([{ ingredient_id: feijao.id, meal_type_id: null, suggested_qty: 13 }])})`
+						${tx.json([{ item_id: feijao.id, meal_type_id: null, suggested_qty: 13 }])})`
 					expect(gravadas).toBe(1)
-					const recalculado = await tx`select ingredient_id, suggested_qty from inventory.stock_issue_request_item where request_id = ${request.id}`
-					expect(Number(recalculado.find((row) => row.ingredient_id === feijao.id)?.suggested_qty)).toBe(13)
+					const recalculado = await tx`select item_id, suggested_qty from inventory.stock_issue_request_item where request_id = ${request.id}`
+					expect(Number(recalculado.find((row) => row.item_id === feijao.id)?.suggested_qty)).toBe(13)
 					// o arroz saiu do plano: zero, e não apagado
-					expect(Number(recalculado.find((row) => row.ingredient_id === arroz.id)?.suggested_qty)).toBe(0)
+					expect(Number(recalculado.find((row) => row.item_id === arroz.id)?.suggested_qty)).toBe(0)
 					// volta ao que o teste espera daqui para frente
-					await tx`update inventory.stock_issue_request_item set suggested_qty = 12.5 where request_id = ${request.id} and ingredient_id = ${feijao.id}`
-					await tx`update inventory.stock_issue_request_item set suggested_qty = null where request_id = ${request.id} and ingredient_id = ${arroz.id}`
+					await tx`update inventory.stock_issue_request_item set suggested_qty = 12.5 where request_id = ${request.id} and item_id = ${feijao.id}`
+					await tx`update inventory.stock_issue_request_item set suggested_qty = null where request_id = ${request.id} and item_id = ${arroz.id}`
 
 					// ── a impressão digital do banco é a MESMA do servidor ─────────────
 					const [{ fp }] = await tx`select inventory.issue_suggestion_fingerprint(${request.id}) as fp`
-					const items = await tx`select ingredient_id, suggested_qty from inventory.stock_issue_request_item where request_id = ${request.id}`
-					expect(fp).toBe(issueSuggestionFingerprint(items.map((row) => ({ ingredientId: row.ingredient_id, suggestedQty: row.suggested_qty }))))
+					const items = await tx`select item_id, suggested_qty from inventory.stock_issue_request_item where request_id = ${request.id}`
+					expect(fp).toBe(issueSuggestionFingerprint(items.map((row) => ({ ingredientId: row.item_id, suggestedQty: row.suggested_qty }))))
 
 					// ── retry de OUTRO pedido com o mesmo identificador é recusado ─────
 					await tx`select * from inventory.issue_stock(${request.id}, ${feijao.id}, 3, ${author.id}, 'emissao-r4-0001', null, null, null)`
@@ -218,7 +222,7 @@ describeIf("stock issue request (DB)", () => {
 
 					// ── o retrato inclui a sugestão: mudou, o fechamento recusa ────────
 					const [{ n: moves }] = await tx`select count(*)::int as n from inventory.stock_movement where issue_request_id = ${request.id}`
-					await tx`update inventory.stock_issue_request_item set suggested_qty = 20 where request_id = ${request.id} and ingredient_id = ${feijao.id}`
+					await tx`update inventory.stock_issue_request_item set suggested_qty = 20 where request_id = ${request.id} and item_id = ${feijao.id}`
 					await expect(tx.savepoint((sp) => sp`select * from inventory.close_issue_request(${request.id}, ${author.id}, ${moves}, ${fp})`)).rejects.toThrow(
 						/sugestão do dia mudou/
 					)
@@ -229,7 +233,7 @@ describeIf("stock issue request (DB)", () => {
 
 					// dia fechado: recalcular não grava nada (a sugestão está congelada)
 					const [{ refresh_issue_suggestion: fechado }] = await tx`select inventory.refresh_issue_suggestion(${request.id},
-						${tx.json([{ ingredient_id: feijao.id, meal_type_id: null, suggested_qty: 99 }])})`
+						${tx.json([{ item_id: feijao.id, meal_type_id: null, suggested_qty: 99 }])})`
 					expect(fechado).toBe(0)
 
 					// ── retry de saída que passou ANTES do fechamento é reconhecido ────
@@ -241,22 +245,22 @@ describeIf("stock issue request (DB)", () => {
 					).rejects.toThrow(/já fechada/)
 
 					// ── avulsas: várias no dia; produção continua uma ─────────────────
-					await tx`insert into inventory.stock_issue_request (kitchen_id, issue_date, origin, purpose, destination, created_by)
-						values (${kitchenRow.id}, ${today}, 'ad_hoc', 'apoio manhã', 'ala A', ${author.id})`
-					await tx`insert into inventory.stock_issue_request (kitchen_id, issue_date, origin, purpose, destination, created_by)
-						values (${kitchenRow.id}, ${today}, 'ad_hoc', 'evento noite', 'salão', ${author.id})`
+					await tx`insert into inventory.stock_issue_request (location_id, issue_date, origin, purpose, destination, created_by)
+						values (${location.id}, ${today}, 'ad_hoc', 'apoio manhã', 'ala A', ${author.id})`
+					await tx`insert into inventory.stock_issue_request (location_id, issue_date, origin, purpose, destination, created_by)
+						values (${location.id}, ${today}, 'ad_hoc', 'evento noite', 'salão', ${author.id})`
 					await expect(
 						tx.savepoint(
-							(sp) => sp`insert into inventory.stock_issue_request (kitchen_id, issue_date, origin, created_by)
-								values (${kitchenRow.id}, ${today}, 'production', ${author.id})`
+							(sp) => sp`insert into inventory.stock_issue_request (location_id, issue_date, origin, created_by)
+								values (${location.id}, ${today}, 'production', ${author.id})`
 						)
 					).rejects.toThrow(/stock_issue_request_production_day_key/)
 
 					// ── apagar requisição com linhas: o cascade passa pelo trigger ─────
 					const [draft] = await tx`
-						insert into inventory.stock_issue_request (kitchen_id, issue_date, origin, purpose, destination, created_by)
-						values (${kitchenRow.id}, ${today}, 'ad_hoc', 'a apagar', 'x', ${author.id}) returning id`
-					await tx`insert into inventory.stock_issue_request_item (request_id, ingredient_id, suggested_qty) values (${draft.id}, ${arroz.id}, 1)`
+						insert into inventory.stock_issue_request (location_id, issue_date, origin, purpose, destination, created_by)
+						values (${location.id}, ${today}, 'ad_hoc', 'a apagar', 'x', ${author.id}) returning id`
+					await tx`insert into inventory.stock_issue_request_item (request_id, item_id, suggested_qty) values (${draft.id}, ${arroz.id}, 1)`
 					await tx`delete from inventory.stock_issue_request where id = ${draft.id}`
 					const [{ n: left }] = await tx`select count(*)::int as n from inventory.stock_issue_request_item where request_id = ${draft.id}`
 					expect(left).toBe(0)
@@ -277,6 +281,8 @@ describeIf("stock issue request (DB)", () => {
 					const [unit] = await tx`insert into core.units (code, display_name) values ('ZZTEST-ISSUE5', 'unit teste saída 5') returning id`
 					const [kitchenA] = await tx`insert into core.kitchen (unit_id, display_name) values (${unit.id}, 'cozinha saída 5A') returning id`
 					const [kitchenB] = await tx`insert into core.kitchen (unit_id, display_name) values (${unit.id}, 'cozinha saída 5B') returning id`
+					// o estoque é do local de estoque; o da cozinha nasce por trigger
+					const [locationA] = await tx`select inventory.kitchen_location(${kitchenA.id}) as id`
 					const [ingredient] = await tx`insert into kitchen.ingredient (description, measure_unit) values ('ARROZ TESTE SAIDA5', 'KG') returning id`
 					const [author] = await tx`select id from auth.users limit 1`
 					const today = tx`(now() at time zone 'America/Sao_Paulo')::date`
@@ -298,14 +304,14 @@ describeIf("stock issue request (DB)", () => {
 						insert into kitchen.production_task (kitchen_id, menu_item_id, production_date, status) values (${kitchenA.id}, ${menuItemA.id}, ${today}, 'DONE') returning id`
 
 					const [lot] = await tx`
-						insert into inventory.stock_lot (kitchen_id, ingredient_id, lot_code, expiry_date, received_at)
-						values (${kitchenA.id}, ${ingredient.id}, 'L-5A', ((now() at time zone 'America/Sao_Paulo')::date + 30), now() - interval '1 day') returning id`
+						insert into inventory.stock_lot (location_id, item_id, lot_code, expiry_date, received_at)
+						values (${locationA.id}, ${ingredient.id}, 'L-5A', ((now() at time zone 'America/Sao_Paulo')::date + 30), now() - interval '1 day') returning id`
 					await tx`
-						insert into inventory.stock_movement (kitchen_id, ingredient_id, lot_id, type, quantity, unit_cost)
-						values (${kitchenA.id}, ${ingredient.id}, ${lot.id}, 'receipt', 10, 5)`
+						insert into inventory.stock_movement (location_id, item_id, lot_id, type, quantity, unit_cost)
+						values (${locationA.id}, ${ingredient.id}, ${lot.id}, 'receipt', 10, 5)`
 					const [request] = await tx`
-						insert into inventory.stock_issue_request (kitchen_id, issue_date, origin, created_by)
-						values (${kitchenA.id}, ${today}, 'production', ${author.id}) returning id`
+						insert into inventory.stock_issue_request (location_id, issue_date, origin, created_by)
+						values (${locationA.id}, ${today}, 'production', ${author.id}) returning id`
 
 					// saída da cozinha A citando a tarefa da cozinha B: recusada, pela alocação e pelo lote escolhido
 					await expect(

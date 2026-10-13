@@ -31,21 +31,23 @@ describeIf("monthly closing MCASP (DB)", () => {
 				.begin(async (tx) => {
 					const [unit] = await tx`insert into core.units (code, display_name) values ('ZZTEST-MCASP', 'unit mcasp') returning id`
 					const [kitchenRow] = await tx`insert into core.kitchen (unit_id, display_name) values (${unit.id}, 'cozinha mcasp') returning id`
+					// fechamento é por local de estoque; o da cozinha nasce por trigger
+					const [location] = await tx`select inventory.kitchen_location(${kitchenRow.id}) as id`
 					const [ingredient] = await tx`insert into kitchen.ingredient (description, measure_unit) values ('ACUCAR TESTE MCASP', 'KG') returning id`
 					const [lot] = await tx`
-						insert into inventory.stock_lot (kitchen_id, ingredient_id, lot_code)
-						values (${kitchenRow.id}, ${ingredient.id}, 'L-MCASP') returning id`
+						insert into inventory.stock_lot (location_id, item_id, lot_code)
+						values (${location.id}, ${ingredient.id}, 'L-MCASP') returning id`
 
 					// competência corrente: entrada 10@2 e saída 4
 					await tx`
-						insert into inventory.stock_movement (kitchen_id, ingredient_id, lot_id, type, quantity, unit_cost)
-						values (${kitchenRow.id}, ${ingredient.id}, ${lot.id}, 'receipt', 10, 2)`
+						insert into inventory.stock_movement (location_id, item_id, lot_id, type, quantity, unit_cost)
+						values (${location.id}, ${ingredient.id}, ${lot.id}, 'receipt', 10, 2)`
 					await tx`
-						insert into inventory.stock_movement (kitchen_id, ingredient_id, lot_id, type, quantity)
-						values (${kitchenRow.id}, ${ingredient.id}, ${lot.id}, 'production_issue', 4)`
+						insert into inventory.stock_movement (location_id, item_id, lot_id, type, quantity)
+						values (${location.id}, ${ingredient.id}, ${lot.id}, 'production_issue', 4)`
 
 					const competencia = new Date().toISOString().substring(0, 7)
-					const [closing] = await tx`select * from inventory.close_month(${kitchenRow.id}, ${`${competencia}-01`}, null)`
+					const [closing] = await tx`select * from inventory.close_month(${location.id}, ${`${competencia}-01`}, null)`
 					expect(Number(closing.items)).toBe(1)
 
 					const [row] = await tx`
@@ -63,16 +65,16 @@ describeIf("monthly closing MCASP (DB)", () => {
 					await expect(
 						tx.savepoint(
 							(sp) => sp`
-								insert into inventory.stock_movement (kitchen_id, ingredient_id, lot_id, type, quantity, unit_cost)
-								values (${kitchenRow.id}, ${ingredient.id}, ${lot.id}, 'receipt', 1, 1)`
+								insert into inventory.stock_movement (location_id, item_id, lot_id, type, quantity, unit_cost)
+								values (${location.id}, ${ingredient.id}, ${lot.id}, 'receipt', 1, 1)`
 						)
 					).rejects.toThrow(/fechada/)
 
 					// fechar de novo → unique
-					await expect(tx.savepoint((sp) => sp`select * from inventory.close_month(${kitchenRow.id}, ${`${competencia}-01`}, null)`)).rejects.toThrow()
+					await expect(tx.savepoint((sp) => sp`select * from inventory.close_month(${location.id}, ${`${competencia}-01`}, null)`)).rejects.toThrow()
 
 					// competência futura → rejeita
-					await expect(tx.savepoint((sp) => sp`select * from inventory.close_month(${kitchenRow.id}, '2099-01-01', null)`)).rejects.toThrow(/futura/)
+					await expect(tx.savepoint((sp) => sp`select * from inventory.close_month(${location.id}, '2099-01-01', null)`)).rejects.toThrow(/futura/)
 
 					throw new Rollback()
 				})

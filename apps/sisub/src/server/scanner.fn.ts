@@ -1,6 +1,6 @@
 /**
  * @module scanner.fn
- * Perfil calibrado do leitor de código de barras, por usuário × cozinha.
+ * Perfil calibrado do leitor de código de barras, por usuário × local de estoque da cozinha.
  * CLIENT: getServerClient (service role, schema inventory).
  * AUTH: `storage` nível 1 — quem lê estoque calibra o próprio leitor.
  * TABLES: inventory.scanner_profile.
@@ -11,7 +11,8 @@
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { publicDbMessage } from "@/lib/db-error-message"
-import { requireStorageForKitchen } from "@/lib/storage-auth.server"
+import { classifyFoodItems, foodRefOf } from "@/lib/stock-item.server"
+import { requireStockForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 
 const inventory = () => getServerClient("inventory")
@@ -51,12 +52,15 @@ const ProfileSchema = z.object({
 export const fetchScannerProfileFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive() }))
 	.handler(async ({ data }): Promise<ScannerProfile> => {
-		const { userId } = await requireStorageForKitchen(1, data.kitchenId)
+		const {
+			ctx: { userId },
+			location,
+		} = await requireStockForKitchen(1, data.kitchenId)
 		const { data: row, error } = await inventory()
 			.from("scanner_profile")
 			.select("max_key_interval_ms, min_length, terminator, idle_timeout_ms, prefix, suffix, gs_substitute")
 			.eq("user_id", userId)
-			.eq("kitchen_id", data.kitchenId)
+			.eq("location_id", location.id)
 			.maybeSingle()
 		// De propósito: sem o perfil salvo, o leitor funciona com o padrão; a conferência não para por
 		// isso. O log diz por que o prefixo/sufixo configurado não valeu.
@@ -81,13 +85,16 @@ export const saveScannerProfileFn = createServerFn({ method: "POST" })
 		// o perfil é do ator autenticado: `user_id` NUNCA vem do cliente, senão
 		// um operador calibraria o leitor de outro (mesmo padrão do IDOR de
 		// `fetchUserPermissionsFn`)
-		const { userId } = await requireStorageForKitchen(1, data.kitchenId)
+		const {
+			ctx: { userId },
+			location,
+		} = await requireStockForKitchen(1, data.kitchenId)
 		const { error } = await inventory()
 			.from("scanner_profile")
 			.upsert(
 				{
 					user_id: userId,
-					kitchen_id: data.kitchenId,
+					location_id: location.id,
 					max_key_interval_ms: data.maxKeyIntervalMs,
 					min_length: data.minLength,
 					terminator: data.terminator,
@@ -97,7 +104,7 @@ export const saveScannerProfileFn = createServerFn({ method: "POST" })
 					gs_substitute: data.gsSubstitute || null,
 					updated_at: new Date().toISOString(),
 				},
-				{ onConflict: "user_id,kitchen_id" }
+				{ onConflict: "user_id,location_id" }
 			)
 		if (error) throw new Error(`Erro ao salvar o perfil do leitor: ${publicDbMessage(error)}`)
 		return { saved: true }
@@ -107,7 +114,7 @@ export const saveScannerProfileFn = createServerFn({ method: "POST" })
  * Entre os insumos para os quais um código aponta, o que tem SALDO nesta
  * cozinha (o maior); sem nenhum com saldo, o primeiro. Lista vazia → `undefined`.
  */
-async function preferStocked(kitchenId: number, ingredientIds: readonly string[]): Promise<string | undefined> {
+async function preferStocked(locationId: number, ingredientIds: readonly string[]): Promise<string | undefined> {
 	const unique = [...new Set(ingredientIds)]
 	if (unique.length <= 1) return unique[0]
 	// O que tem SALDO aqui, e o de maior saldo quando são vários — e a escolha é
@@ -115,15 +122,15 @@ async function preferStocked(kitchenId: number, ingredientIds: readonly string[]
 	// o lote vazio ou antigo contava como "tem estoque".
 	const { data: stocked, error } = await inventory()
 		.from("v_stock_balance")
-		.select("ingredient_id, balance")
-		.eq("kitchen_id", kitchenId)
-		.in("ingredient_id", unique)
+		.select("item_id, balance")
+		.eq("location_id", locationId)
+		.in("item_id", unique)
 		.gt("balance", 0)
 		.order("balance", { ascending: false })
-		.order("ingredient_id", { ascending: true })
+		.order("item_id", { ascending: true })
 		.limit(1)
 	if (error) throw new Error(`Erro ao resolver o código lido: ${publicDbMessage(error)}`)
-	return ((stocked ?? [])[0]?.ingredient_id as string | undefined) ?? unique[0]
+	return (stocked ?? [])[0]?.item_id ?? unique[0]
 }
 
 /**
@@ -154,22 +161,24 @@ export const resolveScanToIngredientFn = createServerFn({ method: "GET" })
 		async ({
 			data,
 		}): Promise<{ ingredientId: string | null; lotId: string | null; description: string | null; matchedBy: "gtin" | "alias" | "lot" | null }> => {
-			await requireStorageForKitchen(1, data.kitchenId)
+			const { location } = await requireStockForKitchen(1, data.kitchenId)
 			const kit = getServerClient("kitchen")
 
 			if (data.lotShortCode) {
 				const inv = inventory()
 				const { data: lot, error: lotError } = await inv
 					.from("stock_lot")
-					.select("id, ingredient_id")
-					.eq("kitchen_id", data.kitchenId)
+					.select("id, item_id")
+					.eq("location_id", location.id)
 					.eq("short_code", data.lotShortCode.toUpperCase())
 					.maybeSingle()
 				if (lotError) throw new Error(`Erro ao resolver a etiqueta lida: ${publicDbMessage(lotError)}`)
-				if (!lot?.ingredient_id) return { ingredientId: null, lotId: (lot?.id as string) ?? null, description: null, matchedBy: null }
-				const { data: ingredient, error: ingredientError } = await kit.from("ingredient").select("description").eq("id", lot.ingredient_id).maybeSingle()
+				// Lote de preparação congelada não resolve a insumo: a saída é de insumo.
+				const lotIngredientId = lot ? foodRefOf(await classifyFoodItems([lot.item_id]), lot.item_id).ingredientId : null
+				if (!lot || !lotIngredientId) return { ingredientId: null, lotId: lot?.id ?? null, description: null, matchedBy: null }
+				const { data: ingredient, error: ingredientError } = await kit.from("ingredient").select("description").eq("id", lotIngredientId).maybeSingle()
 				if (ingredientError) throw new Error(`Erro ao carregar o insumo: ${publicDbMessage(ingredientError)}`)
-				return { ingredientId: lot.ingredient_id as string, lotId: lot.id as string, description: ingredient?.description ?? null, matchedBy: "lot" }
+				return { ingredientId: lotIngredientId, lotId: lot.id, description: ingredient?.description ?? null, matchedBy: "lot" }
 			}
 
 			if (!data.gtin) return { ingredientId: null, lotId: null, description: null, matchedBy: null }
@@ -194,7 +203,7 @@ export const resolveScanToIngredientFn = createServerFn({ method: "GET" })
 				.limit(50)
 			if (skuError) throw new Error(`Erro ao resolver o código lido: ${publicDbMessage(skuError)}`)
 			let ingredientId = await preferStocked(
-				data.kitchenId,
+				location.id,
 				((skus ?? []) as Array<{ ingredient_id: string }>).map((row) => row.ingredient_id)
 			)
 			let matchedBy: "gtin" | "alias" = "gtin"
