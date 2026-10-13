@@ -24,6 +24,15 @@ import { checkSupplierSicaf } from "@/lib/sicaf.server"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 import { sicafDecision, supplyOrderLinkProblems, supplyOrderLinkUpdateProblem } from "@/lib/supply-order-gate"
+import {
+	buildEmpenhoLinkUpdate,
+	buildSupplyOrderItemRow,
+	buildSupplyOrderRow,
+	collectOrderArpItemIds,
+	isSupplyOrderGateMessage,
+	kitchenPurchaseUnitIdOf,
+	toLinkEmpenhoFacts,
+} from "@/lib/supply-order-rows"
 
 const procurement = () => getServerClient("procurement")
 
@@ -150,6 +159,34 @@ async function loadEmpenhoForOrder(finance: ReturnType<typeof getServerClient<"f
 	return row
 }
 
+/** Unidade compradora da cozinha, lida da linha (`kitchenPurchaseUnitIdOf`). */
+async function loadKitchenPurchaseUnitId(kitchenId: number): Promise<number | null> {
+	const { data: kitchenRow, error: kitchenError } = await getServerClient("kitchen")
+		.from("kitchen")
+		.select("unit_id, purchase_unit_id")
+		.eq("id", kitchenId)
+		.maybeSingle()
+	if (kitchenError) throw new Error(`Erro ao conferir a cozinha: ${publicDbMessage(kitchenError)}`)
+	return kitchenPurchaseUnitIdOf(kitchenRow)
+}
+
+/**
+ * Consulta o SICAF do fornecedor da NE (`supplierCnpjFor`) e aplica `sicafDecision`. Sem CNPJ
+ * conhecido, não consulta e devolve null.
+ */
+async function resolveSicafStatus(
+	favorecidoCnpj: string | null,
+	covered: readonly string[],
+	acknowledged: boolean,
+	moment: "na emissão" | "no vínculo da NE"
+): Promise<string | null> {
+	const cnpj = await supplierCnpjFor(favorecidoCnpj, covered)
+	if (!cnpj) return null
+	const decision = sicafDecision(await checkSupplierSicaf(cnpj), cnpj, acknowledged, moment)
+	if (!decision.ok) throw new Error(decision.message)
+	return decision.sicafStatus
+}
+
 /**
  * Emite uma OF contra um empenho — ou AGUARDANDO empenho (`empenhoId` ausente). O trigger do banco
  * garante soma das OFs ≤ valor vigente do empenho e recusa empenho anulado.
@@ -184,7 +221,6 @@ export const createSupplyOrderFn = createServerFn({ method: "POST" })
 		// outro fornecedor/defasada): o CNPJ vem do fornecedor do EMPENHO
 		// (favorecido da NE, ou o fornecedor dos itens de ARP) e a consulta acontece
 		// aqui, na emissão. OF aguardando empenho não tem fornecedor conhecido ainda.
-		let sicafStatus: string | null = null
 		const finance = getServerClient("finance")
 		const empenhoRow = data.empenhoId ? await loadEmpenhoForOrder(finance, data.empenhoId) : null
 		const covered = empenhoRow && data.empenhoId ? await coveredArpItemIds(data.empenhoId) : []
@@ -193,38 +229,29 @@ export const createSupplyOrderFn = createServerFn({ method: "POST" })
 		// dele era lido sem comparação: a OF consumia o saldo de outra OM. A unidade
 		// compradora é calculada como em `listEmpenhosForKitchenFn`, de onde a tela
 		// tira o empenho — e ANTES do SICAF, que não deve consultar fornecedor alheio.
-		const kitchenDb = getServerClient("kitchen")
-		const { data: kitchenRow, error: kitchenError } = await kitchenDb.from("kitchen").select("unit_id, purchase_unit_id").eq("id", data.kitchenId).maybeSingle()
-		if (kitchenError) throw new Error(`Erro ao conferir a cozinha: ${publicDbMessage(kitchenError)}`)
 		const problems = supplyOrderLinkProblems({
-			kitchenPurchaseUnitId: resolvePurchaseUnitId({ unitId: kitchenRow?.unit_id ?? null, purchaseUnitId: kitchenRow?.purchase_unit_id ?? null }),
+			kitchenPurchaseUnitId: await loadKitchenPurchaseUnitId(data.kitchenId),
 			empenho: empenhoRow ? { unitId: empenhoRow.unit_id, status: empenhoRow.status, coveredArpItemIds: covered } : null,
 			itemArpItemIds: data.items.map((item) => item.arpItemId),
 		})
 		if (problems.length > 0) throw new Error(problems.join("; "))
 
-		if (empenhoRow) {
-			const cnpj = await supplierCnpjFor(empenhoRow.favorecido_cnpj, covered)
-			if (cnpj) {
-				const decision = sicafDecision(await checkSupplierSicaf(cnpj), cnpj, Boolean(data.sicafAcknowledged), "na emissão")
-				if (!decision.ok) throw new Error(decision.message)
-				sicafStatus = decision.sicafStatus
-			}
-		}
+		const sicafStatus = empenhoRow ? await resolveSicafStatus(empenhoRow.favorecido_cnpj, covered, Boolean(data.sicafAcknowledged), "na emissão") : null
 
 		const { data: order, error } = await proc
 			.from("supply_order")
-			.insert({
-				empenho_id: data.empenhoId ?? null,
-				kitchen_id: data.kitchenId,
-				number: data.number?.trim() || null,
-				sent_at: getBrasiliaToday(),
-				expected_delivery: data.expectedDelivery,
-				status: "sent",
-				sicaf_status: sicafStatus,
-				sicaf_ack_by: data.sicafAcknowledged ? userId : null,
-				created_by: userId,
-			})
+			.insert(
+				buildSupplyOrderRow({
+					empenhoId: data.empenhoId,
+					kitchenId: data.kitchenId,
+					number: data.number,
+					sentAt: getBrasiliaToday(),
+					expectedDelivery: data.expectedDelivery,
+					sicafStatus,
+					isSicafAcknowledged: data.sicafAcknowledged,
+					userId,
+				})
+			)
 			.select("id")
 			.single()
 		if (error || !order) throw new Error(`Erro ao emitir OF: ${publicDbMessage(error)}`)
@@ -233,22 +260,16 @@ export const createSupplyOrderFn = createServerFn({ method: "POST" })
 		// emitida pela tela gravava apenas arp_item_id, e o trânsito saía ZERO.
 		// O elo entre os dois é o CATMAT; ambíguo (mais de um item de compra com
 		// o mesmo código) fica nulo em vez de chutar.
-		const resolvedPurchaseItems = await resolvePurchaseItemsByArpItem(data.items.map((item) => item.arpItemId).filter((id): id is string => Boolean(id)))
+		const resolvedPurchaseItems = await resolvePurchaseItemsByArpItem(collectOrderArpItemIds(data.items))
 
-		const { error: itemsError } = await proc.from("supply_order_item").insert(
-			data.items.map((item) => ({
-				supply_order_id: order.id,
-				arp_item_id: item.arpItemId ?? null,
-				purchase_item_id: item.purchaseItemId ?? (item.arpItemId ? (resolvedPurchaseItems.get(item.arpItemId) ?? null) : null),
-				ordered_qty: item.orderedQty,
-				unit_price: item.unitPrice ?? null,
-			}))
-		)
+		const { error: itemsError } = await proc
+			.from("supply_order_item")
+			.insert(data.items.map((item) => buildSupplyOrderItemRow(order.id, item, resolvedPurchaseItems)))
 		if (itemsError) {
 			const { error: undoError } = await proc.from("supply_order").delete().eq("id", order.id)
 			if (undoError) throw new Error(`Erro nos itens da OF (${publicDbMessage(itemsError)}) e ao desfazer a OF (${publicDbMessage(undoError)})`)
 			// O trigger do teto (valor vigente, empenho anulado, OF sem preço) já diz o que fazer.
-			const isGate = /excede|anulado|preço/.test(itemsError.message)
+			const isGate = isSupplyOrderGateMessage(itemsError.message)
 			throw new Error(isGate ? itemsError.message : `Erro nos itens da OF: ${publicDbMessage(itemsError)}`)
 		}
 		return { supplyOrderId: order.id, awaitingEmpenho: data.empenhoId == null }
@@ -282,49 +303,38 @@ export const linkSupplyOrderEmpenhoFn = createServerFn({ method: "POST" })
 			.maybeSingle()
 		if (empenhoError) throw new Error(`Erro ao conferir o empenho: ${publicDbMessage(empenhoError)}`)
 		if (!empenhoRow) throw new Error("Empenho não encontrado")
-		const { data: kitchenRow, error: kitchenError } = await getServerClient("kitchen")
-			.from("kitchen")
-			.select("unit_id, purchase_unit_id")
-			.eq("id", order.kitchen_id)
-			.maybeSingle()
-		if (kitchenError) throw new Error(`Erro ao conferir a cozinha: ${publicDbMessage(kitchenError)}`)
+		const kitchenPurchaseUnitId = await loadKitchenPurchaseUnitId(order.kitchen_id)
 		const { data: items, error: itemsError } = await procurement().from("supply_order_item").select("arp_item_id").eq("supply_order_id", data.supplyOrderId)
 		if (itemsError) throw new Error(`Erro ao ler os itens da OF: ${publicDbMessage(itemsError)}`)
 		const covered = await coveredArpItemIds(data.empenhoId)
 
 		const problems = supplyOrderLinkProblems({
-			kitchenPurchaseUnitId: resolvePurchaseUnitId({ unitId: kitchenRow?.unit_id ?? null, purchaseUnitId: kitchenRow?.purchase_unit_id ?? null }),
-			empenho: {
-				unitId: empenhoRow.unit_id == null ? null : Number(empenhoRow.unit_id),
-				status: String(empenhoRow.status),
-				coveredArpItemIds: covered,
-			},
+			kitchenPurchaseUnitId,
+			empenho: toLinkEmpenhoFacts(empenhoRow, covered),
 			itemArpItemIds: (items ?? []).map((item) => item.arp_item_id),
 		})
 		if (problems.length > 0) throw new Error(problems.join("; "))
 
 		// A OF emitida aguardando empenho não passou pelo SICAF (o fornecedor vem da NE): a
 		// consulta acontece aqui, com o mesmo reconhecimento explícito da emissão.
-		let sicafStatus: string | null = null
-		const cnpj = await supplierCnpjFor(empenhoRow.favorecido_cnpj, covered)
-		if (cnpj) {
-			const decision = sicafDecision(await checkSupplierSicaf(cnpj), cnpj, Boolean(data.sicafAcknowledged), "no vínculo da NE")
-			if (!decision.ok) throw new Error(decision.message)
-			sicafStatus = decision.sicafStatus
-		}
+		const sicafStatus = await resolveSicafStatus(empenhoRow.favorecido_cnpj, covered, Boolean(data.sicafAcknowledged), "no vínculo da NE")
 
 		const { data: updated, error } = await procurement()
 			.from("supply_order")
-			.update({
-				empenho_id: data.empenhoId,
-				updated_at: new Date().toISOString(),
-				...(sicafStatus ? { sicaf_status: sicafStatus, sicaf_ack_by: data.sicafAcknowledged ? userId : null } : {}),
-			})
+			.update(
+				buildEmpenhoLinkUpdate({
+					empenhoId: data.empenhoId,
+					updatedAt: new Date().toISOString(),
+					sicafStatus,
+					isSicafAcknowledged: data.sicafAcknowledged,
+					userId,
+				})
+			)
 			.eq("id", data.supplyOrderId)
 			.is("empenho_id", null)
 			.neq("status", "cancelled")
 			.select("id")
-		if (error) throw new Error(/excede|anulado|preço/.test(error.message) ? error.message : `Erro ao vincular o empenho: ${publicDbMessage(error)}`)
+		if (error) throw new Error(isSupplyOrderGateMessage(error.message) ? error.message : `Erro ao vincular o empenho: ${publicDbMessage(error)}`)
 		const problem = supplyOrderLinkUpdateProblem((updated ?? []).length)
 		if (problem) throw new Error(problem)
 	})
