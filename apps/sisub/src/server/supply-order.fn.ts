@@ -28,8 +28,6 @@ import { sicafDecision, supplyOrderLinkProblems, supplyOrderLinkUpdateProblem } 
 
 const procurement = () => getServerClient("procurement")
 
-/** Cozinha do local de estoque da OF; `null` quando o local não é de cozinha. */
-
 /** OFs de uma cozinha, com itens e dados do empenho. */
 export const listSupplyOrdersFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive() }))

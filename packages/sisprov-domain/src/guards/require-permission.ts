@@ -12,7 +12,7 @@
  * é o gate de "pode entrar no módulo", não o de "pode mexer nesta OM".
  */
 
-import { hasAnyPermission, hasPermission, type UnitSupportEdge } from "@iefa/pbac"
+import { hasAnyPermission, hasPermission, type UnitSupportEdge, type UserPermission } from "@iefa/pbac"
 import { SISPROV_ADMIN_MODULE, SISPROV_MODULES, SISPROV_PLANNING_MODULE, SISPROV_STOCK_MODULE, type SisprovModule } from "../modules.ts"
 import type { AppModule, PermissionScope, UserContext } from "../types/context.ts"
 import { PermissionDeniedError } from "../types/errors.ts"
@@ -115,14 +115,30 @@ export type StockLocationTarget = { id: number; unitId: number; kitchenId: numbe
  * cozinha de sempre; o SISPROV chega pelo local com o grant por OM.
  */
 export function requireStockLocation(ctx: UserContext, minLevel: 1 | 2 | 3, location: StockLocationTarget, supportGraph?: readonly UnitSupportEdge[]): void {
-	const module = SISPROV_STOCK_MODULE
+	if (canOnStockLocation(ctx.permissions, minLevel, location, supportGraph)) return
 	const scope: PermissionScope = location.kitchenId === null ? { type: "unit", id: location.unitId } : { type: "kitchen", id: location.kitchenId }
+	throw new PermissionDeniedError(SISPROV_STOCK_MODULE, minLevel, scope)
+}
+
+/**
+ * A mesma regra de `requireStockLocation`, como predicado sobre um conjunto de permissões: para
+ * quem precisa perguntar por OUTRO usuário (há outro aprovador nível 3 neste local?) ou decidir o
+ * que mostrar (quem vê a contagem cega) sem lançar.
+ */
+export function canOnStockLocation(
+	permissions: readonly UserPermission[],
+	minLevel: 1 | 2 | 3,
+	location: StockLocationTarget,
+	supportGraph?: readonly UnitSupportEdge[]
+): boolean {
+	const module = SISPROV_STOCK_MODULE
+	const list = [...permissions]
 	const covering = coveringUnits(location.unitId, supportGraph)
-	const kitchenDenied = location.kitchenId !== null && ctx.permissions.some((p) => p.module === module && p.level <= 0 && p.kitchen_id === location.kitchenId)
-	if (kitchenDenied || isDeniedOnChain(ctx, module, covering)) throw new PermissionDeniedError(module, minLevel, scope)
-	const kitchenGranted = location.kitchenId !== null && hasPermission(ctx.permissions, module, minLevel, { type: "kitchen", id: location.kitchenId })
-	if (kitchenGranted || isGrantedOnChain(ctx, module, minLevel, covering)) return
-	throw new PermissionDeniedError(module, minLevel, scope)
+	const kitchenDenied = location.kitchenId !== null && list.some((p) => p.module === module && p.level <= 0 && p.kitchen_id === location.kitchenId)
+	const chainDenied = list.some((p) => p.module === module && p.level <= 0 && p.unit_id !== null && covering.includes(p.unit_id))
+	if (kitchenDenied || chainDenied) return false
+	const kitchenGranted = location.kitchenId !== null && hasPermission(list, module, minLevel, { type: "kitchen", id: location.kitchenId })
+	return kitchenGranted || covering.some((id) => hasPermission(list, module, minLevel, { type: "unit", id }))
 }
 
 /** SDAB: 2 gestão sistêmica, 3 gerenciar grants. Sem `unitId`, exige o grant GLOBAL. */

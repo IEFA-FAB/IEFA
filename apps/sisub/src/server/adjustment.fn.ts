@@ -15,14 +15,21 @@
  * @migration 20260917160000_inventory_operable_core
  */
 
-import { hasPermission, NOT_EXPIRED, resolveEffectivePermissions, type UserPermission } from "@iefa/pbac"
+import { NOT_EXPIRED, resolveEffectivePermissions, type UserPermission } from "@iefa/pbac"
+import { canOnStockLocation } from "@iefa/sisprov-domain"
 import { INFLOW_REASONS, OUTFLOW_REASONS, REASON_NATURE, STOCK_ADJUSTMENT_REASONS, type StockAdjustmentReason } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { publicDbMessage } from "@/lib/db-error-message"
 import { readAllPagesIn } from "@/lib/read-all-pages"
 import { classifyFoodItems, foodRefOf } from "@/lib/stock-item.server"
-import { kitchenOfLocation, requireStockForKitchen, requireStorageForKitchen, requireStorageForLocation } from "@/lib/storage-auth.server"
+import {
+	type KitchenStockLocation,
+	requireStockForKitchen,
+	requireStockForLocation,
+	requireStorageForLocation,
+	stockSupportGraphFor,
+} from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 
 const inventory = () => getServerClient("inventory")
@@ -129,12 +136,12 @@ function evidencePending(items: readonly AdjustmentItemInput[]): boolean {
  *    vindo de política;
  *  • `resolveEffectivePermissions` para a precedência de deny, que não é
  *    ausência: um `level <= 0` de QUALQUER origem anula os allows que cobre;
- *  • `hasPermission` para o escopo, com a MESMA regra que o guard da própria
- *    server fn aplica — permissão global ou escopada nesta cozinha. Se o PBAC
- *    passar a fazer permissão de unidade alcançar as cozinhas dela, esta
- *    função acompanha sozinha, em vez de divergir do guard.
+ *  • `canOnStockLocation` (`@iefa/sisprov-domain`) para o escopo, com a MESMA
+ *    regra que o guard da própria server fn aplica — global, a cozinha do
+ *    local ou uma OM que cubra a do local. Divergir do guard faria o autor
+ *    gravar "único nível 3" com um aprovador por OM existente.
  */
-async function hasOtherApprover(kitchenId: number, actorId: string): Promise<boolean> {
+async function hasOtherApprover(location: KitchenStockLocation, actorId: string): Promise<boolean> {
 	type PermissionRow = {
 		user_id: string
 		module: string
@@ -154,7 +161,9 @@ async function hasOtherApprover(kitchenId: number, actorId: string): Promise<boo
 	// passava a gravar "único nível 3 da cozinha" — uma exceção falsa num
 	// documento contábil. Recortar por módulo é seguro para a precedência de deny,
 	// que é por módulo.
-	const inScope = `kitchen_id.eq.${kitchenId},kitchen_id.is.null`
+	// Sem escopo de cozinha entram o global e os grants por OM; quem cobre o local decide a regra
+	// do domínio, abaixo. Local sem cozinha não tem grant de cozinha que o alcance.
+	const inScope = location.kitchenId == null ? "kitchen_id.is.null" : `kitchen_id.eq.${location.kitchenId},kitchen_id.is.null`
 
 	const { data: statements, error: statementError } = await ac
 		.from("policy_statement")
@@ -216,9 +225,12 @@ async function hasOtherApprover(kitchenId: number, actorId: string): Promise<boo
 
 	const candidates = new Set([...inlineByUser.keys(), ...policyByUser.keys()])
 	candidates.delete(actorId)
+	// Grafo de apoio lido uma vez, e só se algum candidato tiver grant por OM.
+	const graph = await stockSupportGraphFor([...inlineByUser.values(), ...policyByUser.values()].flat())
 	for (const userId of candidates) {
 		const effective = resolveEffectivePermissions(inlineByUser.get(userId) ?? [], policyByUser.get(userId) ?? [])
-		if (hasPermission(effective, "storage", 3, { type: "kitchen", id: kitchenId })) return true
+		// A mesma regra do guard da aprovação: cozinha do local, OM que o cobre ou global.
+		if (canOnStockLocation(effective, 3, location, graph)) return true
 	}
 	return false
 }
@@ -474,8 +486,10 @@ export const approveAdjustmentFn = createServerFn({ method: "POST" })
 			.maybeSingle()
 		if (docError) throw new Error(`Erro ao carregar o ajuste: ${publicDbMessage(docError)}`)
 		if (!doc) throw new Error("Ajuste não encontrado")
-		const kitchenId = await kitchenOfLocation(Number(doc.location_id))
-		const { userId } = await requireStorageForKitchen(3, kitchenId)
+		const {
+			ctx: { userId },
+			location,
+		} = await requireStockForLocation(3, Number(doc.location_id))
 		if (doc.status !== "pending_approval") throw new Error(`Ajuste em "${doc.status}" não está aguardando aprovação`)
 
 		// Quem aprova ≠ quem lançou. Mas se NÃO existe outro nível 3 na cozinha, a
@@ -493,8 +507,7 @@ export const approveAdjustmentFn = createServerFn({ method: "POST" })
 
 		let exceptionReason: string | null = null
 		if (requires === true && doc.created_by === userId) {
-			// Local sem cozinha não tem como provar que é o único nível 3: falha fechada, sem exceção.
-			if (kitchenId == null || (await hasOtherApprover(kitchenId, userId))) {
+			if (await hasOtherApprover(location, userId)) {
 				throw new Error("Segregação de funções: quem lançou o ajuste não pode aprová-lo — há outro responsável nível 3 nesta cozinha")
 			}
 			exceptionReason = "Único responsável nível 3 da cozinha no momento da aprovação"

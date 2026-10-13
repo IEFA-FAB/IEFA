@@ -1,4 +1,5 @@
 export {
+	canOnStockLocation,
 	requireAnyPermission,
 	requirePermission,
 	requirePlanning,

@@ -37,8 +37,6 @@ const gs1 = () => getServerClient("gs1_integration")
 const kitchen = () => getServerClient("kitchen")
 const procurement = () => getServerClient("procurement")
 
-/** Cozinha de um local de estoque; `null` quando o local não é de cozinha. */
-
 /** Autentica, resolve a cozinha do local de estoque do documento e aplica o guard escopado. */
 async function requireStorageForDocument(level: 1 | 2, nfeDocumentId: string): Promise<{ userId: string }> {
 	const base = await requireAuthWithPermission("storage", level)
@@ -317,12 +315,11 @@ export const createNfeFromAccessKeyFn = createServerFn({ method: "POST" })
 		if (existing) {
 			// Nota já conhecida. As mesmas travas de `claimNfeForKitchenFn`: sem elas, ler a chave
 			// de uma nota de OUTRA unidade (ela está impressa no DANFE) bastava para assumi-la, e
-			// a nota de outra cozinha devolvia o id dela a quem não pode abri-la. O dono é o local de
-			// estoque, um por cozinha: comparar locais é comparar cozinhas.
+			// a nota de outra cozinha devolvia o id dela a quem não pode abri-la.
 			const problem = nfeOwnershipProblem({
-				docKitchenId: existing.location_id != null ? Number(existing.location_id) : null,
+				docLocationId: existing.location_id != null ? Number(existing.location_id) : null,
 				docUnitId: existing.unit_id != null ? Number(existing.unit_id) : null,
-				kitchenId: location.id,
+				locationId: location.id,
 				kitchenPurchaseUnitId: unitId,
 			})
 			if (problem) throw new Error(problem)
@@ -409,11 +406,10 @@ export const claimNfeForKitchenFn = createServerFn({ method: "POST" })
 		// A nota é da UNIDADE: cozinha de outra unidade não a assume, e nota sem unidade (triagem
 		// global, destinatário não reconhecido) não é de cozinha nenhuma até a triagem atribuí-la.
 		// Antes, `unit_id` nulo passava direto e qualquer cozinha tomava a nota da triagem.
-		// O dono é o local de estoque, um por cozinha: comparar locais é comparar cozinhas.
 		const problem = nfeOwnershipProblem({
-			docKitchenId: doc.location_id != null ? Number(doc.location_id) : null,
+			docLocationId: doc.location_id != null ? Number(doc.location_id) : null,
 			docUnitId: doc.unit_id != null ? Number(doc.unit_id) : null,
-			kitchenId: location.id,
+			locationId: location.id,
 			kitchenPurchaseUnitId: await purchaseUnitIdOfKitchen(data.kitchenId),
 		})
 		if (problem) throw new Error(problem)

@@ -138,7 +138,9 @@ from kitchen.kitchen k
 order by k.id;
 
 -- Cozinha nova ganha o seu local; troca de OM ou de nome acompanha. Assim o cadastro de
--- cozinha do sisub não precisa saber que o estoque mudou de dono.
+-- cozinha do sisub não precisa saber que o estoque mudou de dono. Cozinha sem OM (`unit_id` é
+-- anulável em kitchen.kitchen) fica sem local até ganhar uma: o local exige OM, e recusar aqui
+-- quebraria o cadastro e a renomeação da cozinha, que não têm nada a ver com estoque.
 create function kitchen.kitchen_sync_stock_location()
 returns trigger
 language plpgsql
@@ -147,8 +149,7 @@ set search_path = ''
 as $$
 begin
   if new.unit_id is null then
-    raise exception 'KITCHEN_WITHOUT_UNIT: a cozinha % precisa de OM para ter local de estoque', new.id
-      using errcode = '23502';
+    return new;
   end if;
 
   insert into inventory.stock_location (unit_id, kitchen_id, tier, name, supply_classes)

@@ -37,6 +37,7 @@ import { publicDbMessage } from "@/lib/db-error-message"
 import { type LiquidacaoLinkInput, liquidacaoLinkProblems, type ReceiptForLiquidacao } from "@/lib/invoice-gate"
 import { readAllPagesIn } from "@/lib/read-all-pages"
 import { selectColumns } from "@/lib/select-columns"
+import { kitchenOfLocation } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 import { requireUnitScope } from "@/lib/unit-auth.server"
 
@@ -48,13 +49,12 @@ const inventory = () => getServerClient("inventory")
  * `unit_id`); `null` quando o local não é de cozinha ou a cozinha não tem unidade.
  */
 async function purchaseUnitIdOfLocation(locationId: number): Promise<number | null> {
-	const { data: location, error } = await inventory().from("stock_location").select("kitchen_id").eq("id", locationId).maybeSingle()
-	if (error) throw new Error(`Erro ao carregar o local de estoque do recebimento: ${publicDbMessage(error)}`)
-	if (location?.kitchen_id == null) return null
+	const kitchenId = await kitchenOfLocation(locationId)
+	if (kitchenId == null) return null
 	const { data: kitchenRow, error: kitchenError } = await getServerClient("kitchen")
 		.from("kitchen")
 		.select("unit_id, purchase_unit_id")
-		.eq("id", location.kitchen_id)
+		.eq("id", kitchenId)
 		.maybeSingle()
 	if (kitchenError) throw new Error(`Erro ao carregar a cozinha do recebimento: ${publicDbMessage(kitchenError)}`)
 	return resolvePurchaseUnitId({ unitId: kitchenRow?.unit_id ?? null, purchaseUnitId: kitchenRow?.purchase_unit_id ?? null })

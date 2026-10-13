@@ -22,7 +22,7 @@
  */
 
 import type { Json } from "@iefa/database"
-import { hasPermission, hasUnscopedPermission } from "@iefa/pbac"
+
 import { evaluateCountLine, INVENTORY_COUNT_TYPES } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
@@ -31,7 +31,7 @@ import { publicDbMessage } from "@/lib/db-error-message"
 import { itemDescription } from "@/lib/item-description"
 import { readAllPages, readAllPagesIn } from "@/lib/read-all-pages"
 import { classifyFoodItems, foodRefOf, itemIdOf } from "@/lib/stock-item.server"
-import { kitchenOfLocation, requireStockForKitchen, requireStorageForKitchen, requireStorageForLocation } from "@/lib/storage-auth.server"
+import { allowsOnStockLocation, requireStockForKitchen, requireStockForLocation, requireStorageForLocation } from "@/lib/storage-auth.server"
 import { getServerClient, rpcWithNulls } from "@/lib/supabase.server"
 
 const inventory = () => getServerClient("inventory")
@@ -169,15 +169,12 @@ export const fetchCountSheetFn = createServerFn({ method: "GET" })
 		if (countError) throw new Error(`Erro ao carregar a contagem: ${publicDbMessage(countError)}`)
 		if (!count) throw new Error("Inventário não encontrado")
 		const locationId = Number(count.location_id)
-		const kitchenId = await kitchenOfLocation(locationId)
-		const ctx = await requireStorageForKitchen(2, kitchenId)
+		const { ctx, location } = await requireStockForLocation(2, locationId)
 
 		const finished = ["approved", "rejected", "expired"].includes(String(count.status))
-		// local sem cozinha: só a permissão global chegou até aqui, e é ela que tem de ser nível 3
-		const isManager =
-			kitchenId == null
-				? hasUnscopedPermission(ctx.permissions, "storage", 3)
-				: hasPermission(ctx.permissions, "storage", 3, { type: "kitchen", id: kitchenId })
+		// Gestor é o nível 3 do local pela mesma regra do guard de aprovação (cozinha, OM, global):
+		// quem pode aprovar a contagem cega tem de ver o saldo e a diferença.
+		const isManager = await allowsOnStockLocation(ctx.permissions, 3, location)
 		// A rodada SUBSTITUÍDA pela recontagem não se abre para o nível 2 enquanto
 		// a recontagem corre: ali estão as quantidades que a rodada anterior deu —
 		// e, se ela não era cega, o saldo — e a recontagem é cega justamente para

@@ -27,7 +27,7 @@ import { hiddenByBlindCount } from "@/lib/blind-count.server"
 import { maskBlindCountIssueLines } from "@/lib/blind-count-mask"
 import { publicDbMessage } from "@/lib/db-error-message"
 import { readAllPages, readAllPagesIn } from "@/lib/read-all-pages"
-import { classifyFoodItems, itemIdOf } from "@/lib/stock-item.server"
+import { classifyFoodItems, foodRefOf, itemIdOf } from "@/lib/stock-item.server"
 import { requireStockForKitchen, requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient, rpcWithNulls } from "@/lib/supabase.server"
 
@@ -182,6 +182,9 @@ export const fetchPendingIssuesFn = createServerFn({ method: "GET" })
 		// insumo: a baixa segue pendente, com o que já saiu tarde descontado por insumo.
 		const issuedIds = new Set<string>()
 		const lateByTask = new Map<string, Map<string, number>>()
+		// A pendência é por insumo da receita: saída tardia de preparação congelada fica de fora,
+		// como antes, quando vinha sem `ingredient_id`.
+		const lateRefs = await classifyFoodItems(issued.filter((move) => move.is_late_issue).map((move) => move.item_id))
 		for (const move of issued) {
 			// `production_task_id` nunca vem nulo: a consulta filtra por ele.
 			if (move.production_task_id == null) continue
@@ -189,6 +192,7 @@ export const fetchPendingIssuesFn = createServerFn({ method: "GET" })
 				issuedIds.add(move.production_task_id)
 				continue
 			}
+			if (foodRefOf(lateRefs, move.item_id).ingredientId == null) continue
 			const byIngredient = lateByTask.get(move.production_task_id) ?? new Map<string, number>()
 			byIngredient.set(move.item_id, (byIngredient.get(move.item_id) ?? 0) + Number(move.quantity))
 			lateByTask.set(move.production_task_id, byIngredient)

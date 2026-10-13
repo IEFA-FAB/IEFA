@@ -126,7 +126,7 @@ Entre o apply e o deploy, o sisub em produção lê colunas que não existem mai
 | `created_at`, `updated_at`, `deleted_at` | | soft delete; local com saldo não se apaga |
 
 - Backfill: um local `kitchen` por cozinha, com a OM da cozinha e `supply_classes = {alimentacao, auxiliar}` (o que as cozinhas recebem hoje).
-- Trigger em `kitchen.kitchen`: cozinha nova ganha o seu local, e troca de OM da cozinha atualiza o local. Assim o cadastro de cozinha do sisub não muda.
+- Trigger em `kitchen.kitchen`: cozinha nova ganha o seu local, e troca de OM da cozinha atualiza o local. Assim o cadastro de cozinha do sisub não muda. Cozinha sem OM (`unit_id` é anulável) fica sem local até ganhar uma; o trigger não recusa o cadastro.
 - O id do local NÃO é o id da cozinha: os dois têm sequências próprias, e conflar identidade foi o erro que o ledger por `kitchen_id` cometeu. O sisub resolve cozinha → local por `stock_location.kitchen_id`.
 
 ### D12. O ledger por (local, item)

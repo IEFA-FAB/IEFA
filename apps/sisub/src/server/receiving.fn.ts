@@ -194,12 +194,11 @@ export const createReceiptFromNfeFn = createServerFn({ method: "POST" })
 		const unitId = await purchaseUnitIdOfKitchen(data.kitchenId)
 		// Nota sem cozinha é da UNIDADE destinatária: só cozinha cuja unidade de compra é aquela
 		// recebe por ela. Antes, `kitchen_id` nulo passava direto — inclusive nota da triagem
-		// global e nota endereçada a outra OM. O dono é o local de estoque, um por cozinha:
-		// comparar locais é comparar cozinhas.
+		// global e nota endereçada a outra OM.
 		const ownership = nfeOwnershipProblem({
-			docKitchenId: doc.location_id != null ? Number(doc.location_id) : null,
+			docLocationId: doc.location_id != null ? Number(doc.location_id) : null,
 			docUnitId: doc.unit_id != null ? Number(doc.unit_id) : null,
-			kitchenId: location.id,
+			locationId: location.id,
 			kitchenPurchaseUnitId: unitId,
 		})
 		if (ownership) throw new Error(ownership)

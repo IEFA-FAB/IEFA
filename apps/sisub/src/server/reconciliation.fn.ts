@@ -99,11 +99,16 @@ export const fetchPhysicalAccountingFn = createServerFn({ method: "GET" })
 		if (kitchensError) throw new Error(`Erro ao carregar as cozinhas da unidade: ${publicDbMessage(kitchensError)}`)
 		const kitchenIds = (kitchens ?? []).map((k) => k.id)
 		if (kitchenIds.length === 0) return []
+		// O recebimento é do local de estoque da cozinha, não da cozinha (`inventory_multiclass`).
+		const { data: locations, error: locationsError } = await getServerClient("inventory").from("stock_location").select("id").in("kitchen_id", kitchenIds)
+		if (locationsError) throw new Error(`Erro ao carregar os locais de estoque da unidade: ${publicDbMessage(locationsError)}`)
+		const locationIds = (locations ?? []).map((l) => l.id)
+		if (locationIds.length === 0) return []
 
 		const { data: rows, error } = await finance()
 			.from("v_physical_accounting_reconciliation")
 			.select("*")
-			.in("kitchen_id", kitchenIds)
+			.in("location_id", locationIds)
 			.neq("situacao", "conciliado")
 			.gte("dias_desde_recebimento", data.minDays)
 			.order("dias_desde_recebimento", { ascending: false })

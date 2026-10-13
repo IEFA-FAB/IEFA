@@ -39,7 +39,7 @@ import {
 	suggestOpeningCosts,
 } from "@/lib/opening-balance.server"
 import { readAllPages, readAllPagesIn } from "@/lib/read-all-pages"
-import { requireStockForKitchen, requireStorageForKitchen } from "@/lib/storage-auth.server"
+import { requireStockForKitchen, requireStockForLocation } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 
 const inventory = () => getServerClient("inventory")
@@ -86,11 +86,8 @@ async function requireOpeningDoc(openingBalanceId: string, level: 1 | 2 | 3) {
 	const { data, error } = await inv.from("opening_balance").select("id, location_id, status").eq("id", openingBalanceId).maybeSingle()
 	if (error) throw new Error(`Erro ao carregar a carga de abertura: ${publicDbMessage(error)}`)
 	if (!data) throw new Error("Carga de abertura não encontrada")
-	const { data: location, error: locationError } = await inv.from("stock_location").select("kitchen_id").eq("id", data.location_id).maybeSingle()
-	if (locationError) throw new Error(`Erro ao carregar o local de estoque da carga: ${publicDbMessage(locationError)}`)
-	const kitchenId = location?.kitchen_id == null ? null : Number(location.kitchen_id)
-	const ctx = await requireStorageForKitchen(level, kitchenId)
-	return { ctx, kitchenId, status: data.status as OpeningDocRow["status"] }
+	const { ctx, location } = await requireStockForLocation(level, Number(data.location_id))
+	return { ctx, kitchenId: location.kitchenId, status: data.status as OpeningDocRow["status"] }
 }
 
 /** O CHECK de `opening_balance_item.cost_source` é o vocabulário (contrato em `sql-vocabulary`). */

@@ -20,7 +20,7 @@ import { publicDbMessage } from "@/lib/db-error-message"
 import { itemDescription } from "@/lib/item-description"
 import { readAllPages, readAllPagesIn } from "@/lib/read-all-pages"
 import { classifyFoodItems, foodRefOf } from "@/lib/stock-item.server"
-import { requireStockForKitchen, requireStorageForKitchen, resolveKitchenLocation } from "@/lib/storage-auth.server"
+import { requireStockForKitchen, requireStockForLocation, resolveKitchenLocation } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 import { transferDestinationProblem } from "@/lib/transfer-destination"
 
@@ -248,14 +248,8 @@ export const createTransferFn = createServerFn({ method: "POST" })
 		const { data: lotRow, error: lotRowError } = await inventory().from("stock_lot").select("location_id").eq("id", data.lotId).maybeSingle()
 		if (lotRowError) throw new Error(`Erro ao carregar o lote: ${publicDbMessage(lotRowError)}`)
 		if (!lotRow) throw new Error("Lote não encontrado")
-		const { data: originLocation, error: originLocationError } = await inventory()
-			.from("stock_location")
-			.select("kitchen_id")
-			.eq("id", lotRow.location_id)
-			.maybeSingle()
-		if (originLocationError) throw new Error(`Erro ao carregar o local de estoque do lote: ${publicDbMessage(originLocationError)}`)
-		const originKitchenId = originLocation?.kitchen_id == null ? null : Number(originLocation.kitchen_id)
-		const ctx = await requireStorageForKitchen(2, originKitchenId)
+		const { ctx, location: originLocation } = await requireStockForLocation(2, Number(lotRow.location_id))
+		const originKitchenId = originLocation.kitchenId
 		const { userId } = ctx
 
 		// O destino vinha do corpo sem conferência nenhuma — ver `transferDestinationProblem`.

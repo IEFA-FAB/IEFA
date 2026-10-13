@@ -12,8 +12,8 @@
  * Greptile); a service role não tem RLS para segurar isso, então o escopo é sempre do local.
  */
 
-import { type AssuranceRequirement, fetchUnitSupportGraph, NO_ASSURANCE } from "@iefa/pbac"
-import { requireStockLocation, type StockLocationTarget, PermissionDeniedError as StockPermissionDeniedError } from "@iefa/sisprov-domain"
+import { type AssuranceRequirement, fetchUnitSupportGraph, NO_ASSURANCE, type UnitSupportEdge, type UserPermission } from "@iefa/pbac"
+import { canOnStockLocation, requireStockLocation, type StockLocationTarget, PermissionDeniedError as StockPermissionDeniedError } from "@iefa/sisprov-domain"
 import type { UserContext } from "@iefa/sisub-domain/types"
 import { setResponseStatus } from "@tanstack/react-start/server"
 import { requireAuthWithPermission } from "@/lib/auth.server"
@@ -39,9 +39,23 @@ export async function resolveKitchenLocation(kitchenId: number): Promise<Kitchen
 	return { id: data.id, unitId: data.unit_id, kitchenId: data.kitchen_id }
 }
 
-/** O grafo de apoio só é lido quando o usuário tem `storage` escopado por OM: é ele que precisa. */
+/** O grafo de apoio só é lido quando há `storage` escopado por OM: é ele que precisa. */
 function hasUnitScopedStorage(ctx: UserContext): boolean {
 	return ctx.permissions.some((p) => p.module === "storage" && p.unit_id !== null)
+}
+
+/** Grafo de apoio, lido só se alguma das permissões for `storage` por OM. */
+export async function stockSupportGraphFor(permissions: readonly UserPermission[]): Promise<UnitSupportEdge[] | undefined> {
+	return permissions.some((p) => p.module === "storage" && p.unit_id !== null) ? fetchUnitSupportGraph(getServerClient("core")) : undefined
+}
+
+/**
+ * A regra de `storage` num local, como pergunta: este conjunto de permissões alcança o local no
+ * nível pedido? Para decidir o que mostrar (contagem cega) ou se existe OUTRO aprovador, com a
+ * mesma regra que o guard aplica (cozinha, OM que cobre a do local, global; deny vence).
+ */
+export async function allowsOnStockLocation(permissions: readonly UserPermission[], level: 1 | 2 | 3, location: KitchenStockLocation): Promise<boolean> {
+	return canOnStockLocation(permissions, level, location, await stockSupportGraphFor(permissions))
 }
 
 /**

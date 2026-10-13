@@ -159,7 +159,9 @@ function buildItemRows(documentId: string, parsed: ParsedNfe, costByItem: Map<nu
 async function completeAnnouncedDocument(
 	supabase: NfeClient,
 	existing: { id: string; location_id: number | null; unit_id: number | null },
-	requestedKitchenId: number | null,
+	// A cozinha que esta importação já resolveu (`kitchenForImportedNfe`), não a da query crua:
+	// era o que `fields.kitchen_id` carregava antes de a nota passar a guardar o local.
+	importKitchenId: number | null,
 	fields: Record<string, unknown>,
 	parsed: ParsedNfe,
 	costByItem: Map<number, number>
@@ -170,7 +172,7 @@ async function completeAnnouncedDocument(
 	// A cozinha que leu a chave também cede a nota quando o XML revela que ela é de outra
 	// unidade: sem isto, ler a chave de um DANFE alheio e depois enviar o XML deixava a nota
 	// com a cozinha errada. Decidido ANTES de gravar itens: a recusa abaixo não deixa sobra.
-	const claimedKitchen = (await kitchenOfLocation(supabase, existing.location_id)) ?? requestedKitchenId
+	const claimedKitchen = (await kitchenOfLocation(supabase, existing.location_id)) ?? importKitchenId
 	const destinationUnitId = fields.unit_id as number | null
 	const kitchenId = kitchenForImportedNfe({
 		requestedKitchenId: claimedKitchen,
@@ -342,7 +344,7 @@ export function createNfeAdminRoutes(deps: NfeAdminRoutesDeps = {}) {
 					if (existingKitchen != null && kitchen_id != null && existingKitchen !== kitchen_id) {
 						return c.json({ error: "NF-e já pertence a outra cozinha", document_id: undefined }, 409)
 					}
-					const completed = await completeAnnouncedDocument(supabase, existing, kitchen_id ?? null, documentFields, parsed, costByItem)
+					const completed = await completeAnnouncedDocument(supabase, existing, kitchenId, documentFields, parsed, costByItem)
 					if ("error" in completed) {
 						if (completed.conflict) return c.json({ error: completed.error, document_id: undefined }, 409)
 						throw new Error(completed.error)

@@ -15,9 +15,9 @@
  * pode mostrar tudo.
  */
 
-import { hasPermission, type UserContext } from "@iefa/pbac"
+import type { UserContext } from "@iefa/pbac"
 import { readAllPages, readAllPagesIn } from "@/lib/read-all-pages"
-import { resolveKitchenLocation } from "@/lib/storage-auth.server"
+import { allowsOnStockLocation, resolveKitchenLocation, resolveStockLocation } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 
 const OPEN_STATUSES = ["draft", "counting", "review", "recount"]
@@ -28,10 +28,12 @@ const OPEN_STATUSES = ["draft", "counting", "review", "recount"]
  * a leitura.
  */
 export async function hiddenByBlindCount(kitchenId: number, ctx: UserContext, locationId?: number): Promise<Set<string>> {
-	if (hasPermission(ctx.permissions, "storage", 3, { type: "kitchen", id: kitchenId })) return new Set()
+	const target = locationId === undefined ? await resolveKitchenLocation(kitchenId) : await resolveStockLocation(locationId)
+	// O nível 3 do local vê, pela mesma regra do guard: cozinha, OM que cobre a do local ou global.
+	if (await allowsOnStockLocation(ctx.permissions, 3, target)) return new Set()
 
 	const inv = getServerClient("inventory")
-	const location = locationId ?? (await resolveKitchenLocation(kitchenId)).id
+	const location = target.id
 	const counts = await readAllPages<{ id: string }>("as contagens cegas abertas", (from, to) =>
 		inv.from("inventory_count").select("id").eq("location_id", location).eq("blind", true).in("status", OPEN_STATUSES).order("id").range(from, to)
 	)
