@@ -15,7 +15,7 @@
  * exclusão que não aconteceu.
  */
 
-import { ALPHA_BASE_URL, alphaRequest } from "./client"
+import { ALPHA_BASE_URL, alphaPath, alphaRequest } from "./client"
 
 /** Resposta do α a uma pergunta — `buildResponse` do lado de lá. */
 export interface ChatAnswer {
@@ -65,7 +65,7 @@ export interface ChunkDetail {
 }
 
 export async function fetchChunk(token: string, chunkId: string): Promise<ChunkDetail> {
-	return await alphaRequest<ChunkDetail>(`/api/v1/chunks/${chunkId}`, token)
+	return await alphaRequest<ChunkDetail>(alphaPath`/api/v1/chunks/${chunkId}`, token)
 }
 
 /** Quando não há nome de documento no dado. Declara a ausência em vez de supor a origem. */
@@ -141,12 +141,12 @@ export async function createChatSession(token: string): Promise<string> {
 }
 
 export async function fetchSessionMessages(token: string, sessionId: string): Promise<MessagesList["messages"]> {
-	const data = await alphaRequest<MessagesList>(`/api/v1/sessions/${sessionId}/messages`, token)
+	const data = await alphaRequest<MessagesList>(alphaPath`/api/v1/sessions/${sessionId}/messages`, token)
 	return data.messages
 }
 
 export async function sendMessage(token: string, sessionId: string, message: string): Promise<ChatAnswer> {
-	return await alphaRequest<ChatAnswer>(`/api/v1/sessions/${sessionId}/messages`, token, {
+	return await alphaRequest<ChatAnswer>(alphaPath`/api/v1/sessions/${sessionId}/messages`, token, {
 		method: "POST",
 		body: JSON.stringify({ message }),
 	})
@@ -159,7 +159,7 @@ export async function sendMessage(token: string, sessionId: string, message: str
  * faz `.json()` e serviria só depois do fim, que é justamente o que o stream evita.
  */
 export async function openMessageStream(token: string, sessionId: string, message: string, signal?: AbortSignal): Promise<Response> {
-	const response = await fetch(`${ALPHA_BASE_URL}/api/v1/sessions/${sessionId}/messages/stream`, {
+	const response = await fetch(`${ALPHA_BASE_URL}${alphaPath`/api/v1/sessions/${sessionId}/messages/stream`}`, {
 		method: "POST",
 		headers: { "Content-Type": "application/json", Accept: "text/event-stream", Authorization: `Bearer ${token}` },
 		body: JSON.stringify({ message }),

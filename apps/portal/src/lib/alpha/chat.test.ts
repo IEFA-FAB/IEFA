@@ -1,15 +1,19 @@
-import { describe, expect, it } from "bun:test"
+import { afterEach, describe, expect, it } from "bun:test"
 import {
 	AlphaChatError,
 	answerText,
 	chatErrorText,
 	chunkLabel,
 	chunkText,
+	fetchChunk,
+	fetchSessionMessages,
 	GENERIC_CHAT_ERROR,
 	isUnavailableSession,
+	openMessageStream,
 	parseSseBuffer,
 	toAlphaChatError,
 } from "./chat"
+import { ALPHA_BASE_URL } from "./client"
 
 describe("parseSseBuffer", () => {
 	it("lê o nome do evento, não só o dado", () => {
@@ -187,5 +191,37 @@ describe("recusa do α antes do stream", () => {
 		expect(isUnavailableSession(new AlphaChatError(403, "FORBIDDEN", null, null))).toBe(true)
 		expect(isUnavailableSession(new AlphaChatError(403, "ANONYMOUS_USER", null, null))).toBe(false)
 		expect(isUnavailableSession(await toAlphaChatError(new Response("<html>", { status: 502 })))).toBe(false)
+	})
+})
+
+describe("ids no caminho das chamadas ao α", () => {
+	const originalFetch = globalThis.fetch
+	afterEach(() => {
+		globalThis.fetch = originalFetch
+	})
+
+	/** Troca o `fetch` por um que guarda a URL pedida e responde `body`. */
+	function captureUrls(body: unknown): string[] {
+		const urls: string[] = []
+		globalThis.fetch = (async (input: string | URL | Request) => {
+			urls.push(String(input))
+			return new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } })
+		}) as typeof fetch
+		return urls
+	}
+
+	it("o id de chunk citado pelo modelo não reescreve a rota", async () => {
+		// `cited_documents` é saída do modelo: um `../sessions?x=` não pode virar outra chamada
+		// feita com o token da pessoa.
+		const urls = captureUrls({ id: "x", content: "", chapter: null, article: null, section: null, chunk_index: 0, metadata: null })
+		await fetchChunk("t", "../sessions?x=")
+		expect(urls).toEqual([`${ALPHA_BASE_URL}/api/v1/chunks/..%2Fsessions%3Fx%3D`])
+	})
+
+	it("o session_id guardado no navegador fica num único segmento", async () => {
+		const urls = captureUrls({ session_id: "s", messages: [] })
+		await fetchSessionMessages("t", "../chunks/1?")
+		await openMessageStream("t", "a/b", "oi")
+		expect(urls).toEqual([`${ALPHA_BASE_URL}/api/v1/sessions/..%2Fchunks%2F1%3F/messages`, `${ALPHA_BASE_URL}/api/v1/sessions/a%2Fb/messages/stream`])
 	})
 })
