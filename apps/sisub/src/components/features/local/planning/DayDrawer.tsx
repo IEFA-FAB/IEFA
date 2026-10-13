@@ -1,5 +1,4 @@
 import { format } from "date-fns"
-import { ptBR } from "date-fns/locale"
 import { CalendarPlus, ClipboardPaste, Copy, Loader2, Plus, RefreshCcw, Users } from "lucide-react"
 import { useState } from "react"
 import { SnackDayPanel } from "@/components/features/local/planning/SnackDayPanel"
@@ -31,10 +30,11 @@ import { usePersistentState } from "@/hooks/ui/usePersistentState"
 import { isHeadcountPending } from "@/lib/headcount-pending"
 import type { HeadcountPlan, MenuClipboardEntry } from "@/lib/menu-fill"
 import { groupMenuItems, type MenuGroup } from "@/lib/menu-item-groups"
-import { findOutdatedRecipes, indexLatestByLineage, type OutdatedRecipe, type RecipeVersionRef } from "@/lib/recipe-versions"
+import type { OutdatedRecipe } from "@/lib/recipe-versions"
 import type { DailyMenuWithItems, MenuItem } from "@/types/domain/planning"
 import { DayOccasionDialog } from "./DayOccasionDialog"
 import { DayOriginsPanel } from "./DayOriginsPanel"
+import { buildDayMeals, collectOutdatedById, findSnackMenu, formatDayTitle, replaceRecipeDescription, toIsoDate } from "./day-drawer"
 import { MenuEquipmentAlert } from "./MenuEquipmentAlert"
 import { MenuHeadcountDialog } from "./MenuHeadcountDialog"
 import { MenuItemCard } from "./MenuItemCard"
@@ -51,7 +51,7 @@ interface DayDrawerProps {
 export function DayDrawer({ date, kitchenId, onClose, open }: DayDrawerProps) {
 	"use no memo"
 
-	const isoDate = date ? format(date, "yyyy-MM-dd") : ""
+	const isoDate = toIsoDate(date)
 	const { data: dayMenus, isLoading: menusLoading } = useDayDetails(kitchenId, isoDate || null)
 
 	const { data: mealTypes, isLoading: mealTypesLoading } = useMealTypes(kitchenId)
@@ -63,33 +63,16 @@ export function DayDrawer({ date, kitchenId, onClose, open }: DayDrawerProps) {
 
 	const isLoading = menusLoading || mealTypesLoading
 
-	// Fichas do dia em versão antiga. O dia congela a ficha na aplicação; `recipe_origin` traz a
-	// linha exata (com versão e linhagem), e o catálogo da cozinha diz qual é a vencedora.
+	// Fichas do dia em versão antiga (`collectOutdatedById`): o catálogo da cozinha diz qual é a vencedora.
 	const { data: catalog } = useRecipes({ kitchen_id: kitchenId })
-	const outdatedById = (() => {
-		const byId = new Map<string, RecipeVersionRef>()
-		const ids: string[] = []
-		for (const menu of dayMenus ?? []) {
-			for (const item of menu.menu_items ?? []) {
-				if (!item.recipe_origin) continue
-				byId.set(item.recipe_origin.id, item.recipe_origin)
-				ids.push(item.recipe_origin.id)
-			}
-		}
-		const outdated = findOutdatedRecipes(ids, byId, indexLatestByLineage(catalog ?? []))
-		return new Map<string, OutdatedRecipe>(outdated.map((o) => [o.current.id, o]))
-	})()
+	const outdatedById = collectOutdatedById(dayMenus, catalog)
 
 	// Build meals dynamically based on meal types
-	const meals =
-		mealTypes?.map((mealType) => ({
-			mealType,
-			menu: dayMenus?.find((m) => m.meal_type_id === mealType.id),
-		})) || []
+	const meals = buildDayMeals(mealTypes, dayMenus)
 
-	const snackMenu = snackMealType ? dayMenus?.find((m) => m.meal_type_id === snackMealType.id) : undefined
+	const snackMenu = findSnackMenu(snackMealType, dayMenus)
 
-	const formattedDate = date ? format(date, "EEEE, dd 'de' MMMM", { locale: ptBR }) : ""
+	const formattedDate = formatDayTitle(date)
 
 	// State for substitutions
 	const [substitutionItem, setSubstitutionItem] = useState<MenuItem | null>(null)
@@ -326,7 +309,7 @@ export function DayDrawer({ date, kitchenId, onClose, open }: DayDrawerProps) {
 					selectedRecipeIds={[]}
 					multiSelect={false}
 					title="Trocar preparação"
-					description={`No lugar de “${(replaceItem?.recipe as { name?: string } | null)?.name ?? "preparação"}”. Porções, grupo e origem ficam.`}
+					description={replaceRecipeDescription(replaceItem)}
 					onSelect={(recipeIds) => {
 						const item = replaceItem
 						setReplaceItem(null)
@@ -415,6 +398,78 @@ export function DayDrawer({ date, kitchenId, onClose, open }: DayDrawerProps) {
 	)
 }
 
+/** Cabeçalho da refeição no acordeão: nome, status e comensais. */
+function MealSectionSummary({ mealName, menu, headcountPending }: { mealName: string | null; menu?: DailyMenuWithItems; headcountPending: boolean }) {
+	return (
+		<div className="flex items-center justify-between w-full mr-4">
+			<div className="flex items-center gap-2">
+				<span className="text-subheading">{mealName}</span>
+				{menu && (
+					<Badge variant={menu.status === "PUBLISHED" ? "default" : "secondary"} className="text-[10px] h-5">
+						{menu.status === "PUBLISHED" ? "Publicado" : "Planejado"}
+					</Badge>
+				)}
+			</div>
+			<div className="text-sm font-normal">
+				{menu ? (
+					menu.forecasted_headcount ? (
+						<span className="text-muted-foreground">{menu.forecasted_headcount} comensais</span>
+					) : headcountPending ? (
+						<Badge variant="warning">Efetivo a definir</Badge>
+					) : (
+						<span className="text-destructive text-subheading">Sem comensais</span>
+					)
+				) : (
+					<span className="text-muted-foreground">Não planejado</span>
+				)}
+			</div>
+		</div>
+	)
+}
+
+/** Preparações da refeição, agrupadas pelas colunas do conjunto. */
+function MealMenuItems({
+	menuItems,
+	groups,
+	outdatedById,
+	onSubstitute,
+	onReplaceRecipe,
+	onDelete,
+}: {
+	menuItems: DailyMenuWithItems["menu_items"] | null | undefined
+	groups: readonly MenuGroup[]
+	outdatedById: ReadonlyMap<string, OutdatedRecipe>
+	onSubstitute: (item: MenuItem) => void
+	onReplaceRecipe: (item: MenuItem) => void
+	onDelete: (itemId: string, recipeName: string) => void
+}) {
+	if (!menuItems || menuItems.length === 0) {
+		return <div className="border border-dashed rounded-md p-4 text-center text-sm text-muted-foreground">Nenhuma preparação adicionada.</div>
+	}
+	return (
+		<div className="space-y-3">
+			{groupMenuItems(menuItems, groups).map((group) => (
+				<div key={group.key} className="space-y-2">
+					<p className="text-xs uppercase tracking-wide text-muted-foreground/80">{group.label}</p>
+					<div className="grid gap-2">
+						{group.items.map((item) => (
+							<MenuItemCard
+								key={item.id}
+								item={item}
+								onSubstitute={onSubstitute}
+								onReplaceRecipe={onReplaceRecipe}
+								onDelete={onDelete}
+								groups={groups}
+								outdated={item.recipe_origin_id ? outdatedById.get(item.recipe_origin_id) : undefined}
+							/>
+						))}
+					</div>
+				</div>
+			))}
+		</div>
+	)
+}
+
 function MealSection({
 	mealType,
 	menu,
@@ -495,29 +550,7 @@ function MealSection({
 	return (
 		<AccordionItem value={mealType.id} className="border rounded-md px-4 bg-card">
 			<AccordionTrigger className="hover:no-underline py-4">
-				<div className="flex items-center justify-between w-full mr-4">
-					<div className="flex items-center gap-2">
-						<span className="text-subheading">{mealType.name}</span>
-						{menu && (
-							<Badge variant={menu.status === "PUBLISHED" ? "default" : "secondary"} className="text-[10px] h-5">
-								{menu.status === "PUBLISHED" ? "Publicado" : "Planejado"}
-							</Badge>
-						)}
-					</div>
-					<div className="text-sm font-normal">
-						{menu ? (
-							menu.forecasted_headcount ? (
-								<span className="text-muted-foreground">{menu.forecasted_headcount} comensais</span>
-							) : headcountPending ? (
-								<Badge variant="warning">Efetivo a definir</Badge>
-							) : (
-								<span className="text-destructive text-subheading">Sem comensais</span>
-							)
-						) : (
-							<span className="text-muted-foreground">Não planejado</span>
-						)}
-					</div>
-				</div>
+				<MealSectionSummary mealName={mealType.name} menu={menu} headcountPending={headcountPending} />
 			</AccordionTrigger>
 			<AccordionContent className="pb-4">
 				{!menu ? (
@@ -577,30 +610,14 @@ function MealSection({
 									)}
 								</div>
 							</div>
-							{!menu.menu_items || menu.menu_items.length === 0 ? (
-								<div className="border border-dashed rounded-md p-4 text-center text-sm text-muted-foreground">Nenhuma preparação adicionada.</div>
-							) : (
-								<div className="space-y-3">
-									{groupMenuItems(menu.menu_items, groups).map((group) => (
-										<div key={group.key} className="space-y-2">
-											<p className="text-xs uppercase tracking-wide text-muted-foreground/80">{group.label}</p>
-											<div className="grid gap-2">
-												{group.items.map((item) => (
-													<MenuItemCard
-														key={item.id}
-														item={item}
-														onSubstitute={onSubstitute}
-														onReplaceRecipe={onReplaceRecipe}
-														onDelete={onDelete}
-														groups={groups}
-														outdated={item.recipe_origin_id ? outdatedById.get(item.recipe_origin_id) : undefined}
-													/>
-												))}
-											</div>
-										</div>
-									))}
-								</div>
-							)}
+							<MealMenuItems
+								menuItems={menu.menu_items}
+								groups={groups}
+								outdatedById={outdatedById}
+								onSubstitute={onSubstitute}
+								onReplaceRecipe={onReplaceRecipe}
+								onDelete={onDelete}
+							/>
 
 							<Button
 								size="sm"

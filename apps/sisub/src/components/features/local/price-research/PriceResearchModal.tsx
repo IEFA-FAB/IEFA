@@ -25,6 +25,8 @@ import {
 	createSortedRowModel,
 	type FilterFn,
 	flexRender,
+	type ReactTable,
+	type Row,
 	type RowSelectionState,
 	rowSelectionFeature,
 	rowSortingFeature,
@@ -34,7 +36,7 @@ import {
 	tableFeatures,
 	useTable,
 } from "@tanstack/react-table"
-import { useVirtualizer } from "@tanstack/react-virtual"
+import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual"
 import { ArrowDown, ArrowUp, ArrowUpDown, CalendarClock, Info, ListFilter, RefreshCw, TrendingUp } from "lucide-react"
 import { useMemo, useState } from "react"
 import { Badge } from "@/components/ui/badge"
@@ -52,6 +54,7 @@ import { cn } from "@/lib/cn"
 import { setListedValues } from "@/lib/column-value-filter"
 import {
 	analyzeSamples,
+	type CatmatPriceFetch,
 	DEFAULT_PERIOD_MONTHS,
 	fetchAllPagesForCatmat,
 	isMethodAllowed,
@@ -63,43 +66,25 @@ import {
 } from "@/lib/price-research-utils"
 import { savePriceResearchFn } from "@/server/price-research.fn"
 import type { ComprasMaterialPriceResult } from "@/types/domain/price-research"
-
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
-const NUM = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function formatDate(value: string | null | undefined): string {
-	if (!value) return "—"
-	if (/^\d{4}-\d{2}-\d{2}/.test(value)) {
-		const [y, m, d] = value.substring(0, 10).split("-")
-		return `${d}/${m}/${y}`
-	}
-	return value.substring(0, 10)
-}
-
-function getRecommendation(cv: number): { text: string; colorClass: string } {
-	if (cv < 15) return { text: "Distribuição homogênea — média e mediana equivalentes.", colorClass: "text-success" }
-	if (cv < 30) return { text: "Variabilidade moderada — prefira a mediana.", colorClass: "text-warning" }
-	return { text: "Alta variabilidade — mediana recomendada (IN SEGES/ME 65/2021, art. 6º).", colorClass: "text-destructive" }
-}
-
-function hasReferenceDate(r: ComprasMaterialPriceResult): boolean {
-	return Boolean(r.dataResultado ?? r.dataCompra)
-}
-
-/** Não conformidades agrupadas pela justificativa que as resolve (uma caixa de texto por grupo). */
-function groupFindings(findings: ResearchFinding[]): Array<{ key: ResearchJustificationKey | null; findings: ResearchFinding[] }> {
-	const groups: Array<{ key: ResearchJustificationKey | null; findings: ResearchFinding[] }> = []
-	for (const finding of findings) {
-		const group = finding.justification ? groups.find((g) => g.key === finding.justification) : undefined
-		if (group) group.findings.push(finding)
-		else groups.push({ key: finding.justification, findings: [finding] })
-	}
-	return groups
-}
+import {
+	BRL,
+	computeVirtualPadding,
+	formatCapacityLabel,
+	formatDate,
+	formatMunicipalityLabel,
+	formatPeriodLabel,
+	formatResultsCount,
+	formatSampleScopeLabel,
+	formatUndatedLabel,
+	getIncomparableSuffix,
+	getMeanPriceTitle,
+	getRecommendation,
+	getUsePriceLabel,
+	groupFindings,
+	hasLoadedResults,
+	hasReferenceDate,
+	NUM,
+} from "./price-research-modal"
 
 /**
  * Não conformidades da pesquisa, no lugar onde ela é feita, com a justificativa ao lado. Não
@@ -207,6 +192,23 @@ function DetailItem({ label, value }: { label: string; value: string }) {
 	)
 }
 
+function ContractDetailsGrid({ row }: { row: ComprasMaterialPriceResult }) {
+	return (
+		<div className="grid grid-cols-2 gap-x-4 gap-y-2">
+			{row.forma && <DetailItem label="Forma" value={row.forma} />}
+			{row.criterioJulgamento && <DetailItem label="Critério" value={row.criterioJulgamento} />}
+			{row.nomeOrgao && <DetailItem label="Órgão" value={row.nomeOrgao} />}
+			{row.municipio && <DetailItem label="Município" value={formatMunicipalityLabel(row.municipio, row.estado)} />}
+			{row.niFornecedor && <DetailItem label="CNPJ/CPF" value={row.niFornecedor} />}
+			{row.percentualMaiorDesconto != null && <DetailItem label="Desconto máx." value={`${NUM.format(row.percentualMaiorDesconto)}%`} />}
+			{row.capacidadeUnidadeFornecimento != null && (
+				<DetailItem label="Capacidade" value={formatCapacityLabel(row.capacidadeUnidadeFornecimento, row.nomeUnidadeFornecimento)} />
+			)}
+			{row.numeroItemCompra != null && <DetailItem label="Nº item" value={String(row.numeroItemCompra)} />}
+		</div>
+	)
+}
+
 function ContractHoverCard({ row }: { row: ComprasMaterialPriceResult }) {
 	return (
 		<HoverCard>
@@ -222,18 +224,7 @@ function ContractHoverCard({ row }: { row: ComprasMaterialPriceResult }) {
 							<p className="text-xs leading-snug">{row.descricaoItem}</p>
 						</div>
 					)}
-					<div className="grid grid-cols-2 gap-x-4 gap-y-2">
-						{row.forma && <DetailItem label="Forma" value={row.forma} />}
-						{row.criterioJulgamento && <DetailItem label="Critério" value={row.criterioJulgamento} />}
-						{row.nomeOrgao && <DetailItem label="Órgão" value={row.nomeOrgao} />}
-						{row.municipio && <DetailItem label="Município" value={`${row.municipio}${row.estado ? ` — ${row.estado}` : ""}`} />}
-						{row.niFornecedor && <DetailItem label="CNPJ/CPF" value={row.niFornecedor} />}
-						{row.percentualMaiorDesconto != null && <DetailItem label="Desconto máx." value={`${NUM.format(row.percentualMaiorDesconto)}%`} />}
-						{row.capacidadeUnidadeFornecimento != null && (
-							<DetailItem label="Capacidade" value={`${NUM.format(row.capacidadeUnidadeFornecimento)} ${row.nomeUnidadeFornecimento ?? ""}`} />
-						)}
-						{row.numeroItemCompra != null && <DetailItem label="Nº item" value={String(row.numeroItemCompra)} />}
-					</div>
+					<ContractDetailsGrid row={row} />
 					{row.idCompra && <p className="border-t pt-1.5 font-mono text-[10px] text-muted-foreground">{row.idCompra}</p>}
 				</div>
 			</HoverCardContent>
@@ -339,6 +330,316 @@ function SortableHeader({ column, title, align }: { column: Column<Features, Com
 				)}
 			</button>
 			{canFilter && <ColumnFilterPopover column={column} />}
+		</div>
+	)
+}
+
+// ─── Partes do modal ──────────────────────────────────────────────────────────
+
+interface PriceResearchToolbarProps {
+	isLoading: boolean
+	/** Carga terminada com ao menos um registro. */
+	hasResults: boolean
+	totalCount: number
+	data: CatmatPriceFetch | undefined
+	periodMonths: number | null
+	outOfPeriodCount: number
+	undatedCount: number
+	includeUndated: boolean
+	columnFilterCount: number
+	selectedCount: number
+	onTogglePeriod: () => void
+	onToggleUndated: () => void
+	onClearFilters: () => void
+	onClearSelection: () => void
+	onRefresh: () => void
+}
+
+function PriceResearchToolbar({
+	isLoading,
+	hasResults,
+	totalCount,
+	data,
+	periodMonths,
+	outOfPeriodCount,
+	undatedCount,
+	includeUndated,
+	columnFilterCount,
+	selectedCount,
+	onTogglePeriod,
+	onToggleUndated,
+	onClearFilters,
+	onClearSelection,
+	onRefresh,
+}: PriceResearchToolbarProps) {
+	return (
+		<div className="flex items-center gap-3 flex-wrap">
+			{hasResults && <span className="text-xs text-muted-foreground">{totalCount.toLocaleString("pt-BR")} registros totais</span>}
+			{hasResults && (
+				<Button size="sm" variant="ghost" onClick={onTogglePeriod} className="h-7 px-2 text-xs">
+					<CalendarClock className="size-3.5" aria-hidden="true" />
+					{formatPeriodLabel(periodMonths, outOfPeriodCount)}
+				</Button>
+			)}
+			{!isLoading && undatedCount > 0 && (
+				<Button
+					size="sm"
+					variant="ghost"
+					onClick={onToggleUndated}
+					title="Sem data de referência não há como mostrar que o preço é de até 1 ano (IN SEGES/ME 65/2021, art. 5º, II)."
+				>
+					{formatUndatedLabel(includeUndated, undatedCount)}
+				</Button>
+			)}
+			{data?.truncated && (
+				<span className="text-xs text-warning">
+					Amostra parcial: {totalCount.toLocaleString("pt-BR")} de {data.totalRegistros.toLocaleString("pt-BR")} registros (teto de {MAX_PAGES} páginas)
+				</span>
+			)}
+			{columnFilterCount > 0 && (
+				<Button size="sm" variant="ghost" onClick={onClearFilters} className="h-7 px-2 text-xs">
+					Limpar filtros
+				</Button>
+			)}
+			{selectedCount > 0 && (
+				<Button size="sm" variant="ghost" onClick={onClearSelection} className="h-7 px-2 text-xs">
+					Limpar seleção ({selectedCount})
+				</Button>
+			)}
+			<Button size="sm" variant="outline" onClick={onRefresh} disabled={isLoading} className="ml-auto">
+				<RefreshCw className={isLoading ? "animate-spin" : ""} />
+				Atualizar
+			</Button>
+		</div>
+	)
+}
+
+function StatsSummaryLine({ analysis, periodMonths, unit }: { analysis: Analysis; periodMonths: number | null; unit: string | null }) {
+	return (
+		<p className="text-[11px] text-muted-foreground">
+			{formatSampleScopeLabel(analysis.fromSelection, periodMonths)}
+			{" · "}
+			<span className="font-medium text-foreground">{analysis.validCount}</span> amostras válidas
+			{analysis.outlierCount > 0 && (
+				<>
+					{" "}
+					· <span className="text-warning">{analysis.outlierCount} outlier(s) removido(s) (IQR)</span>
+				</>
+			)}
+			{analysis.inconsistentSamples.length > 0 && (
+				<>
+					{" "}
+					·{" "}
+					<span className="text-warning">
+						{analysis.inconsistentSamples.length} incomparáve{getIncomparableSuffix(analysis.inconsistentSamples.length)} com {unit}
+					</span>
+				</>
+			)}
+			{" · "}
+			{analysis.stats.uniqueSources} UASG(s)
+			{" · "}
+			preços por <span className="font-medium text-foreground">{unit}</span>
+		</p>
+	)
+}
+
+interface StatsGridProps {
+	stats: PriceStatsSummary
+	onApplyPrice?: (price: number, auditIds: PriceResearchAuditIds) => void
+	isSavingMethod: PriceResearchMethod | null
+	onUsePrice: (method: PriceResearchMethod) => void
+}
+
+function StatsGrid({ stats, onApplyPrice, isSavingMethod, onUsePrice }: StatsGridProps) {
+	return (
+		<div className="grid grid-cols-4 gap-3">
+			<div className="text-center">
+				<p className="text-xs text-muted-foreground">Média</p>
+				<p className="text-sm font-semibold tabular-nums">{BRL.format(stats.mean)}</p>
+				{onApplyPrice && (
+					<button
+						type="button"
+						disabled={isSavingMethod !== null || !isMethodAllowed("mean", stats)}
+						title={getMeanPriceTitle(isMethodAllowed("mean", stats))}
+						className="mt-0.5 text-[11px] text-primary hover:underline disabled:opacity-50"
+						onClick={() => onUsePrice("mean")}
+					>
+						{getUsePriceLabel(isSavingMethod, "mean")}
+					</button>
+				)}
+			</div>
+			<div className="border-l text-center">
+				<p className="text-xs text-muted-foreground">Mediana</p>
+				<p className="text-sm font-semibold tabular-nums">{BRL.format(stats.median)}</p>
+				{onApplyPrice && (
+					<button
+						type="button"
+						disabled={isSavingMethod !== null}
+						className="mt-0.5 text-[11px] text-primary hover:underline disabled:opacity-50"
+						onClick={() => onUsePrice("median")}
+					>
+						{getUsePriceLabel(isSavingMethod, "median")}
+					</button>
+				)}
+			</div>
+			<div className="border-l text-center">
+				<p className="text-xs text-muted-foreground">Mínimo</p>
+				<p className="text-sm font-semibold tabular-nums">{BRL.format(stats.min)}</p>
+				{onApplyPrice && (
+					<button
+						type="button"
+						disabled={isSavingMethod !== null}
+						title="Menor dos valores válidos (IN SEGES/ME 65/2021, art. 6º, caput)."
+						className="mt-0.5 text-hint text-primary hover:underline disabled:opacity-50"
+						onClick={() => onUsePrice("lowest")}
+					>
+						{getUsePriceLabel(isSavingMethod, "lowest")}
+					</button>
+				)}
+			</div>
+			<div className="border-l text-center">
+				<p className="text-xs text-muted-foreground">Máximo</p>
+				<p className="text-sm font-semibold tabular-nums">{BRL.format(stats.max)}</p>
+			</div>
+		</div>
+	)
+}
+
+interface PriceStatsPanelProps extends Omit<StatsGridProps, "stats"> {
+	analysis: Analysis
+	periodMonths: number | null
+	unit: string | null
+	isUnitInferred: boolean | undefined
+}
+
+function PriceStatsPanel({ analysis, periodMonths, unit, isUnitInferred, onApplyPrice, isSavingMethod, onUsePrice }: PriceStatsPanelProps) {
+	return (
+		<div className="rounded-lg border bg-muted/30 px-4 py-3 space-y-2">
+			{/* Sample info header */}
+			<StatsSummaryLine analysis={analysis} periodMonths={periodMonths} unit={unit} />
+			{isUnitInferred && (
+				<p className="text-hint text-warning">
+					O item de compra não declara unidade. Os preços foram convertidos para {unit}, a unidade predominante nas amostras: confira se a quantidade do anexo
+					está na mesma unidade.
+				</p>
+			)}
+
+			{/* 4-column grid: Média | Mediana | Mínimo | Máximo */}
+			<StatsGrid stats={analysis.stats} onApplyPrice={onApplyPrice} isSavingMethod={isSavingMethod} onUsePrice={onUsePrice} />
+
+			{/* Recommendation footer */}
+			<div className="flex items-center gap-2 text-[11px] text-muted-foreground border-t pt-2">
+				<span>
+					σ {BRL.format(analysis.stats.stdDev)} · CV {analysis.stats.cv.toFixed(1)}%
+				</span>
+				<span className={`ml-1 ${getRecommendation(analysis.stats.cv).colorClass}`}>{getRecommendation(analysis.stats.cv).text}</span>
+			</div>
+		</div>
+	)
+}
+
+function NoComparableSelectionWarning({ selectedCount, analysis, unit }: { selectedCount: number; analysis: Analysis | null; unit: string | null }) {
+	if (!(selectedCount > 0 && !analysis)) return null
+	return (
+		<p className="rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 text-xs text-warning">
+			Nenhuma das amostras selecionadas é comparável com {unit ?? "a unidade do item"}. Selecione amostras com preço convertido.
+		</p>
+	)
+}
+
+interface ResultsTableProps {
+	table: ReactTable<Features, ComprasMaterialPriceResult>
+	rows: Row<Features, ComprasMaterialPriceResult>[]
+	virtualRows: VirtualItem[]
+	paddingTop: number
+	paddingBottom: number
+	columnCount: number
+	isLoading: boolean
+}
+
+function ResultsTable({ table, rows, virtualRows, paddingTop, paddingBottom, columnCount, isLoading }: ResultsTableProps) {
+	return (
+		<Table>
+			<TableHeader className="sticky top-0 z-10 bg-background">
+				{table.getHeaderGroups().map((headerGroup) => (
+					<TableRow key={headerGroup.id}>
+						{headerGroup.headers.map((header) => (
+							<TableHead key={header.id} style={header.column.columnDef.size ? { width: header.column.columnDef.size } : undefined}>
+								{header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+							</TableHead>
+						))}
+					</TableRow>
+				))}
+			</TableHeader>
+			<TableBody>
+				{paddingTop > 0 && (
+					<tr>
+						<td colSpan={columnCount} style={{ height: paddingTop, padding: 0, border: "none" }} />
+					</tr>
+				)}
+				{virtualRows.map((virtualRow) => {
+					const row = rows[virtualRow.index]
+					return (
+						<TableRow key={row.id} data-state={row.getIsSelected() ? "selected" : undefined}>
+							{row.getVisibleCells().map((cell) => (
+								<TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
+							))}
+						</TableRow>
+					)
+				})}
+				{paddingBottom > 0 && (
+					<tr>
+						<td colSpan={columnCount} style={{ height: paddingBottom, padding: 0, border: "none" }} />
+					</tr>
+				)}
+				{rows.length === 0 && !isLoading && (
+					<TableRow>
+						<TableCell colSpan={columnCount} className="py-8 text-center text-muted-foreground">
+							Nenhum resultado com os filtros aplicados.
+						</TableCell>
+					</TableRow>
+				)}
+			</TableBody>
+		</Table>
+	)
+}
+
+/** Conteúdo da área da tabela: carregando, erro, nenhum resultado ou a tabela. */
+function ResultsTableContent({ isError, totalCount, ...tableProps }: ResultsTableProps & { isError: boolean; totalCount: number }) {
+	return tableProps.isLoading ? (
+		<div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
+			<Spinner className="size-4" />
+			Consultando Compras.gov.br...
+		</div>
+	) : isError ? (
+		<div className="py-12 text-center">
+			<p className="text-sm text-destructive">Erro ao consultar a API. Verifique a conexão e tente novamente.</p>
+		</div>
+	) : totalCount === 0 ? (
+		<div className="py-12 text-center">
+			<p className="text-sm text-muted-foreground">Nenhum resultado encontrado para este item.</p>
+		</div>
+	) : (
+		<ResultsTable {...tableProps} />
+	)
+}
+
+interface PriceResearchFooterProps {
+	filteredCount: number
+	totalCount: number
+	periodMonths: number | null
+	outOfPeriodCount: number
+	selectedCount: number
+}
+
+function PriceResearchFooter({ filteredCount, totalCount, periodMonths, outOfPeriodCount, selectedCount }: PriceResearchFooterProps) {
+	return (
+		<div className="flex items-center text-xs text-muted-foreground pt-1">
+			<span>
+				{formatResultsCount(filteredCount, totalCount)}
+				{periodMonths && outOfPeriodCount > 0 && <span> · {outOfPeriodCount.toLocaleString("pt-BR")} fora da janela</span>}
+				{selectedCount > 0 && <span className="font-medium text-foreground"> · {selectedCount} selecionados</span>}
+			</span>
 		</div>
 	)
 }
@@ -610,8 +911,7 @@ export function PriceResearchModal({
 
 	const virtualRows = virtualizer.getVirtualItems()
 	const totalSize = virtualizer.getTotalSize()
-	const paddingTop = virtualRows.length > 0 ? virtualRows[0].start : 0
-	const paddingBottom = virtualRows.length > 0 ? totalSize - virtualRows[virtualRows.length - 1].end : 0
+	const { paddingTop, paddingBottom } = computeVirtualPadding(virtualRows, totalSize)
 
 	// ── Stats ─────────────────────────────────────────────────────────────────
 
@@ -740,6 +1040,18 @@ export function PriceResearchModal({
 		setSorting([])
 	}
 
+	function handleTogglePeriod() {
+		setPeriodMonths((prev) => (prev ? null : DEFAULT_PERIOD_MONTHS))
+	}
+
+	function handleToggleUndated() {
+		// Ao tirar as sem data do cálculo, a seleção que as continha deixa de valer.
+		if (includeUndated) setRowSelection({})
+		setIncludeUndated(!includeUndated)
+	}
+
+	const hasResults = hasLoadedResults(isLoading, allResults.length)
+
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent className="max-w-[95vw] sm:max-w-[90vw] max-h-[90vh] flex flex-col">
@@ -752,151 +1064,35 @@ export function PriceResearchModal({
 				</DialogHeader>
 
 				{/* ── Toolbar ── */}
-				<div className="flex items-center gap-3 flex-wrap">
-					{!isLoading && allResults.length > 0 && (
-						<span className="text-xs text-muted-foreground">{allResults.length.toLocaleString("pt-BR")} registros totais</span>
-					)}
-					{!isLoading && allResults.length > 0 && (
-						<Button size="sm" variant="ghost" onClick={() => setPeriodMonths((prev) => (prev ? null : DEFAULT_PERIOD_MONTHS))} className="h-7 px-2 text-xs">
-							<CalendarClock className="size-3.5" aria-hidden="true" />
-							{periodMonths ? `Últimos ${periodMonths} meses${outOfPeriodCount > 0 ? ` (${outOfPeriodCount} fora)` : ""}` : "Todo o histórico"}
-						</Button>
-					)}
-					{!isLoading && undatedCount > 0 && (
-						<Button
-							size="sm"
-							variant="ghost"
-							onClick={() => {
-								// Ao tirar as sem data do cálculo, a seleção que as continha deixa de valer.
-								if (includeUndated) setRowSelection({})
-								setIncludeUndated(!includeUndated)
-							}}
-							title="Sem data de referência não há como mostrar que o preço é de até 1 ano (IN SEGES/ME 65/2021, art. 5º, II)."
-						>
-							{includeUndated ? `${undatedCount} sem data no cálculo` : `${undatedCount} sem data: fora do cálculo`}
-						</Button>
-					)}
-					{data?.truncated && (
-						<span className="text-xs text-warning">
-							Amostra parcial: {allResults.length.toLocaleString("pt-BR")} de {data.totalRegistros.toLocaleString("pt-BR")} registros (teto de {MAX_PAGES}{" "}
-							páginas)
-						</span>
-					)}
-					{columnFilters.length > 0 && (
-						<Button size="sm" variant="ghost" onClick={() => setColumnFilters([])} className="h-7 px-2 text-xs">
-							Limpar filtros
-						</Button>
-					)}
-					{selectedRows.length > 0 && (
-						<Button size="sm" variant="ghost" onClick={() => setRowSelection({})} className="h-7 px-2 text-xs">
-							Limpar seleção ({selectedRows.length})
-						</Button>
-					)}
-					<Button size="sm" variant="outline" onClick={handleRefresh} disabled={isLoading} className="ml-auto">
-						<RefreshCw className={isLoading ? "animate-spin" : ""} />
-						Atualizar
-					</Button>
-				</div>
+				<PriceResearchToolbar
+					isLoading={isLoading}
+					hasResults={hasResults}
+					totalCount={allResults.length}
+					data={data}
+					periodMonths={periodMonths}
+					outOfPeriodCount={outOfPeriodCount}
+					undatedCount={undatedCount}
+					includeUndated={includeUndated}
+					columnFilterCount={columnFilters.length}
+					selectedCount={selectedRows.length}
+					onTogglePeriod={handleTogglePeriod}
+					onToggleUndated={handleToggleUndated}
+					onClearFilters={() => setColumnFilters([])}
+					onClearSelection={() => setRowSelection({})}
+					onRefresh={handleRefresh}
+				/>
 
 				{/* ── Stats ── */}
 				{activeAnalysis && (
-					<div className="rounded-lg border bg-muted/30 px-4 py-3 space-y-2">
-						{/* Sample info header */}
-						<p className="text-[11px] text-muted-foreground">
-							{activeAnalysis.fromSelection ? "Seleção manual" : periodMonths ? `Resultados dos últimos ${periodMonths} meses` : "Todo o histórico"}
-							{" · "}
-							<span className="font-medium text-foreground">{activeAnalysis.validCount}</span> amostras válidas
-							{activeAnalysis.outlierCount > 0 && (
-								<>
-									{" "}
-									· <span className="text-warning">{activeAnalysis.outlierCount} outlier(s) removido(s) (IQR)</span>
-								</>
-							)}
-							{activeAnalysis.inconsistentSamples.length > 0 && (
-								<>
-									{" "}
-									·{" "}
-									<span className="text-warning">
-										{activeAnalysis.inconsistentSamples.length} incomparáve{activeAnalysis.inconsistentSamples.length !== 1 ? "is" : "l"} com {unit}
-									</span>
-								</>
-							)}
-							{" · "}
-							{activeAnalysis.stats.uniqueSources} UASG(s)
-							{" · "}
-							preços por <span className="font-medium text-foreground">{unit}</span>
-						</p>
-						{researchUnit?.inferred && (
-							<p className="text-hint text-warning">
-								O item de compra não declara unidade. Os preços foram convertidos para {unit}, a unidade predominante nas amostras: confira se a quantidade do
-								anexo está na mesma unidade.
-							</p>
-						)}
-
-						{/* 4-column grid: Média | Mediana | Mínimo | Máximo */}
-						<div className="grid grid-cols-4 gap-3">
-							<div className="text-center">
-								<p className="text-xs text-muted-foreground">Média</p>
-								<p className="text-sm font-semibold tabular-nums">{BRL.format(activeAnalysis.stats.mean)}</p>
-								{onApplyPrice && (
-									<button
-										type="button"
-										disabled={isSavingMethod !== null || !isMethodAllowed("mean", activeAnalysis.stats)}
-										title={
-											isMethodAllowed("mean", activeAnalysis.stats)
-												? undefined
-												: "A média passa da mediana: o preço estimado não pode superá-la (IN SEGES/ME 65/2021, art. 6º, § 6º)."
-										}
-										className="mt-0.5 text-[11px] text-primary hover:underline disabled:opacity-50"
-										onClick={() => handleUsePrice("mean")}
-									>
-										{isSavingMethod === "mean" ? "Salvando…" : "Usar"}
-									</button>
-								)}
-							</div>
-							<div className="border-l text-center">
-								<p className="text-xs text-muted-foreground">Mediana</p>
-								<p className="text-sm font-semibold tabular-nums">{BRL.format(activeAnalysis.stats.median)}</p>
-								{onApplyPrice && (
-									<button
-										type="button"
-										disabled={isSavingMethod !== null}
-										className="mt-0.5 text-[11px] text-primary hover:underline disabled:opacity-50"
-										onClick={() => handleUsePrice("median")}
-									>
-										{isSavingMethod === "median" ? "Salvando…" : "Usar"}
-									</button>
-								)}
-							</div>
-							<div className="border-l text-center">
-								<p className="text-xs text-muted-foreground">Mínimo</p>
-								<p className="text-sm font-semibold tabular-nums">{BRL.format(activeAnalysis.stats.min)}</p>
-								{onApplyPrice && (
-									<button
-										type="button"
-										disabled={isSavingMethod !== null}
-										title="Menor dos valores válidos (IN SEGES/ME 65/2021, art. 6º, caput)."
-										className="mt-0.5 text-hint text-primary hover:underline disabled:opacity-50"
-										onClick={() => handleUsePrice("lowest")}
-									>
-										{isSavingMethod === "lowest" ? "Salvando…" : "Usar"}
-									</button>
-								)}
-							</div>
-							<div className="border-l text-center">
-								<p className="text-xs text-muted-foreground">Máximo</p>
-								<p className="text-sm font-semibold tabular-nums">{BRL.format(activeAnalysis.stats.max)}</p>
-							</div>
-						</div>
-
-						{/* Recommendation footer */}
-						<div className="flex items-center gap-2 text-[11px] text-muted-foreground border-t pt-2">
-							<span>
-								σ {BRL.format(activeAnalysis.stats.stdDev)} · CV {activeAnalysis.stats.cv.toFixed(1)}%
-							</span>
-							<span className={`ml-1 ${getRecommendation(activeAnalysis.stats.cv).colorClass}`}>{getRecommendation(activeAnalysis.stats.cv).text}</span>
-						</div>
-					</div>
+					<PriceStatsPanel
+						analysis={activeAnalysis}
+						periodMonths={periodMonths}
+						unit={unit}
+						isUnitInferred={researchUnit?.inferred}
+						onApplyPrice={onApplyPrice}
+						isSavingMethod={isSavingMethod}
+						onUsePrice={handleUsePrice}
+					/>
 				)}
 
 				{activeAnalysis && onApplyPrice && (
@@ -907,84 +1103,32 @@ export function PriceResearchModal({
 					/>
 				)}
 
-				{selectedRows.length > 0 && !activeAnalysis && (
-					<p className="rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 text-xs text-warning">
-						Nenhuma das amostras selecionadas é comparável com {unit ?? "a unidade do item"}. Selecione amostras com preço convertido.
-					</p>
-				)}
+				<NoComparableSelectionWarning selectedCount={selectedRows.length} analysis={activeAnalysis} unit={unit} />
 
 				{/* ── Table ── */}
 				<div ref={setTableContainer} className="flex-1 overflow-y-auto min-h-0 rounded-md border">
-					{isLoading ? (
-						<div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
-							<Spinner className="size-4" />
-							Consultando Compras.gov.br...
-						</div>
-					) : isError ? (
-						<div className="py-12 text-center">
-							<p className="text-sm text-destructive">Erro ao consultar a API. Verifique a conexão e tente novamente.</p>
-						</div>
-					) : allResults.length === 0 ? (
-						<div className="py-12 text-center">
-							<p className="text-sm text-muted-foreground">Nenhum resultado encontrado para este item.</p>
-						</div>
-					) : (
-						<Table>
-							<TableHeader className="sticky top-0 z-10 bg-background">
-								{table.getHeaderGroups().map((headerGroup) => (
-									<TableRow key={headerGroup.id}>
-										{headerGroup.headers.map((header) => (
-											<TableHead key={header.id} style={header.column.columnDef.size ? { width: header.column.columnDef.size } : undefined}>
-												{header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
-											</TableHead>
-										))}
-									</TableRow>
-								))}
-							</TableHeader>
-							<TableBody>
-								{paddingTop > 0 && (
-									<tr>
-										<td colSpan={columns.length} style={{ height: paddingTop, padding: 0, border: "none" }} />
-									</tr>
-								)}
-								{virtualRows.map((virtualRow) => {
-									const row = rows[virtualRow.index]
-									return (
-										<TableRow key={row.id} data-state={row.getIsSelected() ? "selected" : undefined}>
-											{row.getVisibleCells().map((cell) => (
-												<TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
-											))}
-										</TableRow>
-									)
-								})}
-								{paddingBottom > 0 && (
-									<tr>
-										<td colSpan={columns.length} style={{ height: paddingBottom, padding: 0, border: "none" }} />
-									</tr>
-								)}
-								{rows.length === 0 && !isLoading && (
-									<TableRow>
-										<TableCell colSpan={columns.length} className="py-8 text-center text-muted-foreground">
-											Nenhum resultado com os filtros aplicados.
-										</TableCell>
-									</TableRow>
-								)}
-							</TableBody>
-						</Table>
-					)}
+					<ResultsTableContent
+						isLoading={isLoading}
+						isError={isError}
+						totalCount={allResults.length}
+						table={table}
+						rows={rows}
+						virtualRows={virtualRows}
+						paddingTop={paddingTop}
+						paddingBottom={paddingBottom}
+						columnCount={columns.length}
+					/>
 				</div>
 
 				{/* ── Footer ── */}
-				{!isLoading && allResults.length > 0 && (
-					<div className="flex items-center text-xs text-muted-foreground pt-1">
-						<span>
-							{filteredRows.length === allResults.length
-								? `${allResults.length.toLocaleString("pt-BR")} resultados`
-								: `${filteredRows.length.toLocaleString("pt-BR")} de ${allResults.length.toLocaleString("pt-BR")} resultados`}
-							{periodMonths && outOfPeriodCount > 0 && <span> · {outOfPeriodCount.toLocaleString("pt-BR")} fora da janela</span>}
-							{selectedRows.length > 0 && <span className="font-medium text-foreground"> · {selectedRows.length} selecionados</span>}
-						</span>
-					</div>
+				{hasResults && (
+					<PriceResearchFooter
+						filteredCount={filteredRows.length}
+						totalCount={allResults.length}
+						periodMonths={periodMonths}
+						outOfPeriodCount={outOfPeriodCount}
+						selectedCount={selectedRows.length}
+					/>
 				)}
 			</DialogContent>
 		</Dialog>

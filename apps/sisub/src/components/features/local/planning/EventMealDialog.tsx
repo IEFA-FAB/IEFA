@@ -1,42 +1,204 @@
 import { MAX_EVENT_MEAL_GROUPS, MAX_GROUP_ITEM_COUNT } from "@iefa/sisub-domain/schemas"
 import { ArrowDown, ArrowUp, Plus, X } from "lucide-react"
 import { useEffect, useState } from "react"
+import {
+	assessEventMealDraft,
+	type DraftGroup,
+	eventMealDialogTitle,
+	MAX_LABEL,
+	MAX_NAME,
+	toDraftGroup,
+} from "@/components/features/local/planning/event-meal-dialog"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import {
-	type EventMealDraft,
-	findDuplicateGroup,
-	groupSuggestionsFor,
-	isGroupCountInverted,
-	isSuggestionPresent,
-	type OccasionGroup,
-	parseEventMealHeadcount,
-	parseGroupItemCount,
-	resolveGroupKeys,
-} from "@/lib/event-meals"
+import { type EventMealDraft, type OccasionGroup, parseEventMealHeadcount } from "@/lib/event-meals"
 import type { OccasionMenuType } from "@/lib/occasion-menu"
 
-/** Tetos do schema (`TemplateEventMealSchema` / `MenuGroupSchema`): acima deles o salvamento inteiro seria recusado. */
-const MAX_NAME = 80
-const MAX_LABEL = 60
-
-/**
- * Linha da composição no diálogo. `key` vazia = grupo novo, a chave sai do rótulo ao salvar. A
- * contagem esperada fica como o usuário digitou até salvar.
- */
-type DraftGroup = { key: string; label: string; minItems: string; maxItems: string }
-
-function toDraftGroup(g: OccasionGroup): DraftGroup {
-	return { key: g.key, label: g.label, minItems: g.minItems != null ? String(g.minItems) : "", maxItems: g.maxItems != null ? String(g.maxItems) : "" }
+/** Horário da refeição: fixo (padrão de lanche) ou escolhido entre os do escopo. */
+function EventMealSlotField({
+	isSupportMenu,
+	isSuggestedSlot,
+	lockedSlotName,
+	mealTypeId,
+	onMealTypeChange,
+	mealTypes,
+}: {
+	isSupportMenu: boolean
+	isSuggestedSlot: boolean
+	lockedSlotName: string | null
+	mealTypeId: string
+	onMealTypeChange: (mealTypeId: string) => void
+	mealTypes: readonly { id: string; name: string | null }[]
+}) {
+	const selectedMealType = mealTypes.find((mt) => mt.id === mealTypeId)
+	return (
+		<Field>
+			<FieldLabel htmlFor="event-meal-slot">{isSuggestedSlot ? "Horário sugerido" : "Servida no horário de"}</FieldLabel>
+			{lockedSlotName != null ? (
+				<>
+					<Input id="event-meal-slot" value={lockedSlotName} readOnly disabled />
+					<FieldDescription>Padrão de lanche é servido no horário de sistema, onde o pedido aceito entra na produção.</FieldDescription>
+				</>
+			) : (
+				<>
+					<Select value={mealTypeId} onValueChange={(value) => onMealTypeChange(value ?? "")}>
+						<SelectTrigger id="event-meal-slot">
+							<SelectValue>{selectedMealType?.name ?? "Escolha o horário"}</SelectValue>
+						</SelectTrigger>
+						<SelectContent>
+							{mealTypes.map((mt) => (
+								<SelectItem key={mt.id} value={mt.id}>
+									{mt.name ?? "Refeição"}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
+					<FieldDescription>
+						{isSuggestedSlot
+							? "Formato não é horário: o coquetel pode ir ao almoço ou à noite. A cozinha escolhe o horário ao aplicar ou montar o evento; este vem preenchido."
+							: `Ao aplicar ${isSupportMenu ? "o apoio" : "o evento"} no calendário, as preparações desta refeição entram no cardápio deste horário, somadas à rotina do dia.`}
+					</FieldDescription>
+				</>
+			)}
+		</Field>
+	)
 }
 
-function fromDraftGroup(g: DraftGroup): OccasionGroup {
-	const minItems = parseGroupItemCount(g.minItems)
-	const maxItems = parseGroupItemCount(g.maxItems)
-	return { key: g.key, label: g.label, ...(minItems != null && { minItems }), ...(maxItems != null && { maxItems }) }
+/** Efetivo da refeição (kits, no apoio). */
+function EventMealBaseField({ isSupportMenu, value, onChange }: { isSupportMenu: boolean; value: string; onChange: (value: string) => void }) {
+	return (
+		<Field>
+			<FieldLabel htmlFor="event-meal-base">{isSupportMenu ? "Kits (opcional)" : "Efetivo (opcional)"}</FieldLabel>
+			<Input
+				id="event-meal-base"
+				type="number"
+				min={1}
+				step={1}
+				inputMode="numeric"
+				value={value}
+				onChange={(e) => onChange(e.target.value)}
+				placeholder={isSupportMenu ? "Ex.: 40" : "Ex.: 300"}
+			/>
+			<FieldDescription>
+				{isSupportMenu
+					? "Quantos kits saem desta refeição. Cada preparação diz quantas porções vão em cada kit, ou o total de porções direto."
+					: "Quantas pessoas comem nesta refeição. Cada preparação pode então pedir uma % desse efetivo — como no cardápio semanal — ou informar o número de pessoas direto."}
+			</FieldDescription>
+		</Field>
+	)
+}
+
+/** Uma linha da composição: rótulo, quantidade esperada e ordem. */
+function EventMealGroupRow({
+	group,
+	index,
+	isLast,
+	isSupportMenu,
+	onPatch,
+	onMove,
+	onRemove,
+}: {
+	group: DraftGroup
+	index: number
+	isLast: boolean
+	isSupportMenu: boolean
+	onPatch: (patch: Partial<DraftGroup>) => void
+	onMove: (delta: number) => void
+	onRemove: () => void
+}) {
+	return (
+		<div className="flex items-center gap-1.5">
+			<span className="w-5 text-xs text-muted-foreground tabular-nums">{index + 1}</span>
+			<Input
+				value={group.label}
+				maxLength={MAX_LABEL}
+				onChange={(e) => onPatch({ label: e.target.value })}
+				placeholder={isSupportMenu ? "Ex.: Sanduíches, Bebidas" : "Ex.: Entradas, Volantes, Canapés"}
+				aria-label={`Grupo ${index + 1}`}
+			/>
+			{/* Quantidade de preparações esperada: "de _ a _", os dois opcionais. */}
+			<span className="shrink-0 text-xs text-muted-foreground">de</span>
+			<Input
+				type="number"
+				min={0}
+				max={MAX_GROUP_ITEM_COUNT}
+				step={1}
+				inputMode="numeric"
+				className="w-14 shrink-0"
+				value={group.minItems}
+				onChange={(e) => onPatch({ minItems: e.target.value })}
+				placeholder="mín."
+				aria-label={`Mínimo de preparações do grupo ${group.label || index + 1}`}
+			/>
+			<span className="shrink-0 text-xs text-muted-foreground">a</span>
+			<Input
+				type="number"
+				min={0}
+				max={MAX_GROUP_ITEM_COUNT}
+				step={1}
+				inputMode="numeric"
+				className="w-14 shrink-0"
+				value={group.maxItems}
+				onChange={(e) => onPatch({ maxItems: e.target.value })}
+				placeholder="máx."
+				aria-label={`Máximo de preparações do grupo ${group.label || index + 1}`}
+			/>
+			<Button type="button" size="icon" variant="ghost" onClick={() => onMove(-1)} disabled={index === 0} aria-label="Subir grupo">
+				<ArrowUp />
+			</Button>
+			<Button type="button" size="icon" variant="ghost" onClick={() => onMove(1)} disabled={isLast} aria-label="Descer grupo">
+				<ArrowDown />
+			</Button>
+			<Button type="button" size="icon" variant="ghost" onClick={onRemove} aria-label="Remover grupo">
+				<X />
+			</Button>
+		</div>
+	)
+}
+
+/** Avisos da composição: o que impede gravar e o que só informa. */
+function EventMealCompositionNotices({
+	missingGroups,
+	isSupportMenu,
+	groupCount,
+	invertedCount,
+	hasBlank,
+	duplicate,
+	tooMany,
+	leaving,
+}: {
+	missingGroups: boolean
+	isSupportMenu: boolean
+	groupCount: number
+	invertedCount: OccasionGroup | undefined
+	hasBlank: boolean
+	duplicate: { label: string } | undefined
+	tooMany: boolean
+	leaving: number
+}) {
+	return (
+		<>
+			{missingGroups && <p className="text-sm text-destructive">A refeição precisa de ao menos um grupo — é nele que as preparações entram.</p>}
+			{isSupportMenu && groupCount === 0 && <FieldDescription>Sem grupos, a refeição é uma lista de preparações — o kit simples.</FieldDescription>}
+			{invertedCount && (
+				<p className="text-sm text-destructive">
+					Em "{invertedCount.label}" o mínimo ({invertedCount.minItems}) passa do máximo ({invertedCount.maxItems}).
+				</p>
+			)}
+			{hasBlank && <p className="text-sm text-destructive">Dê um nome ao grupo em branco, ou remova a linha no ✕.</p>}
+			{duplicate && <p className="text-sm text-destructive">Dois grupos com o mesmo nome ({duplicate.label}). Mude um deles.</p>}
+			{tooMany && <p className="text-sm text-destructive">No máximo {MAX_EVENT_MEAL_GROUPS} grupos por refeição.</p>}
+			{leaving > 0 && (
+				<FieldDescription>
+					{leaving} {leaving === 1 ? "preparação está num grupo removido e vai" : "preparações estão em grupos removidos e vão"} para "Sem grupo", para ser
+					recolocada{leaving === 1 ? "" : "s"}.
+				</FieldDescription>
+			)}
+		</>
+	)
 }
 
 /**
@@ -109,24 +271,15 @@ export function EventMealDialog({
 		setGroups(next)
 	}
 
-	// A chave só é derivada do rótulo quando o grupo é NOVO: regerá-la ao renomear tiraria de
-	// grupo todas as preparações que já estavam nele.
-	const resolved = resolveGroupKeys(groups.map(fromDraftGroup))
-	const hasBlank = groups.some((g) => g.label.trim() === "")
-	const duplicate = findDuplicateGroup(resolved)
-	const tooMany = groups.length > MAX_EVENT_MEAL_GROUPS
-	// Mínimo acima do máximo o servidor recusaria. Contagem FORA do esperado não trava nada.
-	const invertedCount = resolved.find(isGroupCountInverted)
-	const leaving = meal ? countLeaving(meal.id, resolved) : 0
-	// Sugestão some quando a chave OU o rótulo já está na composição ("Bebidas" digitado esconde a sugestão "Bebidas").
-	const suggestions = groupSuggestionsFor(templateType).filter((s) => !isSuggestionPresent(s, resolved))
-	const selectedMealType = mealTypes.find((mt) => mt.id === mealTypeId)
-	// Evento precisa de ao menos uma coluna; o apoio sem grupo é o kit simples.
-	const missingGroups = !isSupportMenu && groups.length === 0
-
-	// `maxLength` segura a digitação; isto segura o que chega colado ou de rascunho antigo.
-	const tooLong = name.trim().length > MAX_NAME || resolved.some((g) => g.label.length > MAX_LABEL)
-	const canSave = meal != null && name.trim() !== "" && mealTypeId !== "" && !missingGroups && !hasBlank && !duplicate && !tooMany && !tooLong && !invertedCount
+	// Chaves dos grupos, avisos e se pode gravar: regras em `assessEventMealDraft`.
+	const { resolved, hasBlank, duplicate, tooMany, invertedCount, leaving, suggestions, missingGroups, canSave } = assessEventMealDraft({
+		meal,
+		name,
+		mealTypeId,
+		groups,
+		templateType,
+		countLeaving,
+	})
 
 	const submit = () => {
 		if (!canSave || !meal) return
@@ -147,7 +300,7 @@ export function EventMealDialog({
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent className="sm:max-w-[680px] max-h-[85vh] overflow-y-auto">
 				<DialogHeader>
-					<DialogTitle>{isNew ? (isSupportMenu ? "Nova refeição do apoio" : "Nova refeição do evento") : "Editar refeição"}</DialogTitle>
+					<DialogTitle>{eventMealDialogTitle(isNew, isSupportMenu)}</DialogTitle>
 					<DialogDescription>
 						{isSupportMenu
 							? 'As refeições do apoio são dele: um kit simples é uma refeição só, sem grupos. Separe "Refeição" e "Lanche" ou marque os componentes (sanduíche, bebida…) quando o kit pedir.'
@@ -173,114 +326,31 @@ export function EventMealDialog({
 						/>
 					</Field>
 
-					<Field>
-						<FieldLabel htmlFor="event-meal-slot">{isSuggestedSlot ? "Horário sugerido" : "Servida no horário de"}</FieldLabel>
-						{lockedSlotName != null ? (
-							<>
-								<Input id="event-meal-slot" value={lockedSlotName} readOnly disabled />
-								<FieldDescription>Padrão de lanche é servido no horário de sistema, onde o pedido aceito entra na produção.</FieldDescription>
-							</>
-						) : (
-							<>
-								<Select value={mealTypeId} onValueChange={(value) => setMealTypeId(value ?? "")}>
-									<SelectTrigger id="event-meal-slot">
-										<SelectValue>{selectedMealType?.name ?? "Escolha o horário"}</SelectValue>
-									</SelectTrigger>
-									<SelectContent>
-										{mealTypes.map((mt) => (
-											<SelectItem key={mt.id} value={mt.id}>
-												{mt.name ?? "Refeição"}
-											</SelectItem>
-										))}
-									</SelectContent>
-								</Select>
-								<FieldDescription>
-									{isSuggestedSlot
-										? "Formato não é horário: o coquetel pode ir ao almoço ou à noite. A cozinha escolhe o horário ao aplicar ou montar o evento; este vem preenchido."
-										: `Ao aplicar ${isSupportMenu ? "o apoio" : "o evento"} no calendário, as preparações desta refeição entram no cardápio deste horário, somadas à rotina do dia.`}
-								</FieldDescription>
-							</>
-						)}
-					</Field>
+					<EventMealSlotField
+						isSupportMenu={isSupportMenu}
+						isSuggestedSlot={isSuggestedSlot}
+						lockedSlotName={lockedSlotName}
+						mealTypeId={mealTypeId}
+						onMealTypeChange={setMealTypeId}
+						mealTypes={mealTypes}
+					/>
 
-					{allowBase && (
-						<Field>
-							<FieldLabel htmlFor="event-meal-base">{isSupportMenu ? "Kits (opcional)" : "Efetivo (opcional)"}</FieldLabel>
-							<Input
-								id="event-meal-base"
-								type="number"
-								min={1}
-								step={1}
-								inputMode="numeric"
-								value={baseHeadcount}
-								onChange={(e) => setBaseHeadcount(e.target.value)}
-								placeholder={isSupportMenu ? "Ex.: 40" : "Ex.: 300"}
-							/>
-							<FieldDescription>
-								{isSupportMenu
-									? "Quantos kits saem desta refeição. Cada preparação diz quantas porções vão em cada kit, ou o total de porções direto."
-									: "Quantas pessoas comem nesta refeição. Cada preparação pode então pedir uma % desse efetivo — como no cardápio semanal — ou informar o número de pessoas direto."}
-							</FieldDescription>
-						</Field>
-					)}
+					{allowBase && <EventMealBaseField isSupportMenu={isSupportMenu} value={baseHeadcount} onChange={setBaseHeadcount} />}
 
 					<Field>
 						<FieldLabel>Composição, na ordem de leitura</FieldLabel>
 						<div className="space-y-1.5">
 							{groups.map((group, index) => (
-								<div key={`${group.key}-${index}`} className="flex items-center gap-1.5">
-									<span className="w-5 text-xs text-muted-foreground tabular-nums">{index + 1}</span>
-									<Input
-										value={group.label}
-										maxLength={MAX_LABEL}
-										onChange={(e) => patchGroup(index, { label: e.target.value })}
-										placeholder={isSupportMenu ? "Ex.: Sanduíches, Bebidas" : "Ex.: Entradas, Volantes, Canapés"}
-										aria-label={`Grupo ${index + 1}`}
-									/>
-									{/* Quantidade de preparações esperada: "de _ a _", os dois opcionais. */}
-									<span className="shrink-0 text-xs text-muted-foreground">de</span>
-									<Input
-										type="number"
-										min={0}
-										max={MAX_GROUP_ITEM_COUNT}
-										step={1}
-										inputMode="numeric"
-										className="w-14 shrink-0"
-										value={group.minItems}
-										onChange={(e) => patchGroup(index, { minItems: e.target.value })}
-										placeholder="mín."
-										aria-label={`Mínimo de preparações do grupo ${group.label || index + 1}`}
-									/>
-									<span className="shrink-0 text-xs text-muted-foreground">a</span>
-									<Input
-										type="number"
-										min={0}
-										max={MAX_GROUP_ITEM_COUNT}
-										step={1}
-										inputMode="numeric"
-										className="w-14 shrink-0"
-										value={group.maxItems}
-										onChange={(e) => patchGroup(index, { maxItems: e.target.value })}
-										placeholder="máx."
-										aria-label={`Máximo de preparações do grupo ${group.label || index + 1}`}
-									/>
-									<Button type="button" size="icon" variant="ghost" onClick={() => move(index, -1)} disabled={index === 0} aria-label="Subir grupo">
-										<ArrowUp />
-									</Button>
-									<Button
-										type="button"
-										size="icon"
-										variant="ghost"
-										onClick={() => move(index, 1)}
-										disabled={index === groups.length - 1}
-										aria-label="Descer grupo"
-									>
-										<ArrowDown />
-									</Button>
-									<Button type="button" size="icon" variant="ghost" onClick={() => setGroups(groups.filter((_, i) => i !== index))} aria-label="Remover grupo">
-										<X />
-									</Button>
-								</div>
+								<EventMealGroupRow
+									key={`${group.key}-${index}`}
+									group={group}
+									index={index}
+									isLast={index === groups.length - 1}
+									isSupportMenu={isSupportMenu}
+									onPatch={(patch) => patchGroup(index, patch)}
+									onMove={(delta) => move(index, delta)}
+									onRemove={() => setGroups(groups.filter((_, i) => i !== index))}
+								/>
 							))}
 						</div>
 						<div className="flex flex-wrap items-center gap-1.5">
@@ -305,22 +375,16 @@ export function EventMealDialog({
 							Quantidade de preparações: de _ a _, os dois opcionais ("Proteínas de 2 a 2", "Salgados de 6 a 8"). O cardápio avisa quando a contagem fica fora,
 							sem impedir o salvamento.
 						</FieldDescription>
-						{missingGroups && <p className="text-sm text-destructive">A refeição precisa de ao menos um grupo — é nele que as preparações entram.</p>}
-						{isSupportMenu && groups.length === 0 && <FieldDescription>Sem grupos, a refeição é uma lista de preparações — o kit simples.</FieldDescription>}
-						{invertedCount && (
-							<p className="text-sm text-destructive">
-								Em "{invertedCount.label}" o mínimo ({invertedCount.minItems}) passa do máximo ({invertedCount.maxItems}).
-							</p>
-						)}
-						{hasBlank && <p className="text-sm text-destructive">Dê um nome ao grupo em branco, ou remova a linha no ✕.</p>}
-						{duplicate && <p className="text-sm text-destructive">Dois grupos com o mesmo nome ({duplicate.label}). Mude um deles.</p>}
-						{tooMany && <p className="text-sm text-destructive">No máximo {MAX_EVENT_MEAL_GROUPS} grupos por refeição.</p>}
-						{leaving > 0 && (
-							<FieldDescription>
-								{leaving} {leaving === 1 ? "preparação está num grupo removido e vai" : "preparações estão em grupos removidos e vão"} para "Sem grupo", para
-								ser recolocada{leaving === 1 ? "" : "s"}.
-							</FieldDescription>
-						)}
+						<EventMealCompositionNotices
+							missingGroups={missingGroups}
+							isSupportMenu={isSupportMenu}
+							groupCount={groups.length}
+							invertedCount={invertedCount}
+							hasBlank={hasBlank}
+							duplicate={duplicate}
+							tooMany={tooMany}
+							leaving={leaving}
+						/>
 					</Field>
 
 					<DialogFooter>
