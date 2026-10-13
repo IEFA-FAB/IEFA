@@ -233,7 +233,7 @@ jobs:
       # Por isso vem DEPOIS do `bun install --frozen-lockfile` acima.
       #
       # Roda também nos PRs do dependabot — que não recebem secrets, então não têm gate de
-      # integração, e cujo `check-<app>` só roda depois do merge. Foi por essa fresta que o #415
+      # integração, e cujo `verify` do deploy só roda depois do merge. Foi por essa fresta que o #415
       # trouxe `@tanstack/openai-base` com peer `@tanstack/ai ^0.58` sobre o core 0.54: verde em
       # install, typecheck, testes e build, quebrado só no fallback de IA.
       #

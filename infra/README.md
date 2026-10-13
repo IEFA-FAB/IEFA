@@ -211,13 +211,13 @@ required reviewers on that environment.
 
 **Known overlap with `deploy.yml`:** a single push that changes both
 `infra/<service>/**` and that app's code starts two rollouts of the same ECS
-service — Terraform registers a new task definition revision while `_app-deploy.yml`
-issues its own `update-service --force-new-deployment`. ECS converges on the later
-one, but the deploy job polls a specific deployment id and can report the
-superseded one as a rollback, failing the run even though the service is healthy.
-Re-run the deploy job. Serializing them is not worth a shared concurrency group:
-`_app-deploy.yml` uses `cancel-in-progress: true`, which would kill an apply
-mid-flight and strand the state lock.
+service — Terraform registers a new task definition revision while the `deploy` job
+of `_release.yml` issues its own `update-service --force-new-deployment`. ECS
+converges on the later one, but the deploy job polls a specific deployment id and
+can report the superseded one as a rollback, failing the run even though the service
+is healthy. Re-run the deploy job. A shared concurrency group would serialize them,
+but the deploy would then wait for whole applies of unrelated stacks; the overlap is
+rare enough that the rerun is cheaper.
 
 ## Routing
 
@@ -279,6 +279,26 @@ O próximo `terraform apply` do stack (qualquer merge em `infra/sisub/**` ou
 tasks sem redeploy. Para voltar ao tamanho antigo, reverta o PR do arquivo: trocar CPU ou
 memória troca a task definition, e o rollout é sem queda
 (`deployment_minimum_healthy_percent = 100`).
+
+### Avaliado e não feito (2026-10)
+
+Para não repetir a análise. Números da conta de setembro/2026; medição no PR #618.
+
+- **Anotado para depois — NAT numa EC2 mínima** (fck-nat, t4g.nano em Auto Scaling group).
+  As tasks iriam para subnet privada, sem IP público: ~US$ 40–50/mês a menos (IP público foi
+  US$ 57,65 em setembro). O custo é operar a instância (atualizar a AMI, acompanhar o ASG), e
+  toda saída para a internet (Supabase, Bedrock, compras.gov.br) passa por ela. NAT Gateway
+  gerenciado sairia ~US$ 68/mês, mais caro que os IPs; IPv6 puro não serve, porque o
+  compras.gov.br só fala IPv4.
+- **Anotado para depois — Fargate ARM (Graviton).** −20% no preço por vCPU e GB. As imagens Bun
+  de produção são JS puro (nenhum addon nativo) sobre `oven/bun`, que é multi-arch. Se for
+  feito, tudo ARM de uma vez (nunca misto), depois de uma semana com um serviço de teste.
+- **Descartado — pdf como site estático.** O BentoPDF roda com o nginx que o próprio projeto
+  define (rotas sem extensão, redirects, `.wasm.gz` com `Content-Encoding`, CSP gerado no
+  build); reproduzir isso no CloudFront não paga os ~US$ 8,50/mês.
+- **Descartado — Parameter Store no lugar do Secrets Manager.** ~US$ 4,40/mês, e o ECS só lê
+  chave de dentro de um JSON no Secrets Manager: a troca quebraria cada segredo em vários
+  parâmetros.
 
 ### Where the money goes
 

@@ -13,7 +13,7 @@
 #
 # Sem segredo nenhum, de propósito: roda igual em PR de fork, e teste que precisa de
 # credencial é teste de integração, que tem o próprio workflow (`integration.yml`). As
-# `vars` abaixo são as mesmas que os `check-<app>` recebem e que já vão no bundle público.
+# `vars` abaixo são as mesmas que o `verify` do deploy.yml recebe e que já vão no bundle público.
 name: pr-check
 
 on:
@@ -30,6 +30,9 @@ concurrency:
 jobs:
   ci:
     name: lint · typecheck · test
+    # x64, não ARM: medido em 2026-10-11 com o monorepo inteiro, o ARM de 4 vCPU da Blacksmith
+    # levou o dobro do tempo (lint 102 s contra 41 s, build 105 s contra ~48 s). O minuto mais
+    # barato não paga o dobro de minutos, e o PR espera mais.
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 25
     steps:
@@ -42,7 +45,9 @@ jobs:
         with:
           bun-version: "1.4.3"
 
-      - uses: actions/cache@v6
+      # Só leitura, na chave que os jobs da `main` gravam: PR não grava cache (cada PR guardaria
+      # o seu, ~450 MB de storage, quando o lockfile muda).
+      - uses: actions/cache/restore@v6
         with:
           path: ~/.bun/install/cache
           key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}

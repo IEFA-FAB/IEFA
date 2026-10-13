@@ -1,198 +1,118 @@
+# CI/CD — push na `main` (e dispatch): o que mudou → verificação → build e deploy por app.
+#
+#   plan ──► verify ──► release <app>  (matriz: build ► deploy, um por app que passou)
+#      │        └─────► build-docs ► deploy-docs  (site estático)
+#      └──► warm-deps (cache do `bun install` dos builds, em paralelo com o verify)
+#
+# Quais apps existem, de onde sai a imagem, a URL do smoke test e as tarefas que liberam cada
+# app vêm do apps.manifest.json; os scripts/release-*.ts leem o manifesto. App novo é uma
+# entrada lá e `bun run generate:deploy`, sem editar este arquivo. Mapa geral dos workflows em
+# .github/workflows/README.md.
 name: CI/CD
 on:
   push:
     branches: [main]
   workflow_dispatch:
     inputs:
-      # >>> gerado: force-inputs (bun run generate:deploy; não editar à mão)
-      force_api:
-        description: "Force deploy api — API"
-        type: boolean
-        default: false
-      force_portal:
-        description: "Force deploy portal — PORTAL"
-        type: boolean
-        default: false
-      force_rumaer:
-        description: "Force deploy rumaer — RUMAER"
-        type: boolean
-        default: false
-      force_sucont:
-        description: "Force deploy sucont — SUCONT (HUB SUCONT-4 — acompanhamento contábil)"
-        type: boolean
-        default: false
-      force_assignment_selection:
-        description: "Force deploy assignment-selection — ASSIGNMENT-SELECTION (escolha de vagas / CPAINT)"
-        type: boolean
-        default: false
-      force_sisub:
-        description: "Force deploy sisub — SISUB"
-        type: boolean
-        default: false
-      force_forms:
-        description: "Force deploy forms — FORMS"
-        type: boolean
-        default: false
-      force_contrate:
-        description: "Force deploy contrate — CONTRATE (copiloto de aquisições — Projeto α)"
-        type: boolean
-        default: false
-      force_alpha:
-        description: "Force deploy alpha — Projeto α (apps/alpha) — Hono + LangGraph + Bun"
-        type: boolean
-        default: false
-      force_docs:
-        description: "Force deploy docs — DOCS"
-        type: boolean
-        default: false
-      force_mcp:
-        description: "Force deploy sisub-mcp — SISUB-MCP — MCP server (bun runtime, HTTP transport)"
-        type: boolean
-        default: false
-      force_5s:
-        description: "Force deploy 5s — 5S — mesmo build do forms, com o tenant trocado"
-        type: boolean
-        default: false
-      force_pdf:
-        description: "Force deploy pdf — PDF — BentoPDF (ferramentas de PDF que rodam no navegador)"
-        type: boolean
-        default: false
-      # <<< gerado: force-inputs
+      apps:
+        description: "Apps a publicar sem commit novo: `all` ou chaves do apps.manifest.json separadas por vírgula (ex.: sisub,portal)"
+        required: true
+        type: string
 
-# id-token: write → OIDC para assumir a role de deploy AWS (sem chaves estaticas). Concedido
-# só nos jobs que assumem a role (build-*, deploy-*): um check-* roda código de teste de
-# terceiros, e a role de deploy confia em qualquer job da `main`.
+# id-token: write só no `release` (build e deploy assumem a role de deploy AWS por OIDC, sem
+# chave estática). O `verify` roda código de teste e não recebe a role, que confia em qualquer
+# job da `main`.
 permissions:
   contents: read
 
 jobs:
-  # ============================================
-  # DETECT CHANGES
-  # ============================================
-  changes:
+  # ============================================================
+  # PLAN ── quais apps este run publica
+  # ============================================================
+  plan:
+    # Fica na Blacksmith apesar de durar segundos: é o início do caminho crítico, e no GitHub
+    # disputaria os 20 jobs simultâneos do plano gratuito com o tráfego dos PRs.
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 5
     outputs:
-      # >>> gerado: changes-outputs (bun run generate:deploy; não editar à mão)
-      api: ${{ steps.final.outputs.api }}
-      portal: ${{ steps.final.outputs.portal }}
-      rumaer: ${{ steps.final.outputs.rumaer }}
-      sucont: ${{ steps.final.outputs.sucont }}
-      assignment_selection: ${{ steps.final.outputs.assignment_selection }}
-      sisub: ${{ steps.final.outputs.sisub }}
-      forms: ${{ steps.final.outputs.forms }}
-      contrate: ${{ steps.final.outputs.contrate }}
-      alpha: ${{ steps.final.outputs.alpha }}
-      docs: ${{ steps.final.outputs.docs }}
-      mcp: ${{ steps.final.outputs.mcp }}
-      5s: ${{ steps.final.outputs['5s'] }}
-      pdf: ${{ steps.final.outputs.pdf }}
-      # <<< gerado: changes-outputs
+      apps: ${{ steps.plan.outputs.apps }}
+      monorepo: ${{ steps.plan.outputs.monorepo }}
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+      # Os filtros saem do apps.manifest.json + o grafo de workspace de cada app
+      # (`bun run generate:deploy`). No dispatch o resultado é ignorado.
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
         with:
-          # Lista gerada: .github/paths-filter.yml sai de apps.manifest.json + o grafo
-          # de workspace de cada app (`bun run generate:deploy`).
           filters: .github/paths-filter.yml
-      # workflow_dispatch: use force_* inputs; push: use paths filter
-      - name: Resolve outputs
-        id: final
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: "1.4.3"
+      - name: Resolve apps
+        id: plan
         env:
           EVENT_NAME: ${{ github.event_name }}
-          # >>> gerado: resolve-env (bun run generate:deploy; não editar à mão)
-          FORCE_API: ${{ inputs.force_api }}
-          FORCE_PORTAL: ${{ inputs.force_portal }}
-          FORCE_RUMAER: ${{ inputs.force_rumaer }}
-          FORCE_SUCONT: ${{ inputs.force_sucont }}
-          FORCE_ASSIGNMENT_SELECTION: ${{ inputs.force_assignment_selection }}
-          FORCE_SISUB: ${{ inputs.force_sisub }}
-          FORCE_FORMS: ${{ inputs.force_forms }}
-          FORCE_CONTRATE: ${{ inputs.force_contrate }}
-          FORCE_ALPHA: ${{ inputs.force_alpha }}
-          FORCE_DOCS: ${{ inputs.force_docs }}
-          FORCE_MCP: ${{ inputs.force_mcp }}
-          FORCE_5S: ${{ inputs.force_5s }}
-          FORCE_PDF: ${{ inputs.force_pdf }}
-          FILTER_API: ${{ steps.filter.outputs.api }}
-          FILTER_PORTAL: ${{ steps.filter.outputs.portal }}
-          FILTER_RUMAER: ${{ steps.filter.outputs.rumaer }}
-          FILTER_SUCONT: ${{ steps.filter.outputs.sucont }}
-          FILTER_ASSIGNMENT_SELECTION: ${{ steps.filter.outputs.assignment_selection }}
-          FILTER_SISUB: ${{ steps.filter.outputs.sisub }}
-          FILTER_FORMS: ${{ steps.filter.outputs.forms }}
-          FILTER_CONTRATE: ${{ steps.filter.outputs.contrate }}
-          FILTER_ALPHA: ${{ steps.filter.outputs.alpha }}
-          FILTER_DOCS: ${{ steps.filter.outputs.docs }}
-          FILTER_MCP: ${{ steps.filter.outputs.mcp }}
-          FILTER_5S: ${{ steps.filter.outputs['5s'] }}
-          FILTER_PDF: ${{ steps.filter.outputs.pdf }}
-          # <<< gerado: resolve-env
-        run: |
-          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
-            {
-              # >>> gerado: resolve-force (bun run generate:deploy; não editar à mão)
-              echo "api=$FORCE_API"
-              echo "portal=$FORCE_PORTAL"
-              echo "rumaer=$FORCE_RUMAER"
-              echo "sucont=$FORCE_SUCONT"
-              echo "assignment_selection=$FORCE_ASSIGNMENT_SELECTION"
-              echo "sisub=$FORCE_SISUB"
-              echo "forms=$FORCE_FORMS"
-              echo "contrate=$FORCE_CONTRATE"
-              echo "alpha=$FORCE_ALPHA"
-              echo "docs=$FORCE_DOCS"
-              echo "mcp=$FORCE_MCP"
-              echo "5s=$FORCE_5S"
-              echo "pdf=$FORCE_PDF"
-              # <<< gerado: resolve-force
-            } >> "$GITHUB_OUTPUT"
-          else
-            {
-              # >>> gerado: resolve-filter (bun run generate:deploy; não editar à mão)
-              echo "api=$FILTER_API"
-              echo "portal=$FILTER_PORTAL"
-              echo "rumaer=$FILTER_RUMAER"
-              echo "sucont=$FILTER_SUCONT"
-              echo "assignment_selection=$FILTER_ASSIGNMENT_SELECTION"
-              echo "sisub=$FILTER_SISUB"
-              echo "forms=$FILTER_FORMS"
-              echo "contrate=$FILTER_CONTRATE"
-              echo "alpha=$FILTER_ALPHA"
-              echo "docs=$FILTER_DOCS"
-              echo "mcp=$FILTER_MCP"
-              echo "5s=$FILTER_5S"
-              echo "pdf=$FILTER_PDF"
-              # <<< gerado: resolve-filter
-            } >> "$GITHUB_OUTPUT"
-          fi
+          CHANGED: ${{ steps.filter.outputs.changes }}
+          DISPATCH_APPS: ${{ inputs.apps }}
+        run: bun scripts/release-plan.ts
+
+  # ============================================================
+  # VERIFY ── lint · typecheck · teste do resultado do merge, num job só
+  # ============================================================
+  # Repete na `main` o que o PR já checou porque o ruleset não exige branch atualizada: dois PRs
+  # verdes podem quebrar juntos depois do merge. Uma invocação do turbo cobre as tarefas de todos
+  # os apps do plano (`check` no manifesto; padrão lint, typecheck e test do workspace) e os testes
+  # de todo package, que rodam sempre: o guard do inventário de cookies varre `apps/*`. O
+  # resultado é por app (tabela no resumo do job): app vermelho não segura o deploy dos outros, e
+  # o job fica vermelho para alguém ver.
+  #
+  # Job único, então um travamento que esgote os 25 min segura o release de todos os apps, não só
+  # o do app travado; os testes têm timeout próprio (15 s/60 s no vitest), que transforma a
+  # maioria dos travamentos em falha daquele app.
+  #
+  # Sem segredo: teste unitário não lê credencial. A integração roda no integration.yml, fora do
+  # caminho do deploy. Só as `VITE_SISUB_*` chegam aos testes: é o que o `env` do `test` no
+  # turbo.json repassa.
+  verify:
+    needs: [plan]
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 25
+    outputs:
+      release: ${{ steps.verify.outputs.release }}
+      docs: ${{ steps.verify.outputs.docs }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: "1.4.3"
+      - uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: ${{ runner.os }}-bun-
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Lint · types · tests
+        id: verify
+        run: bun scripts/release-verify.ts
+        env:
+          APPS: ${{ needs.plan.outputs.apps }}
+          VITE_SISUB_SUPABASE_URL: ${{ vars.VITE_SISUB_SUPABASE_URL }}
+          VITE_SISUB_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
 
   # ============================================================
   # WARM DEPS CACHE
   # Builda o estágio `deps` uma vez e popula o scope `deps` do cache gha.
-  # Todos os build-<app> dependem deste job e leem esse cache → o `bun install`
+  # Os builds do `release` esperam este job e leem esse cache → o `bun install`
   # do monorepo não é refeito por app em cache frio.
   # ============================================================
   warm-deps:
-    needs: [changes]
-    # >>> gerado: warm-deps-if (bun run generate:deploy; não editar à mão)
-    if: >-
-      needs.changes.outputs.api == 'true' ||
-      needs.changes.outputs.portal == 'true' ||
-      needs.changes.outputs.rumaer == 'true' ||
-      needs.changes.outputs.sucont == 'true' ||
-      needs.changes.outputs.assignment_selection == 'true' ||
-      needs.changes.outputs.sisub == 'true' ||
-      needs.changes.outputs.forms == 'true' ||
-      needs.changes.outputs.contrate == 'true' ||
-      needs.changes.outputs.alpha == 'true' ||
-      needs.changes.outputs.docs == 'true' ||
-      needs.changes.outputs.mcp == 'true' ||
-      needs.changes.outputs['5s'] == 'true'
-    # <<< gerado: warm-deps-if
+    needs: [plan]
+    if: needs.plan.outputs.monorepo == 'true'
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 15
     steps:
@@ -200,9 +120,9 @@ jobs:
         with:
           persist-credentials: false
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
-      # Mesma segunda tentativa do _app-build.yml: o buildkit às vezes perde o processo de um
-      # passo trivial (`exit code: 4294967295`), e um warm-deps vermelho derruba o build de
-      # todos os apps do run.
+      # Mesma segunda tentativa do build do _release.yml: o buildkit às vezes perde o processo
+      # de um passo trivial (`exit code: 4294967295`), e um warm-deps vermelho deixa cada
+      # build refazendo o estágio `deps` sozinho.
       - name: Warm deps cache
         id: bake
         continue-on-error: true
@@ -219,565 +139,43 @@ jobs:
         with: *warm-deps-with
 
   # ============================================================
-  # API ── check → build → deploy
+  # RELEASE ── build ► deploy, um por app que passou no verify
   # ============================================================
-  check-api:
-    needs: [changes]
-    if: needs.changes.outputs.api == 'true'
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version: "1.4.3"
-      - uses: actions/cache@v6
-        with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
-          restore-keys: ${{ runner.os }}-bun-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-      # SEM credencial de produção, de propósito. Com `API_SUPABASE_URL` e a service role
-      # no ambiente, `routes.auth.test.ts` deixava de usar o dublê em loopback e os casos
-      # positivos do guard saíam pela rede até o banco de produção: produção lenta virava
-      # timeout de 5 s, vermelho sem relação com o diff, e build/deploy travados por
-      # `needs:`. A suíte que precisa do ambiente real é `bun run test:integration`, sob
-      # `API_RUN_INTEGRATION=true`, e não é gate de PR.
-      - name: Lint · types · tests
-        run: bunx turbo run lint typecheck test --filter=./apps/api
-
-  build-api:
+  # `!cancelled()`: o `verify` vermelho por causa de UM app ainda libera os outros (a matriz só
+  # tem os que passaram). O `warm-deps` só ordena: pulado (só o pdf mudou) ou vermelho não
+  # bloqueia, porque sem o cache cada build refaz o estágio `deps` sozinho, só mais devagar.
+  release:
+    name: release ${{ matrix.key }}
+    needs: [plan, verify, warm-deps]
+    if: >-
+      ${{ !cancelled()
+        && (needs.verify.result == 'success' || needs.verify.result == 'failure')
+        && needs.verify.outputs.release != '' && needs.verify.outputs.release != '[]' }}
     permissions:
       contents: read
       id-token: write
-    needs: [check-api, warm-deps]
-    uses: ./.github/workflows/_app-build.yml
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.verify.outputs.release) }}
+    uses: ./.github/workflows/_release.yml
     with:
-      service: api
-
-  deploy-api:
-    permissions:
-      contents: read
-      id-token: write
-    needs: [build-api]
-    uses: ./.github/workflows/_app-deploy.yml
-    with:
-      service: api
-      health_url: ${{ vars.API_HEALTH_URL }}
-      concurrency_suffix: api
-
-  # ============================================================
-  # PACKAGES  ── os testes que não pertencem a app nenhum
-  # ============================================================
-  # Sem `needs: [changes]` e sem filtro de caminho, de propósito. Os guards daqui não
-  # olham só para `packages/`: o inventário da Política de Cookies varre `apps/*/src/**`
-  # atrás de chave de armazenamento, e um app novo é justamente o que o quebra. Enquanto
-  # cada suíte de package pegava carona no job do app que a consumia — `pbac` e
-  # `sisub-domain` no `check-sisub` —, `legal-kit`, `auth-kit`, `supabase-kit`,
-  # `ai-provider` e `agent-web` não rodavam em CI em lugar nenhum: o guard do inventário
-  # ficou vermelho na `main` por dois merges sem ninguém ver.
-  check-packages:
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version: "1.4.3"
-      - uses: actions/cache@v6
-        with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
-          restore-keys: ${{ runner.os }}-bun-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-      - name: Tests
-        run: bunx turbo run test --filter=./packages/*
-
-  # ============================================================
-  # PORTAL  ── check → build → deploy
-  # ============================================================
-  check-portal:
-    needs: [changes]
-    if: needs.changes.outputs.portal == 'true'
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version: "1.4.3"
-      - uses: actions/cache@v6
-        with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
-          restore-keys: ${{ runner.os }}-bun-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-      - name: Lint · types · tests
-        run: bunx turbo run lint typecheck test --filter=./apps/portal
-        env:
-          VITE_IEFA_SUPABASE_URL: ${{ vars.VITE_IEFA_SUPABASE_URL }}
-          VITE_IEFA_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY }}
-
-  build-portal:
-    permissions:
-      contents: read
-      id-token: write
-    needs: [check-portal, warm-deps]
-    uses: ./.github/workflows/_app-build.yml
-    with:
-      service: portal
-      bake_set: |
-        portal.args.VITE_IEFA_SUPABASE_URL=${{ vars.VITE_IEFA_SUPABASE_URL }}
-        portal.args.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY=${{ vars.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY }}
-
-  deploy-portal:
-    permissions:
-      contents: read
-      id-token: write
-    needs: [build-portal]
-    uses: ./.github/workflows/_app-deploy.yml
-    with:
-      service: portal
-      health_url: ${{ vars.IEFA_HEALTH_URL }}
-      concurrency_suffix: portal
-
-  # ============================================================
-  # RUMAER  ── check → build → deploy
-  # Mesmo projeto Supabase do sisub → reutiliza vars/secrets do sisub,
-  # mapeados para os nomes VITE_RUMAER_* no build. Secrets de runtime ficam
-  # no Secrets Manager (ver infra/sisub/secrets/rumaer.example.json).
-  # ============================================================
-  check-rumaer:
-    needs: [changes]
-    if: needs.changes.outputs.rumaer == 'true'
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version: "1.4.3"
-      - uses: actions/cache@v6
-        with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
-          restore-keys: ${{ runner.os }}-bun-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-      - name: Lint · types · tests
-        run: bunx turbo run lint typecheck test --filter=./apps/rumaer
-        env:
-          VITE_RUMAER_SUPABASE_URL: ${{ vars.VITE_SISUB_SUPABASE_URL }}
-          VITE_RUMAER_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
-
-  build-rumaer:
-    permissions:
-      contents: read
-      id-token: write
-    needs: [check-rumaer, warm-deps]
-    uses: ./.github/workflows/_app-build.yml
-    with:
-      service: rumaer
-      bake_set: |
-        rumaer.args.VITE_RUMAER_SUPABASE_URL=${{ vars.VITE_SISUB_SUPABASE_URL }}
-        rumaer.args.VITE_RUMAER_SUPABASE_PUBLISHABLE_KEY=${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
-
-  deploy-rumaer:
-    permissions:
-      contents: read
-      id-token: write
-    needs: [build-rumaer]
-    uses: ./.github/workflows/_app-deploy.yml
-    with:
-      service: rumaer
-      health_url: ${{ vars.RUMAER_HEALTH_URL }}
-      concurrency_suffix: rumaer
-
-  # ============================================================
-  # SUCONT (HUB SUCONT-4) ── check → build → deploy
-  # Mesmo projeto Supabase do sisub → reutiliza vars/secrets do sisub,
-  # mapeados para os nomes VITE_SUCONT_* no build. Secrets de runtime ficam no
-  # Secrets Manager (ver infra/sucont/secrets/sucont.example.json). IA via Bedrock
-  # é keyless (task role) — sem secret de API key.
-  # ============================================================
-  check-sucont:
-    needs: [changes]
-    if: needs.changes.outputs.sucont == 'true'
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version: "1.4.3"
-      - uses: actions/cache@v6
-        with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
-          restore-keys: ${{ runner.os }}-bun-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-      - name: Lint · types · tests
-        run: bunx turbo run lint typecheck test --filter=./apps/sucont
-
-  build-sucont:
-    permissions:
-      contents: read
-      id-token: write
-    needs: [check-sucont, warm-deps]
-    uses: ./.github/workflows/_app-build.yml
-    with:
-      service: sucont
-      bake_set: |
-        sucont.args.VITE_SUCONT_SUPABASE_URL=${{ vars.VITE_SISUB_SUPABASE_URL }}
-        sucont.args.VITE_SUCONT_SUPABASE_PUBLISHABLE_KEY=${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
-
-  deploy-sucont:
-    permissions:
-      contents: read
-      id-token: write
-    needs: [build-sucont]
-    uses: ./.github/workflows/_app-deploy.yml
-    with:
-      service: sucont
-      health_url: ${{ vars.SUCONT_HEALTH_URL }}
-      concurrency_suffix: sucont
-
-  # ============================================================
-  # ASSIGNMENT-SELECTION (escolha de vagas / CPAINT) ── check → build → deploy
-  # Mesmo projeto Supabase do sisub → reutiliza vars/secrets do sisub,
-  # mapeados para os nomes VITE_ASSIGNMENT_SELECTION_* no build. Secrets de
-  # runtime ficam no Secrets Manager (infra/assignment-selection/secrets/).
-  # ============================================================
-  check-assignment-selection:
-    needs: [changes]
-    if: needs.changes.outputs.assignment_selection == 'true'
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version: "1.4.3"
-      - uses: actions/cache@v6
-        with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
-          restore-keys: ${{ runner.os }}-bun-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-      - name: Lint · types · tests
-        run: bunx turbo run lint typecheck test --filter=./apps/assignment-selection
-        env:
-          VITE_ASSIGNMENT_SELECTION_SUPABASE_URL: ${{ vars.VITE_SISUB_SUPABASE_URL }}
-          VITE_ASSIGNMENT_SELECTION_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
-
-  build-assignment-selection:
-    permissions:
-      contents: read
-      id-token: write
-    needs: [check-assignment-selection, warm-deps]
-    uses: ./.github/workflows/_app-build.yml
-    with:
-      service: assignment-selection
-      bake_set: |
-        assignment-selection.args.VITE_ASSIGNMENT_SELECTION_SUPABASE_URL=${{ vars.VITE_SISUB_SUPABASE_URL }}
-        assignment-selection.args.VITE_ASSIGNMENT_SELECTION_SUPABASE_PUBLISHABLE_KEY=${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
-
-  deploy-assignment-selection:
-    permissions:
-      contents: read
-      id-token: write
-    needs: [build-assignment-selection]
-    uses: ./.github/workflows/_app-deploy.yml
-    with:
-      service: assignment-selection
-      health_url: ${{ vars.ASSIGNMENT_SELECTION_HEALTH_URL }}
-      concurrency_suffix: assignment-selection
-
-  # ============================================================
-  # SISUB  ── check → build → (e2e) → deploy
-  # ============================================================
-  check-sisub:
-    needs: [changes]
-    if: needs.changes.outputs.sisub == 'true'
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version: "1.4.3"
-      - uses: actions/cache@v6
-        with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
-          restore-keys: ${{ runner.os }}-bun-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-      - name: Lint · types · unit tests
-        run: |
-          bunx turbo run lint typecheck test:unit --filter=./apps/sisub
-          bunx turbo run test --filter=./packages/pbac
-          bunx turbo run test --filter=./packages/sisub-domain
-        env:
-          # Sem segredo: teste unitário não lê credencial. A integração roda no integration.yml
-          # (gate no PR, suíte inteira como monitor no push da `main`), fora do caminho do deploy.
-          VITE_SISUB_SUPABASE_URL: ${{ vars.VITE_SISUB_SUPABASE_URL }}
-          VITE_SISUB_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
-
-  build-sisub:
-    permissions:
-      contents: read
-      id-token: write
-    needs: [check-sisub, warm-deps]
-    uses: ./.github/workflows/_app-build.yml
-    with:
-      service: sisub
-      # Observability camada 1 (Faro frontend) + camada 3 (sourcemaps) entram como
-      # build args — VITE_* são baked no bundle do cliente. Vars vazias → no-op.
-      # FARO_SOURCEMAP_API_KEY é secret: o _app-build.yml o passa ao bake como secret
-      # do BuildKit (`secret` do target sisub no docker-bake.hcl), não como build arg.
-      # Camada 2 (OTel backend) é runtime → Secrets Manager (secrets/sisub.example.json).
-      bake_set: |
-        sisub.args.VITE_SISUB_SUPABASE_URL=${{ vars.VITE_SISUB_SUPABASE_URL }}
-        sisub.args.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY=${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
-        sisub.args.VITE_FARO_COLLECTOR_URL=${{ vars.VITE_FARO_COLLECTOR_URL }}
-        sisub.args.VITE_FARO_APP_NAME=${{ vars.VITE_FARO_APP_NAME }}
-        sisub.args.VITE_FARO_ENVIRONMENT=${{ vars.VITE_FARO_ENVIRONMENT }}
-    # Só o sisub consome segredo no build (upload de sourcemap do Faro). Os outros
-    # callers não passam segredo nenhum: `secrets: inherit` entregaria todos ao job que
-    # roda o build de dependência de terceiro.
+      service: ${{ matrix.key }}
+      health_url: ${{ matrix.health_var && vars[matrix.health_var] || '' }}
+      timeout_minutes: ${{ matrix.build_timeout }}
+      bake_attempt_timeout_minutes: ${{ matrix.attempt_timeout }}
     secrets:
-      FARO_SOURCEMAP_API_KEY: ${{ secrets.FARO_SOURCEMAP_API_KEY }}
-
-  # E2E SISUB DESLIGADO POR DECISÃO DE CUSTO — não é defeito pendente.
-  #
-  # A suíte sobe um vite dev, instala Chromium e autentica no Supabase de PRODUÇÃO
-  # via UI (não há seed nem banco de teste). Rodar isso em todo push na main custa
-  # minutos de runner e escreve sessão em prod, para cobrir o que os gates locais
-  # (`bun run check` + `bun run test`) já cobrem de graça. Fica local e sob demanda:
-  # `cd apps/sisub && bun run test:e2e:ci`. Ver TESTING.md, seção "E2E do sisub".
-  #
-  # Se um dia reativar, o job abaixo está correto — mas confira estes três pontos,
-  # que já foram armadilha:
-  #   1. os secrets são E2E_TEST_USER_EMAIL / E2E_TEST_USER_PASSWORD (a versão
-  #      anterior deste comentário pedia SISUB_E2E_TEST_USER_*, que nunca existiram);
-  #   2. a suíte precisa de SISUB_RUN_E2E=true — os scripts test:e2e* já a passam,
-  #      e sem ela o playwright.config.ts ignora o .env de propósito;
-  #   3. banco de teste próprio ANTES de ligar, senão o CI passa a escrever em prod.
-  # Reativar também exige acrescentar `e2e-sisub` a deploy-sisub.needs.
-  #
-  # e2e-sisub:
-  #   needs: [changes, check-sisub]
-  #   if: needs.changes.outputs.sisub == 'true'
-  #   runs-on: blacksmith-4vcpu-ubuntu-2404
-  #   timeout-minutes: 20
-  #   steps:
-  #     - uses: actions/checkout@v7
-  #     - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-  #       with:
-  #         bun-version: "1.4.3"
-  #     - uses: actions/cache@v6
-  #       with:
-  #         path: ~/.bun/install/cache
-  #         key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
-  #         restore-keys: ${{ runner.os }}-bun-
-  #     - name: Install dependencies
-  #       run: bun install --frozen-lockfile
-  #     - name: Install Playwright Chromium
-  #       run: bunx playwright install --with-deps chromium
-  #       working-directory: apps/sisub
-  #     - name: Run SISUB critical E2E
-  #       run: bunx turbo run test:e2e:ci --filter=./apps/sisub
-  #       env:
-  #         CI: true
-  #         VITE_SISUB_SUPABASE_URL: ${{ vars.VITE_SISUB_SUPABASE_URL }}
-  #         VITE_SISUB_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
-  #         SISUB_SUPABASE_SECRET_KEY: ${{ secrets.SISUB_SUPABASE_SECRET_KEY }}
-  #         E2E_TEST_USER_EMAIL: ${{ secrets.E2E_TEST_USER_EMAIL }}
-  #         E2E_TEST_USER_PASSWORD: ${{ secrets.E2E_TEST_USER_PASSWORD }}
-  #         SISUB_RUN_E2E: "true"
-  #     - name: Upload Playwright artifacts
-  #       if: always()
-  #       uses: actions/upload-artifact@v7
-  #       with:
-  #         name: sisub-playwright-artifacts
-  #         path: |
-  #           apps/sisub/playwright-report/
-  #           apps/sisub/test-results/
-  #         if-no-files-found: ignore
-
-  deploy-sisub:
-    permissions:
-      contents: read
-      id-token: write
-    needs: [build-sisub]
-    uses: ./.github/workflows/_app-deploy.yml
-    with:
-      service: sisub
-      health_url: ${{ vars.SISUB_HEALTH_URL }}
-      concurrency_suffix: sisub
+      # Cada build só recebe os segredos que o app declara em `buildSecrets` no manifesto
+      # (`matrix.build_secrets`). Segredo novo entra aqui e no `secrets:` do _release.yml; o
+      # release-verify.test.ts confere.
+      FARO_SOURCEMAP_API_KEY: ${{ contains(matrix.build_secrets, 'FARO_SOURCEMAP_API_KEY') && secrets.FARO_SOURCEMAP_API_KEY || '' }}
 
   # ============================================================
-  # FORMS  ── check → build → deploy
+  # DOCS ── site estático (S3 + CloudFront), fora da matriz do ECS
   # ============================================================
-  check-forms:
-    needs: [changes]
-    if: needs.changes.outputs.forms == 'true'
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version: "1.4.3"
-      - uses: actions/cache@v6
-        with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
-          restore-keys: ${{ runner.os }}-bun-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-      - name: Lint · types · tests
-        run: bunx turbo run lint typecheck test --filter=./apps/forms
-        env:
-          VITE_IEFA_SUPABASE_URL: ${{ vars.VITE_IEFA_SUPABASE_URL }}
-          VITE_IEFA_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY }}
-
-  build-forms:
-    permissions:
-      contents: read
-      id-token: write
-    needs: [check-forms, warm-deps]
-    uses: ./.github/workflows/_app-build.yml
-    with:
-      service: forms
-      bake_set: |
-        forms.args.VITE_IEFA_SUPABASE_URL=${{ vars.VITE_IEFA_SUPABASE_URL }}
-        forms.args.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY=${{ vars.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY }}
-        forms.args.VITE_APP_TENANT=forms
-
-  deploy-forms:
-    permissions:
-      contents: read
-      id-token: write
-    needs: [build-forms]
-    uses: ./.github/workflows/_app-deploy.yml
-    with:
-      service: forms
-      health_url: ${{ vars.FORMS_HEALTH_URL }}
-      concurrency_suffix: forms
-
-  # ============================================================
-  # CONTRATE (copiloto de aquisições — Projeto α)  ── check → build → deploy
-  # ============================================================
-  # O deploy só serve depois do stack `infra/contrate` aplicado (chave `contrate` no
-  # TF_TFVARS_JSON), do secret `/iefa/prod/contrate` publicado pelo sync-secrets, do
-  # CNAME no Registro.br e de `https://contrate.iefa.com.br/auth` na allow-list de
-  # redirect do Supabase Auth.
-  check-contrate:
-    needs: [changes]
-    if: needs.changes.outputs.contrate == 'true'
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version: "1.4.3"
-      - uses: actions/cache@v6
-        with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
-          restore-keys: ${{ runner.os }}-bun-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-      - name: Lint · types · tests
-        run: bunx turbo run lint typecheck test --filter=./apps/contrate
-        env:
-          VITE_IEFA_SUPABASE_URL: ${{ vars.VITE_IEFA_SUPABASE_URL }}
-          VITE_IEFA_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY }}
-
-  build-contrate:
-    permissions:
-      contents: read
-      id-token: write
-    needs: [check-contrate, warm-deps]
-    uses: ./.github/workflows/_app-build.yml
-    with:
-      service: contrate
-      bake_set: |
-        contrate.args.VITE_IEFA_SUPABASE_URL=${{ vars.VITE_IEFA_SUPABASE_URL }}
-        contrate.args.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY=${{ vars.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY }}
-
-  # `vars.CONTRATE_HEALTH_URL` ausente só pula a verificação de saúde.
-  deploy-contrate:
-    permissions:
-      contents: read
-      id-token: write
-    needs: [build-contrate]
-    uses: ./.github/workflows/_app-deploy.yml
-    with:
-      service: contrate
-      health_url: ${{ vars.CONTRATE_HEALTH_URL }}
-      concurrency_suffix: contrate
-
-  # ============================================================
-  # DOCS  ── check → build → deploy
-  # ============================================================
-  check-docs:
-    needs: [changes]
-    if: needs.changes.outputs.docs == 'true'
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version: "1.4.3"
-      - uses: actions/cache@v6
-        with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
-          restore-keys: ${{ runner.os }}-bun-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-      - name: Lint · types
-        run: bunx turbo run lint typecheck --filter=./apps/docs
-
-  # O docs é um site estático (prerender do Nitro) publicado em S3 + CloudFront —
-  # não há imagem, ECS service nem health check. Ver infra/docs-static.
-  #
-  # Build e publicação em jobs separados: o build roda `bun install` e o código de
-  # dependência de terceiro, e por isso fica SEM `id-token` (a role de deploy confia
-  # em qualquer job da `main`). Só o deploy-docs assume a role, e ele não instala nem
-  # executa nada do repo: baixa o artifact e roda aws cli.
   build-docs:
-    needs: [check-docs]
+    needs: [verify]
+    if: ${{ !cancelled() && needs.verify.outputs.docs == 'true' }}
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 15
     permissions:
@@ -836,7 +234,9 @@ jobs:
 
   deploy-docs:
     needs: [build-docs]
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    # Sync para o S3 + invalidação do CloudFront: rede e espera, não CPU (como o `deploy` do
+    # _release.yml).
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
       id-token: write
@@ -949,206 +349,3 @@ jobs:
             echo "$path -> $code"
             [ "$code" = "200" ] || { echo "::error::${path} respondeu $code"; exit 1; }
           done
-
-  # ============================================================
-  # 5S (apps/forms)  ── check → build → deploy
-  # ============================================================
-  check-5s:
-    needs: [changes]
-    if: needs.changes.outputs['5s'] == 'true'
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version: "1.4.3"
-      - uses: actions/cache@v6
-        with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
-          restore-keys: ${{ runner.os }}-bun-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-      - name: Lint · types · tests
-        run: bunx turbo run lint typecheck test --filter=./apps/forms
-        env:
-          VITE_IEFA_SUPABASE_URL: ${{ vars.VITE_IEFA_SUPABASE_URL }}
-          VITE_IEFA_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY }}
-
-  build-5s:
-    permissions:
-      contents: read
-      id-token: write
-    needs: [check-5s, warm-deps]
-    uses: ./.github/workflows/_app-build.yml
-    with:
-      service: 5s
-      bake_set: |
-        5s.args.VITE_IEFA_SUPABASE_URL=${{ vars.VITE_IEFA_SUPABASE_URL }}
-        5s.args.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY=${{ vars.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY }}
-        5s.args.VITE_APP_TENANT=cinco-s
-
-  deploy-5s:
-    permissions:
-      contents: read
-      id-token: write
-    needs: [build-5s]
-    uses: ./.github/workflows/_app-deploy.yml
-    with:
-      service: 5s
-      health_url: ${{ vars.FORMS_5S_HEALTH_URL }}
-      concurrency_suffix: 5s
-
-  # ============================================================
-  # SISUB-MCP  ── check → build → deploy
-  # ============================================================
-  check-mcp:
-    needs: [changes]
-    if: needs.changes.outputs.mcp == 'true'
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version: "1.4.3"
-      - uses: actions/cache@v6
-        with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
-          restore-keys: ${{ runner.os }}-bun-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-      - name: Lint · types · tests
-        run: bunx turbo run lint typecheck test --filter=./apps/sisub-mcp
-
-  build-mcp:
-    permissions:
-      contents: read
-      id-token: write
-    needs: [check-mcp, warm-deps]
-    uses: ./.github/workflows/_app-build.yml
-    with:
-      service: sisub-mcp
-
-  deploy-mcp:
-    permissions:
-      contents: read
-      id-token: write
-    needs: [build-mcp]
-    uses: ./.github/workflows/_app-deploy.yml
-    with:
-      service: sisub-mcp
-      health_url: ${{ vars.MCP_HEALTH_URL }}
-      concurrency_suffix: sisub-mcp
-
-  # ============================================================
-  # Projeto α / apps/alpha  ── check → build → deploy
-  # ============================================================
-  check-alpha:
-    needs: [changes]
-    if: needs.changes.outputs.alpha == 'true'
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version: "1.4.3"
-      - uses: actions/cache@v6
-        with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
-          restore-keys: ${{ runner.os }}-bun-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-      - name: Lint · types · tests
-        run: bunx turbo run lint typecheck test --filter=./apps/alpha
-
-  # Deploy do alpha ── reativado.
-  #
-  # O que estava suspenso era só isto aqui: o alvo do Docker (`alpha`), o target do
-  # bake, o filtro de paths e o stack em infra/alpha sempre existiram. Por isso
-  # `alpha.iefa.com.br` responde 503 e não 404 — o CNAME, a regra do listener e o
-  # target group estão de pé; o que falta é task saudável no target group. Host que
-  # o ALB não conhece responde 404 "No matching service.".
-  #
-  # O DNS NÃO é Route53: a zona é delegada ao Registro.br (NS d.sec.dns.br /
-  # e.sec.dns.br), e `route53_zone_id` fica vazio, então o `aws_route53_record` do
-  # módulo não cria nada. Hostname de serviço novo é um CNAME adicionado à mão no
-  # painel do Registro.br apontando para o DNS do ALB — mesmo caminho das CNAMEs de
-  # validação do certificado (infra/foundation/acm.tf).
-  #
-  # O serviço não sobe sem os secrets do runtime, que ficam no Secrets Manager
-  # (modelo em infra/alpha/secrets/alpha.example.json) e são publicados por
-  # `.github/workflows/sync-secrets.yml` (opção `alpha`):
-  #   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, DATABASE_URL, NVIDIA_API_KEY,
-  #   ALPHA_AI_API_KEY, LANGCHAIN_API_KEY.
-  # E sem `desired_count >= 1` no infra/alpha/terraform.tfvars: com 0 o deploy
-  # conclui e o host segue em 503, porque não há task para registrar.
-  #
-  # `alpha` não tem build arg: o env dele é de runtime, não de bundle — por isso o
-  # caller de build não passa `bake_set`.
-  build-alpha:
-    permissions:
-      contents: read
-      id-token: write
-    needs: [check-alpha, warm-deps]
-    uses: ./.github/workflows/_app-build.yml
-    with:
-      service: alpha
-
-  # `vars.ALPHA_HEALTH_URL`, e NÃO o `RAG_HEALTH_URL` que o roteiro antigo indicava:
-  # aquele ainda aponta para `https://iefa-rag.fly.dev/health`, de antes da migração
-  # para a AWS, e falharia o deploy contra um host morto. Variável ausente só pula a
-  # verificação de saúde (o reusable checa `health_url != ''`), não quebra o deploy.
-  deploy-alpha:
-    permissions:
-      contents: read
-      id-token: write
-    needs: [build-alpha]
-    uses: ./.github/workflows/_app-deploy.yml
-    with:
-      service: alpha
-      health_url: ${{ vars.ALPHA_HEALTH_URL }}
-      concurrency_suffix: alpha
-
-  # ============================================================
-  # PDF / apps/pdf (BentoPDF)  ── build → deploy
-  # ============================================================
-  # Sem job de check: não há código nosso para lint/typecheck/teste — a imagem é o
-  # upstream do BentoPDF numa versão fixada (apps/pdf/Dockerfile). Também não
-  # depende de `warm-deps`: não usa o estágio `deps` do monorepo.
-  #
-  # O build é o mais lento do repo (npm ci + vite + páginas i18n + docs + WASM), por
-  # isso o timeout maior. O cache do bake (scope `pdf`) só é refeito quando o
-  # Dockerfile muda.
-  build-pdf:
-    permissions:
-      contents: read
-      id-token: write
-    needs: [changes]
-    if: needs.changes.outputs.pdf == 'true'
-    uses: ./.github/workflows/_app-build.yml
-    with:
-      service: pdf
-      timeout_minutes: 40
-      bake_attempt_timeout_minutes: 25
-
-  deploy-pdf:
-    permissions:
-      contents: read
-      id-token: write
-    needs: [build-pdf]
-    uses: ./.github/workflows/_app-deploy.yml
-    with:
-      service: pdf
-      health_url: ${{ vars.PDF_HEALTH_URL }}
-      concurrency_suffix: pdf
