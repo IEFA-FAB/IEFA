@@ -278,6 +278,20 @@ export function isLate(state: SnackRequestFormState, now: Date): boolean {
 export function validateForm(state: SnackRequestFormState, context: FormContext): FormErrors {
 	const errors: FormErrors = {}
 	const aerial = state.missionKind === "aerea"
+	// A ordem das chamadas é a ordem das chaves em `errors`, que é a ordem da lista de erros no resumo.
+	const departure = validateMission(state, aerial, errors)
+	validatePeople(state, aerial, errors)
+	validateMaterials(state, errors)
+	validatePickup(state, departure, context.now, errors)
+	validateLines(context.lines, context.standardsById, errors)
+	if (context.divergences.length > 0 && !state.divergenceReason.trim()) {
+		errors.divergenceReason = "O pedido difere da sugestão da calculadora: explique o motivo."
+	}
+	return errors
+}
+
+/** Cozinha, setor, missão, partida e durações. Devolve a partida em ISO (nula se incompleta). */
+function validateMission(state: SnackRequestFormState, aerial: boolean, errors: FormErrors): string | null {
 	if (state.kitchenId == null) errors.kitchenId = "Escolha a cozinha apoiadora."
 	if (!state.requesterUnitLabel.trim()) errors.requesterUnitLabel = "Informe o setor requisitante."
 	if (!state.missionDescription.trim()) errors.missionDescription = "Descreva a missão."
@@ -290,12 +304,18 @@ export function validateForm(state: SnackRequestFormState, context: FormContext)
 	if (aerial && toMinutes(state.groundHours, state.groundMins) > MAX_GROUND_MINUTES) {
 		errors.groundDuration = `O tempo em solo não pode passar de ${MAX_GROUND_MINUTES / 60} h.`
 	}
-	if (!state.stopsWithoutMess && state.hasMessStop) {
-		const leg = toMinutes(state.legHours, state.legMins)
-		if (leg <= 0) errors.legDuration = "Informe a maior perna até a escala com apoio de refeitório."
-		else if (leg > total) errors.legDuration = "A maior perna não pode ser maior que o deslocamento total."
-	}
+	if (!state.stopsWithoutMess && state.hasMessStop) validateLeg(state, total, errors)
 	if (aerial && !state.missionOrderNumber.trim()) errors.missionOrderNumber = "Missão aérea exige o número da ordem de missão."
+	return departure
+}
+
+function validateLeg(state: SnackRequestFormState, total: number, errors: FormErrors): void {
+	const leg = toMinutes(state.legHours, state.legMins)
+	if (leg <= 0) errors.legDuration = "Informe a maior perna até a escala com apoio de refeitório."
+	else if (leg > total) errors.legDuration = "A maior perna não pode ser maior que o deslocamento total."
+}
+
+function validatePeople(state: SnackRequestFormState, aerial: boolean, errors: FormErrors): void {
 	if (peopleCount(state) === 0) errors.people = aerial ? "Informe a tripulação ou os passageiros." : "Informe o efetivo."
 	if (toCount(state.crewCount) > MAX_COUNT) {
 		errors.crewCount = aerial ? `A tripulação não pode passar de ${MAX_COUNT} pessoas.` : `O efetivo não pode passar de ${MAX_COUNT} pessoas.`
@@ -306,7 +326,9 @@ export function validateForm(state: SnackRequestFormState, context: FormContext)
 	if (state.includesNonMilitary && !state.nonMilitaryReason.trim()) {
 		errors.nonMilitaryReason = "Informe o motivo da participação de civis ou servidores na missão."
 	}
+}
 
+function validateMaterials(state: SnackRequestFormState, errors: FormErrors): void {
 	const materials = materialValues(state)
 	for (const key of MATERIAL_KEYS) {
 		if (materials[key] <= MAX_COUNT) continue
@@ -314,27 +336,27 @@ export function validateForm(state: SnackRequestFormState, context: FormContext)
 			? `${MATERIAL_LABELS[key]}: no máximo ${MAX_COUNT}.`
 			: `${MATERIAL_LABELS[key]}: o cálculo por pessoa passou de ${MAX_COUNT} — informe a quantidade.`
 	}
+}
 
+function validatePickup(state: SnackRequestFormState, departure: string | null, now: Date, errors: FormErrors): void {
 	const pickup = pickupIso(state)
 	if (state.pickupLocal && !pickup) errors.pickupLocal = "Data e hora da retirada incompletas."
 	if (pickup && departure) {
 		if (Date.parse(pickup) > Date.parse(departure)) errors.pickupLocal = "A retirada tem que ser antes da partida."
-		else if (Date.parse(pickup) <= context.now.getTime()) errors.pickupLocal = "A retirada tem que ser no futuro."
+		else if (Date.parse(pickup) <= now.getTime()) errors.pickupLocal = "A retirada tem que ser no futuro."
 	}
 	if (!state.pickupResponsible.trim()) errors.pickupResponsible = "Informe o responsável pela retirada."
-	if (isLate(state, context.now) && !state.lateReason.trim()) {
+	if (isLate(state, now) && !state.lateReason.trim()) {
 		errors.lateReason = `Pedido com menos de ${MIN_LEAD_TIME_HOURS} h de antecedência exige justificativa.`
 	}
+}
 
-	const validLines = context.lines.filter((line) => line.standardId && context.standardsById.has(line.standardId) && toCount(line.quantity) > 0)
-	if (context.lines.length > MAX_LINES) errors.lines = `O pedido aceita no máximo ${MAX_LINES} padrões — remova linhas.`
+function validateLines(lines: FormLine[], standardsById: Map<string, SnackStandardSnapshot>, errors: FormErrors): void {
+	const validLines = lines.filter((line) => line.standardId && standardsById.has(line.standardId) && toCount(line.quantity) > 0)
+	if (lines.length > MAX_LINES) errors.lines = `O pedido aceita no máximo ${MAX_LINES} padrões — remova linhas.`
 	else if (validLines.length === 0) errors.lines = "Inclua pelo menos um padrão com quantidade."
-	else if (validLines.length !== context.lines.length) errors.lines = "Há linha sem padrão ou sem quantidade — complete ou remova."
+	else if (validLines.length !== lines.length) errors.lines = "Há linha sem padrão ou sem quantidade — complete ou remova."
 	else if (validLines.some((line) => toCount(line.quantity) > MAX_COUNT)) errors.lines = `Cada padrão aceita no máximo ${MAX_COUNT} kits.`
-	if (context.divergences.length > 0 && !state.divergenceReason.trim()) {
-		errors.divergenceReason = "O pedido difere da sugestão da calculadora: explique o motivo."
-	}
-	return errors
 }
 
 function optionalText(value: string): string | undefined {
