@@ -71,7 +71,7 @@ import {
 } from "../utils/equipment-matching.ts"
 import { containsPattern, insertOneOrFail, mutateOrFail, runQuery, toNumeric, toWire } from "../utils/index.ts"
 import { computeStepLevels, type FlowGraphStep } from "../utils/recipe-flow-graph.ts"
-import { type EquipmentIssueWire, loadKitchenIssues } from "./equipment-maintenance.ts"
+import { type EquipmentIssueWire, loadOpenIssues } from "./equipment-maintenance.ts"
 import { assertRecipeVersionIsHead } from "./recipe-head.ts"
 
 // ── Contrato de retorno ───────────────────────────────────────────────────
@@ -717,8 +717,8 @@ async function loadKitchenUnits(db: SisubDb, input: ListKitchenEquipment): Promi
 		overridesByUnit.set(row.unitId, list)
 	}
 
-	// Panes ABERTAS da cozinha: entram na condição de cada unidade e decidem o filtro abaixo.
-	const openIssues = await loadKitchenIssues(db, { kitchenId: input.kitchenId, unitId: null, onlyOpen: true, limit: 500 })
+	// Panes ABERTAS da cozinha, sem teto: entram na condição de cada unidade e decidem o filtro abaixo.
+	const openIssues = await loadOpenIssues(db, { kitchenIds: [input.kitchenId] })
 	const issuesByUnit = new Map<string, EquipmentIssueWire[]>()
 	for (const issue of openIssues) {
 		const list = issuesByUnit.get(issue.unit_id) ?? []
@@ -814,7 +814,7 @@ async function hydrateUnit(db: SisubDb, unit: typeof equipmentUnitInKitchen.$inf
 			.from(equipmentUnitRoleInKitchen)
 			.where(and(eq(equipmentUnitRoleInKitchen.unitId, unit.id), isNull(equipmentUnitRoleInKitchen.deletedAt)))
 	)
-	const openIssues = await loadKitchenIssues(db, { kitchenId: unit.kitchenId, unitId: unit.id, onlyOpen: true, limit: 100 })
+	const openIssues = await loadOpenIssues(db, { kitchenIds: [unit.kitchenId], unitId: unit.id })
 	return toUnitWire(
 		unit,
 		model ? toModelWire(model, roles.get(unit.modelId) ?? []) : null,

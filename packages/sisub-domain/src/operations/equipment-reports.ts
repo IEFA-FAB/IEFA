@@ -35,7 +35,7 @@ import { runQuery } from "../utils/index.ts"
 import { computeMaintenanceDue, type MaintenanceDue } from "../utils/maintenance-due.ts"
 import { listKitchenEquipment } from "./equipment.ts"
 import type { EquipmentIssueWire, MaintenancePlanWire } from "./equipment-maintenance.ts"
-import { loadApplicablePlans, loadKitchenIssues, loadKitchenLogs } from "./equipment-maintenance.ts"
+import { loadApplicablePlans, loadClosedIssues, loadLastPerformedByUnitPlan, loadOpenIssues } from "./equipment-maintenance.ts"
 
 /** Hoje em Brasília, em ISO `YYYY-MM-DD`. Único ponto que lê o relógio nestes relatórios. */
 function resolveToday(today: string | null | undefined): string {
@@ -78,14 +78,19 @@ export async function getKitchenEquipmentCondition(db: SisubDb, ctx: UserContext
 	// `includeInactive` LIGADO: o relatório de condição existe para mostrar o que está parado.
 	// Com o default, a unidade em manutenção sumiria justamente da tela que fala dela.
 	const units = await listKitchenEquipment(db, ctx, { kitchenId: input.kitchenId, includeInactive: true })
-	const issues = await loadKitchenIssues(db, { kitchenId: input.kitchenId, unitId: null, onlyOpen: false, limit: 500 })
+	// Abertas SEM teto (cada uma muda a condição e a fila); encerradas só até o tamanho do histórico.
+	// Uma lista única com `limit` deixava a pane aberta antiga sair da fila numa cozinha com
+	// histórico longo.
+	const [open, closed] = await Promise.all([
+		loadOpenIssues(db, { kitchenIds: [input.kitchenId] }),
+		loadClosedIssues(db, { kitchenId: input.kitchenId, limit: input.historyLimit ?? 20 }),
+	])
 
 	const counts: KitchenConditionCounts = { operational: 0, degraded: 0, down: 0, retired: 0 }
 	for (const unit of units) counts[unit.condition] += 1
 
 	const labelByUnit = new Map(units.map((u) => [u.id, u.label]))
 	const today = Date.now()
-	const open = issues.filter((i) => i.status === "open" || i.status === "in_repair")
 	const openRows: OpenIssueReportRow[] = open
 		.map((issue) => ({
 			issue,
@@ -96,10 +101,8 @@ export async function getKitchenEquipmentCondition(db: SisubDb, ctx: UserContext
 		// que uma degradada de duas semanas, e entre iguais quem está parado há mais tempo vem antes.
 		.sort((a, b) => (SEVERITY_WEIGHT[a.issue.severity] ?? 9) - (SEVERITY_WEIGHT[b.issue.severity] ?? 9) || b.days_open - a.days_open)
 
-	const history = issues
-		.filter((i) => i.status === "resolved" || i.status === "dismissed")
-		.sort((a, b) => Date.parse(b.resolved_at ?? b.reported_at) - Date.parse(a.resolved_at ?? a.reported_at))
-		.slice(0, input.historyLimit ?? 20)
+	// Já vem ordenado pelo encerramento (ou relato, sem data de encerramento), do mais recente.
+	const history = closed
 
 	return {
 		kitchen_id: input.kitchenId,
@@ -147,18 +150,9 @@ export async function getKitchenMaintenanceMatrix(db: SisubDb, ctx: UserContext,
 	const today = resolveToday(input.today)
 
 	const units = await listKitchenEquipment(db, ctx, { kitchenId: input.kitchenId, includeInactive: true })
-	const logs = await loadKitchenLogs(db, { kitchenId: input.kitchenId, unitId: null, planId: null, limit: 500 })
-
-	// Execução mais recente por (unidade, plano). Log sem plano (manutenção avulsa) não ancora
-	// rotina nenhuma: ancorar a rotina numa troca de lâmpada diria "em dia" sem que a rotina
-	// tenha sido feita.
-	const lastByUnitPlan = new Map<string, string>()
-	for (const log of logs) {
-		if (log.plan_id == null) continue
-		const key = `${log.unit_id}|${log.plan_id}`
-		const current = lastByUnitPlan.get(key)
-		if (current == null || log.performed_on > current) lastByUnitPlan.set(key, log.performed_on)
-	}
+	// Execução mais recente por (unidade, plano), agregada no banco — não os N logs mais recentes
+	// da cozinha, que deixariam a rotina anual sem âncora e a diriam vencida.
+	const lastByUnitPlan = await loadLastPerformedByUnitPlan(db, input.kitchenId)
 
 	const totals = { ok: 0, overdue: 0, unknown: 0 }
 	const rows: MaintenanceMatrixRow[] = []
@@ -285,20 +279,14 @@ export async function getFleetEquipmentReport(db: SisubDb, ctx: UserContext, inp
 		rolesByModel.set(link.modelId, list)
 	}
 
-	// Panes de TODAS as cozinhas com parque — uma consulta por cozinha seria N+1 sobre a frota.
+	// Panes abertas de TODAS as cozinhas com parque numa consulta só, sem teto: uma por cozinha seria
+	// N+1 sobre a frota, e um `limit` tiraria a pane inoperante antiga da lista e da cobertura.
 	const kitchenIdsWithPark = [...new Set(units.map((u) => u.kitchenId))]
-	const issuesByKitchen = new Map<number, EquipmentIssueWire[]>()
-	for (const kitchenId of kitchenIdsWithPark) {
-		issuesByKitchen.set(kitchenId, await loadKitchenIssues(db, { kitchenId, unitId: null, onlyOpen: true, limit: 500 }))
-	}
 	const openByUnit = new Map<string, EquipmentIssueWire[]>()
-	for (const list of issuesByKitchen.values()) {
-		for (const issue of list) {
-			if (issue.status !== "open" && issue.status !== "in_repair") continue
-			const bucket = openByUnit.get(issue.unit_id) ?? []
-			bucket.push(issue)
-			openByUnit.set(issue.unit_id, bucket)
-		}
+	for (const issue of await loadOpenIssues(db, { kitchenIds: kitchenIdsWithPark })) {
+		const bucket = openByUnit.get(issue.unit_id) ?? []
+		bucket.push(issue)
+		openByUnit.set(issue.unit_id, bucket)
 	}
 
 	// Papéis EFETIVOS por unidade: o catálogo do modelo mais/menos as exceções da unidade. Usar o

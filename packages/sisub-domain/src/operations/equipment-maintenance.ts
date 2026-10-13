@@ -25,7 +25,7 @@ import {
 	type SisubDb,
 } from "@iefa/database/drizzle/sisub"
 import type { EquipmentIssue, EquipmentMaintenanceLog, EquipmentMaintenancePlan } from "@iefa/database/sisub"
-import { and, asc, desc, eq, inArray, isNull, or, type SQL } from "drizzle-orm"
+import { and, asc, desc, eq, inArray, isNotNull, isNull, max, or, type SQL, sql } from "drizzle-orm"
 import { requireAnyPermission, requireKitchen, requireKitchenFloorWrite, requirePermission } from "../guards/require-permission.ts"
 import type {
 	CreateMaintenancePlan,
@@ -148,6 +148,53 @@ export async function loadKitchenIssues(db: SisubDb, input: ListEquipmentIssues)
 		const unit = unitById.get(r.unitId)
 		return unit ? [toIssueWire(r, unit)] : []
 	})
+}
+
+/**
+ * Panes ABERTAS (`open`/`in_repair`) das unidades vivas das cozinhas, SEM teto e sem guard. É o
+ * insumo da condição derivada: uma pane aberta que ficasse de fora de um `limit` faria a unidade
+ * parada aparecer operante. O universo já é pequeno (só o que ainda pesa), e uma consulta só cobre
+ * várias cozinhas — a frota inteira, no relatório, sem uma ida ao banco por cozinha.
+ */
+export async function loadOpenIssues(db: SisubDb, input: { kitchenIds: readonly number[]; unitId?: string | null }): Promise<EquipmentIssueWire[]> {
+	if (input.kitchenIds.length === 0) return []
+	const filters: SQL[] = [
+		inArray(equipmentUnitInKitchen.kitchenId, [...input.kitchenIds]),
+		isNull(equipmentUnitInKitchen.deletedAt),
+		isNull(equipmentIssueInKitchen.deletedAt),
+		inArray(equipmentIssueInKitchen.status, [...OPEN_ISSUE_STATUSES]),
+	]
+	if (input.unitId != null) filters.push(eq(equipmentIssueInKitchen.unitId, input.unitId))
+	const rows = await runQuery("FETCH_FAILED", () =>
+		db
+			.select({ issue: equipmentIssueInKitchen, label: equipmentUnitInKitchen.label, kitchenId: equipmentUnitInKitchen.kitchenId })
+			.from(equipmentIssueInKitchen)
+			.innerJoin(equipmentUnitInKitchen, eq(equipmentUnitInKitchen.id, equipmentIssueInKitchen.unitId))
+			.where(and(...filters))
+			.orderBy(desc(equipmentIssueInKitchen.reportedAt))
+	)
+	return rows.map((r) => toIssueWire(r.issue, { label: r.label, kitchenId: r.kitchenId }))
+}
+
+/** Panes encerradas (resolvidas ou descartadas) da cozinha, da mais recente para a mais antiga, até `limit`. */
+export async function loadClosedIssues(db: SisubDb, input: { kitchenId: number; limit: number }): Promise<EquipmentIssueWire[]> {
+	const rows = await runQuery("FETCH_FAILED", () =>
+		db
+			.select({ issue: equipmentIssueInKitchen, label: equipmentUnitInKitchen.label, kitchenId: equipmentUnitInKitchen.kitchenId })
+			.from(equipmentIssueInKitchen)
+			.innerJoin(equipmentUnitInKitchen, eq(equipmentUnitInKitchen.id, equipmentIssueInKitchen.unitId))
+			.where(
+				and(
+					eq(equipmentUnitInKitchen.kitchenId, input.kitchenId),
+					isNull(equipmentUnitInKitchen.deletedAt),
+					isNull(equipmentIssueInKitchen.deletedAt),
+					inArray(equipmentIssueInKitchen.status, ["resolved", "dismissed"])
+				)
+			)
+			.orderBy(desc(sql`coalesce(${equipmentIssueInKitchen.resolvedAt}, ${equipmentIssueInKitchen.reportedAt})`))
+			.limit(input.limit)
+	)
+	return rows.map((r) => toIssueWire(r.issue, { label: r.label, kitchenId: r.kitchenId }))
 }
 
 export async function reportEquipmentIssue(db: SisubDb, ctx: UserContext, input: ReportEquipmentIssue): Promise<EquipmentIssueWire> {
@@ -468,6 +515,42 @@ async function assertPlanApplies(db: SisubDb, planId: string, kitchenId: number)
 export async function listMaintenanceLogs(db: SisubDb, ctx: UserContext, input: ListMaintenanceLogs): Promise<MaintenanceLogWire[]> {
 	requireAnyPermission(ctx, ["kitchen", "kitchen-production"], 1, { type: "kitchen", id: input.kitchenId })
 	return loadKitchenLogs(db, input)
+}
+
+/**
+ * Execução mais recente de cada (unidade, plano) das unidades vivas da cozinha, agregada no banco.
+ * Sem guard. Log sem plano (manutenção avulsa) não entra: ancorar a rotina numa troca de lâmpada
+ * diria "em dia" sem que a rotina tenha sido feita. Chave do mapa: `${unitId}|${planId}`.
+ *
+ * É agregação, não lista: os N logs mais recentes da cozinha deixariam de fora o plano anual cuja
+ * última execução é mais velha que eles, e o plano em dia sairia "vencido".
+ */
+export async function loadLastPerformedByUnitPlan(db: SisubDb, kitchenId: number): Promise<Map<string, string>> {
+	const rows = await runQuery("FETCH_FAILED", () =>
+		db
+			.select({
+				unitId: equipmentMaintenanceLogInKitchen.unitId,
+				planId: equipmentMaintenanceLogInKitchen.planId,
+				lastPerformedOn: max(equipmentMaintenanceLogInKitchen.performedOn),
+			})
+			.from(equipmentMaintenanceLogInKitchen)
+			.innerJoin(equipmentUnitInKitchen, eq(equipmentUnitInKitchen.id, equipmentMaintenanceLogInKitchen.unitId))
+			.where(
+				and(
+					eq(equipmentUnitInKitchen.kitchenId, kitchenId),
+					isNull(equipmentUnitInKitchen.deletedAt),
+					isNull(equipmentMaintenanceLogInKitchen.deletedAt),
+					isNotNull(equipmentMaintenanceLogInKitchen.planId)
+				)
+			)
+			.groupBy(equipmentMaintenanceLogInKitchen.unitId, equipmentMaintenanceLogInKitchen.planId)
+	)
+	const last = new Map<string, string>()
+	for (const row of rows) {
+		if (row.planId == null || row.lastPerformedOn == null) continue
+		last.set(`${row.unitId}|${row.planId}`, row.lastPerformedOn)
+	}
+	return last
 }
 
 /** Sem guard — para o chamador que já autorizou a cozinha. */
