@@ -79,7 +79,7 @@ function EmpenhoRow({ empenho, arpItemId, arpId, canWrite }: { empenho: EmpenhoO
 				<span>{fmtDate(empenho.data_empenho)}</span>
 				<span>{formatQuantityTimesPrice(empenho)}</span>
 				<EmpenhoValue empenho={empenho} />
-				<Badge variant="outline" className="ml-auto text-xs">
+				<Badge variant="outline" className="ml-auto">
 					Anulado
 				</Badge>
 			</div>
@@ -269,7 +269,7 @@ function EmpenhoForm({ unitId, arpItemId, arpId, onSuccess }: EmpenhoFormProps) 
 				) : (
 					<span />
 				)}
-				<Button type="submit" size="sm" disabled={isPending || !numero.trim() || !qtd || !valor} className="gap-1.5">
+				<Button type="submit" size="sm" disabled={isPending || !numero.trim() || !qtd || !valor}>
 					{isPending && <Spinner className="size-3.5" />}
 					Registrar
 				</Button>
@@ -384,7 +384,7 @@ function ArpItemRow({ item, unitId, arpId, local, canWrite }: ArpItemRowProps) {
 									<Button
 										size="sm"
 										variant="ghost"
-										className="h-7 text-xs gap-1.5 mt-1"
+										className="h-7 text-xs mt-1"
 										onClick={(e) => {
 											e.stopPropagation()
 											setShowForm(true)
@@ -444,7 +444,7 @@ export function EmpenhoBalancePanel({ arp, unitId, quantityEstimateId }: Empenho
 			<CardHeader className="pb-3">
 				<div className="flex items-start justify-between gap-4 flex-wrap">
 					<div className="space-y-0.5">
-						<CardTitle className="text-heading flex items-center gap-2">
+						<CardTitle className="flex items-center gap-2">
 							ARP {arp.numero_ata}
 							<Badge suppressHydrationWarning variant={isVencida ? "destructive" : "default"} className="text-xs">
 								{isVencida ? "Vencida" : "Ativa"}
@@ -463,7 +463,7 @@ export function EmpenhoBalancePanel({ arp, unitId, quantityEstimateId }: Empenho
 						</p>
 					</div>
 					{canWrite && (
-						<Button size="sm" variant="outline" className="gap-2 shrink-0" onClick={() => syncBalance(arp.id)} disabled={isSyncing}>
+						<Button size="sm" variant="outline" className="shrink-0" onClick={() => syncBalance(arp.id)} disabled={isSyncing}>
 							{isSyncing ? <Spinner className="size-3.5" /> : <RefreshCw className="size-3.5" />}
 							Sincronizar saldo
 						</Button>

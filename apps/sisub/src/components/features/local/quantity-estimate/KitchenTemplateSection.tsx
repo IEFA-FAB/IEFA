@@ -97,7 +97,7 @@ export function KitchenTemplateSection({
 				<CardTitle className="flex items-center justify-between">
 					<span className="text-base">{kitchenState.kitchenName}</span>
 					{selectedCount > 0 && (
-						<Badge variant="secondary" className="text-xs font-normal">
+						<Badge variant="secondary" className="font-normal">
 							{selectedCount} {selectedCount === 1 ? "selecionado" : "selecionados"}
 						</Badge>
 					)}

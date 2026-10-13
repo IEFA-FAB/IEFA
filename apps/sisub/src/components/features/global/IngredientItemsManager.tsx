@@ -79,7 +79,7 @@ export function IngredientItemsManager({ ingredientId, ingredientName, ingredien
 					</div>
 					<p className="text-caption text-muted-foreground">Produtos físicos em estoque (GTIN), cada um vinculado a um item de compra.</p>
 				</div>
-				<Button size="sm" onClick={() => cards.open("new")} className="gap-2 shrink-0">
+				<Button size="sm" onClick={() => cards.open("new")} className="shrink-0">
 					<PackagePlus className="size-4" />
 					Novo Item
 				</Button>

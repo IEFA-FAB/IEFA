@@ -36,7 +36,7 @@ export function KitchenSettingsForm({ kitchenId, defaultValues }: { kitchenId: n
 				<CardHeader>
 					<div className="flex items-center gap-2">
 						<MapPin className="size-4 text-muted-foreground" aria-hidden="true" />
-						<CardTitle className="text-base">Endereço de Entrega</CardTitle>
+						<CardTitle>Endereço de Entrega</CardTitle>
 					</div>
 					<CardDescription>
 						Endereço físico desta cozinha onde os suprimentos devem ser entregues. Utilizado nos documentos de licitação, como o anexo quantitativo do TR.

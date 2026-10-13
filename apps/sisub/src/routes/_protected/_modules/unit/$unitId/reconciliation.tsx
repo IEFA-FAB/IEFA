@@ -115,7 +115,7 @@ function DivergenceRow({ row, unitId, onResolved }: { row: ReconciliationRow; un
 								value={justificativa}
 								onChange={(e) => setJustificativa(e.target.value)}
 							/>
-							<Button size="sm" className="h-7 text-xs gap-1.5" disabled={busy} onClick={() => resolve("adotado_siafi")}>
+							<Button size="sm" className="h-7 text-xs" disabled={busy} onClick={() => resolve("adotado_siafi")}>
 								{busy ? <Spinner className="size-3" /> : <CheckCheck className="size-3.5" />}
 								Adotar SIAFI
 							</Button>
@@ -149,7 +149,7 @@ function ReconciliationPage() {
 
 			<Card>
 				<CardHeader className="pb-2">
-					<CardTitle className="text-subheading">Documentos (NE, NS, OB)</CardTitle>
+					<CardTitle>Documentos (NE, NS, OB)</CardTitle>
 				</CardHeader>
 				<CardContent className="px-0 pb-0">
 					{documents.length === 0 ? (
@@ -181,7 +181,7 @@ function ReconciliationPage() {
 
 			<Card>
 				<CardHeader className="pb-2">
-					<CardTitle className="text-subheading">Físico × contábil</CardTitle>
+					<CardTitle>Físico × contábil</CardTitle>
 				</CardHeader>
 				<CardContent className="px-0 pb-0">
 					{physical.length === 0 ? (

@@ -20,6 +20,21 @@
  */
 
 import type { SisubDb } from "@iefa/database/drizzle/sisub"
+import {
+	type EmailEligibility,
+	type MilitaryIdentitySummary,
+	parseSaramOutcome,
+	parseSaramStatus,
+	SARAM_ERROR_MESSAGES,
+	type SaramCandidate,
+	type SaramLinkAction,
+	type SaramLinkOutcome,
+	type SaramLinkOutcomeName,
+	type SaramLinkRequestSummary,
+	type SaramLinkStatusName,
+	type SaramStatus,
+	type SaramVerification,
+} from "@iefa/database/saram-link"
 import { type SQL, sql } from "drizzle-orm"
 import { type AssuranceRequirement, NO_ASSURANCE, requireAssurance } from "../guards/require-assurance.ts"
 import { requirePermission } from "../guards/require-permission.ts"
@@ -29,6 +44,7 @@ import type {
 	DecideSaramRequest,
 	LinkUserSaram,
 	RequestSaramLink,
+	SearchSaramAccounts,
 	SetOwnAccountKind,
 	SetUserAccountKind,
 	UnlinkUserSaram,
@@ -36,125 +52,56 @@ import type {
 	WithdrawSaramRequest,
 } from "../schemas/saram-link.ts"
 import type { UserContext } from "../types/context.ts"
-import { DomainError, NotFoundError } from "../types/errors.ts"
-import { driverFailure, runQuery, unwrapPgError } from "../utils/index.ts"
+import { DomainError } from "../types/errors.ts"
+import { containsPattern, driverFailure, runQuery, unwrapPgError } from "../utils/index.ts"
 import { type AccessAudit, defaultAccessAudit, runAccessFunction, toAccessDomainError } from "./access-change.ts"
 
-// ── Tipos do contrato (FASE 2 monta as telas só a partir daqui) ─────────────
+// ── Tipos do contrato (`@iefa/database/saram-link`, compartilhado com o sucont e o rumaer) ──
+
+export type {
+	EmailEligibility,
+	MilitaryIdentitySummary,
+	SaramCandidate,
+	SaramLinkAction,
+	SaramLinkOutcome,
+	SaramLinkOutcomeName,
+	SaramLinkRequestSummary,
+	SaramLinkStatusName,
+	SaramStatus,
+	SaramVerification,
+}
+export { parseSaramStatus }
 
 /** Identidade da sessão: o servidor a monta do JWT, nunca do payload. */
 export type SaramSession = { userId: string; email: string | null; emailConfirmed: boolean }
 
-export type SaramVerification = "email" | "cpf" | "admin" | "legacy"
-
-export type SaramLinkStatusName =
-	| "verified"
-	| "legacy"
-	| "institutional"
-	| "pending_request"
-	| "contested"
-	| "suggestion"
-	| "homonyms"
-	| "locked_out"
-	| "no_match"
-
-export type SaramLinkAction = "confirm_candidate" | "verify_cpf" | "request_link" | "set_institutional" | "set_personal" | "withdraw_request"
-
-export type EmailEligibility = "eligible" | "domain" | "unconfirmed" | "no_key"
-
-export type MilitaryIdentitySummary = { posto: string | null; nomeGuerra: string | null; sgOrg: string | null }
-
-/** Candidato da chave do e-mail. `ref` é opaco: nunca o SARAM. */
-export type SaramCandidate = MilitaryIdentitySummary & { ref: number; heldByOther: boolean; holderVerified: boolean }
-
-export type SaramLinkRequestSummary = {
-	id: string
-	kind: "link" | "dispute"
-	saram: string
-	justification: string
-	createdAt: string
-	claimVerifiedBy: "email" | "cpf" | null
-}
-
-export type SaramStatus = {
-	status: SaramLinkStatusName
-	accountKind: AccountKind
-	/** SARAM vinculado (verificado ou legacy); `null` sem vínculo. */
-	saram: string | null
-	verifiedBy: SaramVerification | null
-	verifiedAt: string | null
-	/** A conta vê os próprios dados militares (`identity`). */
-	visible: boolean
-	identity: MilitaryIdentitySummary | null
-	/** Há um SARAM gravado fora do fluxo verificado (formulário antigo): não vale até verificar. */
-	hasUnverifiedSaram: boolean
-	request: SaramLinkRequestSummary | null
-	candidates: SaramCandidate[]
-	requiresCpfSuffix: boolean
-	emailEligibility: EmailEligibility
-	lockedUntil: string | null
-	attemptsLeft: number
-	actions: SaramLinkAction[]
-}
-
-export type SaramLinkOutcomeName = "linked" | "disputed" | "mismatch" | "locked" | "requested" | "withdrawn" | "pending" | "unchanged" | "changed"
-
-export type SaramLinkOutcome = {
-	outcome: SaramLinkOutcomeName
-	/** `mismatch`: tentativas restantes na janela de 1 hora. */
-	attemptsLeft: number | null
-	/** `locked`/`mismatch`: até quando a verificação por CPF está bloqueada. */
-	lockedUntil: string | null
-	/** `requested`/`disputed`: o pedido aberto. */
-	requestId: string | null
-	status: SaramStatus
-}
-
 // ── Erros estáveis das funções → mensagem para a tela ───────────────────────
 
-const ADMIN_HELP = "Se precisar de ajuda, procure a administração do sistema."
-
-const SARAM_ERRORS: Record<string, { code: string; message: string; notFound?: string }> = {
-	SARAM_INVALID: { code: "INVALID_INPUT", message: "O SARAM tem 6 ou 7 dígitos." },
-	CPF_INVALID: { code: "INVALID_INPUT", message: "O CPF tem 11 dígitos." },
-	CPF_SUFFIX_INVALID: { code: "INVALID_INPUT", message: "Informe os 4 últimos dígitos do seu CPF." },
-	JUSTIFICATION_INVALID: { code: "INVALID_INPUT", message: "Explique o pedido em 10 a 1000 caracteres." },
-	ACCOUNT_KIND_INVALID: { code: "INVALID_INPUT", message: "Tipo de conta inválido." },
-	DECISION_INVALID: { code: "INVALID_INPUT", message: "Decisão inválida." },
-	NOTE_REQUIRED: { code: "INVALID_INPUT", message: "Informe o motivo (mínimo de 10 caracteres)." },
-	ACCOUNT_INSTITUTIONAL: {
-		code: "ACCOUNT_INSTITUTIONAL",
-		message: "Conta institucional não tem SARAM. Se esta conta é de uma pessoa, marque-a como pessoal antes.",
-	},
-	SARAM_ALREADY_LINKED: { code: "SARAM_ALREADY_LINKED", message: `Esta conta já tem SARAM vinculado. Para trocá-lo, procure a administração do sistema.` },
-	SARAM_LOCKED: {
-		code: "SARAM_LOCKED",
-		message: "O SARAM já está vinculado à sua conta e não pode ser alterado por aqui. Para corrigi-lo, procure a administração do sistema.",
-	},
-	REQUEST_PENDING: { code: "REQUEST_PENDING", message: "Você já tem um pedido de vínculo em análise. Desista dele antes de fazer outro." },
-	REQUEST_LIMIT: { code: "REQUEST_LIMIT", message: `Limite de pedidos de vínculo atingido (5 por dia). Tente amanhã. ${ADMIN_HELP}` },
-	EMAIL_NOT_ELIGIBLE: {
-		code: "EMAIL_NOT_ELIGIBLE",
-		message: "A identificação automática só vale para e-mail @fab.mil.br confirmado. Use o SARAM e o CPF, ou peça o vínculo.",
-	},
-	SARAM_TAKEN: {
-		code: "SARAM_TAKEN",
-		message: "Este SARAM está verificado em outra conta. Desvincule-o lá antes, ou decida pela contestação.",
-	},
-	SARAM_LINK_CHANGED: { code: "CONFLICT", message: "O vínculo desta conta mudou desde que a tela foi aberta. Atualize e confira de novo." },
-	ACCOUNT_KIND_CHANGED: { code: "CONFLICT", message: "O tipo desta conta mudou desde que a tela foi aberta. Atualize e confira de novo." },
-	REQUEST_NOT_PENDING: { code: "CONFLICT", message: "Este pedido já foi decidido ou retirado. Atualize a fila." },
-	ACCOUNT_INSTITUTIONAL_NO_MEALS: {
-		code: "ACCOUNT_INSTITUTIONAL",
-		message: "Conta institucional não se arrancha nem registra presença. Use a conta pessoal de quem vai comer.",
-	},
-	SARAM_LINK_OUTSIDE_FUNCTION: {
-		code: "SARAM_LINK_OUTSIDE_FUNCTION",
-		message: `O banco recusou uma mudança de vínculo fora do caminho verificado. ${ADMIN_HELP}`,
-	},
-	USER_DATA_NOT_FOUND: { code: "USER_DATA_NOT_FOUND", message: `Sua conta ainda não está no cadastro de pessoas. ${ADMIN_HELP}` },
-	CANDIDATE_NOT_FOUND: { code: "CANDIDATE_NOT_FOUND", message: "A sugestão mudou (o cadastro de pessoal foi atualizado). Atualize a tela e confira de novo." },
-	REQUEST_NOT_FOUND: { code: "NOT_FOUND", message: "", notFound: "saram_link_request" },
+const SARAM_ERRORS: Record<string, { code: string; message: string }> = {
+	SARAM_INVALID: { code: "INVALID_INPUT", message: SARAM_ERROR_MESSAGES.SARAM_INVALID },
+	CPF_INVALID: { code: "INVALID_INPUT", message: SARAM_ERROR_MESSAGES.CPF_INVALID },
+	CPF_SUFFIX_INVALID: { code: "INVALID_INPUT", message: SARAM_ERROR_MESSAGES.CPF_SUFFIX_INVALID },
+	JUSTIFICATION_INVALID: { code: "INVALID_INPUT", message: SARAM_ERROR_MESSAGES.JUSTIFICATION_INVALID },
+	ACCOUNT_KIND_INVALID: { code: "INVALID_INPUT", message: SARAM_ERROR_MESSAGES.ACCOUNT_KIND_INVALID },
+	DECISION_INVALID: { code: "INVALID_INPUT", message: SARAM_ERROR_MESSAGES.DECISION_INVALID },
+	NOTE_REQUIRED: { code: "INVALID_INPUT", message: SARAM_ERROR_MESSAGES.NOTE_REQUIRED },
+	ACCOUNT_INSTITUTIONAL: { code: "ACCOUNT_INSTITUTIONAL", message: SARAM_ERROR_MESSAGES.ACCOUNT_INSTITUTIONAL },
+	SARAM_ALREADY_LINKED: { code: "SARAM_ALREADY_LINKED", message: SARAM_ERROR_MESSAGES.SARAM_ALREADY_LINKED },
+	SARAM_LOCKED: { code: "SARAM_LOCKED", message: SARAM_ERROR_MESSAGES.SARAM_LOCKED },
+	REQUEST_PENDING: { code: "REQUEST_PENDING", message: SARAM_ERROR_MESSAGES.REQUEST_PENDING },
+	REQUEST_LIMIT: { code: "REQUEST_LIMIT", message: SARAM_ERROR_MESSAGES.REQUEST_LIMIT },
+	EMAIL_NOT_ELIGIBLE: { code: "EMAIL_NOT_ELIGIBLE", message: SARAM_ERROR_MESSAGES.EMAIL_NOT_ELIGIBLE },
+	SARAM_TAKEN: { code: "SARAM_TAKEN", message: SARAM_ERROR_MESSAGES.SARAM_TAKEN },
+	SARAM_LINK_CHANGED: { code: "CONFLICT", message: SARAM_ERROR_MESSAGES.SARAM_LINK_CHANGED },
+	ACCOUNT_KIND_CHANGED: { code: "CONFLICT", message: SARAM_ERROR_MESSAGES.ACCOUNT_KIND_CHANGED },
+	REQUEST_NOT_PENDING: { code: "CONFLICT", message: SARAM_ERROR_MESSAGES.REQUEST_NOT_PENDING },
+	ACCOUNT_INSTITUTIONAL_NO_MEALS: { code: "ACCOUNT_INSTITUTIONAL", message: SARAM_ERROR_MESSAGES.ACCOUNT_INSTITUTIONAL_NO_MEALS },
+	SARAM_LINK_OUTSIDE_FUNCTION: { code: "SARAM_LINK_OUTSIDE_FUNCTION", message: SARAM_ERROR_MESSAGES.SARAM_LINK_OUTSIDE_FUNCTION },
+	USER_DATA_NOT_FOUND: { code: "USER_DATA_NOT_FOUND", message: SARAM_ERROR_MESSAGES.USER_DATA_NOT_FOUND },
+	CANDIDATE_NOT_FOUND: { code: "CANDIDATE_NOT_FOUND", message: SARAM_ERROR_MESSAGES.CANDIDATE_NOT_FOUND },
+	// Desistir de pedido que já não está pendente: conflito com mensagem (a tela relê o estado),
+	// não 404 cru.
+	REQUEST_NOT_FOUND: { code: "CONFLICT", message: SARAM_ERROR_MESSAGES.REQUEST_NOT_FOUND },
 }
 
 /** Traduz o erro da função SQL; o SQL cru vai em `details`, para o log. */
@@ -162,7 +109,6 @@ export function toSaramDomainError(error: unknown, fallbackCode = "SARAM_LINK_FA
 	if (error instanceof DomainError) return error
 	const token = unwrapPgError(error).message ?? ""
 	const known = SARAM_ERRORS[token]
-	if (known?.notFound) return new NotFoundError(known.notFound, "?")
 	if (known) return new DomainError(known.code, known.message, error)
 	// Tokens do envelope de auditoria (ator inexistente, contexto de auditoria).
 	if (token.startsWith("ACCESS_")) return toAccessDomainError(error, { fallbackCode })
@@ -186,55 +132,7 @@ function toIdentity(v: unknown): MilitaryIdentitySummary | null {
 	return { posto: str(o.posto), nomeGuerra: str(o.nome_guerra), sgOrg: str(o.sg_org) }
 }
 
-/** `jsonb` de `core.saram_link_status` → `SaramStatus`. Exportada para o teste e para o sucont espelhar. */
-export function parseSaramStatus(raw: unknown): SaramStatus {
-	const o = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>
-	const request = o.request && typeof o.request === "object" ? (o.request as Record<string, unknown>) : null
-	const candidates = Array.isArray(o.candidates) ? (o.candidates as Array<Record<string, unknown>>) : []
-	return {
-		status: (str(o.status) ?? "no_match") as SaramLinkStatusName,
-		accountKind: (str(o.account_kind) ?? "pessoal") as AccountKind,
-		saram: str(o.saram),
-		verifiedBy: str(o.verified_by) as SaramVerification | null,
-		verifiedAt: str(o.verified_at),
-		visible: bool(o.visible),
-		identity: toIdentity(o.identity),
-		hasUnverifiedSaram: bool(o.has_unverified_saram),
-		request: request
-			? {
-					id: String(request.id),
-					kind: (str(request.kind) ?? "link") as "link" | "dispute",
-					saram: String(request.saram ?? ""),
-					justification: String(request.justification ?? ""),
-					createdAt: String(request.created_at ?? ""),
-					claimVerifiedBy: str(request.claim_verified_by) as "email" | "cpf" | null,
-				}
-			: null,
-		candidates: candidates.map((c) => ({
-			ref: Number(c.ref),
-			posto: str(c.posto),
-			nomeGuerra: str(c.nome_guerra),
-			sgOrg: str(c.sg_org),
-			heldByOther: bool(c.held_by_other),
-			holderVerified: bool(c.holder_verified),
-		})),
-		requiresCpfSuffix: bool(o.requires_cpf_suffix),
-		emailEligibility: (str(o.email_eligibility) ?? "domain") as EmailEligibility,
-		lockedUntil: str(o.locked_until),
-		attemptsLeft: Number(o.attempts_left ?? 0),
-		actions: Array.isArray(o.actions) ? (o.actions as SaramLinkAction[]) : [],
-	}
-}
-
-function toOutcome(result: Record<string, unknown>): SaramLinkOutcome {
-	return {
-		outcome: (str(result.outcome) ?? "unchanged") as SaramLinkOutcomeName,
-		attemptsLeft: result.attempts_left == null ? null : Number(result.attempts_left),
-		lockedUntil: str(result.locked_until),
-		requestId: str(result.request_id),
-		status: parseSaramStatus(result.status),
-	}
-}
+const toOutcome = (result: Record<string, unknown>): SaramLinkOutcome => parseSaramOutcome(result)
 
 const session = (s: SaramSession) => sql`${s.userId}::uuid, ${s.email}::text, ${s.emailConfirmed}::boolean`
 
@@ -397,6 +295,65 @@ export async function listSaramReviewQueue(db: SisubDb, ctx: UserContext): Promi
 	const rows = await runQuery("FETCH_FAILED", () => db.execute(sql`select core.saram_review_queue() as result`))
 	const raw = (rows as unknown as Array<{ result: unknown }>)[0]?.result
 	return parseSaramReviewQueue(typeof raw === "string" ? JSON.parse(raw) : raw)
+}
+
+/** Conta encontrada pela busca do console: o que o administrador precisa para agir sobre ela. */
+export type SaramSearchAccount = {
+	userId: string
+	email: string
+	accountKind: AccountKind
+	/** SARAM gravado na conta (verificado, legacy ou gravado fora do fluxo). */
+	saram: string | null
+	verifiedBy: SaramVerification | null
+	/** O mesmo SARAM está verificado em outra conta. */
+	verifiedElsewhere: boolean
+	hasPendingRequest: boolean
+	identity: MilitaryIdentitySummary | null
+}
+
+const SEARCH_LIMIT = 20
+
+/**
+ * Busca de conta para o console (admin:2): por parte do e-mail, nome de guerra ou SARAM exato.
+ * Até 20 resultados, os de e-mail mais curto primeiro (o endereço digitado inteiro sobe ao topo).
+ */
+export async function searchSaramAccounts(db: SisubDb, ctx: UserContext, input: SearchSaramAccounts): Promise<SaramSearchAccount[]> {
+	requirePermission(ctx, "admin", 2)
+	const query = input.query.trim()
+	const pattern = containsPattern(query.toLowerCase())
+	const rows = (await runQuery("FETCH_FAILED", () =>
+		db.execute(sql`
+			select ud.id as user_id, ud.email, ud.account_kind, ud.saram, ud.saram_verified_by,
+				mi.posto, mi.nome_guerra, mi.sg_org,
+				exists (
+					select 1 from core.user_data o
+					where o.saram = ud.saram and o.id <> ud.id and o.saram_verified_by in ('email', 'cpf', 'admin')
+				) as verified_elsewhere,
+				exists (select 1 from core.saram_link_request r where r.user_id = ud.id and r.status = 'pending') as has_pending
+			from core.user_data ud
+			left join lateral (
+				select m.posto, m.nome_guerra, m.sg_org from core.military_identity m
+				where m.saram = ud.saram
+				order by m.data_atualizacao desc nulls last
+				limit 1
+			) mi on true
+			where lower(ud.email) like ${pattern}
+				or ud.saram = ${query}
+				or lower(mi.nome_guerra) like ${pattern}
+			order by length(ud.email), ud.email
+			limit ${SEARCH_LIMIT}
+		`)
+	)) as unknown as Array<Record<string, unknown>>
+	return rows.map((r) => ({
+		userId: String(r.user_id),
+		email: String(r.email ?? ""),
+		accountKind: (r.account_kind === "institucional" ? "institucional" : "pessoal") as AccountKind,
+		saram: str(r.saram),
+		verifiedBy: str(r.saram_verified_by) as SaramVerification | null,
+		verifiedElsewhere: bool(r.verified_elsewhere),
+		hasPendingRequest: bool(r.has_pending),
+		identity: r.posto == null && r.nome_guerra == null && r.sg_org == null ? null : toIdentity(r),
+	}))
 }
 
 export type SaramAdminResult = { outcome: string; logId: string | null }

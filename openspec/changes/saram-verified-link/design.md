@@ -81,6 +81,14 @@ Caminhos de escrita conferidos: `upsertArranchamento` (comensal), `insertPresenc
 
 `core.visible_saram(p_user)`: o SARAM se a conta é pessoal e o vínculo é `email`/`cpf`/`admin`, ou `legacy` sem verificado concorrente. Usada por `fetchMilitaryDataFn` (sisub), `getMyMilitaryProfileFn` (rumaer), `fetchMyIdentityFn` (sucont) e pelos rótulos que terceiros veem no sisub (designações, pesquisa de preços, painel, pedidos de lanche). As views `core.v_user_identity` e `analytics.v_user_identity` aplicam a mesma condição por extenso (a do analytics não é invoker, e uma função ali checaria o EXECUTE de quem consulta): a conta que gravou o SARAM de outra pessoa não aparece com o nome dela. Fica de fora o console de acessos do sucont (`permissions.fn.ts`/`people.fn.ts`), que lê pelo client tipado e muda depois do `db:types` (FASE 2).
 
+### D13. Telas (FASE 2)
+
+- **Descoberta sem bloqueio:** o diálogo que trancava a tela pedindo o SARAM saiu. Quem tem algo a fazer ou a acompanhar vê um aviso no topo do conteúdo, com o botão que leva à ação; "Agora não" vale até a próxima sessão (memória, por conta e por estado — chave de armazenamento nova exigiria versão nova da Política de Cookies).
+- **Uma frase por estado, nos três apps:** o parser do `jsonb` e a leitura de cada estado/desfecho/erro moram em `@iefa/database/saram-link`, o único pacote que sisub-domain, sisub, sucont e rumaer já importam (sem mudar o grafo de deploy). O sisub-domain reexporta os tipos e usa as mesmas frases de erro.
+- **sucont:** mesmo fluxo num diálogo (aviso + menu do usuário), pelas mesmas funções via RPC. **rumaer:** só lê; o menu diz por que o posto não aparece e leva à tela do SISUB.
+- **Console:** cada mudança passa por diálogo que diz o efeito, pede motivo (vai para o log pela função SQL) e manda a versão vista; conflito relê a fila e mostra que o item saiu. Marcação em lote = uma chamada auditada por conta. A busca de conta (`searchSaramAccounts`, admin:2) é só leitura.
+- **Pré-visualização de desenvolvimento** (`?preview=`): estados e filas inventados, API falsa, atrás de `import.meta.env.DEV` (contrato em `military-record-preview.contract.test.ts`; o build de produção não traz o texto nem os dados falsos). As mutações reais de administrador não foram exercidas no banco compartilhado: o log de operações sensíveis é append-only e o ator tem FK `on delete restrict`, então um teste deixaria linha e usuário impossíveis de apagar; a semântica delas está nos testes de integração (`inRollback`).
+
 ## Contrato para a FASE 2
 
 `fetchMySaramStatusFn()` → `SaramStatus`:

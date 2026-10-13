@@ -29,15 +29,15 @@ export function ProductionTaskCard({ item, onSelect, onUpdateStatus, isUpdating 
 		<Card
 			variant="tile"
 			size="sm"
-			className="cursor-pointer hover:border-primary/30 hover:bg-muted/40 active:scale-[0.99] transition-all select-none"
+			className="cursor-pointer hover:border-primary/30 active:scale-[0.99] transition-all select-none"
 			onClick={() => onSelect(item)}
 		>
 			<CardHeader className="border-b border-border/50 pb-2">
 				<div className="flex items-start justify-between gap-2">
-					<CardTitle className="text-sm leading-snug line-clamp-2 flex-1">{recipeName}</CardTitle>
+					<CardTitle className="line-clamp-2 flex-1">{recipeName}</CardTitle>
 				</div>
 				{mealType?.name && (
-					<Badge variant="secondary" className="text-xs w-fit mt-0.5">
+					<Badge variant="secondary" className="w-fit mt-0.5">
 						{mealType.name}
 					</Badge>
 				)}
@@ -108,7 +108,7 @@ export function ProductionTaskCard({ item, onSelect, onUpdateStatus, isUpdating 
 					</div>
 				)}
 				{task.status === "DONE" && (
-					<Button size="sm" variant="ghost" className="w-full text-muted-foreground" disabled={isUpdating} onClick={(e) => handleActionClick(e, "PENDING")}>
+					<Button size="sm" variant="subtle" className="w-full" disabled={isUpdating} onClick={(e) => handleActionClick(e, "PENDING")}>
 						<RotateCcw className="size-3.5" />
 						Reabrir
 					</Button>

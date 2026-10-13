@@ -26,14 +26,14 @@ export function ExpiryCell({ expiresAt, expired }: { expiresAt: string | null; e
 	if (!expiresAt) return <span className="text-muted-foreground">Sem prazo</span>
 	if (expired) {
 		return (
-			<Badge variant="destructive" className="gap-1">
+			<Badge variant="destructive">
 				<CalendarClock />
 				Expirou em {formatExpiry(expiresAt)}
 			</Badge>
 		)
 	}
 	return (
-		<Badge variant="warning" className="gap-1">
+		<Badge variant="warning">
 			<CalendarClock />
 			Até {formatExpiry(expiresAt)}
 		</Badge>

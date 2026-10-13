@@ -38,12 +38,7 @@ export function DgcRunHistory({ runs, activeRunId, loadingRunId, onOpen, isLoadi
 						<p className="text-hint text-muted-foreground mt-1">O histórico continua no banco — o que falhou foi a consulta.</p>
 					</div>
 					{onRetry && (
-						<Button
-							variant="outline"
-							size="sm"
-							onClick={onRetry}
-							className="shrink-0 text-label text-muted-foreground hover:border-tech-cyan hover:text-tech-cyan"
-						>
+						<Button variant="outline" size="sm" onClick={onRetry} className="shrink-0 text-muted-foreground hover:border-tech-cyan hover:text-tech-cyan">
 							<RotateCw className="w-3.5 h-3.5" />
 							Tentar de novo
 						</Button>
@@ -85,7 +80,7 @@ export function DgcRunHistory({ runs, activeRunId, loadingRunId, onOpen, isLoadi
 							size="sm"
 							onClick={() => onOpen(run.id)}
 							disabled={loadingRunId !== null}
-							className="shrink-0 text-label text-muted-foreground hover:border-tech-cyan hover:text-tech-cyan"
+							className="shrink-0 text-muted-foreground hover:border-tech-cyan hover:text-tech-cyan"
 						>
 							{loadingRunId === run.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FolderOpen className="w-3.5 h-3.5" />}
 							{activeRunId === run.id ? "Rodada atual" : "Abrir"}

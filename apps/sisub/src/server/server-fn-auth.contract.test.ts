@@ -275,10 +275,6 @@ describe("server function auth contract", () => {
 	 * linha lida ou escrita.
 	 */
 	const OWN_INPUT_FIELDS: Record<string, Record<string, string>> = {
-		syncUserSaramFn: {
-			saram:
-				"vem do formulário de perfil e só é conferido para a conta DA SESSÃO (`core.claim_saram`, 20261003100000): vincula se for o candidato da chave do e-mail da sessão, senão vira pedido — não seleciona a linha a escrever",
-		},
 		verifySaramByCpfFn: {
 			saram: "o SARAM que a pessoa diz ser o seu, conferido com o CPF no banco para a conta DA SESSÃO — não seleciona a linha a escrever",
 		},

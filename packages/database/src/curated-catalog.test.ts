@@ -71,6 +71,7 @@ describe("catálogo de itens de compra curado", () => {
 		expect(writesPurchaseItem(`import { purchaseItemInProcurement as pi } from "x"; db.update(pi).set({})`)).toBe(true)
 		expect(writesPurchaseItem(`sql\`UPDATE "procurement"."purchase_item" SET catmat_item_codigo = 1\``)).toBe(true)
 		expect(writesPurchaseItem(`db.update(sisubSchema.purchaseItemInProcurement).set({})`)).toBe(true)
+		// biome-ignore lint/suspicious/noTemplateCurlyInString: o texto imita o fonte com a interpolação
 		expect(writesPurchaseItem("sql`update ${purchaseItemInProcurement} set catmat_item_codigo = 1`")).toBe(true)
 		expect(writesPurchaseItem(`db.select().from(purchaseItemInProcurement)`)).toBe(false)
 		expect(writesPurchaseItem(`update procurement.purchase_item_ingredient set is_default = false`)).toBe(false)

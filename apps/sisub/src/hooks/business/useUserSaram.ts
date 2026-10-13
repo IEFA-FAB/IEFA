@@ -1,9 +1,17 @@
-import type { User } from "@supabase/supabase-js"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { toast } from "@/components/ui/toast"
+import type { SaramAccountKind, SaramLinkOutcome, SaramStatus } from "@iefa/database/saram-link"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useMemo } from "react"
+import { useAuth } from "@/hooks/auth/useAuth"
 import { queryKeys } from "@/lib/query-keys"
-import { fetchMySaramStatusFn, type SaramStatus } from "@/server/saram-link.fn"
-import { fetchUserSaramFn, syncUserSaramFn } from "@/server/user.fn"
+import {
+	confirmSaramCandidateFn,
+	fetchMySaramStatusFn,
+	requestSaramLinkFn,
+	setOwnAccountKindFn,
+	verifySaramByCpfFn,
+	withdrawSaramRequestFn,
+} from "@/server/saram-link.fn"
+import { fetchUserSaramFn } from "@/server/user.fn"
 
 const QUERY_STALE_TIME = 5 * 60_000
 const QUERY_GC_TIME = 10 * 60_000
@@ -21,51 +29,64 @@ export function useUserSaram(userId: string | null) {
 }
 
 /**
- * Estado do vínculo de SARAM (`fetchMySaramStatusFn`). O primeiro acesso só insiste no SARAM
- * quando há o que a pessoa possa fazer por ali: conta institucional, pedido em análise ou
- * bloqueio de tentativas não reabrem o diálogo a cada sessão.
+ * Estado do vínculo de SARAM da própria conta (`fetchMySaramStatusFn`). Uma consulta por sessão
+ * alimenta o aviso de entrada, a tela "Meu cadastro militar", o perfil e o arranchamento.
  */
-export function useSaramStatus(userId: string | null, options: { enabled?: boolean } = {}) {
+export function useSaramStatus(options: { enabled?: boolean } = {}) {
+	const { user } = useAuth()
+	const userId = user?.id ?? null
 	return useQuery({
 		queryKey: queryKeys.user.saramStatus(userId),
 		queryFn: () => fetchMySaramStatusFn(),
 		enabled: !!userId && (options.enabled ?? true),
 		staleTime: QUERY_STALE_TIME,
 		gcTime: QUERY_GC_TIME,
+		// Aviso e sinalização são acessórios: falha de leitura não vira erro na tela de quem só quer arranchar.
+		retry: 1,
 	})
 }
 
-/** Estados em que o diálogo de SARAM do primeiro acesso tem ação a oferecer. */
-export function saramStatusNeedsAction(status: SaramStatus | undefined): boolean {
-	return status?.status === "suggestion" || status?.status === "homonyms" || status?.status === "no_match"
+/** As mutações da própria conta. A tela recebe a interface, e a pré-visualização a substitui. */
+export type SaramLinkApi = {
+	confirmCandidate(input: { candidateRef: number; cpfSuffix?: string }): Promise<SaramLinkOutcome>
+	verifyByCpf(input: { saram: string; cpf: string }): Promise<SaramLinkOutcome>
+	requestLink(input: { saram: string; justification: string }): Promise<SaramLinkOutcome>
+	withdrawRequest(input: { requestId: string }): Promise<SaramLinkOutcome>
+	setAccountKind(input: { kind: SaramAccountKind }): Promise<SaramLinkOutcome>
+	/** Relê o estado (depois de um erro: o pedido pode ter sido decidido, a carga do cadastro pode ter mudado). */
+	refresh(): Promise<unknown>
 }
 
-export function useUpdateSaram() {
+/**
+ * Chamadas reais. Toda mutação devolve o estado novo: ele entra no cache na hora (o aviso some, a
+ * tela troca de passo) e o que depende do SARAM visível (perfil, nome no menu, dados militares) é
+ * relido.
+ */
+export function useSaramLinkApi(): SaramLinkApi {
 	const queryClient = useQueryClient()
+	const { user } = useAuth()
+	const userId = user?.id ?? null
 
-	return useMutation({
-		mutationFn: ({ user, saram }: { user: User; saram: string }) => syncUserSaramFn({ data: { userId: user.id, email: user.email ?? "", saram } }),
-		onMutate: async ({ user, saram }) => {
-			const queryKey = queryKeys.user.saram(user.id)
-			await queryClient.cancelQueries({ queryKey })
-			const previous = queryClient.getQueryData(queryKey)
-			queryClient.setQueryData(queryKey, saram)
-			return { previous, queryKey }
-		},
-		onError: (_error, _, context) => {
-			if (context?.previous) {
-				queryClient.setQueryData(context.queryKey, context.previous)
-			}
-		},
-		onSuccess: (result, { user }) => {
-			if (result?.outcome === "requested" || result?.outcome === "pending" || result?.outcome === "disputed") {
-				toast.info("Pedido de vínculo enviado à administração", {
-					description: "O SARAM informado não pôde ser conferido pelo seu e-mail. Até a decisão, os dados militares não aparecem; o arranchamento continua.",
-				})
-			}
-			// O número pode ter virado pedido (sem SARAM visível): o estado decide o que a tela mostra.
-			queryClient.invalidateQueries({ queryKey: queryKeys.user.saram(user.id) })
-			queryClient.invalidateQueries({ queryKey: queryKeys.user.saramStatus(user.id) })
-		},
-	})
+	return useMemo(() => {
+		const settle = async (result: SaramLinkOutcome): Promise<SaramLinkOutcome> => {
+			queryClient.setQueryData<SaramStatus>(queryKeys.user.saramStatus(userId), result.status)
+			await Promise.all([
+				// `exact`: a chave do estado começa com a do SARAM, e o estado acabou de chegar.
+				queryClient.invalidateQueries({ queryKey: queryKeys.user.saram(userId), exact: true }),
+				queryClient.invalidateQueries({ queryKey: queryKeys.user.data(userId ?? undefined) }),
+				queryClient.invalidateQueries({ queryKey: ["military"] }),
+				// Virar conta de seção cancela os arranchamentos de hoje em diante.
+				queryClient.invalidateQueries({ queryKey: ["arranchamentos", userId ?? undefined] }),
+			])
+			return result
+		}
+		return {
+			confirmCandidate: (data) => confirmSaramCandidateFn({ data }).then(settle),
+			verifyByCpf: (data) => verifySaramByCpfFn({ data }).then(settle),
+			requestLink: (data) => requestSaramLinkFn({ data }).then(settle),
+			withdrawRequest: (data) => withdrawSaramRequestFn({ data }).then(settle),
+			setAccountKind: (data) => setOwnAccountKindFn({ data }).then(settle),
+			refresh: () => queryClient.invalidateQueries({ queryKey: queryKeys.user.saramStatus(userId) }),
+		}
+	}, [queryClient, userId])
 }

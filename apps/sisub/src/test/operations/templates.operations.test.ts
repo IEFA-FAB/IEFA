@@ -9,21 +9,29 @@ import type { SisubDb } from "@iefa/database/drizzle/sisub"
 import {
 	applyEventTemplate,
 	applyTemplate,
+	composeOccasionMenu,
 	createBlankTemplate,
 	createTemplate,
+	createTemplateFolder,
 	deleteTemplate,
+	deleteTemplateFolder,
+	duplicateTemplateAsVariant,
 	fetchDayDetails,
 	forkTemplate,
 	getTemplate,
 	getTemplateItems,
 	getTrashItems,
 	listDeletedTemplates,
+	listTemplateFolders,
 	listTemplates,
+	moveTemplateFolder,
 	restoreMenuItem,
 	restoreTemplate,
 	saveTemplateEdit,
+	setTemplateFolder,
 	sizeOriginOnDay,
 	updateHeadcount,
+	updateTemplateFolder,
 } from "@iefa/sisub-domain"
 import { afterAll, afterEach, beforeAll, beforeEach, expect, test } from "vitest"
 import { type AnyClient, fullAccessCtx, makeSeeder, type Seeder, setupIntegration, uid } from "@/test/operations-fixtures"
@@ -285,8 +293,11 @@ describeSupabaseIntegration("templates operations (regressão)", () => {
 		const cafeId = crypto.randomUUID()
 		const coquetelId = crypto.randomUUID()
 		const groups = [{ key: "salgado", label: "Salgados", minItems: 4, maxItems: 6 }]
+		// Evento DA COZINHA com duas refeições: o modelo global de evento tem uma só, e escolher
+		// refeições ao copiar vale para o evento real (o coquetel sem o café).
 		const src = await createTemplate(db, ctx, {
-			name: uid("[TEST] Padrão B "),
+			name: uid("[TEST] Evento da cozinha "),
+			kitchenId,
 			templateType: "event",
 			eventMeals: [
 				{ id: cafeId, name: "Café da manhã", mealTypeId, groups },
@@ -303,6 +314,7 @@ describeSupabaseIntegration("templates operations (regressão)", () => {
 		trackTemplate(fork.id)
 		const copy = await getTemplate(db, ctx, { templateId: fork.id })
 		expect(copy.event_meals.map((m) => [m.name, m.groups])).toEqual([["Coquetel", groups]])
+		expect(copy.event_meals[0]?.source_template_id).toBe(src.id)
 		expect(copy.items.map((i) => Number(i.recommended_proportion))).toEqual([80])
 	})
 
@@ -871,38 +883,209 @@ describeSupabaseIntegration("templates operations (regressão)", () => {
 		expect(forked.items[0]?.event_meal_id).toBe(forked.event_meals[0]?.id)
 	})
 
-	test("evento global na cozinha: refeição omitida sai com os itens; com cópia existente, metade do conteúdo é recusada", async () => {
+	test("evento global é uma variante: a segunda refeição é recusada; o evento da cozinha aceita várias", async () => {
 		if (!reachable || !seeder || !db) return
 		const { kitchenId, recipeId } = await base()
 		const mealTypeId = await seeder.seedMealType({ kitchenId: null })
-		const coquetelId = crypto.randomUUID()
-		const galaId = crypto.randomUUID()
-		const coquetel = { id: coquetelId, name: "Coquetel", mealTypeId, groups: EVENT_GROUPS }
-		const gala = { id: galaId, name: "Gala", mealTypeId, groups: EVENT_GROUPS }
+		const coquetel = { id: crypto.randomUUID(), name: "Coquetel", mealTypeId, groups: EVENT_GROUPS }
+		const gala = { id: crypto.randomUUID(), name: "Gala", mealTypeId, groups: EVENT_GROUPS }
+
+		await expect(createTemplate(db, ctx, { name: uid("[TEST] Padrão B "), templateType: "event", eventMeals: [coquetel, gala] })).rejects.toThrow(
+			/uma refeição só/
+		)
 
 		const global = await createTemplate(db, ctx, {
-			name: uid("[TEST] Evento global "),
+			name: uid("[TEST] Coquetel Padrão B "),
 			templateType: "event",
-			eventMeals: [coquetel, gala],
-			items: [
-				{ dayOfWeek: 1, mealTypeId, recipeId, itemGroup: "entrada", recommendedProportion: null, eventMealId: coquetelId },
-				{ dayOfWeek: 1, mealTypeId, recipeId, itemGroup: "entrada", recommendedProportion: null, eventMealId: galaId },
-			],
+			eventMeals: [coquetel],
+			items: [{ dayOfWeek: 1, mealTypeId, recipeId, itemGroup: "entrada", recommendedProportion: null, eventMealId: coquetel.id }],
 		})
 		trackTemplate(global.id)
+		await expect(saveTemplateEdit(db, ctx, { templateId: global.id, context: { scope: "global" }, eventMeals: [coquetel, gala] })).rejects.toThrow(
+			/uma refeição só/
+		)
 
-		// Primeira adaptação sem itens e sem a gala: a cópia nasce só com o coquetel e o item dele.
+		const local = await createTemplate(db, ctx, {
+			name: uid("[TEST] Passagem de Comando "),
+			kitchenId,
+			templateType: "event",
+			eventMeals: [coquetel, gala].map((m) => ({ ...m, id: crypto.randomUUID() })),
+		})
+		trackTemplate(local.id)
+		expect((await getTemplate(db, ctx, { templateId: local.id })).event_meals).toHaveLength(2)
+
+		// Primeira adaptação na cozinha cria a cópia; com ela existente, só refeições (ou só itens)
+		// sobrescreveria a outra metade dela com a do molde.
 		const { template: fork } = await saveTemplateEdit(db, ctx, { templateId: global.id, context: { scope: "kitchen", kitchenId }, eventMeals: [coquetel] })
 		trackTemplate(fork.id)
 		const copy = await getTemplate(db, ctx, { templateId: fork.id })
-		expect(copy.event_meals.map((m) => m.name)).toEqual(["Coquetel"])
 		expect(copy.items).toHaveLength(1)
-		expect(copy.items[0]?.event_meal_id).toBe(copy.event_meals[0]?.id)
-
-		// Com a cópia já existente, só refeições (ou só itens) sobrescreveria a outra metade dela com a do molde.
+		expect(copy.event_meals[0]?.source_template_id).toBe(global.id)
 		await expect(saveTemplateEdit(db, ctx, { templateId: global.id, context: { scope: "kitchen", kitchenId }, eventMeals: [coquetel] })).rejects.toThrow(
 			/eventMeals e items juntos/
 		)
+	})
+
+	/** Pasta de teste do catálogo. Rastreada antes dos modelos dela: o cleanup LIFO os apaga primeiro. */
+	async function testFolder(templateType: "event" | "apoio", parentId?: string) {
+		if (!db) throw new Error("no db")
+		const folder = await createTemplateFolder(db, ctx, { templateType, parentId, name: uid("[TEST] Pasta ") })
+		seeder?.track("menu_template_folder", folder.id)
+		return folder
+	}
+
+	test("montar evento: café de um padrão + almoço de outro, copiados, com procedência e o horário escolhido", async () => {
+		if (!reachable || !seeder || !db) return
+		const sd = seeder
+		const { kitchenId, recipeId } = await base()
+		sd.trackFn(() => sd.purgeKitchenMenus(kitchenId))
+		const cafeSlot = await sd.seedMealType({ kitchenId: null })
+		const almocoSlot = await sd.seedMealType({ kitchenId: null })
+		const jantarSlot = await sd.seedMealType({ kitchenId: null })
+		const otherRecipe = await sd.seedRecipe({ kitchenId: null })
+
+		const cafeMeal = crypto.randomUUID()
+		const cafeA = await createTemplate(db, ctx, {
+			name: uid("[TEST] Café Padrão A "),
+			templateType: "event",
+			eventMeals: [{ id: cafeMeal, name: "Café da Manhã", mealTypeId: cafeSlot, groups: EVENT_GROUPS }],
+			items: [{ dayOfWeek: 1, mealTypeId: cafeSlot, recipeId, itemGroup: "entrada", recommendedProportion: 100, eventMealId: cafeMeal }],
+		})
+		trackTemplate(cafeA.id)
+		const almocoMeal = crypto.randomUUID()
+		const almocoB = await createTemplate(db, ctx, {
+			name: uid("[TEST] Almoço Padrão B "),
+			templateType: "event",
+			eventMeals: [{ id: almocoMeal, name: "Almoço", mealTypeId: almocoSlot, groups: EVENT_GROUPS }],
+			items: [{ dayOfWeek: 1, mealTypeId: almocoSlot, recipeId: otherRecipe, itemGroup: "volante", recommendedProportion: 80, eventMealId: almocoMeal }],
+		})
+		trackTemplate(almocoB.id)
+
+		// O almoço do padrão vai à noite: formato não é horário.
+		const composed = await composeOccasionMenu(db, ctx, {
+			kitchenId,
+			name: uid("[TEST] Aniversário da OM "),
+			sources: [{ templateId: cafeA.id }, { templateId: almocoB.id, slots: [{ occasionMealId: almocoMeal, mealTypeId: jantarSlot }] }],
+		})
+		trackTemplate(composed.id)
+		const event = await getTemplate(db, ctx, { templateId: composed.id })
+		expect(event.kitchen_id).toBe(kitchenId)
+		expect(event.base_template_id).toBeNull()
+		expect(event.event_meals.map((m) => [m.name, m.meal_type_id, m.source_template_id, m.base_headcount])).toEqual([
+			["Café da Manhã", cafeSlot, cafeA.id, null],
+			["Almoço", jantarSlot, almocoB.id, null],
+		])
+		expect(event.event_meals.map((m) => m.id)).not.toContain(cafeMeal)
+		expect(event.items.map((i) => [i.recipe_id, Number(i.recommended_proportion)]).sort()).toEqual(
+			[
+				[recipeId, 100],
+				[otherRecipe, 80],
+			].sort()
+		)
+
+		// Editar o modelo depois não mexe no evento montado.
+		await saveTemplateEdit(db, ctx, {
+			templateId: cafeA.id,
+			context: { scope: "global" },
+			eventMeals: [{ id: cafeMeal, name: "Café da Manhã", mealTypeId: cafeSlot, groups: EVENT_GROUPS }],
+			items: [{ dayOfWeek: 1, mealTypeId: cafeSlot, recipeId, itemGroup: "entrada", recommendedProportion: 50, eventMealId: cafeMeal }],
+		})
+		const after = await getTemplate(db, ctx, { templateId: composed.id })
+		expect(after.items.find((i) => i.recipe_id === recipeId)?.recommended_proportion).toEqual(
+			event.items.find((i) => i.recipe_id === recipeId)?.recommended_proportion
+		)
+
+		// Montar só com modelo de outro tipo é recusado.
+		const apoio = await createBlankTemplate(db, ctx, { name: uid("[TEST] Kit "), templateType: "apoio" })
+		trackTemplate(apoio.id)
+		await expect(composeOccasionMenu(db, ctx, { kitchenId, name: uid("[TEST] X "), sources: [{ templateId: apoio.id }] })).rejects.toThrow(/não é um evento/)
+	})
+
+	test("aplicar ao dia: o horário escolhido vence o da refeição, sem gravar no modelo", async () => {
+		if (!reachable || !seeder || !db) return
+		const sd = seeder
+		const { kitchenId, recipeId } = await base()
+		sd.trackFn(() => sd.purgeKitchenMenus(kitchenId))
+		const cafeSlot = await sd.seedMealType({ kitchenId: null })
+		const almocoSlot = await sd.seedMealType({ kitchenId: null })
+		const coquetelId = crypto.randomUUID()
+		const tpl = await createTemplate(db, ctx, {
+			name: uid("[TEST] Coquetel "),
+			kitchenId,
+			templateType: "event",
+			eventMeals: [{ id: coquetelId, name: "Coquetel", mealTypeId: cafeSlot, groups: EVENT_GROUPS, baseHeadcount: 100 }],
+			items: [{ dayOfWeek: 1, mealTypeId: cafeSlot, recipeId, itemGroup: "volante", recommendedProportion: null, eventMealId: coquetelId }],
+		})
+		trackTemplate(tpl.id)
+
+		const date = "2099-06-12"
+		await applyEventTemplate(db, ctx, { templateId: tpl.id, kitchenId, dates: [date], slots: [{ occasionMealId: coquetelId, mealTypeId: almocoSlot }] })
+		const details = (await fetchDayDetails(db, ctx, { kitchenId, date })) as unknown as {
+			meal_type_id: string
+			menu_items: { recipe_origin_id: string | null }[]
+		}[]
+		expect(details.filter((d) => d.menu_items.some((i) => i.recipe_origin_id === recipeId)).map((d) => d.meal_type_id)).toEqual([almocoSlot])
+		expect((await getTemplate(db, ctx, { templateId: tpl.id })).event_meals[0]?.meal_type_id).toBe(cafeSlot)
+
+		await expect(
+			applyEventTemplate(db, ctx, { templateId: tpl.id, kitchenId, dates: [date], slots: [{ occasionMealId: crypto.randomUUID(), mealTypeId: almocoSlot }] })
+		).rejects.toThrow(/não existe neste cardápio/)
+	})
+
+	test("pastas do catálogo: dois níveis, nome único na pasta, só modelo global, só pasta vazia sai", async () => {
+		if (!reachable || !seeder || !db) return
+		const { kitchenId } = await base()
+		const padrao = await testFolder("event")
+		const coquetel = await testFolder("event", padrao.id)
+		const almoco = await testFolder("event", padrao.id)
+		await expect(createTemplateFolder(db, ctx, { templateType: "event", parentId: coquetel.id, name: uid("[TEST] Fundo ") })).rejects.toThrow(/2 níveis/)
+		await expect(createTemplateFolder(db, ctx, { templateType: "apoio", parentId: padrao.id, name: uid("[TEST] Mistura ") })).rejects.toThrow(/mesmo tipo/)
+
+		// Ordem gravada: almoço criado depois fica depois; subir troca.
+		await moveTemplateFolder(db, ctx, { folderId: almoco.id, delta: -1 })
+		// Editar a pasta confere o que a tela viu.
+		await updateTemplateFolder(db, ctx, { folderId: almoco.id, description: "Almoços", expected: { name: almoco.name, description: null } })
+		await expect(
+			updateTemplateFolder(db, ctx, { folderId: almoco.id, description: "Outra", expected: { name: almoco.name, description: null } })
+		).rejects.toThrow(/Outra pessoa mudou/)
+		const children = (await listTemplateFolders(db, ctx, { templateType: "event" })).filter((f) => f.parent_id === padrao.id)
+		expect(children.map((f) => f.id)).toEqual([almoco.id, coquetel.id])
+
+		const name = uid("[TEST] Coquetel Padrão B ")
+		const first = await createBlankTemplate(db, ctx, { name, templateType: "event", folderId: coquetel.id })
+		trackTemplate(first.id)
+		await expect(createBlankTemplate(db, ctx, { name: ` ${name.toUpperCase()} `, templateType: "event", folderId: coquetel.id })).rejects.toThrow(
+			/nomes diferentes/
+		)
+		await expect(createBlankTemplate(db, ctx, { name: uid("[TEST] Local "), kitchenId, templateType: "event", folderId: coquetel.id })).rejects.toThrow(
+			/catálogo global/
+		)
+		await expect(createBlankTemplate(db, ctx, { name: uid("[TEST] Kit "), templateType: "apoio", folderId: coquetel.id })).rejects.toThrow(/pasta é de eventos/)
+
+		await expect(deleteTemplateFolder(db, ctx, { folderId: coquetel.id })).rejects.toThrow(/1 modelo/)
+		await expect(deleteTemplateFolder(db, ctx, { folderId: padrao.id })).rejects.toThrow(/2 subpastas/)
+
+		// Variantes: cópia na mesma pasta, com o primeiro nome livre.
+		const v1 = await duplicateTemplateAsVariant(db, ctx, { templateId: first.id })
+		trackTemplate(v1.id)
+		const v2 = await duplicateTemplateAsVariant(db, ctx, { templateId: first.id })
+		trackTemplate(v2.id)
+		expect([v1.name, v2.name]).toEqual([`${name} (cópia)`, `${name} (cópia 2)`])
+		expect([v1.folder_id, v2.folder_id]).toEqual([coquetel.id, coquetel.id])
+
+		// Na lixeira o nome fica livre; restaurar com o nome tomado volta como "(restaurado)".
+		await deleteTemplate(db, ctx, { templateId: first.id })
+		const sameName = await createBlankTemplate(db, ctx, { name, templateType: "event", folderId: coquetel.id })
+		trackTemplate(sameName.id)
+		await restoreTemplate(db, ctx, { templateId: first.id })
+		expect((await getTemplate(db, ctx, { templateId: first.id })).name).toBe(`${name} (restaurado)`)
+
+		// Mover para a pasta vazia e esvaziar libera a remoção.
+		// Mover confere a pasta que a tela viu: quem viu outra é recusado.
+		await expect(setTemplateFolder(db, ctx, { templateId: first.id, folderId: null, expectedFolderId: almoco.id })).rejects.toThrow(/já mudou/)
+		for (const id of [first.id, v1.id, v2.id, sameName.id]) await setTemplateFolder(db, ctx, { templateId: id, folderId: null, expectedFolderId: coquetel.id })
+		await deleteTemplateFolder(db, ctx, { folderId: almoco.id })
+		expect((await listTemplateFolders(db, ctx, { templateType: "event" })).some((f) => f.id === almoco.id)).toBe(false)
 	})
 
 	test("evento: a porcentagem da preparação incide sobre o efetivo da refeição, no custeio e no calendário", async () => {

@@ -208,7 +208,7 @@ function Home() {
 						<Button
 							nativeButton={false}
 							render={
-								<Link to="/about" className="inline-flex items-center gap-2">
+								<Link to="/about" className="inline-flex items-center">
 									Conheça o Instituto
 									<ArrowRight className="h-4 w-4" aria-hidden="true" />
 								</Link>

@@ -52,9 +52,9 @@ export function UserProfileRow() {
 				<TooltipTrigger
 					render={
 						<Button
-							variant="ghost"
+							variant="subtle"
 							size="sm"
-							className="text-muted-foreground hover:text-destructive shrink-0"
+							className="shrink-0"
 							onClick={async () => {
 								await signOut()
 								navigate({ to: "/auth" })

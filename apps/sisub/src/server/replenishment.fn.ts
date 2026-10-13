@@ -12,10 +12,10 @@
  */
 
 import {
+	type AcquisitionKind,
 	applyCorrectionFactors,
 	calculateNetNeed,
 	computeDispensaSum,
-	type AcquisitionKind,
 	type DirectContractLimitRow,
 	type DispensaEntry,
 	decideChannel,
@@ -28,8 +28,8 @@ import {
 import { addCivilDays, getBrasiliaToday } from "@iefa/sisub-domain/civil-date"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
-import { requireAuthWithPermission } from "@/lib/auth.server"
 import { type ExecutionAcquisitionRow, loadUnitExecution } from "@/lib/acquisition-execution"
+import { requireAuthWithPermission } from "@/lib/auth.server"
 import { assertNoBlindCountHides } from "@/lib/blind-count.server"
 import { getDb } from "@/lib/db.server"
 import { publicDbMessage } from "@/lib/db-error-message"

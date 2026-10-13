@@ -24,22 +24,12 @@ export function DgcReport({ data, onBack }: DgcReportProps) {
 		<div className="w-full max-w-5xl mx-auto space-y-6">
 			<header className="bg-card border border-border rounded-xl p-8 text-center">
 				<div className="flex items-center justify-between mb-6">
-					<Button
-						type="button"
-						onClick={onBack}
-						variant="ghost"
-						className="h-auto gap-2 p-0 text-label text-muted-foreground hover:bg-transparent hover:text-tech-blue"
-					>
-						<ArrowLeft className="w-4 h-4" />
+					<Button type="button" onClick={onBack} variant="subtle" size="sm">
+						<ArrowLeft />
 						Voltar às unidades
 					</Button>
-					<Button
-						type="button"
-						onClick={() => window.print()}
-						variant="ghost"
-						className="h-auto gap-2 p-0 text-label text-muted-foreground hover:bg-transparent hover:text-tech-blue"
-					>
-						<Printer className="w-4 h-4" />
+					<Button type="button" onClick={() => window.print()} variant="outline" size="sm">
+						<Printer />
 						Imprimir
 					</Button>
 				</div>

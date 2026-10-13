@@ -79,7 +79,7 @@ export default function MessHallBreakdown({ data }: MessHallBreakdownProps) {
 						<Tooltip>
 							<TooltipTrigger
 								render={
-									<Button variant="outline" size="sm" onClick={expandAll} className="text-xs gap-1">
+									<Button variant="outline" size="sm" onClick={expandAll} className="text-xs">
 										<Maximize2 className="size-3" aria-hidden="true" />
 										<span className="hidden sm:inline">Expandir</span>
 									</Button>
@@ -90,7 +90,7 @@ export default function MessHallBreakdown({ data }: MessHallBreakdownProps) {
 						<Tooltip>
 							<TooltipTrigger
 								render={
-									<Button variant="outline" size="sm" onClick={collapseAll} className="text-xs gap-1">
+									<Button variant="outline" size="sm" onClick={collapseAll} className="text-xs">
 										<Minimize2 className="size-3" aria-hidden="true" />
 										<span className="hidden sm:inline">Recolher</span>
 									</Button>

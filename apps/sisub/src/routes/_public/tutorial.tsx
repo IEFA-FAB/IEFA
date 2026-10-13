@@ -294,7 +294,7 @@ function Tutorial() {
 						<StepList steps={fiscalSteps} />
 						<Card className="mt-8">
 							<CardHeader>
-								<CardTitle className="text-sm">Dicas para o leitor de QR</CardTitle>
+								<CardTitle>Dicas para o leitor de QR</CardTitle>
 							</CardHeader>
 							<CardContent>
 								<ul className="divide-y divide-border">
@@ -370,7 +370,7 @@ function Tutorial() {
 						<Button
 							nativeButton={false}
 							render={
-								<Link to="/hub" className="flex items-center gap-2">
+								<Link to="/hub" className="flex items-center">
 									Ir para o Hub
 									<ChevronRight className="size-4" />
 								</Link>

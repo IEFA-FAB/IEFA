@@ -5,9 +5,9 @@ import { ArrowLeft, CheckCircle, CircleAlert, Eye, EyeOff, Loader2, Lock, Mail, 
 import { useEffect, useRef, useState } from "react"
 import { Button } from "#/components/ui/button"
 import { Input } from "#/components/ui/input"
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "#/components/ui/input-group"
 import { Label } from "#/components/ui/label"
 import { TOOL_STAGES } from "#/lib/types"
-import { cn } from "#/lib/utils"
 
 const FAB_EMAIL_REGEX = /^[a-zA-Z0-9]+(?:[._-][a-zA-Z0-9]+)*@fab\.mil\.br$/
 const STORAGE_KEY_REMEMBER_EMAIL = "sucont_remember_email"
@@ -155,9 +155,9 @@ function Field({ id, label, children }: { id: string; label: string; children: R
 	)
 }
 
-function FieldError({ children }: { children: React.ReactNode }) {
+function FieldError({ id, children }: { id?: string; children: React.ReactNode }) {
 	return (
-		<p className="mt-1 flex items-center gap-1 text-caption text-destructive" role="alert">
+		<p id={id} className="mt-1 flex items-center gap-1 text-caption text-destructive" role="alert">
 			<CircleAlert className="h-3 w-3 shrink-0" aria-hidden />
 			{children}
 		</p>
@@ -184,13 +184,8 @@ function SuccessBanner({ message }: { message: string }) {
 
 function BackToLogin({ onClick }: { onClick: () => void }) {
 	return (
-		<Button
-			type="button"
-			onClick={onClick}
-			variant="ghost"
-			className="mx-auto mt-5 h-auto gap-1.5 p-0 text-caption text-muted-foreground hover:bg-transparent hover:text-foreground"
-		>
-			<ArrowLeft className="h-3.5 w-3.5" />
+		<Button type="button" onClick={onClick} variant="subtle" size="sm" className="mx-auto mt-5">
+			<ArrowLeft />
 			Voltar ao login
 		</Button>
 	)
@@ -529,37 +524,41 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 						{error && <ErrorBanner message={error} />}
 
 						<Field id="register-name" label="Nome completo">
-							<div className="relative">
-								<User className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-								<Input
+							<InputGroup>
+								<InputGroupAddon>
+									<User />
+								</InputGroupAddon>
+								<InputGroupInput
 									id="register-name"
 									placeholder="João Silva"
-									className="pl-9"
 									value={registerData.name}
 									onChange={(e) => setRegisterData({ ...registerData, name: e.target.value })}
 									required
 									autoComplete="name"
 									disabled={isSubmitting}
 								/>
-							</div>
+							</InputGroup>
 						</Field>
 
 						<Field id="register-email" label="E-mail institucional">
-							<div className="relative">
-								<Mail className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-								<Input
+							<InputGroup>
+								<InputGroupAddon>
+									<Mail />
+								</InputGroupAddon>
+								<InputGroupInput
 									id="register-email"
 									type="email"
 									placeholder="usuario@fab.mil.br"
-									className={cn("pl-9", registerEmailError && "border-destructive")}
+									aria-invalid={registerEmailError ? true : undefined}
+									aria-describedby={registerEmailError ? "register-email-error" : undefined}
 									value={registerData.email}
 									onChange={handleRegisterEmailChange}
 									required
 									autoComplete="email"
 									disabled={isSubmitting}
 								/>
-							</div>
-							{registerEmailError && <FieldError>{registerEmailError}</FieldError>}
+							</InputGroup>
+							{registerEmailError && <FieldError id="register-email-error">{registerEmailError}</FieldError>}
 						</Field>
 
 						<Field id="register-password" label="Senha">
@@ -602,32 +601,38 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 						{successMessage && <SuccessBanner message={successMessage} />}
 
 						<Field id="email" label="E-mail institucional">
-							<div className="relative">
-								<Mail className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-								<Input
+							<InputGroup>
+								<InputGroupAddon>
+									<Mail />
+								</InputGroupAddon>
+								<InputGroupInput
 									id="email"
 									type="email"
 									autoComplete="username"
 									placeholder="usuario@fab.mil.br"
-									className={cn("pl-9", emailError && "border-destructive")}
+									aria-invalid={emailError ? true : undefined}
+									aria-describedby={emailError ? "email-error" : undefined}
 									value={loginEmail}
 									onChange={handleLoginEmailChange}
 									required
 									disabled={isSubmitting}
 								/>
-							</div>
-							{emailError && <FieldError>{emailError}</FieldError>}
+							</InputGroup>
+							{emailError && <FieldError id="email-error">{emailError}</FieldError>}
 						</Field>
 
 						<Field id="password" label="Senha">
-							<div className="relative">
-								<Lock className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-								<Input
+							<InputGroup>
+								<InputGroupAddon>
+									<Lock />
+								</InputGroupAddon>
+								<InputGroupInput
 									id="password"
 									type={showPassword ? "text" : "password"}
 									autoComplete="current-password"
 									placeholder="Sua senha"
-									className={cn("pl-9 pr-10", passwordError && "border-destructive")}
+									aria-invalid={passwordError ? true : undefined}
+									aria-describedby={passwordError ? "password-error" : undefined}
 									value={loginPassword}
 									onChange={(e) => {
 										setLoginPassword(e.target.value)
@@ -637,18 +642,18 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 									required
 									disabled={isSubmitting}
 								/>
-								<Button
-									type="button"
-									variant="ghost"
-									size="icon-xs"
-									onClick={() => setShowPassword(!showPassword)}
-									className="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-									aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
-								>
-									{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-								</Button>
-							</div>
-							{passwordError && <FieldError>{passwordError}</FieldError>}
+								<InputGroupAddon align="inline-end">
+									<InputGroupButton
+										variant="subtle"
+										size="icon-xs"
+										onClick={() => setShowPassword(!showPassword)}
+										aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+									>
+										{showPassword ? <EyeOff /> : <Eye />}
+									</InputGroupButton>
+								</InputGroupAddon>
+							</InputGroup>
+							{passwordError && <FieldError id="password-error">{passwordError}</FieldError>}
 						</Field>
 
 						<div className="flex items-center justify-between">
@@ -662,7 +667,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 								/>
 								Lembrar e-mail
 							</label>
-							<Button type="button" onClick={goToForgot} variant="link" className="h-auto p-0 text-caption text-tech-blue">
+							<Button type="button" onClick={goToForgot} variant="link" className="h-auto p-0 text-tech-blue">
 								Esqueceu a senha?
 							</Button>
 						</div>
@@ -682,12 +687,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 
 				<p className="text-center text-caption text-muted-foreground">
 					{isRegister ? "Já tem uma conta? " : "Não tem uma conta? "}
-					<Button
-						type="button"
-						onClick={() => switchTab(isRegister ? "login" : "register")}
-						variant="link"
-						className="h-auto p-0 font-semibold text-foreground"
-					>
+					<Button type="button" onClick={() => switchTab(isRegister ? "login" : "register")} variant="link" className="h-auto p-0 text-foreground">
 						{isRegister ? "Entrar" : "Cadastre-se"}
 					</Button>
 				</p>

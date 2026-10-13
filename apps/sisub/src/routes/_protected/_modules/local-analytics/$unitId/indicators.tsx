@@ -29,7 +29,6 @@ function LocalIndicatorsPage() {
 								onClick={() => window.open(powerBiUrl, "_blank", "noopener,noreferrer")}
 								variant="outline"
 								size="sm"
-								className="gap-2"
 								aria-label="Abrir relatório em nova aba"
 							>
 								<ExternalLink className="size-4" aria-hidden="true" />
@@ -40,14 +39,7 @@ function LocalIndicatorsPage() {
 					<TooltipContent>Abrir em nova aba</TooltipContent>
 				</Tooltip>
 
-				<Button
-					onClick={() => setExpanded((e) => !e)}
-					variant="outline"
-					size="sm"
-					className="gap-2"
-					aria-pressed={expanded}
-					aria-label={expanded ? "Reduzir" : "Expandir"}
-				>
+				<Button onClick={() => setExpanded((e) => !e)} variant="outline" size="sm" aria-pressed={expanded} aria-label={expanded ? "Reduzir" : "Expandir"}>
 					<Maximize2 className="size-4" aria-hidden="true" />
 					{expanded ? "Reduzir" : "Expandir"}
 				</Button>

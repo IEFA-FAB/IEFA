@@ -1,4 +1,4 @@
-import { Link, useNavigate, useRouterState } from "@tanstack/react-router"
+import { Link, useLocation, useNavigate } from "@tanstack/react-router"
 import { ShieldAlert, X } from "lucide-react"
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
@@ -47,7 +47,7 @@ const dismissedDeadlineByUser = new Map<string, string>()
 export function MfaMandateNotice() {
 	const { user } = useAuth()
 	const navigate = useNavigate()
-	const pathname = useRouterState({ select: (state) => state.location.pathname })
+	const pathname = useLocation({ select: (location) => location.pathname })
 
 	const phase = mfaMandatePhase(new Date())
 	// Sem prazo anunciado, a consulta NÃO roda: o painel de MFA custa uma ida ao GoTrue por

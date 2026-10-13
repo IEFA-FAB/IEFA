@@ -1,4 +1,4 @@
-import { useRouterState } from "@tanstack/react-router"
+import { useLocation } from "@tanstack/react-router"
 import { BookOpen } from "lucide-react"
 import type React from "react"
 import { Badge } from "#/components/ui/badge"
@@ -39,7 +39,7 @@ interface RacReferenceProps {
 }
 
 export function RacReference({ statement, objective, risk, importance, children }: RacReferenceProps) {
-	const pathname = useRouterState({ select: (s) => s.location.pathname })
+	const pathname = useLocation({ select: (location) => location.pathname })
 	const tool = findToolByPath(sucontTools, pathname)
 	// A MESMA função da pílula do `PageHeader`: se a regra de rótulo mudar, muda nos dois.
 	const scope = toolScopeLabel(tool)

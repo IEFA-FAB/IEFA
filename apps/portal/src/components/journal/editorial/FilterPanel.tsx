@@ -83,7 +83,7 @@ export function FilterPanel({ onFilterChange, currentFilters }: FilterPanelProps
 			<div className="flex items-center justify-between">
 				<h3 className="font-semibold text-lg">Filtros</h3>
 				{hasActiveFilters && (
-					<Button variant="ghost" size="sm" onClick={clearAllFilters} className="text-muted-foreground hover:text-foreground">
+					<Button variant="ghost" size="sm" onClick={clearAllFilters} className="text-muted-foreground">
 						<Xmark className="size-4 mr-1" />
 						Limpar
 					</Button>
@@ -109,7 +109,7 @@ export function FilterPanel({ onFilterChange, currentFilters }: FilterPanelProps
 								type="checkbox"
 								checked={localFilters.status.includes(option.value)}
 								onChange={() => toggleStatus(option.value)}
-								className="size-4 rounded border-gray-300"
+								className="size-4 rounded border-input"
 							/>
 							<span className="text-sm">{option.label}</span>
 						</label>
@@ -127,7 +127,7 @@ export function FilterPanel({ onFilterChange, currentFilters }: FilterPanelProps
 								type="checkbox"
 								checked={localFilters.articleType.includes(option.value)}
 								onChange={() => toggleArticleType(option.value)}
-								className="size-4 rounded border-gray-300"
+								className="size-4 rounded border-input"
 							/>
 							<span className="text-sm">{option.label}</span>
 						</label>

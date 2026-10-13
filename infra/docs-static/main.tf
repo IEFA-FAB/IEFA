@@ -21,7 +21,7 @@
 # Doing 5 only after 4 keeps the cutover free of downtime.
 
 terraform {
-  required_version = ">= 1.10.0"
+  required_version = ">= 1.16.0"
 
   required_providers {
     aws = {

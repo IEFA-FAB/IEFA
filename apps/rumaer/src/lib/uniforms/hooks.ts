@@ -4,7 +4,7 @@
 
 import { queryOptions } from "@tanstack/react-query"
 import { listAllVariantsFn } from "@/server/admin.fn"
-import { getMyMilitaryProfileFn } from "@/server/military.fn"
+import { getMyMilitaryProfileFn, getMySaramLinkStatusFn } from "@/server/military.fn"
 import { listPieceItemsFn } from "@/server/pieceItems.fn"
 import { listPiecesFn } from "@/server/pieces.fn"
 import { getSignedImageUrlFn, getUniformPreviewImagesFn } from "@/server/storage.fn"
@@ -54,6 +54,13 @@ export const militaryProfileQueryOptions = () =>
 	queryOptions({
 		queryKey: ["rumaer", "military-profile"],
 		queryFn: () => getMyMilitaryProfileFn(),
+		staleTime: 1000 * 60 * 5,
+	})
+
+export const saramLinkStatusQueryOptions = () =>
+	queryOptions({
+		queryKey: ["rumaer", "saram-link-status"],
+		queryFn: () => getMySaramLinkStatusFn(),
 		staleTime: 1000 * 60 * 5,
 	})
 

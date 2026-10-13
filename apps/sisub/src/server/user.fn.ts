@@ -27,9 +27,7 @@ import {
 	fetchMilitaryData,
 	fetchSisubUserData,
 	fetchVisibleSaram,
-	SyncUserSaramSchema,
 	syncUserEmail,
-	syncUserSaram,
 } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { requireUser, requireUserId } from "@/lib/auth.server"
@@ -79,21 +77,6 @@ export const fetchUserSaramFn = createServerFn({ method: "GET" })
 	.handler(async () => {
 		const userId = await requireUserId()
 		return fetchVisibleSaram(getDb(), { userId }).catch(handleDomainError)
-	})
-
-/**
- * `saram` vem do formulário (input legítimo do usuário); `userId`/`email`/e-mail confirmado, da
- * sessão. O número só vincula se for o candidato da chave do e-mail; senão vira pedido para o
- * administrador (`core.claim_saram`, a mesma regra do sucont). Devolve `{ outcome, status }`, ou
- * `null` para SARAM vazio (nada a vincular).
- */
-export const syncUserSaramFn = createServerFn({ method: "POST" })
-	.validator(SyncUserSaramSchema)
-	.handler(async ({ data }) => {
-		const user = await requireUser()
-		return syncUserSaram(getDb(), { userId: user.id, email: user.email ?? "", saram: data.saram, emailConfirmed: Boolean(user.email_confirmed_at) }).catch(
-			handleDomainError
-		)
 	})
 
 /** Sem validator: ambos os campos vêm do JWT — o corpo enviado pelo cliente é irrelevante. */

@@ -260,7 +260,7 @@ function RespondPage() {
 							<h1 className="text-2xl font-semibold tracking-tight">{questionnaire.title}</h1>
 							{questionnaire.description && <p className="text-sm text-muted-foreground">{questionnaire.description}</p>}
 						</div>
-						<Badge variant="secondary" className="text-xs shrink-0">
+						<Badge variant="secondary" className="shrink-0">
 							{saveStatus === "saving" && "Salvando..."}
 							{saveStatus === "saved" && "Salvo"}
 							{saveStatus === "error" && "Erro ao salvar"}

@@ -106,3 +106,12 @@ export const SetUserAccountKindSchema = z.object({
 	reason: ReasonSchema,
 })
 export type SetUserAccountKind = z.infer<typeof SetUserAccountKindSchema>
+
+/**
+ * Busca de conta no console (admin:2): parte do e-mail, nome de guerra ou o SARAM inteiro. Lê só o
+ * que a fila já mostra (e-mail, SARAM, como foi verificado, posto/nome de guerra/OM).
+ */
+export const SearchSaramAccountsSchema = z.object({
+	query: z.string().trim().min(3, "Digite ao menos 3 caracteres.").max(120, "Busca longa demais."),
+})
+export type SearchSaramAccounts = z.infer<typeof SearchSaramAccountsSchema>

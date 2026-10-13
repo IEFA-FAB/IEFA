@@ -3,8 +3,8 @@ import type { Person } from "@iefa/database/assignment-selection"
 /**
  * A OM escolhida só é pública depois do anúncio.
  *
- * O controlador grava `localidade`/`estado` ao "armar" a OM (a função do banco já trava a
- * vaga nesse instante) e só depois liga `show_om`, a revelação no telão. Entre os dois
+ * O controlador grava `localidade`/`estado` ao "armar" a OM (pela função do banco, que só
+ * confere se a OM é do quadro da edição) e só depois liga `show_om`, a revelação no telão. Entre os dois
  * passos a escolha existe no banco, mas a plateia ainda não pode saber. Depois de anunciada
  * (`show_om`) ou confirmada (`hide_card`: o rosto vai para o mapa, com a OM), ela é pública.
  *

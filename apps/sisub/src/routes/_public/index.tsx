@@ -237,7 +237,7 @@ function Home() {
 						<Button
 							nativeButton={false}
 							render={
-								<Link to="/auth" className="flex items-center gap-2">
+								<Link to="/auth" className="flex items-center">
 									Entrar
 									<ChevronRight className="size-4" />
 								</Link>
@@ -384,7 +384,7 @@ function Home() {
 						<Button
 							nativeButton={false}
 							render={
-								<Link to="/auth" className="flex items-center gap-2">
+								<Link to="/auth" className="flex items-center">
 									Entrar
 									<ChevronRight className="size-4" />
 								</Link>

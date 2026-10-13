@@ -1,13 +1,15 @@
+import type { Person } from "@iefa/database/assignment-selection"
+
 /**
  * Separa a alteração de um militar em duas partes:
  *
- * - **choice**: `localidade`, `estado`, `hide_card` — o que consome vaga. Vai pela
- *   função `assignment_selection.apply_person_choice`, que trava a vaga e confere o
- *   teto (`total_vagas`) e se a OM pertence à edição, tudo numa transação.
+ * - **choice**: `localidade`, `estado`, `hide_card` — a escolha. Vai pela função
+ *   `assignment_selection.apply_person_choice`, que trava o militar e confere se a OM
+ *   pertence ao quadro da edição, numa transação. Não há teto de vagas: a escolha é
+ *   preenchida antes do evento e pode mudar na hora (`20261011120000`).
  * - **rest**: o resto (classificação, nome, flags de telão) — update comum.
  *
- * Um update direto de `localidade`/`hide_card` pula o teto: foi assim que uma OM podia
- * terminar com mais confirmados do que vagas.
+ * Um update direto de `localidade`/`hide_card` pularia a checagem de OM da edição.
  */
 export const CHOICE_KEYS = ["localidade", "estado", "hide_card"] as const
 
@@ -27,4 +29,69 @@ export function splitPersonChanges<T extends Record<string, unknown>>(changes: T
 		hasChoice: Object.keys(choice).length > 0,
 		hasRest: Object.keys(rest).length > 0,
 	}
+}
+
+/**
+ * O que a tela viu do militar quando o operador agiu: as flags de telão e a OM.
+ *
+ * Vai junto de toda escrita da condução (chamar, revelar, confirmar, desfazer, trocar a
+ * OM) e o servidor só grava se a linha ainda estiver assim, na mesma instrução (update
+ * condicional) ou na mesma transação (`apply_person_choice` com `p_expected`). Sem isso,
+ * com dois controles abertos, a tela que ficou para trás sobrescreve o passo do outro.
+ */
+export const EXPECTED_KEYS = ["localidade", "show_card", "show_om", "hide_card"] as const
+
+export type ExpectedState = Partial<Pick<Person, (typeof EXPECTED_KEYS)[number]>>
+
+export function expectedState(person: Pick<Person, (typeof EXPECTED_KEYS)[number]>): Required<ExpectedState> {
+	return { localidade: person.localidade, show_card: person.show_card, show_om: person.show_om, hide_card: person.hide_card }
+}
+
+/**
+ * Correção manual (tabela de flags): confere só as flags que a escrita muda, com o valor
+ * que a caixa mostrava. Nome e classificação não entram: não são estado do telão.
+ */
+export function expectedForChanges(person: Pick<Person, "show_card" | "show_om" | "hide_card">, changes: Record<string, unknown>): ExpectedState | undefined {
+	const expected: ExpectedState = {}
+	for (const key of ["show_card", "show_om", "hide_card"] as const) {
+		if (changes[key] !== undefined) expected[key] = person[key]
+	}
+	return Object.keys(expected).length > 0 ? expected : undefined
+}
+
+export const STALE_SCREEN_MESSAGE = "O telão mudou em outro controle; a tela foi atualizada."
+
+/**
+ * Filtros PostgREST que conferem o estado esperado. `eq` não casa NULL (`localidade` sem
+ * OM): esse caso vira `is null`.
+ */
+export function expectedFilters(expected: ExpectedState): { column: keyof ExpectedState; op: "eq" | "is"; value: string | boolean | null }[] {
+	return EXPECTED_KEYS.filter((key) => expected[key] !== undefined).map((key) => {
+		const value = expected[key] as string | boolean | null
+		return { column: key, op: value === null ? "is" : "eq", value }
+	})
+}
+
+/** `serialization_failure`: a função do banco achou a linha diferente do `p_expected`. */
+export const SERIALIZATION_FAILURE = "40001"
+
+/** Mensagem de erro das RPCs da condução: a recusa por tela velha vira a frase do operador. */
+export function conductErrorMessage(error: { message: string; code?: string }): string {
+	return error.code === SERIALIZATION_FAILURE ? STALE_SCREEN_MESSAGE : error.message
+}
+
+export interface CallPersonRpcArgs {
+	p_edition_id: string
+	p_person_id: number
+	p_expected: ExpectedState | null
+}
+
+/** Argumentos de `assignment_selection.call_person` a partir do pedido do controle. */
+export function callPersonRpcArgs(data: { editionId: string; personId: number; expected?: ExpectedState }): CallPersonRpcArgs {
+	return { p_edition_id: data.editionId, p_person_id: data.personId, p_expected: data.expected ?? null }
+}
+
+/** Pedido de chamada que o controle manda: o militar e tudo o que a tela viu dele. */
+export function callRequest(editionId: string, person: Pick<Person, "id" | (typeof EXPECTED_KEYS)[number]>) {
+	return { editionId, personId: person.id, expected: expectedState(person) }
 }

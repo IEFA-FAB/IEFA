@@ -35,6 +35,7 @@ function EventEditorPage() {
 			editContext={editContext}
 			listLink={{ to: "/kitchen/$kitchenId/events", params: { kitchenId } }}
 			editorLink={(id) => ({ to: "/kitchen/$kitchenId/events/$eventId", params: { kitchenId, eventId: id } })}
+			printLink={(id) => ({ to: "/kitchen/$kitchenId/events/print/$eventId", params: { kitchenId, eventId: id } })}
 		/>
 	)
 }

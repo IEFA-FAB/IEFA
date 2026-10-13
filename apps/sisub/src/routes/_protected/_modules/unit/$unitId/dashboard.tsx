@@ -135,7 +135,7 @@ function UnitDashboardPage() {
 						{completedQuantityEstimates.map((quantityEstimate) => (
 							<Card key={quantityEstimate.id} className="hover:border-primary/30 transition-colors">
 								<CardHeader className="pb-2 pt-4">
-									<CardTitle className="text-sm flex items-start gap-2">
+									<CardTitle className="flex items-start gap-2">
 										<FileText className="size-4 text-muted-foreground shrink-0 mt-0.5" />
 										<span className="line-clamp-2 leading-snug">{quantityEstimate.title}</span>
 									</CardTitle>
@@ -181,7 +181,7 @@ function UnitDashboardPage() {
 				<div className="flex items-center gap-3">
 					<SectionTitle>Itens com saldo crítico nas ARPs</SectionTitle>
 					{lowBalanceItems.length > 0 && (
-						<Badge variant="secondary" className="text-xs">
+						<Badge variant="secondary">
 							{lowBalanceItems.length} {lowBalanceItems.length === 1 ? "item" : "itens"}
 						</Badge>
 					)}
@@ -195,7 +195,7 @@ function UnitDashboardPage() {
 				<div className="flex items-center gap-3">
 					<SectionTitle>Críticos no cardápio de produção</SectionTitle>
 					{criticalMenuItems.length > 0 && (
-						<Badge variant="destructive" className="text-xs">
+						<Badge variant="destructive">
 							{criticalMenuItems.length} {criticalMenuItems.length === 1 ? "alerta" : "alertas"}
 						</Badge>
 					)}

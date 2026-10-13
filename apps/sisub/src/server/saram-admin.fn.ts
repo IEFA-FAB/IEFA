@@ -21,7 +21,10 @@ import {
 	listSaramReviewQueue,
 	type SaramAdminResult,
 	type SaramReviewQueue,
+	type SaramSearchAccount,
+	SearchSaramAccountsSchema,
 	SetUserAccountKindSchema,
+	searchSaramAccounts,
 	setUserAccountKind,
 	UnlinkUserSaramSchema,
 	unlinkUserSaram,
@@ -33,12 +36,20 @@ import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
 import { enforcedAssuranceFor } from "@/server/assurance-registry"
 
-export type { SaramAdminResult, SaramReviewQueue }
+export type { SaramAdminResult, SaramReviewQueue, SaramSearchAccount }
 
 export const fetchSaramReviewQueueFn = createServerFn({ method: "GET" }).handler(async (): Promise<SaramReviewQueue> => {
 	const ctx = await requireAuthWithPermission("admin", 2)
 	return listSaramReviewQueue(getDb(), ctx).catch(handleDomainError)
 })
+
+/** Busca de qualquer conta (e-mail, nome de guerra ou SARAM) para agir fora das filas. Só leitura. */
+export const searchSaramAccountsFn = createServerFn({ method: "GET" })
+	.validator(SearchSaramAccountsSchema)
+	.handler(async ({ data }): Promise<SaramSearchAccount[]> => {
+		const ctx = await requireAuthWithPermission("admin", 2)
+		return searchSaramAccounts(getDb(), ctx, data).catch(handleDomainError)
+	})
 
 export const decideSaramRequestFn = createServerFn({ method: "POST" })
 	.validator(DecideSaramRequestSchema)

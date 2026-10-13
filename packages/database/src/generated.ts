@@ -1794,7 +1794,28 @@ export type Database = {
     }
     Functions: {
       apply_person_choice: {
-        Args: { p_changes: Json; p_person_id: number }
+        Args: { p_changes: Json; p_expected?: Json; p_person_id: number }
+        Returns: {
+          classificacao: number
+          created_at: string
+          edition_id: string
+          estado: string | null
+          hide_card: boolean
+          id: number
+          localidade: string | null
+          nome: string
+          show_card: boolean
+          show_om: boolean
+        }
+        SetofOptions: {
+          from: "*"
+          to: "person"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      call_person: {
+        Args: { p_edition_id: string; p_expected?: Json; p_person_id: number }
         Returns: {
           classificacao: number
           created_at: string
@@ -10081,6 +10102,7 @@ export type Database = {
           deleted_at: string | null
           description: string | null
           expected_monthly_occurrences: number | null
+          folder_id: string | null
           id: string
           kitchen_id: number | null
           name: string | null
@@ -10100,6 +10122,7 @@ export type Database = {
           deleted_at?: string | null
           description?: string | null
           expected_monthly_occurrences?: number | null
+          folder_id?: string | null
           id?: string
           kitchen_id?: number | null
           name?: string | null
@@ -10119,6 +10142,7 @@ export type Database = {
           deleted_at?: string | null
           description?: string | null
           expected_monthly_occurrences?: number | null
+          folder_id?: string | null
           id?: string
           kitchen_id?: number | null
           name?: string | null
@@ -10141,6 +10165,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "menu_template_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "menu_template_folder"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "menu_template_kitchen_id_fkey"
             columns: ["kitchen_id"]
             isOneToOne: false
@@ -10159,6 +10190,7 @@ export type Database = {
           menu_template_id: string
           name: string
           sort_order: number
+          source_template_id: string | null
         }
         Insert: {
           base_headcount?: number | null
@@ -10169,6 +10201,7 @@ export type Database = {
           menu_template_id: string
           name: string
           sort_order?: number
+          source_template_id?: string | null
         }
         Update: {
           base_headcount?: number | null
@@ -10179,6 +10212,7 @@ export type Database = {
           menu_template_id?: string
           name?: string
           sort_order?: number
+          source_template_id?: string | null
         }
         Relationships: [
           {
@@ -10193,6 +10227,54 @@ export type Database = {
             columns: ["menu_template_id"]
             isOneToOne: false
             referencedRelation: "menu_template"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "menu_template_event_meal_source_template_id_fkey"
+            columns: ["source_template_id"]
+            isOneToOne: false
+            referencedRelation: "menu_template"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      menu_template_folder: {
+        Row: {
+          created_at: string
+          deleted_at: string | null
+          description: string | null
+          id: string
+          name: string
+          parent_id: string | null
+          sort_order: number
+          template_type: string
+        }
+        Insert: {
+          created_at?: string
+          deleted_at?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          parent_id?: string | null
+          sort_order?: number
+          template_type: string
+        }
+        Update: {
+          created_at?: string
+          deleted_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          parent_id?: string | null
+          sort_order?: number
+          template_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "menu_template_folder_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "menu_template_folder"
             referencedColumns: ["id"]
           },
         ]

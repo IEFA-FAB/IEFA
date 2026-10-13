@@ -66,7 +66,9 @@ export const ChartWrapper: React.FC<ChartWrapperProps> = ({
 		})
 	}, [allData, localMonth, hierarchyFilter, localGroup, hierarchyLevel, localRisk])
 
-	const Controls = () => (
+	// JSX, não componente: um componente definido no render seria um tipo novo a cada render, e o
+	// Select remontaria (o foco do teclado cairia no `<body>` a cada escolha).
+	const controls = (
 		<div className="flex flex-wrap items-center gap-2 mt-2 sm:mt-0">
 			<div className="relative">
 				<Select
@@ -74,9 +76,7 @@ export const ChartWrapper: React.FC<ChartWrapperProps> = ({
 					value={localGroup}
 					onValueChange={(v) => setLocalGroup(v ?? "ALL")}
 				>
-					<SelectTrigger
-						className={`data-[size=default]:h-auto pl-3 pr-2 py-1 rounded text-caption border shadow-none focus-visible:ring-2 focus-visible:ring-ring bg-muted/50 border-border text-foreground`}
-					>
+					<SelectTrigger size="sm" aria-label="Grupo de contas">
 						<SelectValue />
 					</SelectTrigger>
 					<SelectContent>
@@ -95,9 +95,7 @@ export const ChartWrapper: React.FC<ChartWrapperProps> = ({
 						value={localMonth}
 						onValueChange={(v) => setLocalMonth(v ?? "TODOS")}
 					>
-						<SelectTrigger
-							className={`data-[size=default]:h-auto pl-3 pr-2 py-1 rounded text-caption border shadow-none focus-visible:ring-2 focus-visible:ring-ring bg-muted/50 border-border text-foreground`}
-						>
+						<SelectTrigger size="sm" aria-label="Mês">
 							<SelectValue />
 						</SelectTrigger>
 						<SelectContent>
@@ -126,9 +124,7 @@ export const ChartWrapper: React.FC<ChartWrapperProps> = ({
 							value={localRisk}
 							onValueChange={(v) => setLocalRisk(v ?? "TODOS")}
 						>
-							<SelectTrigger
-								className={`data-[size=default]:h-auto pl-3 pr-2 py-1 rounded text-caption border shadow-none focus-visible:ring-2 focus-visible:ring-ring bg-muted/50 border-border text-foreground`}
-							>
+							<SelectTrigger size="sm" aria-label="Nível de risco">
 								<SelectValue />
 							</SelectTrigger>
 							<SelectContent>
@@ -185,13 +181,7 @@ export const ChartWrapper: React.FC<ChartWrapperProps> = ({
 			<Tooltip>
 				<TooltipTrigger
 					render={
-						<Button
-							variant="ghost"
-							size="icon-sm"
-							onClick={() => setIsExpanded(!isExpanded)}
-							className="text-muted-foreground"
-							aria-label={isExpanded ? "Minimizar" : "Expandir"}
-						>
+						<Button variant="subtle" size="icon-sm" onClick={() => setIsExpanded(!isExpanded)} aria-label={isExpanded ? "Minimizar" : "Expandir"}>
 							{isExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
 						</Button>
 					}
@@ -223,7 +213,7 @@ export const ChartWrapper: React.FC<ChartWrapperProps> = ({
 				<div className={`flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2 flex-shrink-0 ${isExpanded ? "border-b pb-4" : ""}`}>
 					<h2 className={cn("text-foreground", isExpanded ? "text-display" : "text-heading")}>{title}</h2>
 					<div className="flex items-center gap-4">
-						<Controls />
+						{controls}
 						{isExpanded && (
 							<Button
 								variant="ghost"

@@ -155,7 +155,7 @@ function ChallengePage() {
 									className="w-full"
 									nativeButton={false}
 									render={
-										<Link to="/auth/recovery-code" className="gap-1.5">
+										<Link to="/auth/recovery-code">
 											<LifeBuoy className="size-3.5" aria-hidden />
 											Perdi o aparelho: usar um código de recuperação
 										</Link>

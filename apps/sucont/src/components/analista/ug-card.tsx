@@ -1,5 +1,5 @@
 import { Copy } from "lucide-react"
-import { useState } from "react"
+import { useId, useState } from "react"
 import { EditableMessage } from "#/components/editable-message"
 import { Badge } from "#/components/ui/badge"
 import { Button } from "#/components/ui/button"
@@ -37,6 +37,8 @@ const formatDeadlineDate = (dateString: string) => {
 }
 
 export function UGCard({ group, type, activeRacFilter }: UGCardProps) {
+	// Um card por UG e mês na mesma tela: id fixo faria o rótulo do terceiro card focar o campo do primeiro.
+	const fieldId = useId()
 	const [msgNumber, setMsgNumber] = useState("")
 	const [sendDate, setSendDate] = useState(new Date().toISOString().split("T")[0])
 	const [messageType, setMessageType] = useState<"SEM_PRAZO" | "COM_PRAZO" | "ALERTA">("SEM_PRAZO")
@@ -177,7 +179,7 @@ export function UGCard({ group, type, activeRacFilter }: UGCardProps) {
 								onClick={() => navigator.clipboard.writeText(message.text)}
 								variant="outline"
 								size="xs"
-								className="gap-1 bg-card font-medium text-muted-foreground shadow-sm hover:text-foreground"
+								className="bg-card text-muted-foreground shadow-sm hover:text-foreground"
 							>
 								<Copy className="w-3 h-3" />
 								<span>Copiar</span>
@@ -186,32 +188,26 @@ export function UGCard({ group, type, activeRacFilter }: UGCardProps) {
 
 						<div className="grid grid-cols-2 gap-3 mb-4">
 							<div>
-								<label htmlFor="ug-msg-number" className="block text-caption text-foreground mb-1">
+								<label htmlFor={`${fieldId}-msg-number`} className="block text-caption text-foreground mb-1">
 									Nº da Mensagem
 								</label>
 								<Input
-									id="ug-msg-number"
+									id={`${fieldId}-msg-number`}
 									type="text"
 									value={msgNumber}
 									onChange={(e) => setMsgNumber(e.target.value)}
 									placeholder="Ex: 123"
-									className="h-auto w-full rounded border border-border bg-card px-2 py-1.5 text-body text-foreground shadow-none focus-visible:ring-ring focus:border-action dark:bg-card"
+									size="sm"
 								/>
 							</div>
 							<div>
-								<label htmlFor="ug-send-date" className="block text-caption text-foreground mb-1">
+								<label htmlFor={`${fieldId}-send-date`} className="block text-caption text-foreground mb-1">
 									Data de Envio
 								</label>
-								<Input
-									id="ug-send-date"
-									type="date"
-									value={sendDate}
-									onChange={(e) => setSendDate(e.target.value)}
-									className="h-auto w-full rounded border border-border bg-card px-2 py-1.5 text-body text-foreground shadow-none focus-visible:ring-ring focus:border-action dark:bg-card"
-								/>
+								<Input id={`${fieldId}-send-date`} type="date" value={sendDate} onChange={(e) => setSendDate(e.target.value)} size="sm" />
 							</div>
 							<div className="col-span-2">
-								<label htmlFor="ug-message-type" className="block text-caption text-foreground mb-1">
+								<label htmlFor={`${fieldId}-message-type`} className="block text-caption text-foreground mb-1">
 									Tipo de Mensagem
 								</label>
 								<Select
@@ -219,10 +215,7 @@ export function UGCard({ group, type, activeRacFilter }: UGCardProps) {
 									value={messageType}
 									onValueChange={(value) => setMessageType(value as "SEM_PRAZO" | "COM_PRAZO" | "ALERTA")}
 								>
-									<SelectTrigger
-										id="ug-message-type"
-										className="w-full text-body px-2 py-1.5 rounded border border-border bg-card text-foreground focus-visible:ring-ring focus-visible:border-action mb-2"
-									>
+									<SelectTrigger id={`${fieldId}-message-type`} size="sm" className="mb-2 w-full">
 										<SelectValue />
 									</SelectTrigger>
 									<SelectContent>
@@ -233,16 +226,10 @@ export function UGCard({ group, type, activeRacFilter }: UGCardProps) {
 								</Select>
 								{messageType === "COM_PRAZO" && (
 									<div className="mt-2">
-										<label htmlFor="ug-deadline-date" className="block text-caption text-foreground mb-1">
+										<label htmlFor={`${fieldId}-deadline-date`} className="block text-caption text-foreground mb-1">
 											Data Limite
 										</label>
-										<Input
-											id="ug-deadline-date"
-											type="date"
-											value={deadlineDate}
-											onChange={(e) => setDeadlineDate(e.target.value)}
-											className="h-auto w-full rounded border border-border bg-card px-2 py-1.5 text-body text-foreground shadow-none focus-visible:ring-ring focus:border-action dark:bg-card"
-										/>
+										<Input id={`${fieldId}-deadline-date`} type="date" value={deadlineDate} onChange={(e) => setDeadlineDate(e.target.value)} size="sm" />
 									</div>
 								)}
 							</div>

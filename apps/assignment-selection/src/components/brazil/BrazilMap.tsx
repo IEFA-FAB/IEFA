@@ -102,8 +102,8 @@ export function BrazilMap({
 						pathRefs.current[code] = el
 					}}
 					d={drawPath[code as keyof typeof drawPath]}
-					fill={selected === code ? selectColor : mapColor}
-					style={{ transition: "fill 150ms ease-out" }}
+					// `style`, não o atributo `fill`: as cores vêm como `var(--…)` do tema.
+					style={{ fill: selected === code ? selectColor : mapColor, transition: "fill 150ms ease-out" }}
 				/>
 			))}
 
@@ -134,7 +134,7 @@ export function BrazilMap({
 									<clipPath id={clip}>
 										<circle cx={x} cy={y} r={AVATAR_R} />
 									</clipPath>
-									<circle cx={x} cy={y} r={AVATAR_R + 1.6} fill="#0b1226" stroke="none" />
+									<circle cx={x} cy={y} r={AVATAR_R + 1.6} className="fill-stage" stroke="none" />
 									<image
 										href={`/pessoas/${encodeURIComponent(editionName)}/${p.classificacao}.jpg`}
 										x={x - AVATAR_R}
@@ -144,16 +144,16 @@ export function BrazilMap({
 										clipPath={`url(#${clip})`}
 										preserveAspectRatio="xMidYMid slice"
 									/>
-									<circle cx={x} cy={y} r={AVATAR_R} fill="none" stroke="#ffffff" strokeWidth={1.6} />
+									<circle cx={x} cy={y} r={AVATAR_R} fill="none" className="stroke-white" strokeWidth={1.6} />
 								</g>
 							)
 						})}
 						<g>
-							<rect x={c.cx - badgeW / 2} y={badgeY} width={badgeW} height={17} rx={8.5} fill="#0b1226" opacity={0.92} />
+							<rect x={c.cx - badgeW / 2} y={badgeY} width={badgeW} height={17} rx={8.5} className="fill-stage" opacity={0.92} />
 							<text
 								x={c.cx}
 								y={badgeY + 8.8}
-								fill="#ffffff"
+								className="fill-white"
 								fontSize={11}
 								fontWeight={600}
 								textAnchor="middle"

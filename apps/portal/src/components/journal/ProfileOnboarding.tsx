@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router"
 import { User, WarningCircle } from "iconoir-react"
+import { Alert, AlertDescription, AlertTitle } from "../ui/alert"
 import { Button } from "../ui/button"
 import { Card, CardContent, CardHeader } from "../ui/card"
 
@@ -17,16 +18,16 @@ export function ProfileOnboarding() {
 
 				<CardContent className="space-y-6">
 					{/* Info Alert */}
-					<div className="flex gap-3 p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-900">
-						<WarningCircle className="size-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" aria-hidden="true" />
-						<div className="space-y-1">
-							<h3 className="font-semibold text-blue-900 dark:text-blue-100">Por que preciso completar meu perfil?</h3>
-							<p className="text-sm text-blue-800 dark:text-blue-200">
-								O Sistema de Gestão de Publicações utiliza suas informações de perfil para identificar você como autor, revisor ou editor. Seus dados são
-								essenciais para a gestão adequada de artigos, revisões e publicações.
-							</p>
-						</div>
-					</div>
+					<Alert variant="info" role="note">
+						<WarningCircle className="size-5" aria-hidden="true" />
+						<AlertTitle>
+							<h3 className="text-base font-semibold">Por que preciso completar meu perfil?</h3>
+						</AlertTitle>
+						<AlertDescription>
+							O Sistema de Gestão de Publicações utiliza suas informações de perfil para identificar você como autor, revisor ou editor. Seus dados são
+							essenciais para a gestão adequada de artigos, revisões e publicações.
+						</AlertDescription>
+					</Alert>
 
 					{/* Required Information */}
 					<div>
