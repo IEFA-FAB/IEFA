@@ -17,6 +17,7 @@ import { requireStockLocation, type StockLocationTarget, PermissionDeniedError a
 import type { UserContext } from "@iefa/sisub-domain/types"
 import { setResponseStatus } from "@tanstack/react-start/server"
 import { requireAuthWithPermission } from "@/lib/auth.server"
+import { publicDbMessage } from "@/lib/db-error-message"
 import { getServerClient } from "@/lib/supabase.server"
 
 /** O local de estoque de uma cozinha: o id que o `inventory` usa, a OM e a própria cozinha. */
@@ -33,7 +34,7 @@ export async function resolveKitchenLocation(kitchenId: number): Promise<Kitchen
 		.eq("kitchen_id", kitchenId)
 		.is("deleted_at", null)
 		.maybeSingle()
-	if (error) throw new Error(`Falha ao ler o local de estoque da cozinha: ${error.message}`)
+	if (error) throw new Error(`Falha ao ler o local de estoque da cozinha: ${publicDbMessage(error)}`)
 	if (!data) throw new Error(`A cozinha ${kitchenId} não tem local de estoque.`)
 	return { id: data.id, unitId: data.unit_id, kitchenId: data.kitchen_id }
 }
@@ -64,7 +65,7 @@ export async function requireStockForKitchen(
 /** O local de estoque pelo id: OM e cozinha (nula se o local não é de cozinha). */
 export async function resolveStockLocation(locationId: number): Promise<KitchenStockLocation> {
 	const { data, error } = await getServerClient("inventory").from("stock_location").select("id, unit_id, kitchen_id").eq("id", locationId).maybeSingle()
-	if (error) throw new Error(`Falha ao ler o local de estoque: ${error.message}`)
+	if (error) throw new Error(`Falha ao ler o local de estoque: ${publicDbMessage(error)}`)
 	if (!data) throw new Error(`Local de estoque ${locationId} não encontrado.`)
 	return { id: data.id, unitId: data.unit_id, kitchenId: data.kitchen_id }
 }

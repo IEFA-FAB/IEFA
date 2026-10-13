@@ -33,7 +33,7 @@ export const NAV_MODULES: readonly NavModule[] = [
 		id: SISPROV_STOCK_MODULE,
 		label: SISPROV_MODULE_LABELS[SISPROV_STOCK_MODULE],
 		caption: "Estoque de toda classe",
-		description: "Locais de estoque que o seu acesso alcança (depósito, almoxarifado, rancho), com as classes que cada um guarda.",
+		description: "Locais de estoque que o seu acesso alcança (depósito, almoxarifado, cozinha), com as classes que cada um guarda.",
 		icon: PackageOpen,
 		basePath: "/stock",
 		minLevel: 1,

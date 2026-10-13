@@ -30,7 +30,7 @@ Legenda de fonte: OS = Ordem de Serviço do legado fab-provisao (fonte de requis
 | Cenário da previsão | DET risco "efetivo impreciso"; RF-03.3 | `scenario` ∈ `low` · `expected` · `high` | coluna | Cenário (mínimo, esperado, máximo) | não existia |
 | Estimativa por regressão do efetivo previsto | RF-03.5 | `intake_estimate`, `intake_model_version` | `<fardamento>.intake_estimate` | Estimativa | não existia |
 | Elo SISPROV na OM | DET §4 | módulo `sisprov-planning` | PBAC | Planejamento | perfil do RBAC |
-| Operador de estoque (almoxarifado, depósito, rancho) | design D3 | módulo `storage` | PBAC | Estoque | perfis do RBAC |
+| Operador de estoque (almoxarifado, depósito, cozinha) | design D3 | módulo `storage` | PBAC | Estoque | perfis do RBAC |
 | Demanda de renovação do efetivo existente | DET RN-04 | `renewal_demand` | calculada | Renovação | não existia |
 
 #### 3. Antropometria

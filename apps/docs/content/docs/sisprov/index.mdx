@@ -3,7 +3,7 @@ title: SISPROV
 description: O Sistema de Provisões — dono do estoque de toda classe no ERP. O que é, como está organizado no monorepo e o que ainda não faz.
 ---
 
-O **SISPROV** é o Sistema de Provisões: o dono do estoque do ERP, de **toda classe de suprimento**. A alimentação do SISUB é uma classe desse estoque; o fardamento gratuito do Projeto SIA (Convênio 001/IEFA/2025, IEFA × FCMF) é a primeira classe nova. No fundo é um sistema só; para o usuário, cada um vê o recorte do seu domínio: quem é do rancho continua vendo só alimentação, na tela do SISUB.
+O **SISPROV** é o Sistema de Provisões: o dono do estoque do ERP, de **toda classe de suprimento**. A alimentação do SISUB é uma classe desse estoque; o fardamento gratuito do Projeto SIA (Convênio 001/IEFA/2025, IEFA × FCMF) é a primeira classe nova. No fundo é um sistema só; para o usuário, cada um vê o recorte do seu domínio: quem é da cozinha continua vendo só alimentação, na tela do SISUB.
 
 O estoque vive no schema `inventory`: local de estoque, lote, movimento (ledger imutável), custo médio, contagem, ajuste, fechamento mensal e ordem de fornecimento. O que muda de uma classe para outra é de onde vem a necessidade:
 
@@ -27,7 +27,7 @@ Detalhe em [PBAC › Módulos](/docs/pbac/modulos).
 
 | Módulo | Quem | Escopo | Nível 1 | Nível 2 | Nível 3 |
 |---|---|---|---|---|---|
-| `storage` | Operador de estoque (depósito, almoxarifado, rancho) | cozinha, OM ou rede | consulta | opera: recebe, transfere, conta, distribui | gestão do local: aprova ajuste e contagem |
+| `storage` | Operador de estoque (depósito, almoxarifado, cozinha) | cozinha, OM ou rede | consulta | opera: recebe, transfere, conta, distribui | gestão do local: aprova ajuste e contagem |
 | `sisprov-planning` | Elo SISPROV na OM | OM | consulta a previsão e a adesão | informa e ajusta a previsão de incorporação | — |
 | `sisprov-admin` | SDAB | rede (ou OM, se delegada) | — | gestão sistêmica (enxovais, curvas, períodos, aprovação de OF, locais) | gerencia os grants |
 

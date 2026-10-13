@@ -27,7 +27,7 @@ Três perfis se repetem em quase todos os apps:
 | **portal** | Publicar e organizar conteúdo institucional; porta de entrada da suíte | O gestor publica sem fricção e o editor revisa sem ambiguidade visual |
 | **sucont** | Acompanhamento contábil da SUCONT-4 | O analista encontra a inconsistência antes do fechamento, não depois |
 | **rumaer** | Consultar a regulamentação de uniformes da FAB | A pergunta em linguagem natural devolve a prescrição certa, mesmo escrita errado |
-| **sisprov** | Ser o estoque de toda classe do ERP (o rancho vê a alimentação no sisub) e prover fardamento gratuito pelo efetivo previsto — enxoval por grupo, curva de tamanhos, OF, distribuição ao militar | A turma que ingressa encontra o fardamento no tamanho certo, e a previsão × o real pode ser medida |
+| **sisprov** | Ser o estoque de toda classe do ERP (a cozinha vê a alimentação no sisub) e prover fardamento gratuito pelo efetivo previsto — enxoval por grupo, curva de tamanhos, OF, distribuição ao militar | A turma que ingressa encontra o fardamento no tamanho certo, e a previsão × o real pode ser medida |
 | **forms** | Aplicar questionários e pesquisas internas | A pesquisa vai ao ar sem desenvolvedor no caminho |
 | **assignment-selection** | Conduzir a escolha de vagas (CPAINT) ao vivo | O telão e o controlador nunca discordam sobre a vaga que acabou de ser escolhida |
 | **api** | Expor alimentos, preços e rotinas de sincronização | O consumidor externo integra pela OpenAPI, sem pedir acesso ao banco |

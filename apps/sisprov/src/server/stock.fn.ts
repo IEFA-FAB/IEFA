@@ -1,7 +1,7 @@
 /**
  * @module stock.fn
  * Estoque do SISPROV: os locais que o grant `storage` do usuário alcança. O estoque é um só, de
- * toda classe (`inventory`); esta é a lente do SISPROV, e o sisub é a do rancho
+ * toda classe (`inventory`); esta é a lente do SISPROV, e o sisub é a da cozinha
  * (`openspec/changes/sisprov-foundation`, D3 e D14).
  *
  * Quem enxerga qual local é a mesma regra das operações (`requireStockLocation` do domínio):

@@ -1,7 +1,7 @@
 # SISPROV — Almoxarifado (OF recebida, estoque da OM, distribuição, troca e devolução)
 
 Hipóteses a verificar. O estoque é um só, de toda classe (`inventory`, dono SISPROV); este arquivo
-cobre os locais que não são rancho (almoxarifado da OM, depósito). O rancho continua em
+cobre os locais que não são de cozinha (almoxarifado da OM, depósito). A cozinha continua em
 `modules/estoque.md`. As telas do fardamento estão em fundação
 (`openspec/changes/sisprov-foundation`). Os casos abaixo vêm do legado (OS 11, 12, 19) e da análise
 do projeto, registrados antes das telas.
@@ -11,8 +11,8 @@ do projeto, registrados antes das telas.
 - **O sistema precisa:** dois grants (`storage` e `sisprov-planning`) na mesma OM; um não implica o outro.
 - **Cobertura:** `packages/sisprov-domain/src/guards/require-permission.test.ts › papéis são independentes na mesma OM`.
 
-### ALM-ACE-02 — "Sou do rancho e não quero ver fardamento"
-- **Realidade:** o encarregado do rancho tem `storage` na cozinha e abre o estoque no sisub.
+### ALM-ACE-02 — "Sou da cozinha e não quero ver fardamento"
+- **Realidade:** o encarregado da cozinha tem `storage` na cozinha e abre o estoque no sisub.
 - **O sistema precisa:** o local da cozinha só guarda alimentação e auxiliar; item de outra classe é recusado pelo banco, e a tela do sisub não oferece nada além do que o local guarda.
 - **Cobertura:** trava `inventory.stock_class_guard` (migration `inventory_multiclass`); teste de integração **LACUNA** até o apply.
 

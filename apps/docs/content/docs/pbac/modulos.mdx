@@ -194,10 +194,10 @@ O gestor de uma OM tem interesse e autoridade apenas sobre os dados da sua unida
 O estoque do SISPROV, de toda classe de suprimento: alimentação, auxiliar, fardamento. Um estoque só (`inventory`), com local, lote, movimento, custo médio, contagem, ajuste e fechamento mensal.
 
 ### Responsabilidade
-Operar os locais de estoque: receber, armazenar, transferir, contar, ajustar e distribuir. A classe que cada um vê sai do que o local guarda: o rancho guarda alimentação, o almoxarifado da OM guarda o que a OM recebe.
+Operar os locais de estoque: receber, armazenar, transferir, contar, ajustar e distribuir. A classe que cada um vê sai do que o local guarda: a cozinha guarda alimentação, o almoxarifado da OM guarda o que a OM recebe.
 
 ### Por que funciona assim
-O módulo nasceu no sisub e mudou de dono, não de nome, quando o SISPROV passou a ser dono de todo estoque (13/10/2026). Um módulo só evita dois almoxarifes governados por regras diferentes sobre o mesmo saldo. O grant por cozinha continua sendo concedido no sisub e abre as telas `/storage/$kitchenId`; o grant por OM é concedido no SISPROV e alcança todos os locais da OM e das apoiadas, inclusive o rancho. Deny na cozinha, na OM ou numa apoiadora da cadeia vence o allow.
+O módulo nasceu no sisub e mudou de dono, não de nome, quando o SISPROV passou a ser dono de todo estoque (13/10/2026). Um módulo só evita dois almoxarifes governados por regras diferentes sobre o mesmo saldo. O grant por cozinha continua sendo concedido no sisub e abre as telas `/storage/$kitchenId`; o grant por OM é concedido no SISPROV e alcança todos os locais da OM e das apoiadas, inclusive a cozinha. Deny na cozinha, na OM ou numa apoiadora da cadeia vence o allow.
 
 ### Quem acessa
 
@@ -291,7 +291,7 @@ Operador de estoque e elo são papéis distintos na mesma OM, com o mesmo nível
 | Módulo | Escopo | Quem acessa |
 |--------|--------|-------------|
 | `diner` | — | Todos os usuários (injetado automaticamente) |
-| `messhall` | `mess_hall_id` | Operadores de refeitório e Fiscais de rancho |
+| `messhall` | `mess_hall_id` | Operadores de refeitório e Fiscais de cozinha |
 | `unit` | `unit_id` | Gestores da unidade militar |
 | `kitchen` | `kitchen_id` | Chefes de cozinha e gestores de alimentação |
 | `kitchen-production` | `kitchen_id` | Cozinheiros e auxiliares de produção |

@@ -79,24 +79,24 @@ describe("requireSisprovAdmin", () => {
 })
 
 describe("requireStockLocation: o storage num local de estoque", () => {
-	const RANCHO_IAE = { id: 7, unitId: IAE, kitchenId: 920 }
+	const KITCHEN_IAE = { id: 7, unitId: IAE, kitchenId: 920 }
 	const ALMOX_IAE = { id: 8, unitId: IAE, kitchenId: null }
 
 	test("o grant da cozinha abre só o local da cozinha", () => {
-		const rancheiro = ctx(kitchenGrant(3, 920))
-		expect(() => requireStockLocation(rancheiro, 3, RANCHO_IAE, GRAPH)).not.toThrow()
-		expect(() => requireStockLocation(rancheiro, 1, ALMOX_IAE, GRAPH)).toThrow(PermissionDeniedError)
+		const kitchenOperator = ctx(kitchenGrant(3, 920))
+		expect(() => requireStockLocation(kitchenOperator, 3, KITCHEN_IAE, GRAPH)).not.toThrow()
+		expect(() => requireStockLocation(kitchenOperator, 1, ALMOX_IAE, GRAPH)).toThrow(PermissionDeniedError)
 	})
 
-	test("o grant da OM apoiadora abre o almoxarifado e o rancho da apoiada", () => {
+	test("o grant da OM apoiadora abre o almoxarifado e a cozinha da apoiada", () => {
 		const almoxarife = ctx(grant("storage", 2, GAP_SJ))
 		expect(() => requireStockLocation(almoxarife, 2, ALMOX_IAE, GRAPH)).not.toThrow()
-		expect(() => requireStockLocation(almoxarife, 2, RANCHO_IAE, GRAPH)).not.toThrow()
+		expect(() => requireStockLocation(almoxarife, 2, KITCHEN_IAE, GRAPH)).not.toThrow()
 		expect(() => requireStockLocation(almoxarife, 3, ALMOX_IAE, GRAPH)).toThrow(PermissionDeniedError)
 	})
 
 	test("deny na cozinha ou na OM vence o allow", () => {
-		expect(() => requireStockLocation(ctx(grant("storage", 2), kitchenGrant(0, 920)), 1, RANCHO_IAE, GRAPH)).toThrow(PermissionDeniedError)
+		expect(() => requireStockLocation(ctx(grant("storage", 2), kitchenGrant(0, 920)), 1, KITCHEN_IAE, GRAPH)).toThrow(PermissionDeniedError)
 		expect(() => requireStockLocation(ctx(grant("storage", 2, GAP_SJ), grant("storage", 0, IAE)), 1, ALMOX_IAE, GRAPH)).toThrow(PermissionDeniedError)
 	})
 

@@ -1,7 +1,7 @@
 /**
  * @module stock-item.server
  * O `inventory` identifica o item por `item_id` (→ `core.item`), de qualquer classe. A tela do
- * rancho fala a língua da alimentação: insumo (`kitchen.ingredient`) ou preparação congelada
+ * cozinha fala a língua da alimentação: insumo (`kitchen.ingredient`) ou preparação congelada
  * (`kitchen.frozen_preparation`), que são subtipos de `core.item` com a MESMA chave. Este módulo
  * faz a tradução na fronteira da server function, nos dois sentidos, para a UI do sisub não
  * precisar saber que o estoque é multiclasse.
@@ -10,7 +10,7 @@
 import { readAllPagesIn } from "@/lib/read-all-pages"
 import { getServerClient } from "@/lib/supabase.server"
 
-/** O item como a tela do rancho o identifica: um dos dois preenchido. */
+/** O item como a tela da cozinha o identifica: um dos dois preenchido. */
 export type FoodItemRef = { ingredientId: string | null; frozenPreparationId: string | null }
 
 /** `item_id` do estoque a partir do par da tela. */

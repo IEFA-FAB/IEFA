@@ -83,7 +83,7 @@ function AuthSync() {
 }
 
 function RootDocument() {
-	const isLoading = useRouterState({ select: (s) => s.isLoading })
+	const isLoading = useRouterState({ select: (s): boolean => s.isLoading })
 	// Lido no render: no servidor vem do cookie da requisição, no cliente do document.cookie.
 	// Mesmo valor dos dois lados, então o <html> hidrata sem divergir.
 	const theme = readThemePreference()

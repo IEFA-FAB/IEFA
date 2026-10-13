@@ -18,7 +18,7 @@
  * - local-analytics:     Análises da unidade — sisub, scoped by unit_id
  * - storage:             Estoque do SISPROV, de toda classe de suprimento (alimentação, auxiliar,
  *                          fardamento…). Escopado por cozinha (o local de estoque da cozinha: é o
- *                          grant que o sisub concede, lente do rancho), por OM (`unit_id`: todos os
+ *                          grant que o sisub concede, lente da cozinha), por OM (`unit_id`: todos os
  *                          locais da OM e das apoiadas, pela hierarquia de apoio) ou global.
  *                          level 1 = consultar; 2 = operar (receber, transferir, contar, distribuir);
  *                          3 = gestão do local (aprova ajuste e contagem, configura tolerâncias).

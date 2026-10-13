@@ -2,7 +2,7 @@
 
 O SISPROV (Sistema de Provisões) é o sistema que nasceu para o estoque. A frente do Projeto SIA (Convênio 001/IEFA/2025, IEFA × FCMF) que o originou é o fardamento gratuito: partir do efetivo previsto, aplicar o enxoval e a curva de tamanhos, descontar o estoque da rede e gerar a ordem de fornecimento. Mas o estoque não é do fardamento. A alimentação do sisub também tem estoque, e hoje ele está modelado como se fosse o único: todo item é ingrediente ou preparação congelada, todo local é uma cozinha.
 
-Decisão do mantenedor em 13/10/2026: **o SISPROV é dono de todo e qualquer estoque**, e o estoque do sisub é uma classe dele (alimentação). No fundo é um sistema só; para o usuário, cada um vê o recorte do seu domínio, e quem é do rancho continua vendo só alimentação, na tela do sisub. O estoque continua no schema `inventory`.
+Decisão do mantenedor em 13/10/2026: **o SISPROV é dono de todo e qualquer estoque**, e o estoque do sisub é uma classe dele (alimentação). No fundo é um sistema só; para o usuário, cada um vê o recorte do seu domínio, e quem é da cozinha continua vendo só alimentação, na tela do sisub. O estoque continua no schema `inventory`.
 
 O momento é agora: o ledger está vazio em produção (piloto travado), então generalizar custa DDL e código, sem migração de dado contábil.
 
@@ -52,7 +52,7 @@ O legado (fab-provisao, 2013 a 2015) nunca entrou em produção e não está no 
 ## Não-objetivos
 
 - Telas de operação do fardamento (receber, distribuir, contar), catálogo, grupos de demanda, ficha de tamanhos, curva, integração SIGPES: changes próprios, nesta ordem.
-- Mover as telas de estoque do rancho para o app SISPROV: o rancho continua no sisub (decisão de 13/10/2026).
+- Mover as telas de estoque da cozinha para o app SISPROV: a cozinha continua no sisub (decisão de 13/10/2026).
 - Embalagem de item fora da alimentação: entra com o catálogo.
 - Operar o depósito central e a integração de NF do SIA: fora da v1, com gate à SDAB.
 - Portar código do legado.

@@ -470,7 +470,7 @@ export const fetchIssueRequestFn = createServerFn({ method: "GET" })
 		if (itemsError) throw new Error(`Erro ao carregar os itens do dia: ${publicDbMessage(itemsError)}`)
 		if (movementsError) throw new Error(`Erro ao carregar as saídas do dia: ${publicDbMessage(movementsError)}`)
 
-		// A requisição do rancho é de insumo: movimento de outro item (preparação congelada) não entra
+		// A requisição da cozinha é de insumo: movimento de outro item (preparação congelada) não entra
 		// no retrato, como antes, quando ele vinha sem `ingredient_id`.
 		const refs = await classifyFoodItems((movements ?? []).map((move) => move.item_id))
 		const issued = new Map<string, number>()

@@ -292,6 +292,7 @@ COPY packages/compras-api ./packages/compras-api
 COPY packages/database ./packages/database
 COPY packages/legal-kit ./packages/legal-kit
 COPY packages/pbac ./packages/pbac
+COPY packages/sisprov-domain ./packages/sisprov-domain
 COPY packages/sisub-domain ./packages/sisub-domain
 COPY packages/supabase-kit ./packages/supabase-kit
 COPY packages/tsconfig ./packages/tsconfig

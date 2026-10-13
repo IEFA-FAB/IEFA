@@ -17,7 +17,7 @@ export const Route = createFileRoute("/_protected/stock/")({
 const TIER_LABEL: Record<StockLocationTier, string> = {
 	central_depot: "Depósito central",
 	unit_storeroom: "Almoxarifado da OM",
-	kitchen: "Rancho",
+	kitchen: "Cozinha",
 }
 
 const CLASS_LABEL: Record<string, string> = {
@@ -34,7 +34,7 @@ function StockPage() {
 		<div className="space-y-6">
 			<PageHeader
 				title="Estoque"
-				description="Um estoque só, de toda classe. Aqui estão os locais que o seu acesso alcança; o rancho continua operando a alimentação no SISUB."
+				description="Um estoque só, de toda classe. Aqui estão os locais que o seu acesso alcança; a cozinha continua operando a alimentação no SISUB."
 			/>
 
 			{locations.isPending ? (

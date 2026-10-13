@@ -153,6 +153,7 @@ sisub:
   - 'packages/database/**'
   - 'packages/legal-kit/**'
   - 'packages/pbac/**'
+  - 'packages/sisprov-domain/**'
   - 'packages/sisub-domain/**'
   - 'packages/supabase-kit/**'
   - 'packages/tsconfig/**'

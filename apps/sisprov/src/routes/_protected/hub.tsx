@@ -111,7 +111,7 @@ function NoAccess() {
 				<div className="space-y-2">
 					<p>
 						Você está autenticado, mas sua conta não tem nenhum dos papéis do sistema: Estoque (OM ou rede), Planejamento (elo SISPROV na OM) ou Administração
-						(SDAB). Quem opera só o rancho continua no SISUB. Quem concede o acesso é o administrador do SISPROV na SDAB, informando a sua OM.
+						(SDAB). Quem opera só a cozinha continua no SISUB. Quem concede o acesso é o administrador do SISPROV na SDAB, informando a sua OM.
 					</p>
 					<p className="flex items-center gap-1.5">
 						<Mail className="size-3.5" />

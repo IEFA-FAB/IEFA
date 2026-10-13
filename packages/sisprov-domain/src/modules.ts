@@ -5,7 +5,7 @@
  *
  * O SISPROV é dono do estoque de toda classe (design D1), e o estoque tem UM módulo: `storage`.
  * O nome é o que o sisub já usava; o módulo mudou de dono, não de nome (D3). Ele vale por
- * cozinha (o local da cozinha, lente do rancho no sisub), por OM (todos os locais da OM e das
+ * cozinha (o local da cozinha, lente da cozinha no sisub), por OM (todos os locais da OM e das
  * apoiadas) ou global. Os papéis que não são estoque são módulos próprios: `sisprov-planning`
  * (elo na OM) e `sisprov-admin` (SDAB). O militar que preenche a própria ficha ou confirma o
  * próprio recebimento não tem módulo: é sessão autenticada.

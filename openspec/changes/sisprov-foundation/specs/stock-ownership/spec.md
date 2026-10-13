@@ -21,14 +21,14 @@ O sistema SHALL ter `inventory.stock_location` com OM dona (`unit_id`, obrigató
 ### Requirement: Classe do item e trava por local
 A classe de suprimento de um item SHALL ser `core.item.catalog_scope`. Todo lote e todo movimento MUST ter a classe do item contida em `supply_classes` do local; a escrita fora disso é recusada pelo banco.
 
-#### Scenario: Item de outra classe no rancho
+#### Scenario: Item de outra classe na cozinha
 - **WHEN** uma escrita tenta lançar um item `fardamento` no local de uma cozinha (`{alimentacao, auxiliar}`)
 - **THEN** o trigger recusa com erro que nomeia o item, a classe e o local
 
 ### Requirement: Permissão de estoque por local
 O módulo `storage` SHALL ser o único módulo de estoque, para toda classe. Um grant `storage` vale para um local quando é global, quando é escopado à cozinha do local, ou quando é escopado a uma OM que cobre a OM do local pela hierarquia de apoio (`core.units.supporting_unit_id`). Deny (nível 0) na cozinha do local, na OM do local ou em qualquer apoiadora da cadeia MUST vencer o allow. Níveis: 1 consulta, 2 operação, 3 gestão (aprova ajuste e contagem, configura o local).
 
-#### Scenario: Grant por OM alcança o almoxarifado e o rancho da OM
+#### Scenario: Grant por OM alcança o almoxarifado e a cozinha da OM
 - **WHEN** um usuário tem `storage` nível 2 escopado ao GAP-SJ, que apoia o IEFA
 - **THEN** ele opera o almoxarifado e o local da cozinha do IEFA; um local de OM fora da cobertura é recusado
 
@@ -37,8 +37,8 @@ O módulo `storage` SHALL ser o único módulo de estoque, para toda classe. Um 
 - **THEN** ele opera o local da cozinha 920 e nenhum outro
 
 ### Requirement: Lente por app
-O sisub SHALL operar o estoque de alimentação pelas rotas `/storage/$kitchenId`, resolvendo a cozinha para o local dela e mostrando só as classes que o local guarda. O app SISPROV SHALL listar os locais que o grant `storage` alcança, com as classes de cada um. Quem só tem grant de cozinha MUST NOT precisar abrir o SISPROV para operar o rancho.
+O sisub SHALL operar o estoque de alimentação pelas rotas `/storage/$kitchenId`, resolvendo a cozinha para o local dela e mostrando só as classes que o local guarda. O app SISPROV SHALL listar os locais que o grant `storage` alcança, com as classes de cada um. Quem só tem grant de cozinha MUST NOT precisar abrir o SISPROV para operar a cozinha.
 
-#### Scenario: Rancheiro no sisub
+#### Scenario: Operador da cozinha no sisub
 - **WHEN** quem tem `storage` na cozinha 920 abre `/storage/920`
 - **THEN** a tela opera o local da cozinha 920 e mostra só alimentação e auxiliar, como antes da mudança

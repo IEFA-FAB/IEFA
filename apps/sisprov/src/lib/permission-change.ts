@@ -60,7 +60,7 @@ export function buildSisprovGrant(actor: { actorId: string; coverage: UnitCovera
 
 /**
  * O grant existe e é do SISPROV, mas é gerido por outra tela: o `storage` escopado por cozinha (ou
- * refeitório) é concedido e revogado no sisub, que é a lente do rancho (design D3).
+ * refeitório) é concedido e revogado no sisub, que é a lente da cozinha (design D3).
  */
 export class GrantManagedElsewhereError extends Error {
 	readonly code = "GRANT_MANAGED_ELSEWHERE" as const
