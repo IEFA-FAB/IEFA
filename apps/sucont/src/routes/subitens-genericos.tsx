@@ -73,6 +73,10 @@ export const Route = createFileRoute("/subitens-genericos")({
 // moram em `#/subitens/*`; os blocos de tela, em `#/subitens/components/*`.
 
 // ── Main Component ───────────────────────────────────────────
+// Fora do componente: usada no cálculo de `topContas`, antes do ponto em que a declaração
+// dentro do corpo ficava. Ali, o `.map` lançava ReferenceError com qualquer ocorrência carregada.
+const COLORS = ["#00205B", "#003DA5", "#D4AF37", "#4A90E2", "#87CEEB", "#B0C4DE", "#4682B4"]
+
 function SubitensGenericos() {
 	const [data, setData] = useState<UgGroup[]>([])
 	const [error, setError] = useState<string | null>(null)
@@ -216,8 +220,6 @@ function SubitensGenericos() {
 	const criticalLevels = findCriticalLevels(odsList, orgaoSuperiorList, topUgsByInconsistencias, filteredData)
 
 	const occurrencesByRac = groupOccurrencesByRac(filteredData)
-
-	const COLORS = ["#00205B", "#003DA5", "#D4AF37", "#4A90E2", "#87CEEB", "#B0C4DE", "#4682B4"]
 
 	// ── Render ────────────────────────────────────────────────
 	const guide = (
