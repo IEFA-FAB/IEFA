@@ -30,12 +30,28 @@ describeIf("analytics: identidade sem dado pessoal e módulo sem escopo (DB)", (
 		await sql?.end({ timeout: 5 })
 	})
 
+	// Duas leituras, porque cada uma sozinha falha de um lado:
+	// - dependência de coluna (`pg_depend` da regra da view): pega qualquer coluna `*email*` lida,
+	//   de qualquer tabela, sem olhar o texto. É a prova principal.
+	// - texto da definição SEM os literais entre aspas: pega o e-mail que chega por expressão que
+	//   não deixa dependência de coluna (função, `to_jsonb(linha)`). Os literais saem porque
+	//   `saram_verified_by in ('email', 'cpf', …)` cita o VALOR "email": o regex no texto cru acusava
+	//   a `v_user_identity` desde 20261003100000 sem ela ler e-mail nenhum.
 	test("nenhuma view do schema analytics lê e-mail", async () => {
-		const rows = await sql<{ name: string }[]>`
+		const byColumn = await sql<{ name: string }[]>`
+			select distinct n.nspname || '.' || v.relname || ' <- ' || a.attrelid::regclass::text || '.' || a.attname as name
+			from pg_class v
+			join pg_namespace n on n.oid = v.relnamespace
+			join pg_rewrite r on r.ev_class = v.oid
+			join pg_depend d on d.classid = 'pg_rewrite'::regclass and d.objid = r.oid and d.refobjsubid > 0
+			join pg_attribute a on a.attrelid = d.refobjid and a.attnum = d.refobjsubid
+			where n.nspname = 'analytics' and v.relkind in ('v', 'm') and a.attname ~* 'email'`
+		const byText = await sql<{ name: string }[]>`
 			select schemaname || '.' || viewname as name
 			from pg_views
-			where schemaname = 'analytics' and definition ~* '\\memail\\M'`
-		expect(rows.map((r) => r.name)).toEqual([])
+			where schemaname = 'analytics'
+				and regexp_replace(definition, $$'([^']|'')*'$$, '', 'g') ~* '\\memail\\M'`
+		expect([...byColumn, ...byText].map((r) => r.name)).toEqual([])
 	})
 
 	test("o rótulo de quem não tem nome de guerra é o id curto, e nenhum rótulo é e-mail", async () => {
