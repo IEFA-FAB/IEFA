@@ -48,7 +48,11 @@ export default defineConfig({
 		// `uselibpqcompat=true` restaura a semântica fraca do libpq só para a
 		// introspecção. O runtime (postgres-js em db.server.ts) usa outro driver
 		// e não é afetado.
-		url: withLibpqCompat(process.env.SISUB_DATABASE_URL),
+		// Getter: a URL só é exigida quando o drizzle-kit a lê. Lançar ao importar derrubava quem só
+		// carrega a config para ler `schema`/`out` (o plugin `drizzle` do knip, no `pr-check` sem segredos).
+		get url() {
+			return withLibpqCompat(process.env.SISUB_DATABASE_URL)
+		},
 	},
 	// No `migrations` block: this workflow is `drizzle-kit pull` only — DDL/migrations
 	// stay with the Supabase CLI, so `drizzle-kit generate` (which `migrations.*`
