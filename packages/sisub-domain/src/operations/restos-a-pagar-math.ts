@@ -17,7 +17,7 @@
  */
 
 import { empenhoEventSign } from "./empenho-events.ts"
-import { roundToCents } from "./liquidacao-math.ts"
+import { roundToCents } from "./money.ts"
 
 export type RestosAPagarKind = "processado" | "nao_processado"
 

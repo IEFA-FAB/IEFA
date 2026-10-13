@@ -1,5 +1,6 @@
 import { EMPENHO_TYPES, type EmpenhoType } from "@iefa/sisub-domain"
 import { getBrasiliaToday } from "@iefa/sisub-domain/civil-date"
+import { roundToCents } from "@iefa/sisub-domain/money"
 import { Plus, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
@@ -30,8 +31,6 @@ const toNumber = (value: string): number | null => {
 	const parsed = parseMoneyInput(value)
 	return parsed.ok ? parsed.value : null
 }
-
-const cents = (value: number) => Math.round(value * 100) / 100
 
 export interface EmpenhoOrigin {
 	acquisitionId: string | null
@@ -83,7 +82,7 @@ export function EmpenhoFromOriginDialog({ unitId, origin, onClose }: { unitId: n
 							quantity,
 							unit: item.medida,
 							unitPrice,
-							value: cents(quantity * unitPrice),
+							value: roundToCents(quantity * unitPrice),
 						},
 					]
 				})
@@ -92,12 +91,12 @@ export function EmpenhoFromOriginDialog({ unitId, origin, onClose }: { unitId: n
 						const quantity = toNumber(item.quantity)
 						const unitPrice = toNumber(item.unitPrice)
 						if (!item.description.trim() || quantity == null || unitPrice == null) return []
-						return [{ description: item.description.trim(), quantity, unit: item.unit.trim() || null, unitPrice, value: cents(quantity * unitPrice) }]
+						return [{ description: item.description.trim(), quantity, unit: item.unit.trim() || null, unitPrice, value: roundToCents(quantity * unitPrice) }]
 					})
 				: (toNumber(totalValue) ?? 0) > 0
-					? [{ description: null, value: cents(toNumber(totalValue) ?? 0) }]
+					? [{ description: null, value: roundToCents(toNumber(totalValue) ?? 0) }]
 					: []
-	const total = cents(items.reduce((sum, item) => sum + item.value, 0))
+	const total = roundToCents(items.reduce((sum, item) => sum + item.value, 0))
 	const cnpjInvalid = cnpj.trim() !== "" && normalizeDocument(cnpj) == null
 	const canSubmit = numero.trim() !== "" && items.length > 0 && !cnpjInvalid && !create.isPending
 

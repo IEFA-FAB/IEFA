@@ -109,3 +109,24 @@ describe("NE sem contratação de origem (derivado)", () => {
 		expect(isEmpenhoWithoutOrigin({ acquisitionId: null, itemArpItemIds: [null, "a"] })).toBe(false)
 	})
 })
+
+describe("meio-centavo no valor do item (roundToCents)", () => {
+	test("quantidade × preço que cai no meio-centavo sobe, inclusive quando o binário guarda menos", () => {
+		// 1 × 1,005 = 1,00499… em binário: o arredondamento antigo devolvia 1,00
+		expect(resolveItemValue({ quantity: 1, unitPrice: 1.005, value: 0 })).toBe(1.01)
+		expect(resolveItemValue({ quantity: 2, unitPrice: 5.0025, value: 0 })).toBe(10.01)
+		expect(resolveItemValue({ quantity: 1, unitPrice: 10.005, value: 0 })).toBe(10.01)
+	})
+
+	test("valor informado com meio-centavo também fecha para cima, e a soma acompanha", () => {
+		expect(resolveItemValue({ value: 1.005 })).toBe(1.01)
+		expect(sumEmpenhoItems([{ value: 1.005 }, { value: 10.005 }])).toBe(11.02)
+	})
+
+	test("um centavo de diferença está dentro da tolerância, dois não", () => {
+		// 1,01 − 1,00 em ponto flutuante é 0,010000000000000009: comparado em reais, recusava
+		expect(empenhoItemProblems([{ quantity: 1, unitPrice: 1.01, value: 1 }])).toEqual([])
+		expect(empenhoItemProblems([{ quantity: 1, unitPrice: 1.005, value: 1 }])).toEqual([])
+		expect(empenhoItemProblems([{ quantity: 1, unitPrice: 1.02, value: 1 }])).toHaveLength(1)
+	})
+})

@@ -6,6 +6,7 @@
  */
 
 import { getBrasiliaYear } from "@iefa/sisub-domain/civil-date"
+import { roundToCents } from "@iefa/sisub-domain/money"
 import { parseSheetNumber } from "@iefa/sisub-domain/opening-balance"
 /** Exercício corrente em Brasília. */
 export function currentFiscalYear(now: Date = new Date()): number {
@@ -59,7 +60,7 @@ export function planEmpenhoCancellation(input: {
 			message: `O empenho ${input.numero} já tem ${BRL.format(input.liquidado)} liquidados e não se anula inteiro. Anule só o saldo a liquidar (${BRL.format(Math.max(0, input.aLiquidar))}) em Empenhos → Anulação.`,
 		}
 	}
-	return { ok: true, valor: Math.max(0, Math.round(input.vigente * 100) / 100) }
+	return { ok: true, valor: Math.max(0, roundToCents(input.vigente)) }
 }
 
 /** Só dígitos; CNPJ (14) ou CPF (11), senão null. */

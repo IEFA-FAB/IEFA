@@ -505,7 +505,6 @@ export {
 	type ReceiptValueItem,
 	receiptLiquidacaoCeiling,
 	resolvePurchaseUnitId,
-	roundToCents,
 	suggestedLiquidacaoValue,
 } from "./liquidacao-math.ts"
 export { createMcpApiKey, deleteMcpApiKey, listMcpApiKeys, type McpApiKeyRow, revokeMcpApiKey } from "./mcp-keys.ts"
@@ -543,6 +542,7 @@ export {
 	recordMfaReset,
 	revokeRecoveryCodes,
 } from "./mfa-recovery.ts"
+export { roundToCents } from "./money.ts"
 export { computeNfeItemCosts, type NfeCostResult, type NfeItemCost, type NfeItemValues } from "./nfe-cost.ts"
 export {
 	type IngredientItemLink,

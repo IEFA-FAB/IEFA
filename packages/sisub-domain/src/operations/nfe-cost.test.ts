@@ -65,3 +65,20 @@ describe("computeNfeItemCosts", () => {
 		expect(result.total).toBe(0)
 	})
 })
+
+describe("computeNfeItemCosts: meio-centavo", () => {
+	test("item no meio-centavo sobe, inclusive quando o binário guarda menos", () => {
+		// o `round2` antigo somava EPSILON, que não alcança 1,005 × 100 = 100,4999…
+		const result = computeNfeItemCosts([
+			{ nItem: 1, productValue: 1.005 },
+			{ nItem: 2, productValue: 10.005 },
+		])
+		expect(result.items.map((item) => item.totalCost)).toEqual([1.01, 10.01])
+		expect(result.total).toBe(11.02)
+	})
+
+	test("desconto maior que o produto: o negativo arredonda simétrico", () => {
+		const result = computeNfeItemCosts([{ nItem: 1, productValue: 0, discount: 10.005 }])
+		expect(result.items[0]?.totalCost).toBe(-10.01)
+	})
+})

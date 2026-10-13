@@ -19,6 +19,8 @@
  * de caixa). Conferir caixa contra unidade sem isso erra por 12×.
  */
 
+import { roundToCents } from "./money.ts"
+
 export interface ReceiptLineForScan {
 	receiptItemId: string
 	/** `cEAN` da linha da nota — embalagem comercial. */
@@ -163,5 +165,5 @@ export function fiscalShortfallValue(lines: readonly { invoicedQtyBase: number |
 		const shortfall = line.invoicedQtyBase - line.receivedQtyBase
 		if (shortfall > 0) total += shortfall * line.unitCost
 	}
-	return Number(total.toFixed(2))
+	return roundToCents(total)
 }
