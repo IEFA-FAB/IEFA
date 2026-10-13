@@ -83,3 +83,218 @@ describe("chave de package atribuída ao app que a usa", () => {
 		expect(writersOf([["apps/a/src/Login.test.tsx", 'import { useLimiter } from "@iefa/kit/react"']])).toEqual([])
 	})
 })
+
+/** Varre uma árvore de package montada para o caso (substitui o `PACKAGE_FILES`). */
+function writersWith(packageFiles: Array<[string, string]>, appFiles: Array<[string, string]>, key = "kit_limit"): string[] {
+	const tree: SourceTree = new Map([...packageFiles, ...appFiles])
+	return [...(collectStorageKeys(tree, [KIT]).get(key) ?? [])].filter((file) => file.startsWith("apps/")).sort()
+}
+
+const LIMITER = PACKAGE_FILES[0] as [string, string]
+
+describe("formas de export e import no package", () => {
+	test("export * from reexporta só o que chega à chave", () => {
+		const files: Array<[string, string]> = [LIMITER, ["packages/kit/src/index.ts", 'export * from "./limiter.ts"']]
+		expect(
+			writersWith(files, [
+				["apps/a/src/x.ts", 'import { remaining } from "@iefa/kit"'],
+				["apps/b/src/y.ts", 'import { unrelated } from "@iefa/kit"'],
+			])
+		).toEqual(["apps/a/src/x.ts"])
+	})
+
+	test("export * as ns from atribui quem importa o namespace", () => {
+		const files: Array<[string, string]> = [LIMITER, ["packages/kit/src/index.ts", 'export * as limiter from "./limiter.ts"\nexport const OTHER = 1']]
+		expect(
+			writersWith(files, [
+				["apps/a/src/x.ts", 'import { limiter } from "@iefa/kit"'],
+				["apps/b/src/y.ts", 'import { OTHER } from "@iefa/kit"'],
+			])
+		).toEqual(["apps/a/src/x.ts"])
+	})
+
+	test("export { a as b } from atribui pelo nome novo, não pelo antigo", () => {
+		const files: Array<[string, string]> = [LIMITER, ["packages/kit/src/index.ts", 'export { remaining as left, unrelated } from "./limiter.ts"']]
+		expect(
+			writersWith(files, [
+				["apps/a/src/x.ts", 'import { left } from "@iefa/kit"'],
+				["apps/b/src/y.ts", 'import { remaining } from "@iefa/kit"'],
+				["apps/c/src/z.ts", 'import { unrelated } from "@iefa/kit"'],
+			])
+		).toEqual(["apps/a/src/x.ts"])
+	})
+
+	test("export type { } from não propaga", () => {
+		const files: Array<[string, string]> = [LIMITER, ["packages/kit/src/index.ts", 'export type { remaining } from "./limiter.ts"']]
+		expect(writersWith(files, [["apps/a/src/x.ts", 'import { remaining } from "@iefa/kit"']])).toEqual([])
+	})
+
+	test("export { x } local, com e sem alias", () => {
+		const files: Array<[string, string]> = [
+			[
+				"packages/kit/src/index.ts",
+				[
+					'const STORAGE_KEY = "kit_limit"',
+					"function load() {",
+					"\treturn localStorage.getItem(STORAGE_KEY)",
+					"}",
+					"function other() {",
+					"\treturn 1",
+					"}",
+					"export { load, other }",
+					"export { load as read }",
+					"export type { load as LoadType }",
+				].join("\n"),
+			],
+		]
+		expect(
+			writersWith(files, [
+				["apps/a/src/x.ts", 'import { load } from "@iefa/kit"'],
+				["apps/b/src/y.ts", 'import { read } from "@iefa/kit"'],
+				["apps/c/src/z.ts", 'import { other } from "@iefa/kit"'],
+				["apps/d/src/w.ts", 'import { LoadType } from "@iefa/kit"'],
+			])
+			// `other` entra por caracterização: a última declaração do módulo vai até o fim
+			// do arquivo, então engloba a lista `export { load, other }` e "cita" `load`.
+			// Erra para o lado de atribuir demais, que o inventário tolera.
+		).toEqual(["apps/a/src/x.ts", "apps/b/src/y.ts", "apps/c/src/z.ts"])
+	})
+
+	test("import default de módulo do package propaga quando `default` chega à chave", () => {
+		const files: Array<[string, string]> = [
+			LIMITER,
+			["packages/kit/src/def.ts", 'import { remaining } from "./limiter.ts"\nfunction run() {\n\treturn remaining()\n}\nexport { run as default }'],
+			["packages/kit/src/index.ts", 'import run from "./def.ts"\nexport function useRun() {\n\treturn run()\n}\nexport { default } from "./def.ts"'],
+		]
+		expect(
+			writersWith(files, [
+				["apps/a/src/x.ts", 'import { useRun } from "@iefa/kit"'],
+				["apps/b/src/y.ts", 'import kit from "@iefa/kit"'],
+				["apps/c/src/z.ts", 'import kit, { remaining } from "@iefa/kit"'],
+			])
+		).toEqual(["apps/a/src/x.ts", "apps/b/src/y.ts", "apps/c/src/z.ts"])
+	})
+
+	test("export default function entra com o nome da função, não como `default` (comportamento atual)", () => {
+		// Caracterização: o import default do app não é atribuído nesse caso. Fica registrado
+		// para a forma não mudar sem alguém ver.
+		const files: Array<[string, string]> = [
+			LIMITER,
+			["packages/kit/src/index.ts", 'import { remaining } from "./limiter.ts"\nexport default function useRun() {\n\treturn remaining()\n}'],
+		]
+		expect(
+			writersWith(files, [
+				["apps/a/src/x.ts", 'import kit from "@iefa/kit"'],
+				["apps/b/src/y.ts", 'import { useRun } from "@iefa/kit"'],
+			])
+		).toEqual(["apps/b/src/y.ts"])
+	})
+
+	test("import default de módulo sem `default` contaminado não propaga", () => {
+		const files: Array<[string, string]> = [
+			LIMITER,
+			["packages/kit/src/index.ts", 'import limiter from "./limiter.ts"\nexport function useRun() {\n\treturn limiter()\n}'],
+		]
+		expect(writersWith(files, [["apps/a/src/x.ts", 'import { useRun } from "@iefa/kit"']])).toEqual([])
+	})
+
+	test("namespace dentro do package propaga para quem o usa", () => {
+		const files: Array<[string, string]> = [
+			LIMITER,
+			[
+				"packages/kit/src/index.ts",
+				'import * as lim from "./limiter.ts"\nexport function useRun() {\n\treturn lim.remaining()\n}\nexport function idle() {\n\treturn 0\n}',
+			],
+		]
+		expect(
+			writersWith(files, [
+				["apps/a/src/x.ts", 'import { useRun } from "@iefa/kit"'],
+				["apps/b/src/y.ts", 'import { idle } from "@iefa/kit"'],
+			])
+		).toEqual(["apps/a/src/x.ts"])
+	})
+
+	test("import type dentro do package não propaga", () => {
+		const files: Array<[string, string]> = [
+			LIMITER,
+			["packages/kit/src/index.ts", 'import type { remaining } from "./limiter.ts"\nexport function useRun() {\n\treturn remaining\n}'],
+		]
+		expect(writersWith(files, [["apps/a/src/x.ts", 'import { useRun } from "@iefa/kit"']])).toEqual([])
+	})
+
+	test("resolve diretório com index e extensão .tsx", () => {
+		const files: Array<[string, string]> = [
+			["packages/kit/src/lim/index.tsx", LIMITER[1]],
+			["packages/kit/src/index.ts", 'export { remaining } from "./lim"'],
+		]
+		expect(writersWith(files, [["apps/a/src/x.ts", 'import { remaining } from "@iefa/kit"']])).toEqual(["apps/a/src/x.ts"])
+	})
+
+	test("import dinâmico de entry sem nada contaminado não atribui", () => {
+		expect(
+			writersWith(PACKAGE_FILES, [
+				["apps/a/src/x.ts", 'const m = await import("@iefa/kit/react")'],
+				["apps/b/src/y.ts", 'const m = await import("@iefa/nada")'],
+			])
+		).toEqual(["apps/a/src/x.ts"])
+	})
+})
+
+describe("propagação dentro do módulo", () => {
+	test("chave em código solto no topo do módulo contamina todos os exports", () => {
+		const files: Array<[string, string]> = [
+			[
+				"packages/kit/src/index.ts",
+				['sessionStorage.removeItem("kit_loose")', "export function a() {\n\treturn 1\n}", "function hidden() {\n\treturn 2\n}", "export const b = 3"].join(
+					"\n"
+				),
+			],
+		]
+		expect(
+			writersWith(
+				files,
+				[
+					["apps/a/src/x.ts", 'import { a } from "@iefa/kit"'],
+					["apps/b/src/y.ts", 'import { b } from "@iefa/kit"'],
+					["apps/c/src/z.ts", 'import { hidden } from "@iefa/kit"'],
+				],
+				"kit_loose"
+			)
+		).toEqual(["apps/a/src/x.ts", "apps/b/src/y.ts"])
+	})
+
+	test("cadeia de dois níveis: export → meio → função que usa a chave", () => {
+		const files: Array<[string, string]> = [
+			[
+				"packages/kit/src/index.ts",
+				[
+					"export function top() {\n\treturn middle()\n}",
+					"function middle() {\n\treturn load()\n}",
+					'const STORAGE_KEY = "kit_limit"',
+					"function load() {\n\treturn sessionStorage.getItem(STORAGE_KEY)\n}",
+					"export function viaProperty() {\n\treturn obj.load()\n}",
+				].join("\n"),
+			],
+		]
+		expect(
+			writersWith(files, [
+				["apps/a/src/x.ts", 'import { top } from "@iefa/kit"'],
+				["apps/b/src/y.ts", 'import { viaProperty } from "@iefa/kit"'],
+			])
+		).toEqual(["apps/a/src/x.ts"])
+	})
+
+	test("cadeia que atravessa dois arquivos do package antes do entry", () => {
+		const files: Array<[string, string]> = [
+			LIMITER,
+			["packages/kit/src/mid.ts", 'import { remaining } from "./limiter.ts"\nexport function mid() {\n\treturn remaining()\n}'],
+			["packages/kit/src/index.ts", 'import { mid as m } from "./mid.ts"\nexport function top() {\n\treturn m()\n}\nexport function idle() {\n\treturn 0\n}'],
+		]
+		expect(
+			writersWith(files, [
+				["apps/a/src/x.ts", 'import { top } from "@iefa/kit"'],
+				["apps/b/src/y.ts", 'import { idle } from "@iefa/kit"'],
+			])
+		).toEqual(["apps/a/src/x.ts"])
+	})
+})

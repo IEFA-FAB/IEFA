@@ -142,6 +142,161 @@ function mentionsAny(text: string, names: Set<string>): boolean {
 	return new RegExp(`(?<![\\w$.])(?:${[...names].map(escapeRegExp).join("|")})(?![\\w$])`).test(text)
 }
 
+type Resolver = (from: string, specifier: string) => string | undefined
+/** arquivo → nomes exportados que chegam à chave. */
+type TaintedExports = Map<string, Set<string>>
+
+/** Especificador público (`@iefa/kit`, `@iefa/kit/react`) → arquivo de entrada do `exports`. */
+function mapEntriesBySpecifier(packages: PackageManifest[]): Map<string, string> {
+	const entryBySpecifier = new Map<string, string>()
+	for (const pkg of packages) {
+		for (const [subpath, target] of Object.entries(pkg.exports)) {
+			const specifier = subpath === "." ? pkg.name : `${pkg.name}${subpath.slice(1)}`
+			entryBySpecifier.set(specifier, normalizePath(`${pkg.dir}/${target}`))
+		}
+	}
+	return entryBySpecifier
+}
+
+/** Resolve o especificador de um import: entry de package, ou caminho relativo que existe na árvore. */
+function createResolver(entryBySpecifier: Map<string, string>, tree: SourceTree): Resolver {
+	return (from, specifier) => {
+		if (entryBySpecifier.has(specifier)) return entryBySpecifier.get(specifier)
+		if (!specifier.startsWith(".")) return undefined
+		const base = normalizePath(`${from.slice(0, from.lastIndexOf("/"))}/${specifier}`)
+		for (const candidate of [base, `${base}.ts`, `${base}.tsx`, `${base}/index.ts`, `${base}/index.tsx`]) {
+			if (tree.has(candidate)) return candidate
+		}
+		return undefined
+	}
+}
+
+/** Exports do alvo que chegam à chave; `undefined` quando o alvo não resolve ou nenhum chega. */
+function reachingExportsOf(target: string | undefined, taintedExports: TaintedExports): Set<string> | undefined {
+	const exported = target ? taintedExports.get(target) : undefined
+	if (!exported || exported.size === 0) return undefined
+	return exported
+}
+
+/** No arquivo da chave, o nome local de partida: a declaração que a contém. */
+function seedHitLocals(hit: KeyHit, declarations: Declaration[], locals: Set<string>): void {
+	const holder = declarations.find((decl) => hit.index >= decl.start && hit.index < decl.end)
+	// Chave usada fora de qualquer declaração (código solto no topo do módulo):
+	// não há como saber qual export a alcança, então todos alcançam.
+	if (holder) locals.add(holder.name)
+	else for (const decl of declarations) if (decl.exported) locals.add(decl.name)
+}
+
+/** Nomes locais que um import de VALOR traz de um módulo cujos exports chegam à chave. */
+function addImportedLocals(file: string, source: string, locals: Set<string>, resolve: Resolver, taintedExports: TaintedExports): void {
+	for (const match of source.matchAll(IMPORT)) {
+		if (match[1]) continue
+		const exported = reachingExportsOf(resolve(file, match[5] as string), taintedExports)
+		if (!exported) continue
+		if (match[2] && exported.has("default")) locals.add(match[2])
+		if (match[4]) locals.add(match[4])
+		for (const [imported, local] of parseSpecifiers(match[3] ?? "")) if (exported.has(imported)) locals.add(local)
+	}
+}
+
+/** Ponto fixo dentro do módulo: `load` usa a chave, `getRemainingSeconds` usa `load`. */
+function growLocalsToFixpoint(source: string, declarations: Declaration[], locals: Set<string>): void {
+	let grew = true
+	while (grew) {
+		grew = false
+		for (const decl of declarations) {
+			if (locals.has(decl.name)) continue
+			if (mentionsAny(source.slice(decl.start, decl.end), locals)) {
+				locals.add(decl.name)
+				grew = true
+			}
+		}
+	}
+}
+
+/** `export { a, c as d }` sem `from`: o nome exportado de cada local que chega à chave. */
+function addLocalExportList(source: string, locals: Set<string>, mine: Set<string>): void {
+	for (const match of source.matchAll(LOCAL_EXPORT_LIST)) {
+		if (match[1]) continue
+		for (const [local, exported] of parseSpecifiers(match[2] ?? "")) if (locals.has(local)) mine.add(exported)
+	}
+}
+
+/** `export { a as b } from`, `export * as ns from` e `export * from` de módulo que chega à chave. */
+function addReexports(file: string, source: string, mine: Set<string>, resolve: Resolver, taintedExports: TaintedExports): void {
+	for (const match of source.matchAll(REEXPORT)) {
+		if (match[1]) continue
+		const exported = reachingExportsOf(resolve(file, match[4] as string), taintedExports)
+		if (!exported) continue
+		if (match[2] !== undefined) {
+			for (const [imported, name] of parseSpecifiers(match[2])) if (exported.has(imported)) mine.add(name)
+		} else if (match[3]) mine.add(match[3])
+		else for (const name of exported) mine.add(name)
+	}
+}
+
+/** Uma passada sobre um arquivo de package; devolve se o conjunto de exports dele cresceu. */
+function propagateFile(file: string, hit: KeyHit, tree: SourceTree, resolve: Resolver, taintedExports: TaintedExports): boolean {
+	const source = tree.get(file) as string
+	const declarations = declarationsOf(source)
+	const locals = new Set<string>()
+
+	if (file === hit.file) seedHitLocals(hit, declarations, locals)
+	addImportedLocals(file, source, locals, resolve, taintedExports)
+	growLocalsToFixpoint(source, declarations, locals)
+
+	const mine = taintedExports.get(file) as Set<string>
+	const before = mine.size
+	for (const decl of declarations) if (decl.exported && locals.has(decl.name)) mine.add(decl.name)
+	addLocalExportList(source, locals, mine)
+	addReexports(file, source, mine, resolve, taintedExports)
+	return mine.size !== before
+}
+
+/**
+ * Ponto fixo entre os arquivos dos packages: repete as passadas até nenhum conjunto crescer.
+ * Cada passada visita todos os arquivos, na ordem da árvore, e já enxerga o que os anteriores
+ * da mesma passada acrescentaram.
+ */
+function propagateTaintedExports(hit: KeyHit, tree: SourceTree, resolve: Resolver): TaintedExports {
+	const packageFiles = [...tree.keys()].filter((file) => file.startsWith("packages/") && !isTestFile(file))
+	const taintedExports: TaintedExports = new Map(packageFiles.map((file) => [file, new Set<string>()]))
+
+	let changed = true
+	while (changed) {
+		changed = false
+		for (const file of packageFiles) if (propagateFile(file, hit, tree, resolve, taintedExports)) changed = true
+	}
+	return taintedExports
+}
+
+/** O arquivo de app importa, como valor, algum export de entry que chega à chave. */
+function isAppWriter(source: string, entryBySpecifier: Map<string, string>, taintedExports: TaintedExports): boolean {
+	let writes = false
+	for (const match of source.matchAll(IMPORT)) {
+		if (match[1]) continue
+		const exported = reachingExportsOf(entryBySpecifier.get(match[5] as string), taintedExports)
+		if (!exported) continue
+		const names = parseSpecifiers(match[3] ?? "").map(([imported]) => imported)
+		if (match[2]) names.push("default")
+		if (match[4] || names.some((name) => exported.has(name))) writes = true
+	}
+	for (const match of source.matchAll(DYNAMIC_IMPORT)) {
+		if (reachingExportsOf(entryBySpecifier.get(match[1] as string), taintedExports)) writes = true
+	}
+	return writes
+}
+
+/** Arquivos de app (fora de teste) que importam um export contaminado. */
+function collectWriters(tree: SourceTree, entryBySpecifier: Map<string, string>, taintedExports: TaintedExports): Set<string> {
+	const writers = new Set<string>()
+	for (const [file, source] of tree) {
+		if (!isAppFile(file) || isTestFile(file)) continue
+		if (isAppWriter(source, entryBySpecifier, taintedExports)) writers.add(file)
+	}
+	return writers
+}
+
 /**
  * Resolve chave de package → apps que a gravam.
  *
@@ -153,106 +308,9 @@ function mentionsAny(text: string, names: Set<string>): boolean {
  * entry (`safeRedirect` ao lado do `useLoginRateLimiter`) não contam.
  */
 function resolvePackageKey(hit: KeyHit, tree: SourceTree, packages: PackageManifest[]): Set<string> {
-	const entryBySpecifier = new Map<string, string>()
-	for (const pkg of packages) {
-		for (const [subpath, target] of Object.entries(pkg.exports)) {
-			const specifier = subpath === "." ? pkg.name : `${pkg.name}${subpath.slice(1)}`
-			entryBySpecifier.set(specifier, normalizePath(`${pkg.dir}/${target}`))
-		}
-	}
-
-	const resolve = (from: string, specifier: string): string | undefined => {
-		if (entryBySpecifier.has(specifier)) return entryBySpecifier.get(specifier)
-		if (!specifier.startsWith(".")) return undefined
-		const base = normalizePath(`${from.slice(0, from.lastIndexOf("/"))}/${specifier}`)
-		for (const candidate of [base, `${base}.ts`, `${base}.tsx`, `${base}/index.ts`, `${base}/index.tsx`]) {
-			if (tree.has(candidate)) return candidate
-		}
-		return undefined
-	}
-
-	const packageFiles = [...tree.keys()].filter((file) => file.startsWith("packages/") && !isTestFile(file))
-	/** arquivo → nomes exportados que chegam à chave. */
-	const taintedExports = new Map<string, Set<string>>(packageFiles.map((file) => [file, new Set<string>()]))
-
-	let changed = true
-	while (changed) {
-		changed = false
-		for (const file of packageFiles) {
-			const source = tree.get(file) as string
-			const declarations = declarationsOf(source)
-			const locals = new Set<string>()
-
-			if (file === hit.file) {
-				const holder = declarations.find((decl) => hit.index >= decl.start && hit.index < decl.end)
-				// Chave usada fora de qualquer declaração (código solto no topo do módulo):
-				// não há como saber qual export a alcança, então todos alcançam.
-				if (holder) locals.add(holder.name)
-				else for (const decl of declarations) if (decl.exported) locals.add(decl.name)
-			}
-
-			for (const match of source.matchAll(IMPORT)) {
-				if (match[1]) continue
-				const target = resolve(file, match[5] as string)
-				const exported = target ? taintedExports.get(target) : undefined
-				if (!exported || exported.size === 0) continue
-				if (match[2] && exported.has("default")) locals.add(match[2])
-				if (match[4]) locals.add(match[4])
-				for (const [imported, local] of parseSpecifiers(match[3] ?? "")) if (exported.has(imported)) locals.add(local)
-			}
-
-			// Ponto fixo dentro do módulo: `load` usa a chave, `getRemainingSeconds` usa `load`.
-			let grew = true
-			while (grew) {
-				grew = false
-				for (const decl of declarations) {
-					if (locals.has(decl.name)) continue
-					if (mentionsAny(source.slice(decl.start, decl.end), locals)) {
-						locals.add(decl.name)
-						grew = true
-					}
-				}
-			}
-
-			const mine = taintedExports.get(file) as Set<string>
-			const before = mine.size
-			for (const decl of declarations) if (decl.exported && locals.has(decl.name)) mine.add(decl.name)
-			for (const match of source.matchAll(LOCAL_EXPORT_LIST)) {
-				if (match[1]) continue
-				for (const [local, exported] of parseSpecifiers(match[2] ?? "")) if (locals.has(local)) mine.add(exported)
-			}
-			for (const match of source.matchAll(REEXPORT)) {
-				if (match[1]) continue
-				const target = resolve(file, match[4] as string)
-				const exported = target ? taintedExports.get(target) : undefined
-				if (!exported || exported.size === 0) continue
-				if (match[2] !== undefined) {
-					for (const [imported, name] of parseSpecifiers(match[2])) if (exported.has(imported)) mine.add(name)
-				} else if (match[3]) mine.add(match[3])
-				else for (const name of exported) mine.add(name)
-			}
-			if (mine.size !== before) changed = true
-		}
-	}
-
-	const writers = new Set<string>()
-	for (const [file, source] of tree) {
-		if (!isAppFile(file) || isTestFile(file)) continue
-		for (const match of source.matchAll(IMPORT)) {
-			if (match[1]) continue
-			const target = entryBySpecifier.get(match[5] as string)
-			const exported = target ? taintedExports.get(target) : undefined
-			if (!exported || exported.size === 0) continue
-			const names = parseSpecifiers(match[3] ?? "").map(([imported]) => imported)
-			if (match[2]) names.push("default")
-			if (match[4] || names.some((name) => exported.has(name))) writers.add(file)
-		}
-		for (const match of source.matchAll(DYNAMIC_IMPORT)) {
-			const target = entryBySpecifier.get(match[1] as string)
-			if (target && (taintedExports.get(target)?.size ?? 0) > 0) writers.add(file)
-		}
-	}
-	return writers
+	const entryBySpecifier = mapEntriesBySpecifier(packages)
+	const taintedExports = propagateTaintedExports(hit, tree, createResolver(entryBySpecifier, tree))
+	return collectWriters(tree, entryBySpecifier, taintedExports)
 }
 
 /** Chave (ou prefixo fixo de chave em template) → arquivos que a gravam. */
