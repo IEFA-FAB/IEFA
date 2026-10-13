@@ -2,9 +2,10 @@
 // tática do painel de risco (rankings, Pareto, prioridades, conferentes, RAC).
 import { AlertTriangle, Award, Target, TrendingUp, Wallet } from "lucide-react"
 import { Badge } from "#/components/ui/badge"
+import { formatCurrency } from "#/lib/analista/types"
 import type { ParetoData, PriorityItem } from "#/lib/conta-generica/advanced-analysis"
 import type { DerivedStats } from "#/lib/conta-generica/derived-stats"
-import { formatCurrency, getConferente, getOds, getOs, getUgName, RAC_QUESTIONS } from "#/lib/conta-generica/helpers"
+import { getConferente, getOds, getOs, getUgName, RAC_QUESTIONS } from "#/lib/conta-generica/helpers"
 
 interface TacticalViewProps {
 	topUgsByCount: DerivedStats["topUgsByCount"]

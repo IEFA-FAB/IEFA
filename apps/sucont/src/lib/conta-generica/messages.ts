@@ -1,7 +1,9 @@
 // Extraído de routes/conta-generica.tsx (port do analistacontagenerica): texto das
 // mensagens institucionais (por UG e consolidada) e contexto enviado ao oráculo.
+
+import { formatCurrency } from "#/lib/analista/types"
 import type { AdvancedAnalysis } from "#/lib/conta-generica/advanced-analysis"
-import { formatCurrency, formatMilitaryDate, type GroupedData, getConferente, getRacInfo, getUgName } from "#/lib/conta-generica/helpers"
+import { formatMilitaryDate, type GroupedData, getConferente, getRacInfo, getUgName } from "#/lib/conta-generica/helpers"
 import { blocoFundamentacao, FUNDAMENTO_CONTA_GENERICA } from "#/lib/normas"
 
 export type MessageType = "prazo" | "sem_prazo" | "alerta"

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test"
-import { formatCurrency, formatMilitaryDate, getConferente, getOds, getOs, getRacInfo, getUgName } from "#/lib/conta-generica/helpers"
+import { formatCurrency } from "#/lib/analista/types"
+import { formatMilitaryDate, getConferente, getOds, getOs, getRacInfo, getUgName } from "#/lib/conta-generica/helpers"
 
 describe("helpers da conta genérica", () => {
 	it("lê o cadastro de UG e cai no rótulo próprio quando a UG não existe", () => {

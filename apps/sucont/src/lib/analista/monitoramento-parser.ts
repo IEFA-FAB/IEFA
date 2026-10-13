@@ -20,7 +20,12 @@ type ColumnKey = keyof ColumnIndices
 
 const normalizeString = (str: unknown) => {
 	if (typeof str !== "string") return ""
-	return str.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s+/g, " ").trim()
+	return str
+		.toLowerCase()
+		.normalize("NFD")
+		.replace(/[\u0300-\u036f]/g, "")
+		.replace(/\s+/g, " ")
+		.trim()
 }
 
 /** Qual coluna do cabeçalho o texto (já normalizado) nomeia; a ordem dos testes é a prioridade. */

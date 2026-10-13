@@ -41,8 +41,6 @@ export const getOds = (ug: string) => getUg(ug)?.ods || "OUTROS"
 export const getOs = (ug: string) => getUg(ug)?.orgaoSuperior || "OUTROS"
 export const getUgName = (ug: string) => getUg(ug)?.sigla || "NÃO IDENTIFICADA"
 
-export const formatCurrency = (value: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value)
-
 export const formatMilitaryDate = (dateStr: string) => {
 	if (!dateStr) return "XXXMÊSANO"
 	const date = new Date(`${dateStr}T12:00:00`)

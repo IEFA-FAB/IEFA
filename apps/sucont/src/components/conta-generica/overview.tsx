@@ -4,7 +4,7 @@ import { Building2, CheckCircle, DollarSign, FileSpreadsheet, Landmark, Target, 
 import { Alert, AlertDescription, AlertTitle } from "#/components/ui/alert"
 import { SegmentedControl } from "#/components/ui/segmented-control"
 import { StatTile } from "#/components/ui/stat-tile"
-import { formatCurrency } from "#/lib/conta-generica/helpers"
+import { formatCurrency } from "#/lib/analista/types"
 
 export type PanelView = "operacional" | "tatica" | "estrategica"
 

@@ -2,9 +2,10 @@
 // estratégica do painel de risco.
 import { AlertOctagon, Building2, DollarSign, Landmark, TrendingUp } from "lucide-react"
 import { StatTile } from "#/components/ui/stat-tile"
+import { formatCurrency } from "#/lib/analista/types"
 import type { CriticalSummary } from "#/lib/conta-generica/advanced-analysis"
 import type { DerivedStats } from "#/lib/conta-generica/derived-stats"
-import { formatCurrency, getUgName } from "#/lib/conta-generica/helpers"
+import { getUgName } from "#/lib/conta-generica/helpers"
 
 interface StrategicViewProps {
 	topOdsByCount: DerivedStats["topOdsByCount"]

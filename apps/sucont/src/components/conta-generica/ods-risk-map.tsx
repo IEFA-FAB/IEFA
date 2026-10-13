@@ -1,8 +1,8 @@
 // Extraído de routes/conta-generica.tsx (port do analistacontagenerica): tabela do
 // mapa de risco por ODS, comum às visões estratégica e tática.
 import { Compass } from "lucide-react"
+import { formatCurrency } from "#/lib/analista/types"
 import type { OdsRisk } from "#/lib/conta-generica/advanced-analysis"
-import { formatCurrency } from "#/lib/conta-generica/helpers"
 
 /** ODS Risk Map (both views) */
 export function OdsRiskMapCard({ odsRiskMap }: { odsRiskMap: OdsRisk[] }) {

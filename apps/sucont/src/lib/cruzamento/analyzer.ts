@@ -251,7 +251,7 @@ function classifyContaCorrente(data: ContaCorrenteEntry, hasInvalidUG8972: boole
 }
 
 /** Compara as duas pernas de um conta corrente e diz qual UG responde pelo resultado. */
-function analyzeContaCorrente(contaCorrente: string, data: ContaCorrenteEntry): { result: AnalysisResult; targetUGs: string[] } {
+function analyzeContaCorrente(contaCorrente: string, data: ContaCorrenteEntry): { result: AnalysisResult; targetUG: string } {
 	const saldo8972 = data.has8972 ? arredondarCentavos(data.saldo8972) : null
 	const saldo8971 = data.has8971 ? arredondarCentavos(data.saldo8971) : null
 
@@ -264,8 +264,6 @@ function analyzeContaCorrente(contaCorrente: string, data: ContaCorrenteEntry): 
 	const hasInvalidUG8972 = invalidUGs8972.length > 0
 
 	const targetUG = pickTargetUG(invalidUGs8972, ugs8971, ugs8972)
-
-	const targetUGs = [targetUG]
 
 	const diferenca = arredondarCentavos(Math.abs((saldo8972 || 0) - (saldo8971 || 0)))
 
@@ -284,7 +282,7 @@ function analyzeContaCorrente(contaCorrente: string, data: ContaCorrenteEntry): 
 		diferenca,
 	}
 
-	return { result, targetUGs }
+	return { result, targetUG }
 }
 
 function registerInconsistency(ugAnalysis: UGAnalysis, result: AnalysisResult): void {
@@ -360,11 +358,8 @@ export function analyzeData(records: RawRecord[]): ReportData {
 	for (const [contaCorrente, data] of map.entries()) {
 		if (!data.has8971 && !data.has8972) continue
 
-		const { result, targetUGs } = analyzeContaCorrente(contaCorrente, data)
-
-		for (const ug of targetUGs) {
-			registerInconsistency(getOrCreateUG(ug), result)
-		}
+		const { result, targetUG } = analyzeContaCorrente(contaCorrente, data)
+		registerInconsistency(getOrCreateUG(targetUG), result)
 	}
 
 	for (const ugAnalysis of ugMap.values()) {
