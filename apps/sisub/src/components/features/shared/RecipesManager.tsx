@@ -12,19 +12,16 @@ import {
 	Loader2,
 	Replace,
 	Search,
-	SlidersHorizontal,
 	SquareCheckBig,
 	X,
 } from "lucide-react"
-import { type Ref, useEffect, useId, useImperativeHandle, useMemo, useRef, useState } from "react"
+import { type ReactNode, type Ref, useEffect, useId, useImperativeHandle, useMemo, useRef, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ButtonGroup } from "@/components/ui/button-group"
 import { Card, CardFooter } from "@/components/ui/card"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { Input } from "@/components/ui/input"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Switch } from "@/components/ui/switch"
 import { toast } from "@/components/ui/toast"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -38,12 +35,14 @@ import { getStoredScrollOffset, usePersistScrollOffset } from "@/hooks/ui/useScr
 import { cn } from "@/lib/cn"
 import { datedCsvFilename, downloadCsv } from "@/lib/csv"
 import { pluralize } from "@/lib/flows/model"
-import { allRecipeFolderIds, buildRecipeTree } from "@/lib/recipe-tree"
+import { allRecipeFolderIds, buildRecipeTree, type RecipeTreeNode } from "@/lib/recipe-tree"
 import { buildRecipesCsv } from "@/lib/recipes-csv"
 import type { RecipeWithIngredients } from "@/types/domain/recipes"
 import { RecipeFoldersDialog } from "./RecipeFoldersDialog"
 import { RecipesBulkActionsBar } from "./RecipesBulkActionsBar"
 import { RecipesFindReplaceDialog } from "./RecipesFindReplaceDialog"
+import { describeSelectVisible, pickEmptyRecipesHint } from "./recipes-manager-state"
+import { SearchOptionsPopover } from "./SearchOptionsPopover"
 
 const ROW_HEIGHT = 48
 
@@ -388,6 +387,48 @@ export function RecipesManager({ ref }: { ref?: Ref<RecipesManagerHandle> }) {
 	// Persiste o offset de scroll continuamente.
 	usePersistScrollOffset(scrollKey, parentRef, !isLoading && tree.nodes.length > 0)
 
+	const renderRows = () => (
+		<div style={{ height: virtualizer.getTotalSize(), width: "100%", position: "relative" }}>
+			{virtualizer.getVirtualItems().map((vRow) => {
+				const node = tree.nodes[vRow.index]
+				if (!node) return null
+				const rowStyle = {
+					position: "absolute" as const,
+					top: 0,
+					left: 0,
+					width: "100%",
+					height: `${vRow.size}px`,
+					transform: `translateY(${vRow.start}px)`,
+				}
+
+				if (node.type === "folder") {
+					return (
+						<div key={vRow.key} style={rowStyle}>
+							<RecipeFolderRow node={node} onToggle={() => toggleExpand(node.id)} />
+						</div>
+					)
+				}
+
+				const recipe = node.data
+				return (
+					<div key={vRow.key} style={rowStyle}>
+						<RecipeLeafRow
+							recipe={recipe}
+							kitchenId={kitchenId}
+							showOrigin={kitchenIdNum != null}
+							selectionMode={selectionMode}
+							isSelected={selected.has(recipe.id)}
+							isInWeeklyMenu={menuUsageIds.has(recipe.id)}
+							reviewedAt={reviewedAtById.get(recipe.id)}
+							onSelectChange={(checked) => toggleSelect(recipe, checked)}
+							onActivate={() => navigateToRecipe(recipe.id)}
+						/>
+					</div>
+				)
+			})}
+		</div>
+	)
+
 	return (
 		<div className="space-y-6">
 			{/* Toolbar. Só vira uma linha quando as duas metades cabem de fato: busca (~320px)
@@ -411,342 +452,52 @@ export function RecipesManager({ ref }: { ref?: Ref<RecipesManagerHandle> }) {
 						/>
 					</div>
 
-					<Popover>
-						<PopoverTrigger render={<Button variant="outline" size="sm" className="shrink-0" aria-label="Opções de busca" />}>
-							<SlidersHorizontal className="size-4" />
-							<span className="hidden sm:inline">Opções</span>
-							{(searchCaseSensitive || searchAccentSensitive || onlyWeeklyMenu || onlyNotReviewed) && (
-								<span className="size-1.5 rounded-full bg-primary" aria-hidden />
-							)}
-						</PopoverTrigger>
-						<PopoverContent align="start" className="w-64">
-							<div className="flex flex-col gap-3 text-sm">
-								<label htmlFor={searchCaseId} className="flex items-center justify-between gap-3 cursor-pointer select-none">
-									Diferenciar maiúsculas
-									<Switch id={searchCaseId} checked={searchCaseSensitive} onCheckedChange={setSearchCaseSensitive} size="sm" />
-								</label>
-								<label htmlFor={searchAccentId} className="flex items-center justify-between gap-3 cursor-pointer select-none">
-									Diferenciar acentos
-									<Switch id={searchAccentId} checked={searchAccentSensitive} onCheckedChange={setSearchAccentSensitive} size="sm" />
-								</label>
-								<label htmlFor={onlyWeeklyMenuId} className="flex items-center justify-between gap-3 cursor-pointer select-none">
-									Apenas em plano semanal
-									<Switch id={onlyWeeklyMenuId} checked={onlyWeeklyMenu} onCheckedChange={setOnlyWeeklyMenu} size="sm" />
-								</label>
-								<label htmlFor={onlyNotReviewedId} className="flex items-center justify-between gap-3 cursor-pointer select-none">
-									Somente não revisadas
-									<Switch id={onlyNotReviewedId} checked={onlyNotReviewed} onCheckedChange={setOnlyNotReviewed} size="sm" />
-								</label>
-							</div>
-						</PopoverContent>
-					</Popover>
+					<SearchOptionsPopover
+						options={[
+							{ id: searchCaseId, label: "Diferenciar maiúsculas", checked: searchCaseSensitive, onCheckedChange: setSearchCaseSensitive },
+							{ id: searchAccentId, label: "Diferenciar acentos", checked: searchAccentSensitive, onCheckedChange: setSearchAccentSensitive },
+							{ id: onlyWeeklyMenuId, label: "Apenas em plano semanal", checked: onlyWeeklyMenu, onCheckedChange: setOnlyWeeklyMenu },
+							{ id: onlyNotReviewedId, label: "Somente não revisadas", checked: onlyNotReviewed, onCheckedChange: setOnlyNotReviewed },
+						]}
+					/>
 				</div>
 
 				{/* Ações (direita) — `min-w-0` deixa o bloco encolher e quebrar em duas linhas
 				    em vez de transbordar por cima da busca. */}
 				<div className="flex flex-wrap items-center gap-2 min-w-0 min-[1400px]:justify-end">
-					{selectionMode ? (
-						<>
-							<Button
-								variant="outline"
-								size="sm"
-								onClick={selectAllVisible}
-								disabled={visibleRecipeCount === 0}
-								aria-label={
-									visibleRecipeCount === 0
-										? "Nenhuma preparação visível — expanda uma pasta para selecionar"
-										: `Selecionar as ${visibleRecipeCount} preparações visíveis`
-								}
-							>
-								Selecionar Visíveis{visibleRecipeCount > 0 ? ` (${visibleRecipeCount})` : ""}
-							</Button>
-							<Button variant="outline" size="sm" onClick={exitSelectionMode} aria-label="Sair do modo de seleção">
-								<X className="size-4 mr-2" />
-								Concluir Seleção
-							</Button>
-						</>
-					) : (
-						<>
-							<Button
-								variant="outline"
-								size="sm"
-								onClick={() => setSortDirection((d) => (d === "asc" ? "desc" : "asc"))}
-								aria-label={sortDirection === "asc" ? "Ordenar de Z a A" : "Ordenar de A a Z"}
-							>
-								{sortDirection === "asc" ? <ArrowDownAZ className="size-4 mr-2" /> : <ArrowDownZA className="size-4 mr-2" />}
-								<span className="hidden sm:inline">{sortDirection === "asc" ? "A-Z" : "Z-A"}</span>
-							</Button>
-
-							<ButtonGroup>
-								<Button variant="outline" size="sm" onClick={expandAll} aria-label="Expandir tudo">
-									Expandir Tudo
-								</Button>
-								<Button variant="outline" size="sm" onClick={collapseAll} aria-label="Recolher tudo">
-									Recolher Tudo
-								</Button>
-							</ButtonGroup>
-
-							<Button variant="outline" size="sm" onClick={() => setFindReplaceOpen(true)} aria-label="Localizar e substituir">
-								<Replace className="size-4 mr-2" />
-								<span className="hidden sm:inline">Localizar e Substituir</span>
-								<span className="sm:hidden">Substituir</span>
-							</Button>
-							<Button variant="outline" size="sm" onClick={() => setSelectionMode(true)} aria-label="Selecionar itens">
-								<SquareCheckBig className="size-4 mr-2" />
-								<span className="hidden sm:inline">Selecionar Itens</span>
-								<span className="sm:hidden">Selecionar</span>
-							</Button>
-						</>
-					)}
+					<RecipesToolbarActions
+						selectionMode={selectionMode}
+						visibleRecipeCount={visibleRecipeCount}
+						onSelectAllVisible={selectAllVisible}
+						onExitSelectionMode={exitSelectionMode}
+						sortDirection={sortDirection}
+						onToggleSort={() => setSortDirection((d) => (d === "asc" ? "desc" : "asc"))}
+						onExpandAll={expandAll}
+						onCollapseAll={collapseAll}
+						onOpenFindReplace={() => setFindReplaceOpen(true)}
+						onEnterSelectionMode={() => setSelectionMode(true)}
+					/>
 				</div>
 			</Card>
 
 			{/* Árvore Virtualizada */}
 			<Card>
 				<div ref={parentRef} className="h-150 overflow-auto" role="tree" aria-label="Árvore de preparações">
-					{showLoading ? (
-						<div className="flex items-center justify-center h-full text-sm text-muted-foreground">Carregando preparações...</div>
-					) : tree.nodes.length === 0 ? (
-						<div className="flex flex-col items-center justify-center h-full text-muted-foreground py-12">
-							<p className="font-sans">Nenhuma preparação encontrada</p>
-							{onlyNotReviewed ? (
-								<p className="text-sm mt-2">Nenhuma preparação pendente de revisão neste filtro</p>
-							) : onlyWeeklyMenu ? (
-								<p className="text-sm mt-2">Nenhuma preparação em plano semanal — ajuste o filtro em Opções</p>
-							) : (
-								urlSearch && <p className="text-sm mt-2">Tente ajustar os filtros de busca</p>
-							)}
-						</div>
-					) : (
-						<div style={{ height: virtualizer.getTotalSize(), width: "100%", position: "relative" }}>
-							{virtualizer.getVirtualItems().map((vRow) => {
-								const node = tree.nodes[vRow.index]
-								if (!node) return null
-								const rowStyle = {
-									position: "absolute" as const,
-									top: 0,
-									left: 0,
-									width: "100%",
-									height: `${vRow.size}px`,
-									transform: `translateY(${vRow.start}px)`,
-								}
-
-								if (node.type === "folder") {
-									return (
-										<div key={vRow.key} style={rowStyle}>
-											<TreeRow
-												level={0}
-												hasChildren={node.hasChildren}
-												isExpanded={node.isExpanded}
-												onToggle={() => toggleExpand(node.id)}
-												icon={FolderIcon}
-												// "Sem pasta" não é uma pasta do catálogo: fica em tom neutro.
-												tone={node.isUnfiled ? TREE_MUTED_TONE : treeFolderTone(0)}
-												label={node.label}
-												onActivate={node.hasChildren ? () => toggleExpand(node.id) : undefined}
-											>
-												<span className={cn("text-sm truncate leading-normal font-bold uppercase tracking-wide", node.isUnfiled && "text-muted-foreground")}>
-													{node.label}
-												</span>
-												<Badge variant="outline" className="shrink-0 text-muted-foreground">
-													{node.recipeCount} {node.recipeCount === 1 ? "preparação" : "preparações"}
-												</Badge>
-											</TreeRow>
-										</div>
-									)
-								}
-
-								const recipe = node.data
-								const isSelected = selected.has(recipe.id)
-								const isDeleted = !!recipe.deleted_at
-								const reviewedAt = reviewedAtById.get(recipe.id)
-								return (
-									<div key={vRow.key} style={rowStyle}>
-										<TreeRow
-											level={1}
-											icon={recipe.kitchen_id ? ChefHat : Globe}
-											tone={recipe.kitchen_id ? TREE_MUTED_TONE : TREE_LEAF_TONE}
-											label={recipe.name}
-											selectionMode={selectionMode}
-											selected={isSelected}
-											onSelectChange={(checked) => toggleSelect(recipe, checked)}
-											onActivate={() => navigateToRecipe(recipe.id)}
-											// Rendimento é leitura: fica no `meta` para não sumir junto com as ações
-											// quando o modo de seleção em massa liga.
-											meta={
-												recipe.portion_yield != null ? (
-													<span className="text-sm text-muted-foreground font-mono">{recipe.portion_yield} porções</span>
-												) : undefined
-											}
-											actions={
-												// Fork só existe para preparação global: é a cópia local dela.
-												!recipe.kitchen_id ? (
-													<Tooltip>
-														<TooltipTrigger
-															render={
-																<Button
-																	variant="ghost"
-																	size="icon-xs"
-																	aria-label="Criar cópia local"
-																	nativeButton={false}
-																	className="hover:bg-accent/10 transition-all"
-																	render={
-																		kitchenId ? (
-																			<Link
-																				to="/kitchen/$kitchenId/recipes/new"
-																				params={{ kitchenId }}
-																				search={{ forkFrom: recipe.id }}
-																				onClick={(e) => e.stopPropagation()}
-																			>
-																				<GitFork className="size-3.5" />
-																			</Link>
-																		) : (
-																			<Link to="/global/recipes/new" search={{ forkFrom: recipe.id }} onClick={(e) => e.stopPropagation()}>
-																				<GitFork className="size-3.5" />
-																			</Link>
-																		)
-																	}
-																/>
-															}
-														/>
-														<TooltipContent>Criar cópia local</TooltipContent>
-													</Tooltip>
-												) : undefined
-											}
-										>
-											<HoverCard>
-												<HoverCardTrigger
-													render={
-														<span className={cn("text-sm truncate font-normal cursor-default", isDeleted && "line-through text-muted-foreground")}>
-															{recipe.name}
-														</span>
-													}
-												/>
-												<HoverCardContent side="right" align="start">
-													<RecipeHoverContent recipe={recipe} />
-												</HoverCardContent>
-											</HoverCard>
-											{isDeleted && <Badge variant="destructive">Excluída</Badge>}
-											{menuUsageIds.has(recipe.id) && (
-												<Tooltip>
-													<TooltipTrigger
-														render={
-															<Badge variant="accent" className="shrink-0">
-																<CalendarCheck />
-																<span className="hidden sm:inline">Plano semanal</span>
-															</Badge>
-														}
-													/>
-													<TooltipContent>Usada em plano semanal — priorize a revisão</TooltipContent>
-												</Tooltip>
-											)}
-											{!isDeleted &&
-												(reviewedAt ? (
-													<Tooltip>
-														<TooltipTrigger
-															render={
-																<Badge variant="outline" className="text-muted-foreground shrink-0">
-																	<CalendarCheck className="size-3" />
-																	<span className="hidden sm:inline">Revisada {formatReviewDate(reviewedAt)}</span>
-																</Badge>
-															}
-														/>
-														<TooltipContent>Última revisão em {formatReviewDate(reviewedAt)}</TooltipContent>
-													</Tooltip>
-												) : (
-													<Tooltip>
-														<TooltipTrigger
-															render={
-																<Badge variant="warning" className="shrink-0">
-																	Não revisada
-																</Badge>
-															}
-														/>
-														<TooltipContent>Preparação ainda não revisada</TooltipContent>
-													</Tooltip>
-												))}
-											{recipe.version > 1 && (
-												<Badge variant="secondary" className="rounded-full py-0 font-mono shrink-0">
-													v{recipe.version}
-												</Badge>
-											)}
-											{/* Na listagem de uma cozinha convivem as preparações globais (catálogo da SDAB)
-											    e as cópias locais dela. `base_recipe_id` NÃO distingue as duas: toda versão a
-											    partir da segunda o carrega, seja global ou local. O sinal correto é kitchen_id. */}
-											{kitchenIdNum != null && (
-												<Badge variant={recipe.kitchen_id == null ? "outline" : "secondary"} className="text-xs shrink-0">
-													{recipe.kitchen_id == null ? "Global" : "Cópia local"}
-												</Badge>
-											)}
-										</TreeRow>
-									</div>
-								)
-							})}
-						</div>
-					)}
+					<RecipesTreeBody
+						showLoading={showLoading}
+						isEmpty={tree.nodes.length === 0}
+						emptyHint={pickEmptyRecipesHint({ onlyNotReviewed, onlyWeeklyMenu, urlSearch })}
+						renderRows={renderRows}
+					/>
 				</div>
-				<CardFooter className="flex-col items-stretch gap-3 text-xs text-muted-foreground select-none sm:flex-row sm:items-center sm:justify-between">
-					<div className="flex items-center gap-3">
-						<span>
-							{tree.folderCount} {tree.folderCount === 1 ? "pasta" : "pastas"}
-						</span>
-						<span aria-hidden>·</span>
-						<span>
-							{stats.total} {stats.total === 1 ? "preparação" : "preparações"}
-						</span>
-						{type === "all" && stats.total > 0 && (
-							<>
-								<span aria-hidden>·</span>
-								<span>
-									{stats.global} {stats.global === 1 ? "global" : "globais"}
-								</span>
-								<span aria-hidden>·</span>
-								<span>
-									{stats.local} {stats.local === 1 ? "local" : "locais"}
-								</span>
-							</>
-						)}
-					</div>
-
-					{/* Recortes de visualização — mesmo lugar dos chips da árvore de insumos.
-					    A origem saiu da barra de busca: com ela lá, a barra não cabia em 1440. */}
-					<div className="flex items-center gap-2 flex-wrap sm:justify-end">
-						<span className="font-medium mr-0.5">Origem</span>
-						<ToggleGroup
-							value={[type]}
-							// Base UI devolve array mesmo em seleção única; desmarcar volta para "Todas".
-							onValueChange={(value) => setOrigin((value[0] as "all" | "global" | "local") ?? "all")}
-							variant="outline"
-							size="sm"
-							spacing={1}
-							aria-label="Origem da preparação"
-						>
-							<ToggleGroupItem value="all" aria-label="Todas as origens">
-								Todas
-							</ToggleGroupItem>
-							<ToggleGroupItem value="global" aria-label="Globais (SDAB)">
-								Globais (SDAB)
-							</ToggleGroupItem>
-							<ToggleGroupItem value="local" aria-label="Locais">
-								Locais
-							</ToggleGroupItem>
-						</ToggleGroup>
-						<span className="font-medium ml-2 mr-0.5">Mostrar</span>
-						<ToggleGroup
-							value={showDeleted ? ["excluidas"] : []}
-							onValueChange={(value) => setShowDeleted(value.includes("excluidas"))}
-							multiple
-							variant="outline"
-							size="sm"
-							spacing={1}
-							aria-label="Filtros rápidos de busca"
-						>
-							<ToggleGroupItem value="excluidas" aria-label="Excluídas">
-								Excluídas
-							</ToggleGroupItem>
-						</ToggleGroup>
-					</div>
-				</CardFooter>
+				<RecipesFooter
+					folderCount={tree.folderCount}
+					stats={stats}
+					type={type}
+					onOriginChange={setOrigin}
+					showDeleted={showDeleted}
+					onShowDeletedChange={setShowDeleted}
+				/>
 			</Card>
 
 			{/* Localizar e substituir */}
@@ -766,5 +517,347 @@ export function RecipesManager({ ref }: { ref?: Ref<RecipesManagerHandle> }) {
 				/>
 			)}
 		</div>
+	)
+}
+
+/** Ações da barra (direita): as de seleção em massa ou as de navegação/edição da árvore. */
+function RecipesToolbarActions({
+	selectionMode,
+	visibleRecipeCount,
+	onSelectAllVisible,
+	onExitSelectionMode,
+	sortDirection,
+	onToggleSort,
+	onExpandAll,
+	onCollapseAll,
+	onOpenFindReplace,
+	onEnterSelectionMode,
+}: {
+	selectionMode: boolean
+	visibleRecipeCount: number
+	onSelectAllVisible: () => void
+	onExitSelectionMode: () => void
+	sortDirection: "asc" | "desc"
+	onToggleSort: () => void
+	onExpandAll: () => void
+	onCollapseAll: () => void
+	onOpenFindReplace: () => void
+	onEnterSelectionMode: () => void
+}) {
+	if (selectionMode) {
+		const { ariaLabel, countSuffix } = describeSelectVisible(visibleRecipeCount)
+		return (
+			<>
+				<Button variant="outline" size="sm" onClick={onSelectAllVisible} disabled={visibleRecipeCount === 0} aria-label={ariaLabel}>
+					Selecionar Visíveis{countSuffix}
+				</Button>
+				<Button variant="outline" size="sm" onClick={onExitSelectionMode} aria-label="Sair do modo de seleção">
+					<X className="size-4 mr-2" />
+					Concluir Seleção
+				</Button>
+			</>
+		)
+	}
+	return (
+		<>
+			<Button variant="outline" size="sm" onClick={onToggleSort} aria-label={sortDirection === "asc" ? "Ordenar de Z a A" : "Ordenar de A a Z"}>
+				{sortDirection === "asc" ? <ArrowDownAZ className="size-4 mr-2" /> : <ArrowDownZA className="size-4 mr-2" />}
+				<span className="hidden sm:inline">{sortDirection === "asc" ? "A-Z" : "Z-A"}</span>
+			</Button>
+
+			<ButtonGroup>
+				<Button variant="outline" size="sm" onClick={onExpandAll} aria-label="Expandir tudo">
+					Expandir Tudo
+				</Button>
+				<Button variant="outline" size="sm" onClick={onCollapseAll} aria-label="Recolher tudo">
+					Recolher Tudo
+				</Button>
+			</ButtonGroup>
+
+			<Button variant="outline" size="sm" onClick={onOpenFindReplace} aria-label="Localizar e substituir">
+				<Replace className="size-4 mr-2" />
+				<span className="hidden sm:inline">Localizar e Substituir</span>
+				<span className="sm:hidden">Substituir</span>
+			</Button>
+			<Button variant="outline" size="sm" onClick={onEnterSelectionMode} aria-label="Selecionar itens">
+				<SquareCheckBig className="size-4 mr-2" />
+				<span className="hidden sm:inline">Selecionar Itens</span>
+				<span className="sm:hidden">Selecionar</span>
+			</Button>
+		</>
+	)
+}
+
+/** Conteúdo do card da árvore: carga, estado vazio ou as linhas virtualizadas (`renderRows`, só chamado quando aparecem). */
+function RecipesTreeBody({
+	showLoading,
+	isEmpty,
+	emptyHint,
+	renderRows,
+}: {
+	showLoading: boolean
+	isEmpty: boolean
+	emptyHint: string | null
+	renderRows: () => ReactNode
+}) {
+	if (showLoading) {
+		return <div className="flex items-center justify-center h-full text-sm text-muted-foreground">Carregando preparações...</div>
+	}
+	if (isEmpty) {
+		return (
+			<div className="flex flex-col items-center justify-center h-full text-muted-foreground py-12">
+				<p className="font-sans">Nenhuma preparação encontrada</p>
+				{emptyHint && <p className="text-sm mt-2">{emptyHint}</p>}
+			</div>
+		)
+	}
+	return renderRows()
+}
+
+/** Linha de pasta da árvore de preparações. */
+function RecipeFolderRow({ node, onToggle }: { node: Extract<RecipeTreeNode, { type: "folder" }>; onToggle: () => void }) {
+	return (
+		<TreeRow
+			level={0}
+			hasChildren={node.hasChildren}
+			isExpanded={node.isExpanded}
+			onToggle={onToggle}
+			icon={FolderIcon}
+			// "Sem pasta" não é uma pasta do catálogo: fica em tom neutro.
+			tone={node.isUnfiled ? TREE_MUTED_TONE : treeFolderTone(0)}
+			label={node.label}
+			onActivate={node.hasChildren ? onToggle : undefined}
+		>
+			<span className={cn("text-sm truncate leading-normal font-bold uppercase tracking-wide", node.isUnfiled && "text-muted-foreground")}>{node.label}</span>
+			<Badge variant="outline" className="shrink-0 text-muted-foreground">
+				{node.recipeCount} {node.recipeCount === 1 ? "preparação" : "preparações"}
+			</Badge>
+		</TreeRow>
+	)
+}
+
+/** Fork só existe para preparação global: é a cópia local dela. */
+function ForkRecipeAction({ recipeId, kitchenId }: { recipeId: string; kitchenId: string | null }) {
+	return (
+		<Tooltip>
+			<TooltipTrigger
+				render={
+					<Button
+						variant="ghost"
+						size="icon-xs"
+						aria-label="Criar cópia local"
+						nativeButton={false}
+						className="hover:bg-accent/10 transition-all"
+						render={
+							kitchenId ? (
+								<Link to="/kitchen/$kitchenId/recipes/new" params={{ kitchenId }} search={{ forkFrom: recipeId }} onClick={(e) => e.stopPropagation()}>
+									<GitFork className="size-3.5" />
+								</Link>
+							) : (
+								<Link to="/global/recipes/new" search={{ forkFrom: recipeId }} onClick={(e) => e.stopPropagation()}>
+									<GitFork className="size-3.5" />
+								</Link>
+							)
+						}
+					/>
+				}
+			/>
+			<TooltipContent>Criar cópia local</TooltipContent>
+		</Tooltip>
+	)
+}
+
+/** Badge de conferência da preparação (não aparece em preparação excluída). */
+function RecipeReviewBadge({ reviewedAt }: { reviewedAt: string | undefined }) {
+	if (reviewedAt) {
+		return (
+			<Tooltip>
+				<TooltipTrigger
+					render={
+						<Badge variant="outline" className="text-muted-foreground shrink-0">
+							<CalendarCheck className="size-3" />
+							<span className="hidden sm:inline">Revisada {formatReviewDate(reviewedAt)}</span>
+						</Badge>
+					}
+				/>
+				<TooltipContent>Última revisão em {formatReviewDate(reviewedAt)}</TooltipContent>
+			</Tooltip>
+		)
+	}
+	return (
+		<Tooltip>
+			<TooltipTrigger
+				render={
+					<Badge variant="warning" className="shrink-0">
+						Não revisada
+					</Badge>
+				}
+			/>
+			<TooltipContent>Preparação ainda não revisada</TooltipContent>
+		</Tooltip>
+	)
+}
+
+/** Linha de preparação da árvore. */
+function RecipeLeafRow({
+	recipe,
+	kitchenId,
+	showOrigin,
+	selectionMode,
+	isSelected,
+	isInWeeklyMenu,
+	reviewedAt,
+	onSelectChange,
+	onActivate,
+}: {
+	recipe: RecipeSummary
+	kitchenId: string | null
+	/** Na listagem de uma cozinha: distingue global de cópia local. */
+	showOrigin: boolean
+	selectionMode: boolean
+	isSelected: boolean
+	isInWeeklyMenu: boolean
+	reviewedAt: string | undefined
+	onSelectChange: (checked: boolean) => void
+	onActivate: () => void
+}) {
+	const isDeleted = !!recipe.deleted_at
+	return (
+		<TreeRow
+			level={1}
+			icon={recipe.kitchen_id ? ChefHat : Globe}
+			tone={recipe.kitchen_id ? TREE_MUTED_TONE : TREE_LEAF_TONE}
+			label={recipe.name}
+			selectionMode={selectionMode}
+			selected={isSelected}
+			onSelectChange={onSelectChange}
+			onActivate={onActivate}
+			// Rendimento é leitura: fica no `meta` para não sumir junto com as ações
+			// quando o modo de seleção em massa liga.
+			meta={recipe.portion_yield != null ? <span className="text-sm text-muted-foreground font-mono">{recipe.portion_yield} porções</span> : undefined}
+			actions={
+				// Fork só existe para preparação global: é a cópia local dela.
+				!recipe.kitchen_id ? <ForkRecipeAction recipeId={recipe.id} kitchenId={kitchenId} /> : undefined
+			}
+		>
+			<HoverCard>
+				<HoverCardTrigger
+					render={<span className={cn("text-sm truncate font-normal cursor-default", isDeleted && "line-through text-muted-foreground")}>{recipe.name}</span>}
+				/>
+				<HoverCardContent side="right" align="start">
+					<RecipeHoverContent recipe={recipe} />
+				</HoverCardContent>
+			</HoverCard>
+			{isDeleted && <Badge variant="destructive">Excluída</Badge>}
+			{isInWeeklyMenu && (
+				<Tooltip>
+					<TooltipTrigger
+						render={
+							<Badge variant="accent" className="shrink-0">
+								<CalendarCheck />
+								<span className="hidden sm:inline">Plano semanal</span>
+							</Badge>
+						}
+					/>
+					<TooltipContent>Usada em plano semanal — priorize a revisão</TooltipContent>
+				</Tooltip>
+			)}
+			{!isDeleted && <RecipeReviewBadge reviewedAt={reviewedAt} />}
+			{recipe.version > 1 && (
+				<Badge variant="secondary" className="rounded-full py-0 font-mono shrink-0">
+					v{recipe.version}
+				</Badge>
+			)}
+			{/* Na listagem de uma cozinha convivem as preparações globais (catálogo da SDAB)
+			    e as cópias locais dela. `base_recipe_id` NÃO distingue as duas: toda versão a
+			    partir da segunda o carrega, seja global ou local. O sinal correto é kitchen_id. */}
+			{showOrigin && (
+				<Badge variant={recipe.kitchen_id == null ? "outline" : "secondary"} className="text-xs shrink-0">
+					{recipe.kitchen_id == null ? "Global" : "Cópia local"}
+				</Badge>
+			)}
+		</TreeRow>
+	)
+}
+
+/** Rodapé: contagem do recorte + origem e "Excluídas". */
+function RecipesFooter({
+	folderCount,
+	stats,
+	type,
+	onOriginChange,
+	showDeleted,
+	onShowDeletedChange,
+}: {
+	folderCount: number
+	stats: { total: number; global: number; local: number }
+	type: "all" | "global" | "local"
+	onOriginChange: (value: "all" | "global" | "local") => void
+	showDeleted: boolean
+	onShowDeletedChange: (value: boolean) => void
+}) {
+	return (
+		<CardFooter className="flex-col items-stretch gap-3 text-xs text-muted-foreground select-none sm:flex-row sm:items-center sm:justify-between">
+			<div className="flex items-center gap-3">
+				<span>
+					{folderCount} {folderCount === 1 ? "pasta" : "pastas"}
+				</span>
+				<span aria-hidden>·</span>
+				<span>
+					{stats.total} {stats.total === 1 ? "preparação" : "preparações"}
+				</span>
+				{type === "all" && stats.total > 0 && (
+					<>
+						<span aria-hidden>·</span>
+						<span>
+							{stats.global} {stats.global === 1 ? "global" : "globais"}
+						</span>
+						<span aria-hidden>·</span>
+						<span>
+							{stats.local} {stats.local === 1 ? "local" : "locais"}
+						</span>
+					</>
+				)}
+			</div>
+
+			{/* Recortes de visualização — mesmo lugar dos chips da árvore de insumos.
+			    A origem saiu da barra de busca: com ela lá, a barra não cabia em 1440. */}
+			<div className="flex items-center gap-2 flex-wrap sm:justify-end">
+				<span className="font-medium mr-0.5">Origem</span>
+				<ToggleGroup
+					value={[type]}
+					// Base UI devolve array mesmo em seleção única; desmarcar volta para "Todas".
+					onValueChange={(value) => onOriginChange((value[0] as "all" | "global" | "local") ?? "all")}
+					variant="outline"
+					size="sm"
+					spacing={1}
+					aria-label="Origem da preparação"
+				>
+					<ToggleGroupItem value="all" aria-label="Todas as origens">
+						Todas
+					</ToggleGroupItem>
+					<ToggleGroupItem value="global" aria-label="Globais (SDAB)">
+						Globais (SDAB)
+					</ToggleGroupItem>
+					<ToggleGroupItem value="local" aria-label="Locais">
+						Locais
+					</ToggleGroupItem>
+				</ToggleGroup>
+				<span className="font-medium ml-2 mr-0.5">Mostrar</span>
+				<ToggleGroup
+					value={showDeleted ? ["excluidas"] : []}
+					onValueChange={(value) => onShowDeletedChange(value.includes("excluidas"))}
+					multiple
+					variant="outline"
+					size="sm"
+					spacing={1}
+					aria-label="Filtros rápidos de busca"
+				>
+					<ToggleGroupItem value="excluidas" aria-label="Excluídas">
+						Excluídas
+					</ToggleGroupItem>
+				</ToggleGroup>
+			</div>
+		</CardFooter>
 	)
 }

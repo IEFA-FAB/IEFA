@@ -12,13 +12,30 @@
  * @migration 20260729150000_inventory_nfe
  */
 
-import type { TableInsert, TableRow, TableUpdate } from "@iefa/database"
-import { matchNfeItem, type NfeMatchCandidates, parseNfeAccessKey } from "@iefa/sisub-domain"
+import type { TableInsert, TableUpdate } from "@iefa/database"
+import { matchNfeItem, type NfeMatchStatus, parseNfeAccessKey } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAuthWithPermission } from "@/lib/auth.server"
 import { publicDbMessage } from "@/lib/db-error-message"
 import { purchaseUnitIdOfKitchen } from "@/lib/kitchen-purchase-unit.server"
+import {
+	buildMatchCandidates,
+	buildNfeItemMatchUpdate,
+	collectNfeGtins,
+	collectSupplierCodes,
+	collectSupplierMapItemIds,
+	computeManualMatchedQty,
+	countMatchStatuses,
+	type GtinEntity,
+	type IngredientItemLinkRow,
+	listUnseenGtins,
+	pickSingleDefaultIngredient,
+	resolveManualLinkFields,
+	resolveNfeDocumentStatus,
+	resolveSuggestionQuery,
+	type SupplierMapRow,
+} from "@/lib/nfe-match-candidates"
 import { nfeOwnershipProblem } from "@/lib/nfe-ownership"
 import { readAllPagesIn } from "@/lib/read-all-pages"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
@@ -78,7 +95,79 @@ export interface NfeDocumentRow {
 	situation_checked_at?: string | null
 }
 
-type IngredientItemLinkRow = Pick<TableRow<"kitchen", "ingredient_item">, "id" | "gtin" | "purchase_item_id" | "ingredient_id" | "unit_content_quantity">
+/** Vínculos e catálogo pelo GTIN. GTIN desconhecido no catálogo é cadastrado aqui como `source='nfe'`. */
+async function loadGtinCandidates(
+	nfeItems: ReadonlyArray<{ gtin: string | null; gtin_trib: string | null; description: string | null; ncm: string | null }>
+): Promise<{ linkByGtin: Map<string, IngredientItemLinkRow>; gtinEntityByGtin: Map<string, GtinEntity> }> {
+	const allGtins = collectNfeGtins(nfeItems)
+
+	const linkByGtin = new Map<string, IngredientItemLinkRow>()
+	const gtinEntityByGtin = new Map<string, GtinEntity>()
+	if (allGtins.length === 0) return { linkByGtin, gtinEntityByGtin }
+
+	// Leitura que falha aqui não é "sem candidato": o upsert abaixo rebaixaria itens já casados.
+	const { data: links, error: linksError } = await kitchen()
+		.from("ingredient_item")
+		.select("id, gtin, purchase_item_id, ingredient_id, unit_content_quantity")
+		.in("gtin", allGtins)
+		.is("deleted_at", null)
+	if (linksError) throw new Error(`Erro ao ler os itens de insumo pelo GTIN: ${publicDbMessage(linksError)}`)
+	for (const link of links ?? []) {
+		if (link.gtin) linkByGtin.set(link.gtin, link)
+	}
+
+	const { data: entities, error: entitiesError } = await gs1().from("gtin").select("gtin, net_content, gpc_brick_code").in("gtin", allGtins)
+	if (entitiesError) throw new Error(`Erro ao ler o catálogo GTIN: ${publicDbMessage(entitiesError)}`)
+	for (const entity of entities ?? []) gtinEntityByGtin.set(entity.gtin, entity)
+
+	// 4.4 — GTIN visto em NF-e autorizada e desconhecido no catálogo: cria source='nfe'
+	const dedup = listUnseenGtins(nfeItems, gtinEntityByGtin)
+	if (dedup.length > 0) {
+		const { error: gtinInsertError } = await gs1().from("gtin").upsert(dedup, { onConflict: "gtin", ignoreDuplicates: true })
+		if (gtinInsertError) throw new Error(`Erro ao cadastrar GTINs da nota: ${publicDbMessage(gtinInsertError)}`)
+		for (const row of dedup) gtinEntityByGtin.set(row.gtin, { net_content: null, gpc_brick_code: null })
+	}
+	return { linkByGtin, gtinEntityByGtin }
+}
+
+/** Mapa (CNPJ emitente, cProd) → item, aprendido nas resoluções manuais. */
+async function loadSupplierMap(supplierCnpj: string | null, nfeItems: ReadonlyArray<{ supplier_code: string | null }>): Promise<Map<string, SupplierMapRow>> {
+	const supplierCodes = collectSupplierCodes(nfeItems)
+	const mapByCode = new Map<string, SupplierMapRow>()
+	if (!supplierCnpj || supplierCodes.length === 0) return mapByCode
+	const { data: maps, error: mapsError } = await gs1()
+		.from("supplier_product_map")
+		.select("supplier_code, ingredient_item_id, purchase_item_id")
+		.eq("supplier_cnpj", supplierCnpj)
+		.in("supplier_code", supplierCodes)
+	if (mapsError) throw new Error(`Erro ao ler o mapa do fornecedor: ${publicDbMessage(mapsError)}`)
+	for (const row of maps ?? []) mapByCode.set(row.supplier_code, row)
+	return mapByCode
+}
+
+/** Links dos ingredient_items referenciados pelo supplier map (para conversão). */
+async function loadSupplierMapLinks(mapItemIds: string[]): Promise<Map<string, IngredientItemLinkRow>> {
+	const linkById = new Map<string, IngredientItemLinkRow>()
+	if (mapItemIds.length === 0) return linkById
+	const { data: links, error: linksError } = await kitchen()
+		.from("ingredient_item")
+		.select("id, gtin, purchase_item_id, ingredient_id, unit_content_quantity")
+		.in("id", mapItemIds)
+		.is("deleted_at", null)
+	if (linksError) throw new Error(`Erro ao ler os itens de insumo do mapa do fornecedor: ${publicDbMessage(linksError)}`)
+	for (const link of links ?? []) linkById.set(link.id, link)
+	return linkById
+}
+
+async function suggestPurchaseItemIds(inv: ReturnType<typeof inventory>, query: { description: string; brick: string | null }): Promise<string[]> {
+	const { data: suggestions, error: suggestionsError } = await inv.rpc("suggest_purchase_items", {
+		p_description: query.description,
+		p_gpc_brick: query.brick ?? undefined,
+		p_limit: 5,
+	})
+	if (suggestionsError) throw new Error(`Erro ao sugerir itens de compra: ${publicDbMessage(suggestionsError)}`)
+	return (suggestions ?? []).map((s) => s.purchase_item_id)
+}
 
 /**
  * Roda o pipeline de matching para todos os itens de um documento e persiste
@@ -97,133 +186,30 @@ async function runMatchingForDocument(nfeDocumentId: string): Promise<{ matched:
 	if (nfeItems.length === 0) return { matched: 0, review: 0, noMatch: 0 }
 
 	// ── Candidatos em lote ───────────────────────────────────────────────────
-	const allGtins = [...new Set(nfeItems.flatMap((item) => [item.gtin, item.gtin_trib]).filter((g) => g != null))]
-
-	const linkByGtin = new Map<string, IngredientItemLinkRow>()
-	const gtinEntityByGtin = new Map<string, { net_content: number | null; gpc_brick_code: string | null }>()
-	if (allGtins.length > 0) {
-		// Leitura que falha aqui não é "sem candidato": o upsert abaixo rebaixaria itens já casados.
-		const { data: links, error: linksError } = await kitchen()
-			.from("ingredient_item")
-			.select("id, gtin, purchase_item_id, ingredient_id, unit_content_quantity")
-			.in("gtin", allGtins)
-			.is("deleted_at", null)
-		if (linksError) throw new Error(`Erro ao ler os itens de insumo pelo GTIN: ${publicDbMessage(linksError)}`)
-		for (const link of links ?? []) {
-			if (link.gtin) linkByGtin.set(link.gtin, link)
-		}
-
-		const { data: entities, error: entitiesError } = await gs1().from("gtin").select("gtin, net_content, gpc_brick_code").in("gtin", allGtins)
-		if (entitiesError) throw new Error(`Erro ao ler o catálogo GTIN: ${publicDbMessage(entitiesError)}`)
-		for (const entity of entities ?? []) gtinEntityByGtin.set(entity.gtin, entity)
-
-		// 4.4 — GTIN visto em NF-e autorizada e desconhecido no catálogo: cria source='nfe'
-		const unseen = nfeItems.flatMap((item) =>
-			item.gtin != null && !gtinEntityByGtin.has(item.gtin) ? [{ gtin: item.gtin, description: item.description, ncm: item.ncm, source: "nfe" }] : []
-		)
-		if (unseen.length > 0) {
-			const dedup = [...new Map(unseen.map((row) => [row.gtin, row])).values()]
-			const { error: gtinInsertError } = await gs1().from("gtin").upsert(dedup, { onConflict: "gtin", ignoreDuplicates: true })
-			if (gtinInsertError) throw new Error(`Erro ao cadastrar GTINs da nota: ${publicDbMessage(gtinInsertError)}`)
-			for (const row of dedup) gtinEntityByGtin.set(row.gtin, { net_content: null, gpc_brick_code: null })
-		}
-	}
-
-	const supplierCodes = [...new Set(nfeItems.map((item) => item.supplier_code).filter((c) => c != null))]
-	const mapByCode = new Map<string, { ingredient_item_id: string | null; purchase_item_id: string | null }>()
-	if (doc.supplier_cnpj && supplierCodes.length > 0) {
-		const { data: maps, error: mapsError } = await gs1()
-			.from("supplier_product_map")
-			.select("supplier_code, ingredient_item_id, purchase_item_id")
-			.eq("supplier_cnpj", doc.supplier_cnpj)
-			.in("supplier_code", supplierCodes)
-		if (mapsError) throw new Error(`Erro ao ler o mapa do fornecedor: ${publicDbMessage(mapsError)}`)
-		for (const row of maps ?? []) mapByCode.set(row.supplier_code, row)
-	}
-
-	// links dos ingredient_items referenciados pelo supplier map (para conversão)
-	const mapItemIds = [...new Set([...mapByCode.values()].map((m) => m.ingredient_item_id).filter((id) => id != null))]
-	const linkById = new Map<string, IngredientItemLinkRow>()
-	if (mapItemIds.length > 0) {
-		const { data: links, error: linksError } = await kitchen()
-			.from("ingredient_item")
-			.select("id, gtin, purchase_item_id, ingredient_id, unit_content_quantity")
-			.in("id", mapItemIds)
-			.is("deleted_at", null)
-		if (linksError) throw new Error(`Erro ao ler os itens de insumo do mapa do fornecedor: ${publicDbMessage(linksError)}`)
-		for (const link of links ?? []) linkById.set(link.id, link)
-	}
+	const { linkByGtin, gtinEntityByGtin } = await loadGtinCandidates(nfeItems)
+	const mapByCode = await loadSupplierMap(doc.supplier_cnpj, nfeItems)
+	const linkById = await loadSupplierMapLinks(collectSupplierMapItemIds(mapByCode))
+	const index = { linkByGtin, gtinEntityByGtin, mapByCode, linkById }
 
 	// ── Decisão por item (pura) + sugestões só para quem caiu sem candidato ──
 	const updates: TableInsert<"inventory", "nfe_item">[] = []
-	let matched = 0
-	let review = 0
-	let noMatch = 0
+	const statuses: NfeMatchStatus[] = []
 
 	for (const item of nfeItems) {
-		const effectiveGtin =
-			(item.gtin != null && linkByGtin.has(item.gtin) ? item.gtin : null) ?? (item.gtin_trib != null && linkByGtin.has(item.gtin_trib) ? item.gtin_trib : null)
-		const gtinLinkRow = effectiveGtin != null ? (linkByGtin.get(effectiveGtin) ?? null) : null
-		const supplierMapRow = item.supplier_code != null ? (mapByCode.get(item.supplier_code) ?? null) : null
-		const supplierLinkRow = supplierMapRow?.ingredient_item_id != null ? (linkById.get(supplierMapRow.ingredient_item_id) ?? null) : null
-
-		const candidates: NfeMatchCandidates = {
-			gtinLink: gtinLinkRow
-				? {
-						ingredientItemId: gtinLinkRow.id,
-						purchaseItemId: gtinLinkRow.purchase_item_id,
-						ingredientId: gtinLinkRow.ingredient_id,
-						unitContentQuantity: gtinLinkRow.unit_content_quantity,
-					}
-				: null,
-			gtinNetContent: effectiveGtin != null ? (gtinEntityByGtin.get(effectiveGtin)?.net_content ?? null) : null,
-			supplierMapLink: supplierLinkRow
-				? {
-						ingredientItemId: supplierLinkRow.id,
-						purchaseItemId: supplierLinkRow.purchase_item_id ?? supplierMapRow?.purchase_item_id ?? null,
-						ingredientId: supplierLinkRow.ingredient_id,
-						unitContentQuantity: supplierLinkRow.unit_content_quantity,
-					}
-				: null,
-			supplierMapPurchaseItemId: supplierMapRow?.purchase_item_id ?? null,
-			suggestionPurchaseItemIds: [],
-		}
-
-		// Sugestões (trigram + brick GPC) só quando nada acima resolveu
-		if (!candidates.gtinLink && !candidates.supplierMapLink && !candidates.supplierMapPurchaseItemId && item.description) {
-			const brick = item.gtin != null ? (gtinEntityByGtin.get(item.gtin)?.gpc_brick_code ?? null) : null
-			const { data: suggestions, error: suggestionsError } = await inv.rpc("suggest_purchase_items", {
-				p_description: item.description,
-				p_gpc_brick: brick ?? undefined,
-				p_limit: 5,
-			})
-			if (suggestionsError) throw new Error(`Erro ao sugerir itens de compra: ${publicDbMessage(suggestionsError)}`)
-			candidates.suggestionPurchaseItemIds = (suggestions ?? []).map((s) => s.purchase_item_id)
-		}
+		const candidates = buildMatchCandidates(item, index)
+		const suggestionQuery = resolveSuggestionQuery(item, candidates, gtinEntityByGtin)
+		if (suggestionQuery) candidates.suggestionPurchaseItemIds = await suggestPurchaseItemIds(inv, suggestionQuery)
 
 		const result = matchNfeItem({ gtin: item.gtin, gtinTrib: item.gtin_trib, supplierCode: item.supplier_code, commercialQty: item.commercial_qty }, candidates)
-
-		if (result.status === "matched") matched++
-		else if (result.status === "review") review++
-		else noMatch++
-
-		updates.push({
-			id: item.id,
-			nfe_document_id: item.nfe_document_id,
-			n_item: item.n_item,
-			match_status: result.status,
-			ingredient_item_id: result.ingredientItemId,
-			purchase_item_id: result.purchaseItemId,
-			ingredient_id: result.ingredientId,
-			matched_qty_base: result.matchedQtyBase,
-			updated_at: new Date().toISOString(),
-		})
+		statuses.push(result.status)
+		updates.push(buildNfeItemMatchUpdate(item, result, new Date().toISOString()))
 	}
+	const { matched, review, noMatch } = countMatchStatuses(statuses)
 
 	const { error: upsertError } = await inv.from("nfe_item").upsert(updates, { onConflict: "id" })
 	if (upsertError) throw new Error(`Erro ao gravar resultado do matching: ${publicDbMessage(upsertError)}`)
 
-	const newStatus = matched === nfeItems.length ? "matched" : "imported"
+	const newStatus = resolveNfeDocumentStatus(matched, nfeItems.length)
 	const { error: statusError } = await inv.from("nfe_document").update({ status: newStatus }).eq("id", nfeDocumentId)
 	if (statusError) throw new Error(`Erro ao atualizar a situação da NF-e: ${publicDbMessage(statusError)}`)
 
@@ -572,34 +558,9 @@ export const resolveNfeItemFn = createServerFn({ method: "POST" })
 		if (itemError || !item) throw new Error("Item de NF-e não encontrado")
 		await requireStorageForDocument(2, item.nfe_document_id)
 
-		// Resolve o SKU: direto por id, ou o default do purchase_item escolhido
-		// (preferindo o que tem conversão de unidade).
-		let link: IngredientItemLinkRow | null = null
-		if (data.ingredientItemId) {
-			const { data: row, error: rowError } = await kitchen()
-				.from("ingredient_item")
-				.select("id, gtin, purchase_item_id, ingredient_id, unit_content_quantity")
-				.eq("id", data.ingredientItemId)
-				.is("deleted_at", null)
-				.maybeSingle()
-			if (rowError) throw new Error(`Erro ao ler o item de insumo: ${publicDbMessage(rowError)}`)
-			link = row ?? null
-			if (!link) throw new Error("Item de insumo não encontrado (ou excluído)")
-		} else if (data.purchaseItemId) {
-			// Erro aqui não pode virar "sem embalagem": o mapa do fornecedor seria regravado sem o SKU.
-			const { data: rows, error: rowsError } = await kitchen()
-				.from("ingredient_item")
-				.select("id, gtin, purchase_item_id, ingredient_id, unit_content_quantity")
-				.eq("purchase_item_id", data.purchaseItemId)
-				.is("deleted_at", null)
-				.order("unit_content_quantity", { ascending: false, nullsFirst: false })
-				.limit(1)
-			if (rowsError) throw new Error(`Erro ao ler as embalagens do item de compra: ${publicDbMessage(rowsError)}`)
-			link = rows?.[0] ?? null
-		}
+		const link = await loadResolutionLink(data)
 
-		const purchaseItemId = link?.purchase_item_id ?? data.purchaseItemId ?? null
-		const perPackage = link?.unit_content_quantity ?? null
+		const { ingredientItemId, purchaseItemId, perPackage, ingredientId: linkIngredientId } = resolveManualLinkFields(link, data.purchaseItemId)
 
 		// Item de compra sem embalagem cadastrada (sem ingredient_item): o insumo vem do vínculo
 		// padrão do item de compra. Sem isto a linha ficava sem insumo, e o recebimento recusa a
@@ -608,18 +569,9 @@ export const resolveNfeItemFn = createServerFn({ method: "POST" })
 		// informa o recebido na conferência (o recebimento já trata faturado nulo).
 		// Só com UM insumo padrão: há item de compra que é "padrão" de 16 insumos (o arroz polido
 		// é padrão de "Arroz Doce", "Arroz à Grega"…) e escolher o primeiro seria sortear o estoque.
-		let ingredientId: string | null = link?.ingredient_id ?? null
-		if (ingredientId == null && purchaseItemId != null) {
-			const { data: defaultLinks, error: defaultError } = await procurement()
-				.from("purchase_item_ingredient")
-				.select("ingredient_id")
-				.eq("purchase_item_id", purchaseItemId)
-				.eq("is_default", true)
-				.limit(2)
-			if (defaultError) throw new Error(`Erro ao ler o insumo padrão do item de compra: ${publicDbMessage(defaultError)}`)
-			if (defaultLinks?.length === 1) ingredientId = defaultLinks[0].ingredient_id ?? null
-		}
-		const qty = perPackage != null && perPackage > 0 && item.commercial_qty != null && item.commercial_qty > 0 ? item.commercial_qty * perPackage : null
+		let ingredientId: string | null = linkIngredientId
+		if (ingredientId == null && purchaseItemId != null) ingredientId = await loadSingleDefaultIngredient(purchaseItemId)
+		const qty = computeManualMatchedQty(perPackage, item.commercial_qty)
 
 		// Aprendizado ANTES do update do item (review: partial state). Se o mapa
 		// falhar, nada mudou; se o update do item falhar depois, o mapa já
@@ -627,26 +579,15 @@ export const resolveNfeItemFn = createServerFn({ method: "POST" })
 		const { data: doc, error: docError } = await inv.from("nfe_document").select("supplier_cnpj").eq("id", item.nfe_document_id).single()
 		if (docError) throw new Error(`Erro ao ler o fornecedor da NF-e: ${publicDbMessage(docError)}`)
 		if (doc?.supplier_cnpj && item.supplier_code) {
-			const { error: mapError } = await gs1()
-				.from("supplier_product_map")
-				.upsert(
-					{
-						supplier_cnpj: doc.supplier_cnpj,
-						supplier_code: item.supplier_code,
-						ingredient_item_id: link?.id ?? null,
-						purchase_item_id: purchaseItemId,
-						confidence: "manual",
-					},
-					{ onConflict: "supplier_cnpj,supplier_code" }
-				)
-			if (mapError) throw new Error(`Falha ao gravar o mapa do fornecedor (item não alterado): ${publicDbMessage(mapError)}`)
+			await learnSupplierMap({ supplierCnpj: doc.supplier_cnpj, supplierCode: item.supplier_code, ingredientItemId, purchaseItemId })
 		}
 
+		const status = qty != null ? "matched" : "review"
 		const { error: updateError } = await inv
 			.from("nfe_item")
 			.update({
-				match_status: qty != null ? "matched" : "review",
-				ingredient_item_id: link?.id ?? null,
+				match_status: status,
+				ingredient_item_id: ingredientItemId,
 				purchase_item_id: purchaseItemId,
 				ingredient_id: ingredientId,
 				matched_qty_base: qty,
@@ -655,5 +596,69 @@ export const resolveNfeItemFn = createServerFn({ method: "POST" })
 			.eq("id", data.nfeItemId)
 		if (updateError) throw new Error(`Erro ao resolver item (mapa do fornecedor já aprendido — tente novamente): ${publicDbMessage(updateError)}`)
 
-		return { status: qty != null ? "matched" : "review", matchedQtyBase: qty }
+		return { status, matchedQtyBase: qty }
 	})
+
+/**
+ * Resolve o SKU: direto por id, ou o default do purchase_item escolhido
+ * (preferindo o que tem conversão de unidade).
+ */
+async function loadResolutionLink(data: { ingredientItemId?: string; purchaseItemId?: string }): Promise<IngredientItemLinkRow | null> {
+	if (data.ingredientItemId) {
+		const { data: row, error: rowError } = await kitchen()
+			.from("ingredient_item")
+			.select("id, gtin, purchase_item_id, ingredient_id, unit_content_quantity")
+			.eq("id", data.ingredientItemId)
+			.is("deleted_at", null)
+			.maybeSingle()
+		if (rowError) throw new Error(`Erro ao ler o item de insumo: ${publicDbMessage(rowError)}`)
+		const link = row ?? null
+		if (!link) throw new Error("Item de insumo não encontrado (ou excluído)")
+		return link
+	}
+	if (data.purchaseItemId) {
+		// Erro aqui não pode virar "sem embalagem": o mapa do fornecedor seria regravado sem o SKU.
+		const { data: rows, error: rowsError } = await kitchen()
+			.from("ingredient_item")
+			.select("id, gtin, purchase_item_id, ingredient_id, unit_content_quantity")
+			.eq("purchase_item_id", data.purchaseItemId)
+			.is("deleted_at", null)
+			.order("unit_content_quantity", { ascending: false, nullsFirst: false })
+			.limit(1)
+		if (rowsError) throw new Error(`Erro ao ler as embalagens do item de compra: ${publicDbMessage(rowsError)}`)
+		return rows?.[0] ?? null
+	}
+	return null
+}
+
+/** Insumo padrão do item de compra, só quando há um único (`pickSingleDefaultIngredient`). */
+async function loadSingleDefaultIngredient(purchaseItemId: string): Promise<string | null> {
+	const { data: defaultLinks, error: defaultError } = await procurement()
+		.from("purchase_item_ingredient")
+		.select("ingredient_id")
+		.eq("purchase_item_id", purchaseItemId)
+		.eq("is_default", true)
+		.limit(2)
+	if (defaultError) throw new Error(`Erro ao ler o insumo padrão do item de compra: ${publicDbMessage(defaultError)}`)
+	return pickSingleDefaultIngredient(defaultLinks)
+}
+
+/** Aprende (CNPJ, cProd) no mapa do fornecedor: a próxima nota do mesmo fornecedor casa sozinha. */
+async function learnSupplierMap(row: {
+	supplierCnpj: string
+	supplierCode: string
+	ingredientItemId: string | null
+	purchaseItemId: string | null
+}): Promise<void> {
+	const { error: mapError } = await gs1().from("supplier_product_map").upsert(
+		{
+			supplier_cnpj: row.supplierCnpj,
+			supplier_code: row.supplierCode,
+			ingredient_item_id: row.ingredientItemId,
+			purchase_item_id: row.purchaseItemId,
+			confidence: "manual",
+		},
+		{ onConflict: "supplier_cnpj,supplier_code" }
+	)
+	if (mapError) throw new Error(`Falha ao gravar o mapa do fornecedor (item não alterado): ${publicDbMessage(mapError)}`)
+}

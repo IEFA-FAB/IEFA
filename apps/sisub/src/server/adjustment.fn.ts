@@ -21,6 +21,7 @@ import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { publicDbMessage } from "@/lib/db-error-message"
 import { readAllPagesIn } from "@/lib/read-all-pages"
+import { buildAdjustmentDocumentRow, buildAdjustmentItemRow, buildPostFailureRecovery, findAdjustmentLotProblem } from "@/lib/stock-adjustment"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 
@@ -270,6 +271,97 @@ export const saveStockSettingsFn = createServerFn({ method: "POST" })
 		return { saved: true }
 	})
 
+/** Lotes informados no ajuste, conferidos pela cozinha (`findAdjustmentLotProblem`). */
+async function loadAdjustmentLots(
+	inv: ReturnType<typeof inventory>,
+	kitchenId: number,
+	items: readonly AdjustmentItemInput[]
+): Promise<Array<{ kitchen_id: number; ingredient_id: string | null }>> {
+	// lote informado tem de ser da cozinha do ajuste — o guard é por cozinha,
+	// e sem esta checagem o nível 2 de uma cozinha ajustaria lote de outra
+	const lotIds = items.map((item) => item.lotId).filter((id) => id != null)
+	if (lotIds.length === 0) return []
+	const { data: rows, error: lotsError } = await inv.from("stock_lot").select("id, kitchen_id, ingredient_id").in("id", lotIds)
+	if (lotsError) throw new Error(`Erro ao conferir os lotes do ajuste: ${publicDbMessage(lotsError)}`)
+	const lots = rows ?? []
+	const lotProblem = findAdjustmentLotProblem(lots, kitchenId, lotIds)
+	if (lotProblem) throw new Error(lotProblem)
+	return lots
+}
+
+/**
+ * O lançamento automático falhou: o documento não pode ficar encalhado em `draft`, onde a tela não
+ * oferece ação nenhuma para ele.
+ */
+async function recoverFailedPost(
+	inv: ReturnType<typeof inventory>,
+	docId: string,
+	operatorNotes: string | undefined,
+	postError: NonNullable<Parameters<typeof publicDbMessage>[0]>
+) {
+	// O documento não pode ficar encalhado em `draft`: a tela não oferece
+	// ação nenhuma para ele, e o ajuste vira invisível. Falhou o lançamento
+	// (saldo insuficiente, lote de outra cozinha), vai para aprovação com o
+	// motivo — de onde dá para rejeitar ou corrigir.
+	//
+	// A falha é ACRESCENTADA à observação, nunca escrita por cima: o que o
+	// operador digitou é o que explica o ajuste para quem vai aprová-lo, e
+	// trocá-lo por uma mensagem técnica apaga a única informação que o
+	// aprovador tem sobre o que aconteceu na prateleira.
+	const failureNote = `Lançamento automático falhou: ${publicDbMessage(postError)}`
+	const operatorNote = operatorNotes?.trim()
+	// Se o lançamento caiu porque a regra, reavaliada sob trava, passou a
+	// exigir aprovação (outro ajuste do autor lançou no meio), o documento vai
+	// para a fila COM a exigência gravada — monotônica: depois de 24 h ela
+	// não some sozinha.
+	// Dentro da recuperação: lançar aqui abandonaria o documento em rascunho. Sem a leitura, a
+	// exigência é gravada mesmo assim (falha FECHADA): sem ela, quando a regra viva deixasse de
+	// exigir, o próprio autor aprovaria o ajuste — a fuga que a marca monotônica existe para barrar.
+	const { data: nowRequires, error: requiresError } = await inv.rpc("adjustment_requires_approval", { p_adjustment_id: docId })
+	// biome-ignore lint/suspicious/noConsole: server-side — a recuperação grava a exigência por precaução, e o log diz por quê
+	if (requiresError) console.error("[createAdjustmentFn] alçada não relida na recuperação; exigindo aprovação:", requiresError.message)
+	// SÓ se o documento ainda está em rascunho. O erro pode ter vindo depois
+	// do COMMIT — o deadline de fetch do `@iefa/supabase-kit` existe
+	// justamente para cortar resposta lenta — e aí o documento já está
+	// `posted`: devolvê-lo à fila faria o aprovador lançar os movimentos uma
+	// segunda vez.
+	const { data: moved, error: recoveryError } = await inv
+		.from("stock_adjustment")
+		.update(buildPostFailureRecovery({ operatorNote, failureNote, isRequirementUnknown: requiresError != null, nowRequires }))
+		.eq("id", docId)
+		.eq("status", "draft")
+		.select("id")
+	// e se a própria recuperação falhar, o usuário precisa saber que o
+	// documento ficou em `draft` — senão ele procura na fila de aprovação
+	// um ajuste que não está lá
+	if (recoveryError) {
+		throw new Error(
+			`Erro ao lançar o ajuste: ${publicDbMessage(postError)}. O documento ficou em rascunho e não foi para a fila de aprovação (${publicDbMessage(recoveryError)})`
+		)
+	}
+	if ((moved ?? []).length === 0) {
+		const { data: current, error: currentError } = await inv.from("stock_adjustment").select("status").eq("id", docId).maybeSingle()
+		if (currentError) throw new Error(`Erro ao conferir o ajuste depois da falha: ${publicDbMessage(currentError)}`)
+		if (current?.status === "posted") {
+			// a resposta falhou, o lançamento não: é sucesso, e dizer outra coisa
+			// convidaria o operador a lançar a mesma perda de novo
+			return { adjustmentId: docId, status: "posted" as const, movements: 0, postFailure: null as string | null }
+		}
+		throw new Error(`Erro ao lançar o ajuste: ${publicDbMessage(postError)}. O documento está em "${current?.status ?? "desconhecido"}"`)
+	}
+	// Recuperação deu certo: o documento EXISTE, na fila de aprovação. Isto é
+	// resultado, não erro. Lançar erro aqui fazia a tela manter o formulário
+	// preenchido e não atualizar a lista — o operador tentava de novo, nascia
+	// um segundo documento pendente para a MESMA perda, e um aprovador podia
+	// aprovar os dois, tirando o estoque duas vezes.
+	return {
+		adjustmentId: docId,
+		status: "pending_approval" as const,
+		movements: 0,
+		postFailure: publicDbMessage(postError) as string | null,
+	}
+}
+
 /**
  * Cria o documento e tenta lançar. Dentro da alçada e sem motivo que sempre
  * exige aprovação, o próprio autor lança (nível 2). Fora dela, o documento fica
@@ -288,19 +380,7 @@ export const createAdjustmentFn = createServerFn({ method: "POST" })
 		const { userId } = await requireStorageForKitchen(2, data.kitchenId)
 		const inv = inventory()
 
-		// lote informado tem de ser da cozinha do ajuste — o guard é por cozinha,
-		// e sem esta checagem o nível 2 de uma cozinha ajustaria lote de outra
-		const lotIds = data.items.map((item) => item.lotId).filter((id) => id != null)
-		let lots: Array<{ kitchen_id: number; ingredient_id: string | null }> = []
-		if (lotIds.length > 0) {
-			const { data: rows, error: lotsError } = await inv.from("stock_lot").select("id, kitchen_id, ingredient_id").in("id", lotIds)
-			if (lotsError) throw new Error(`Erro ao conferir os lotes do ajuste: ${publicDbMessage(lotsError)}`)
-			lots = rows ?? []
-			for (const lot of lots) {
-				if (lot.kitchen_id !== data.kitchenId) throw new Error("Lote de outra cozinha")
-			}
-			if (lots.length !== new Set(lotIds).size) throw new Error("Lote não encontrado")
-		}
+		const lots = await loadAdjustmentLots(inv, data.kitchenId, data.items)
 
 		// insumo com unidade fora do catálogo canônico não movimenta estoque: o
 		// ajuste entraria numa unidade que o resto do sistema não sabe converter
@@ -311,34 +391,20 @@ export const createAdjustmentFn = createServerFn({ method: "POST" })
 
 		const { data: doc, error } = await inv
 			.from("stock_adjustment")
-			.insert({
-				kitchen_id: data.kitchenId,
-				notes: data.notes?.trim() || null,
-				evidence_status: evidencePending(data.items) ? "pending" : "complete",
-				created_by: userId,
-				submitted_at: new Date().toISOString(),
-			})
+			.insert(
+				buildAdjustmentDocumentRow({
+					kitchenId: data.kitchenId,
+					notes: data.notes,
+					isEvidencePending: evidencePending(data.items),
+					userId,
+					submittedAt: new Date().toISOString(),
+				})
+			)
 			.select("id")
 			.single()
 		if (error || !doc) throw new Error(`Erro ao criar o ajuste: ${publicDbMessage(error)}`)
 
-		const { error: itemsError } = await inv.from("stock_adjustment_item").insert(
-			data.items.map((item) => ({
-				adjustment_id: doc.id,
-				lot_id: item.lotId ?? null,
-				ingredient_id: item.ingredientId ?? null,
-				frozen_preparation_id: item.frozenPreparationId ?? null,
-				direction: item.direction,
-				quantity: item.quantity,
-				unit_cost: item.unitCost ?? null,
-				reason_code: item.reasonCode,
-				note: item.note?.trim() || null,
-				evidence_kind: item.evidenceKind ?? null,
-				evidence_reference: item.evidenceReference?.trim() || null,
-				measured_temperature_c: item.measuredTemperatureC ?? null,
-				corrected_movement_id: item.correctedMovementId ?? null,
-			}))
-		)
+		const { error: itemsError } = await inv.from("stock_adjustment_item").insert(data.items.map((item) => buildAdjustmentItemRow(doc.id, item)))
 		if (itemsError) {
 			await inv.from("stock_adjustment").delete().eq("id", doc.id)
 			throw new Error(`Erro nos itens do ajuste: ${publicDbMessage(itemsError)}`)
@@ -379,73 +445,7 @@ export const createAdjustmentFn = createServerFn({ method: "POST" })
 			p_adjustment_id: doc.id,
 			p_actor: userId,
 		})
-		if (postError) {
-			// O documento não pode ficar encalhado em `draft`: a tela não oferece
-			// ação nenhuma para ele, e o ajuste vira invisível. Falhou o lançamento
-			// (saldo insuficiente, lote de outra cozinha), vai para aprovação com o
-			// motivo — de onde dá para rejeitar ou corrigir.
-			//
-			// A falha é ACRESCENTADA à observação, nunca escrita por cima: o que o
-			// operador digitou é o que explica o ajuste para quem vai aprová-lo, e
-			// trocá-lo por uma mensagem técnica apaga a única informação que o
-			// aprovador tem sobre o que aconteceu na prateleira.
-			const failureNote = `Lançamento automático falhou: ${publicDbMessage(postError)}`
-			const operatorNote = data.notes?.trim()
-			// Se o lançamento caiu porque a regra, reavaliada sob trava, passou a
-			// exigir aprovação (outro ajuste do autor lançou no meio), o documento vai
-			// para a fila COM a exigência gravada — monotônica: depois de 24 h ela
-			// não some sozinha.
-			// Dentro da recuperação: lançar aqui abandonaria o documento em rascunho. Sem a leitura, a
-			// exigência é gravada mesmo assim (falha FECHADA): sem ela, quando a regra viva deixasse de
-			// exigir, o próprio autor aprovaria o ajuste — a fuga que a marca monotônica existe para barrar.
-			const { data: nowRequires, error: requiresError } = await inv.rpc("adjustment_requires_approval", { p_adjustment_id: doc.id })
-			// biome-ignore lint/suspicious/noConsole: server-side — a recuperação grava a exigência por precaução, e o log diz por quê
-			if (requiresError) console.error("[createAdjustmentFn] alçada não relida na recuperação; exigindo aprovação:", requiresError.message)
-			// SÓ se o documento ainda está em rascunho. O erro pode ter vindo depois
-			// do COMMIT — o deadline de fetch do `@iefa/supabase-kit` existe
-			// justamente para cortar resposta lenta — e aí o documento já está
-			// `posted`: devolvê-lo à fila faria o aprovador lançar os movimentos uma
-			// segunda vez.
-			const { data: moved, error: recoveryError } = await inv
-				.from("stock_adjustment")
-				.update({
-					status: "pending_approval",
-					notes: operatorNote ? `${operatorNote}\n\n${failureNote}` : failureNote,
-					...(requiresError != null || nowRequires === true ? { approval_required: true } : {}),
-				})
-				.eq("id", doc.id)
-				.eq("status", "draft")
-				.select("id")
-			// e se a própria recuperação falhar, o usuário precisa saber que o
-			// documento ficou em `draft` — senão ele procura na fila de aprovação
-			// um ajuste que não está lá
-			if (recoveryError) {
-				throw new Error(
-					`Erro ao lançar o ajuste: ${publicDbMessage(postError)}. O documento ficou em rascunho e não foi para a fila de aprovação (${publicDbMessage(recoveryError)})`
-				)
-			}
-			if ((moved ?? []).length === 0) {
-				const { data: current, error: currentError } = await inv.from("stock_adjustment").select("status").eq("id", doc.id).maybeSingle()
-				if (currentError) throw new Error(`Erro ao conferir o ajuste depois da falha: ${publicDbMessage(currentError)}`)
-				if (current?.status === "posted") {
-					// a resposta falhou, o lançamento não: é sucesso, e dizer outra coisa
-					// convidaria o operador a lançar a mesma perda de novo
-					return { adjustmentId: doc.id, status: "posted" as const, movements: 0, postFailure: null as string | null }
-				}
-				throw new Error(`Erro ao lançar o ajuste: ${publicDbMessage(postError)}. O documento está em "${current?.status ?? "desconhecido"}"`)
-			}
-			// Recuperação deu certo: o documento EXISTE, na fila de aprovação. Isto é
-			// resultado, não erro. Lançar erro aqui fazia a tela manter o formulário
-			// preenchido e não atualizar a lista — o operador tentava de novo, nascia
-			// um segundo documento pendente para a MESMA perda, e um aprovador podia
-			// aprovar os dois, tirando o estoque duas vezes.
-			return {
-				adjustmentId: doc.id,
-				status: "pending_approval" as const,
-				movements: 0,
-				postFailure: publicDbMessage(postError) as string | null,
-			}
-		}
+		if (postError) return recoverFailedPost(inv, doc.id, data.notes, postError)
 		return {
 			adjustmentId: doc.id,
 			status: "posted" as const,

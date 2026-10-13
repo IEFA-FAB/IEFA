@@ -1,17 +1,21 @@
 import {
 	describeAttemptsLeft,
 	describeSaramOutcome,
+	describeSaramPanel,
 	describeSaramStatus,
 	formatLocalDate,
 	formatMilitaryIdentity,
 	formatMilitaryName,
 	hasSaramAction,
+	type MilitaryIdentitySummary,
 	maskCpf,
 	onlyDigits,
 	SARAM_REQUEST_EXAMPLE,
 	type SaramLinkOutcome,
+	type SaramLinkRequestSummary,
 	type SaramOutcomeView,
 	type SaramStatus,
+	type SaramStatusView,
 } from "@iefa/database/saram-link"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Building2, IdCard, Loader2, X } from "lucide-react"
@@ -26,8 +30,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from "#/components/ui/input"
 import { Label } from "#/components/ui/label"
 import { Textarea } from "#/components/ui/textarea"
+import { getErrorText, getFeedbackVariant, isAlternativesStep, type MilitaryRecordStep, TONE_BADGE } from "#/lib/military-record-panel"
 import { readSaramDismissal, rememberSaramDismissal } from "#/lib/saram-dismissal"
-import { SARAM_LINK_FALLBACK_MESSAGE } from "#/lib/saram-link"
 import { confirmSaramCandidateFn, requestSaramLinkFn, setOwnAccountKindFn, verifySaramByCpfFn, withdrawSaramRequestFn } from "#/server/user.fn"
 
 /**
@@ -124,16 +128,11 @@ export function MilitaryRecordNotice() {
 	)
 }
 
-type Step = null | "alternatives" | "cpf" | "request" | "institutional" | "personal" | "withdraw"
-
-function errorText(error: unknown): string {
-	return error instanceof Error && error.message ? error.message : SARAM_LINK_FALLBACK_MESSAGE
-}
-
 function MilitaryRecordPanel({ status }: { status: SaramStatus }) {
 	const queryClient = useQueryClient()
 	const view = describeSaramStatus(status)
-	const [step, setStep] = useState<Step>(null)
+	const panel = describeSaramPanel(status)
+	const [step, setStep] = useState<MilitaryRecordStep>(null)
 	const [feedback, setFeedback] = useState<SaramOutcomeView | null>(null)
 	const [prevStatus, setPrevStatus] = useState(status.status)
 	if (prevStatus !== status.status) {
@@ -150,7 +149,7 @@ function MilitaryRecordPanel({ status }: { status: SaramStatus }) {
 			setFeedback(describeSaramOutcome(result))
 		},
 		onError: (error) => {
-			setFeedback({ kind: "error", title: "Não foi possível concluir", description: errorText(error) })
+			setFeedback({ kind: "error", title: "Não foi possível concluir", description: getErrorText(error) })
 			queryClient.invalidateQueries({ queryKey: mySaramStatusQueryOptions().queryKey })
 		},
 	})
@@ -161,40 +160,17 @@ function MilitaryRecordPanel({ status }: { status: SaramStatus }) {
 	const busy = action.isPending
 	const candidate = status.candidates[0]
 	// Escolher uma alternativa (CPF, pedido, seção) continua dentro do bloco de alternativas.
-	const inAlternatives = step === "alternatives" || step === "cpf" || step === "request" || step === "institutional"
-	const showAlternatives = inAlternatives || status.status === "no_match" || status.status === "locked_out" || status.status === "legacy"
+	const showAlternatives = isAlternativesStep(step) || panel.alternativesAlwaysOpen
 	// Vínculo antigo cujo e-mail localiza o dono: confirmar pelo e-mail troca o legacy por um verificado.
-	const legacyCanConfirm = status.status === "legacy" && hasSaramAction(status, "confirm_candidate") && status.candidates.length > 0
+	// Essa regra vive em `describeSaramPanel` (`panel.confirmStep`), a mesma do sisub.
 
 	return (
 		<div className="flex flex-col gap-4">
-			<div className="flex flex-col gap-1.5">
-				<div className="flex items-center gap-2">
-					{status.status === "institutional" && <Building2 className="size-4 text-muted-foreground" aria-hidden />}
-					<Badge variant={view.tone === "ok" ? "success" : view.tone === "blocked" ? "destructive" : view.tone === "attention" ? "warning" : "outline"}>
-						{view.badge}
-					</Badge>
-				</div>
-				<p className="text-subheading text-foreground">{view.title}</p>
-				<p className="text-body text-muted-foreground">{view.description}</p>
-				{(status.status === "verified" || status.status === "legacy") && status.visible && status.identity && (
-					<p className="text-caption text-muted-foreground">
-						{formatMilitaryIdentity(status.identity)} · SARAM {status.saram}
-					</p>
-				)}
-			</div>
+			<StatusSummary status={status} view={view} identity={panel.identity} />
 
-			{feedback && (
-				<Alert
-					variant={feedback.kind === "error" ? "destructive" : feedback.kind === "success" ? "success" : "info"}
-					role={feedback.kind === "error" ? "alert" : "status"}
-				>
-					<AlertTitle>{feedback.title}</AlertTitle>
-					<AlertDescription>{feedback.description}</AlertDescription>
-				</Alert>
-			)}
+			{feedback && <FeedbackAlert feedback={feedback} />}
 
-			{(status.status === "suggestion" || (legacyCanConfirm && !status.requiresCpfSuffix)) && candidate && step === null && (
+			{panel.confirmStep === "one" && candidate && step === null && (
 				<div className="flex flex-col gap-2 sm:flex-row">
 					<Button disabled={busy} onClick={() => run(() => confirmSaramCandidateFn({ data: { candidateRef: candidate.ref } }))}>
 						{busy && <Loader2 className="animate-spin" aria-hidden />}
@@ -206,7 +182,7 @@ function MilitaryRecordPanel({ status }: { status: SaramStatus }) {
 				</div>
 			)}
 
-			{(status.status === "homonyms" || (legacyCanConfirm && status.requiresCpfSuffix)) && step === null && (
+			{panel.confirmStep === "several" && step === null && (
 				<HomonymsForm
 					status={status}
 					busy={busy}
@@ -215,82 +191,194 @@ function MilitaryRecordPanel({ status }: { status: SaramStatus }) {
 				/>
 			)}
 
-			{(status.status === "pending_request" || status.status === "contested") && status.request && (
-				<div className="flex flex-col gap-2 rounded-lg border p-3">
-					<p className="text-caption text-muted-foreground">
-						SARAM {status.request.saram} · enviado em {formatLocalDate(status.request.createdAt)} · decide a administração do sistema
-					</p>
-					<p className="text-body text-foreground">“{status.request.justification}”</p>
-					{step === "withdraw" ? (
-						<ConfirmRow
-							text="A administração deixa de analisar este pedido. Depois você pode verificar de outro jeito ou pedir de novo."
-							confirmLabel="Desistir"
-							busy={busy}
-							destructive
-							onCancel={() => setStep(null)}
-							onConfirm={() => run(() => withdrawSaramRequestFn({ data: { requestId: status.request?.id ?? "" } }))}
-						/>
-					) : (
-						<Button variant="outline" size="sm" className="self-start" disabled={busy} onClick={() => setStep("withdraw")}>
-							{status.status === "contested" ? "Desistir da contestação" : "Desistir do pedido"}
-						</Button>
-					)}
-				</div>
+			{panel.pendingRequest && (
+				<PendingRequestBlock
+					request={panel.pendingRequest}
+					isDispute={status.status === "contested"}
+					isConfirming={step === "withdraw"}
+					busy={busy}
+					onAsk={() => setStep("withdraw")}
+					onCancel={() => setStep(null)}
+					onConfirm={() => run(() => withdrawSaramRequestFn({ data: { requestId: status.request?.id ?? "" } }))}
+				/>
 			)}
 
-			{status.status === "institutional" &&
-				hasSaramAction(status, "set_personal") &&
-				(step === "personal" ? (
-					<ConfirmRow
-						text="A conta volta a poder arranchar no SISUB e passa a pedir o vínculo do SARAM de quem a usa."
-						confirmLabel="Marcar como pessoal"
-						busy={busy}
-						onCancel={() => setStep(null)}
-						onConfirm={() => run(() => setOwnAccountKindFn({ data: { kind: "pessoal" } }))}
-					/>
-				) : (
-					<Button variant="outline" size="sm" className="self-start" onClick={() => setStep("personal")}>
-						Na verdade, esta é uma conta pessoal
-					</Button>
-				))}
+			{status.status === "institutional" && hasSaramAction(status, "set_personal") && (
+				<PersonalAccountAction
+					isConfirming={step === "personal"}
+					busy={busy}
+					onAsk={() => setStep("personal")}
+					onCancel={() => setStep(null)}
+					onConfirm={() => run(() => setOwnAccountKindFn({ data: { kind: "pessoal" } }))}
+				/>
+			)}
 
 			{showAlternatives && (
-				<div className="flex flex-col gap-3 border-t pt-4">
-					<p className="text-subheading text-foreground">{status.status === "legacy" ? "Se quiser, confirme o vínculo agora" : "Como vincular seu SARAM"}</p>
-					{hasSaramAction(status, "verify_cpf") &&
-						(step === "cpf" ? (
-							<CpfForm attemptsLeft={status.attemptsLeft} busy={busy} onSubmit={(saram, cpf) => run(() => verifySaramByCpfFn({ data: { saram, cpf } }))} />
-						) : (
-							<OptionButton title="Conferir pelo SARAM e o CPF" description="Conferimos no cadastro de pessoal na hora." onClick={() => setStep("cpf")} />
-						))}
-					{hasSaramAction(status, "request_link") &&
-						(step === "request" ? (
-							<RequestForm busy={busy} onSubmit={(saram, justification) => run(() => requestSaramLinkFn({ data: { saram, justification } }))} />
-						) : (
-							<OptionButton
-								title="Pedir o vínculo à administração"
-								description="Para quem não está no cadastro ou não consegue conferir."
-								onClick={() => setStep("request")}
-							/>
-						))}
-					{hasSaramAction(status, "set_institutional") &&
-						(step === "institutional" ? (
-							<ConfirmRow
-								text="Esta conta deixa de ter SARAM e arranchamento próprio (os arranchamentos de hoje em diante são cancelados). Módulos e permissões continuam."
-								confirmLabel="Marcar como conta de seção"
-								busy={busy}
-								onCancel={() => setStep(null)}
-								onConfirm={() => run(() => setOwnAccountKindFn({ data: { kind: "institucional" } }))}
-							/>
-						) : (
-							<OptionButton
-								title="Esta é uma conta de seção ou OM"
-								description="Usada por uma seção, não por uma pessoa."
-								onClick={() => setStep("institutional")}
-							/>
-						))}
-				</div>
+				<AlternativesBlock
+					status={status}
+					step={step}
+					busy={busy}
+					onStepChange={setStep}
+					onVerifyCpf={(saram, cpf) => run(() => verifySaramByCpfFn({ data: { saram, cpf } }))}
+					onRequestLink={(saram, justification) => run(() => requestSaramLinkFn({ data: { saram, justification } }))}
+					onSetInstitutional={() => run(() => setOwnAccountKindFn({ data: { kind: "institucional" } }))}
+				/>
 			)}
+		</div>
+	)
+}
+
+function StatusSummary({ status, view, identity }: { status: SaramStatus; view: SaramStatusView; identity: MilitaryIdentitySummary | null }) {
+	return (
+		<div className="flex flex-col gap-1.5">
+			<div className="flex items-center gap-2">
+				{status.status === "institutional" && <Building2 className="size-4 text-muted-foreground" aria-hidden />}
+				<Badge variant={TONE_BADGE[view.tone]}>{view.badge}</Badge>
+			</div>
+			<p className="text-subheading text-foreground">{view.title}</p>
+			<p className="text-body text-muted-foreground">{view.description}</p>
+			{identity && (
+				<p className="text-caption text-muted-foreground">
+					{formatMilitaryIdentity(identity)} · SARAM {status.saram}
+				</p>
+			)}
+		</div>
+	)
+}
+
+function FeedbackAlert({ feedback }: { feedback: SaramOutcomeView }) {
+	return (
+		<Alert variant={getFeedbackVariant(feedback.kind)} role={feedback.kind === "error" ? "alert" : "status"}>
+			<AlertTitle>{feedback.title}</AlertTitle>
+			<AlertDescription>{feedback.description}</AlertDescription>
+		</Alert>
+	)
+}
+
+function PendingRequestBlock({
+	request,
+	isDispute,
+	isConfirming,
+	busy,
+	onAsk,
+	onCancel,
+	onConfirm,
+}: {
+	request: SaramLinkRequestSummary
+	isDispute: boolean
+	isConfirming: boolean
+	busy: boolean
+	onAsk: () => void
+	onCancel: () => void
+	onConfirm: () => void
+}) {
+	return (
+		<div className="flex flex-col gap-2 rounded-lg border p-3">
+			<p className="text-caption text-muted-foreground">
+				SARAM {request.saram} · enviado em {formatLocalDate(request.createdAt)} · decide a administração do sistema
+			</p>
+			<p className="text-body text-foreground">“{request.justification}”</p>
+			{isConfirming ? (
+				<ConfirmRow
+					text="A administração deixa de analisar este pedido. Depois você pode verificar de outro jeito ou pedir de novo."
+					confirmLabel="Desistir"
+					busy={busy}
+					destructive
+					onCancel={onCancel}
+					onConfirm={onConfirm}
+				/>
+			) : (
+				<Button variant="outline" size="sm" className="self-start" disabled={busy} onClick={onAsk}>
+					{isDispute ? "Desistir da contestação" : "Desistir do pedido"}
+				</Button>
+			)}
+		</div>
+	)
+}
+
+function PersonalAccountAction({
+	isConfirming,
+	busy,
+	onAsk,
+	onCancel,
+	onConfirm,
+}: {
+	isConfirming: boolean
+	busy: boolean
+	onAsk: () => void
+	onCancel: () => void
+	onConfirm: () => void
+}) {
+	if (isConfirming) {
+		return (
+			<ConfirmRow
+				text="A conta volta a poder arranchar no SISUB e passa a pedir o vínculo do SARAM de quem a usa."
+				confirmLabel="Marcar como pessoal"
+				busy={busy}
+				onCancel={onCancel}
+				onConfirm={onConfirm}
+			/>
+		)
+	}
+	return (
+		<Button variant="outline" size="sm" className="self-start" onClick={onAsk}>
+			Na verdade, esta é uma conta pessoal
+		</Button>
+	)
+}
+
+function AlternativesBlock({
+	status,
+	step,
+	busy,
+	onStepChange,
+	onVerifyCpf,
+	onRequestLink,
+	onSetInstitutional,
+}: {
+	status: SaramStatus
+	step: MilitaryRecordStep
+	busy: boolean
+	onStepChange: (step: MilitaryRecordStep) => void
+	onVerifyCpf: (saram: string, cpf: string) => void
+	onRequestLink: (saram: string, justification: string) => void
+	onSetInstitutional: () => void
+}) {
+	return (
+		<div className="flex flex-col gap-3 border-t pt-4">
+			<p className="text-subheading text-foreground">{status.status === "legacy" ? "Se quiser, confirme o vínculo agora" : "Como vincular seu SARAM"}</p>
+			{hasSaramAction(status, "verify_cpf") &&
+				(step === "cpf" ? (
+					<CpfForm attemptsLeft={status.attemptsLeft} busy={busy} onSubmit={onVerifyCpf} />
+				) : (
+					<OptionButton title="Conferir pelo SARAM e o CPF" description="Conferimos no cadastro de pessoal na hora." onClick={() => onStepChange("cpf")} />
+				))}
+			{hasSaramAction(status, "request_link") &&
+				(step === "request" ? (
+					<RequestForm busy={busy} onSubmit={onRequestLink} />
+				) : (
+					<OptionButton
+						title="Pedir o vínculo à administração"
+						description="Para quem não está no cadastro ou não consegue conferir."
+						onClick={() => onStepChange("request")}
+					/>
+				))}
+			{hasSaramAction(status, "set_institutional") &&
+				(step === "institutional" ? (
+					<ConfirmRow
+						text="Esta conta deixa de ter SARAM e arranchamento próprio (os arranchamentos de hoje em diante são cancelados). Módulos e permissões continuam."
+						confirmLabel="Marcar como conta de seção"
+						busy={busy}
+						onCancel={() => onStepChange(null)}
+						onConfirm={onSetInstitutional}
+					/>
+				) : (
+					<OptionButton
+						title="Esta é uma conta de seção ou OM"
+						description="Usada por uma seção, não por uma pessoa."
+						onClick={() => onStepChange("institutional")}
+					/>
+				))}
 		</div>
 	)
 }

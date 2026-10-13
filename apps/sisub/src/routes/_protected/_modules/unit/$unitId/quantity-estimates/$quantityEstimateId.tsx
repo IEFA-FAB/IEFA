@@ -2,11 +2,9 @@ import { toBrasiliaCivilDate } from "@iefa/sisub-domain/civil-date"
 import type { ProcurementNeed } from "@iefa/sisub-domain/types"
 import { useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, Link, useParams } from "@tanstack/react-router"
-import { AlertTriangle, Archive, ArrowLeft, Download, Link2, Lock, Search, Send } from "lucide-react"
 import { useMemo, useState } from "react"
 import { requirePermission, usePBAC } from "@/auth/pbac"
 import { ArpSearchModal } from "@/components/features/local/arp/ArpSearchModal"
-import { EmpenhoBalancePanel } from "@/components/features/local/arp/EmpenhoBalancePanel"
 import { type PriceResearchAuditIds, PriceResearchModal } from "@/components/features/local/price-research/PriceResearchModal"
 import { AnnexDocumentsCard } from "@/components/features/local/procurement/AnnexDocumentsCard"
 import { QuantityEstimateItemsTable } from "@/components/features/local/quantity-estimate/QuantityEstimateItemsTable"
@@ -14,13 +12,24 @@ import {
 	type QuantityEstimateItemLimitsPatch,
 	QuantityEstimateLimitsSection,
 } from "@/components/features/local/quantity-estimate/QuantityEstimateLimitsSection"
+import {
+	ArpSection,
+	BulkResearchBar,
+	ParticipatingKitchensCard,
+	QuantityEstimateHeaderActions,
+	QuantityEstimateStatusBar,
+	StaleQuantitiesNotice,
+} from "@/components/features/unit/quantity-estimate/QuantityEstimateDetailSections"
+import {
+	buildAnnexSettings,
+	isJustificationMissing,
+	selectAnnexRows,
+	summarizePrices,
+} from "@/components/features/unit/quantity-estimate/quantity-estimate-detail"
 import { useCrumbLabel } from "@/components/layout/crumb-label"
 import { PageHeader } from "@/components/layout/PageHeader"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Separator } from "@/components/ui/separator"
-import { Spinner } from "@/components/ui/spinner"
+import { Card, CardContent } from "@/components/ui/card"
 import { toast } from "@/components/ui/toast"
 import { useArpForQuantityEstimate } from "@/hooks/data/useArp"
 import { bulkFindingsNotice, useBulkPriceResearch } from "@/hooks/data/useBulkPriceResearch"
@@ -32,7 +41,7 @@ import {
 } from "@/hooks/data/useQuantityEstimate"
 import { useUnitSettings } from "@/hooks/data/useUnitSettings"
 import { downloadCsv } from "@/lib/csv"
-import { annexItemUnit, buildAnnexCsv, buildDraftAnnexRows, buildSnapshotAnnexRows, type QuantityEstimateAnnexSettings } from "@/lib/quantity-estimate-annex"
+import { annexItemUnit, buildAnnexCsv, type QuantityEstimateAnnexSettings } from "@/lib/quantity-estimate-annex"
 import { quantityEstimateItemToNeed } from "@/lib/quantity-estimate-utils"
 import { queryKeys } from "@/lib/query-keys"
 import { updateQuantityEstimateItemPricesFn } from "@/server/quantity-estimate.fn"
@@ -41,20 +50,6 @@ export const Route = createFileRoute("/_protected/_modules/unit/$unitId/quantity
 	beforeLoad: (opts) => requirePermission(opts, "unit", 1),
 	component: QuantityEstimateDetailPage,
 })
-
-const STATUS_LABELS: Record<string, string> = {
-	draft: "Rascunho",
-	completed: "Concluído",
-	archived: "Arquivado",
-}
-
-const STATUS_VARIANTS: Record<string, "secondary" | "default" | "outline"> = {
-	draft: "secondary",
-	completed: "default",
-	archived: "outline",
-}
-
-const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
 
 function QuantityEstimateDetailPage() {
 	const { unitId: unitIdStr, quantityEstimateId } = useParams({ strict: false })
@@ -81,25 +76,9 @@ function QuantityEstimateDetailPage() {
 
 	const needs = useMemo(() => quantityEstimate?.items.map(quantityEstimateItemToNeed) ?? [], [quantityEstimate?.items])
 
-	const annexSettings = useMemo<QuantityEstimateAnnexSettings | null>(
-		() =>
-			quantityEstimate
-				? {
-						validityMonths: quantityEstimate.validity_months,
-						maxIncreasePercent: quantityEstimate.max_increase_percent,
-						maxQuantityJustification: quantityEstimate.max_quantity_justification,
-						minQuotePercent: Number(quantityEstimate.min_quote_percent ?? 100),
-					}
-				: null,
-		[quantityEstimate]
-	)
-	// Rascunho calcula na hora; concluído mostra o que o snapshot congelou — nunca recalcula
-	// um documento concluído com a regra ou a conservação de hoje.
-	const annexRows = useMemo(() => {
-		if (!quantityEstimate || !annexSettings) return []
-		if (quantityEstimate.status === "draft") return buildDraftAnnexRows(needs, annexSettings)
-		return quantityEstimate.meta.snapshot ? buildSnapshotAnnexRows(quantityEstimate.meta.snapshot.components, quantityEstimate.items) : []
-	}, [quantityEstimate, needs, annexSettings])
+	const annexSettings = useMemo<QuantityEstimateAnnexSettings | null>(() => buildAnnexSettings(quantityEstimate), [quantityEstimate])
+	// Rascunho calcula na hora; concluído mostra o que o snapshot congelou (ver `selectAnnexRows`).
+	const annexRows = useMemo(() => selectAnnexRows(quantityEstimate, needs, annexSettings), [quantityEstimate, needs, annexSettings])
 
 	const handleExportCSV = () => {
 		if (!quantityEstimate) return
@@ -110,10 +89,7 @@ function QuantityEstimateDetailPage() {
 	}
 
 	// A trava real é do servidor na conclusão; aqui só evita o clique que já sabemos que falha.
-	const justificationMissing =
-		quantityEstimate?.status === "draft" &&
-		annexRows.some((r) => r.warnings.includes("increase_requires_justification")) &&
-		!quantityEstimate.max_quantity_justification?.trim()
+	const justificationMissing = isJustificationMissing(quantityEstimate, annexRows)
 
 	const handleItemLimitsChange = (quantityEstimateItemId: string, patch: QuantityEstimateItemLimitsPatch) => {
 		if (!quantityEstimateId) return
@@ -201,11 +177,7 @@ function QuantityEstimateDetailPage() {
 		)
 	}
 
-	const hasPrices = quantityEstimate.items.some((item) => item.unit_price !== null)
-	const grandTotal = quantityEstimate.items.reduce(
-		(sum, item) => sum + (item.unit_price !== null ? Number(item.estimated_quantity) * Number(item.unit_price) : 0),
-		0
-	)
+	const { hasPrices, grandTotal } = summarizePrices(quantityEstimate.items)
 
 	return (
 		<div className="space-y-6">
@@ -213,91 +185,21 @@ function QuantityEstimateDetailPage() {
 				title={quantityEstimate.title}
 				description={`Criado em ${new Date(quantityEstimate.created_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })}`}
 			>
-				<div className="flex items-center gap-2">
-					<Button
-						size="sm"
-						variant="outline"
-						nativeButton={false}
-						render={
-							<Link to="/unit/$unitId/quantity-estimates" params={{ unitId: unitIdStr as string }}>
-								<ArrowLeft className="size-4 mr-1.5" aria-hidden="true" />
-								Anexos
-							</Link>
-						}
-					/>
-					<Button size="sm" variant="outline" onClick={handleExportCSV}>
-						<Download className="size-4" aria-hidden="true" />
-						Exportar CSV
-					</Button>
-					{quantityEstimate.status === "draft" && (
-						<Button
-							size="sm"
-							onClick={() => updateStatus({ quantityEstimateId: quantityEstimate.id, status: "completed" })}
-							disabled={isUpdating || justificationMissing}
-							title={justificationMissing ? "Preencha a justificativa da quantidade máxima nos limites de quantidade" : undefined}
-						>
-							<Send className="size-4" aria-hidden="true" />
-							Concluir anexo
-						</Button>
-					)}
-					{quantityEstimate.status === "completed" && (
-						<Button
-							size="sm"
-							variant="outline"
-							onClick={() => updateStatus({ quantityEstimateId: quantityEstimate.id, status: "archived" })}
-							disabled={isUpdating}
-							className="text-muted-foreground"
-						>
-							<Archive className="size-4" aria-hidden="true" />
-							Arquivar
-						</Button>
-					)}
-				</div>
+				<QuantityEstimateHeaderActions
+					unitIdStr={unitIdStr as string}
+					status={quantityEstimate.status}
+					isUpdating={isUpdating}
+					justificationMissing={justificationMissing}
+					onExport={handleExportCSV}
+					onComplete={() => updateStatus({ quantityEstimateId: quantityEstimate.id, status: "completed" })}
+					onArchive={() => updateStatus({ quantityEstimateId: quantityEstimate.id, status: "archived" })}
+				/>
 			</PageHeader>
 
 			{/* Status + resumo */}
-			<div className="flex items-center gap-3 flex-wrap">
-				<Badge variant={STATUS_VARIANTS[quantityEstimate.status] || "secondary"}>{STATUS_LABELS[quantityEstimate.status] || quantityEstimate.status}</Badge>
-				{quantityEstimate.status !== "draft" && quantityEstimate.meta.snapshot && (
-					<Badge variant="outline" className="gap-1.5">
-						<Lock className="size-3" aria-hidden="true" />
-						Composição congelada
-					</Badge>
-				)}
-				{quantityEstimate.meta.price_research.is_expired && (
-					<Badge
-						variant="outline"
-						className="gap-1.5 border-warning/50 text-warning"
-						title={`Política interna: pesquisa com mais de ${quantityEstimate.meta.price_research.validity_days} dias deve ser refeita antes de divulgar o edital. Os preços do sistema oficial são de contratações de até 1 ano antes da pesquisa.`}
-					>
-						<AlertTriangle className="size-3" aria-hidden="true" />
-						Pesquisa feita há mais de {quantityEstimate.meta.price_research.validity_days} dias
-					</Badge>
-				)}
-				{hasPrices && (
-					<span className="text-sm text-muted-foreground">
-						Total estimado: <strong className="text-foreground">{BRL.format(grandTotal)}</strong>
-					</span>
-				)}
-				<span className="text-sm text-muted-foreground">
-					{quantityEstimate.items.length} {quantityEstimate.items.length === 1 ? "item" : "itens"}
-				</span>
-			</div>
+			<QuantityEstimateStatusBar quantityEstimate={quantityEstimate} hasPrices={hasPrices} grandTotal={grandTotal} />
 
-			{quantityEstimate.status === "draft" && quantityEstimate.meta.is_stale && (
-				<Card className="border-warning/30 bg-warning/10">
-					<CardContent className="flex items-start gap-3 py-4">
-						<AlertTriangle className="size-5 shrink-0 text-warning" aria-hidden="true" />
-						<div className="text-sm">
-							<p className="font-medium text-foreground">Quantitativos desatualizados</p>
-							<p className="text-foreground">
-								Um cardápio ou evento deste anexo foi editado após o último cálculo. Refaça o cálculo dos quantitativos para refletir a composição atual antes
-								de concluir.
-							</p>
-						</div>
-					</CardContent>
-				</Card>
-			)}
+			<StaleQuantitiesNotice quantityEstimate={quantityEstimate} />
 
 			{quantityEstimate.notes && (
 				<Card>
@@ -308,56 +210,10 @@ function QuantityEstimateDetailPage() {
 			)}
 
 			{/* Cozinhas participantes */}
-			{quantityEstimate.kitchens.length > 0 && (
-				<Card>
-					<CardHeader className="pb-3">
-						<CardTitle>Cozinhas Participantes</CardTitle>
-					</CardHeader>
-					<CardContent>
-						<div className="space-y-4">
-							{quantityEstimate.kitchens.map((kitchenEntry) => (
-								<div key={kitchenEntry.id}>
-									<p className="text-subheading">{kitchenEntry.kitchen.display_name || `Cozinha ${kitchenEntry.kitchen_id}`}</p>
-									{kitchenEntry.delivery_notes && <p className="text-xs text-muted-foreground mt-0.5">{kitchenEntry.delivery_notes}</p>}
-									<div className="flex flex-wrap gap-1.5 mt-2">
-										{kitchenEntry.selections.map((sel) => (
-											<Badge key={sel.id} variant="secondary" className="font-normal">
-												{sel.template.name} × {sel.repetitions}
-											</Badge>
-										))}
-									</div>
-									<Separator className="mt-3" />
-								</div>
-							))}
-						</div>
-					</CardContent>
-				</Card>
-			)}
+			<ParticipatingKitchensCard kitchens={quantityEstimate.kitchens} />
 
 			{/* Pesquisa automática de preços */}
-			{bulkEligibleCount > 0 && (
-				<div className="flex items-center gap-3 flex-wrap">
-					<Button variant="outline" onClick={handleBulkResearch} disabled={bulkProgress.isRunning}>
-						{bulkProgress.isRunning ? (
-							<>
-								<Spinner className="size-4" aria-hidden="true" />
-								{bulkProgress.done}/{bulkProgress.total} itens...
-							</>
-						) : (
-							<>
-								<Search className="size-4" aria-hidden="true" />
-								Pesquisar preços automaticamente ({bulkEligibleCount})
-							</>
-						)}
-					</Button>
-					{!bulkProgress.isRunning && bulkProgress.total > 0 && (
-						<span className="text-xs text-muted-foreground">
-							{bulkProgress.done - bulkProgress.errors} preços aplicados
-							{bulkProgress.errors > 0 && ` · ${bulkProgress.errors} sem resultado`}
-						</span>
-					)}
-				</div>
-			)}
+			<BulkResearchBar eligibleCount={bulkEligibleCount} progress={bulkProgress} onRun={handleBulkResearch} />
 
 			{/* Itens do anexo */}
 			<QuantityEstimateItemsTable data={needs} onPesquisarPreco={(item) => setPriceResearchItem(item)} onUpdateDescription={handleDescriptionChange} />
@@ -384,48 +240,7 @@ function QuantityEstimateDetailPage() {
 			)}
 
 			{/* ─── ARP & Empenhos ──────────────────────────────────────────── */}
-			<div className="space-y-3">
-				<div className="flex items-center justify-between">
-					<div>
-						<h2 className="text-heading">ARP & Empenhos</h2>
-						<p className="text-xs text-muted-foreground mt-0.5">
-							Depois da licitação homologada, vincule a Ata de Registro de Preços do Compras.gov.br e registre os empenhos emitidos por item.
-						</p>
-					</div>
-					{!arp && !isArpLoading && (
-						<Button size="sm" variant="outline" onClick={() => setArpModalOpen(true)}>
-							<Link2 className="size-4" />
-							Vincular ARP
-						</Button>
-					)}
-				</div>
-
-				{isArpLoading ? (
-					<div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
-						<Spinner className="size-4" />
-						Verificando ARP vinculada...
-					</div>
-				) : arp && quantityEstimateId ? (
-					<>
-						<div className="flex justify-end">
-							<Button size="sm" variant="ghost" className="text-xs" onClick={() => setArpModalOpen(true)}>
-								<Link2 className="size-3.5" />
-								Substituir ARP
-							</Button>
-						</div>
-						<EmpenhoBalancePanel arp={arp} unitId={unitId} quantityEstimateId={quantityEstimateId} />
-					</>
-				) : (
-					<Card>
-						<CardContent className="py-10 text-center space-y-2">
-							<p className="text-sm text-muted-foreground">Nenhuma ARP vinculada a este anexo.</p>
-							<p className="text-xs text-muted-foreground">
-								Clique em <strong>Vincular ARP</strong> para buscar e importar a Ata de Registro de Preços homologada no Compras.gov.br.
-							</p>
-						</CardContent>
-					</Card>
-				)}
-			</div>
+			<ArpSection arp={arp} isArpLoading={isArpLoading} unitId={unitId} quantityEstimateId={quantityEstimateId} onOpenArpModal={() => setArpModalOpen(true)} />
 
 			{/* Modal de busca de ARP */}
 			{quantityEstimateId && (

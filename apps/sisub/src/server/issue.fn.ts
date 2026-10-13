@@ -17,16 +17,12 @@
 
 import {
 	checkDayClosure,
-	computeTheoreticalConsumption,
 	describeSnapshotGaps,
 	ensureIssueDayProductionTasks,
 	findSnapshotGaps,
 	getBrasiliaToday,
 	ISSUE_VARIANCE_REASONS,
-	type IssueLineForVariance,
 	issueSuggestionFingerprint,
-	type RecipeSnapshotForIssue,
-	roundToIssuePackage,
 	type SnapshotForGaps,
 } from "@iefa/sisub-domain"
 import { containsPattern } from "@iefa/sisub-domain/utils"
@@ -34,6 +30,20 @@ import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { getDb } from "@/lib/db.server"
 import { publicDbMessage } from "@/lib/db-error-message"
+import {
+	buildIssueRequestValues,
+	buildIssueSuggestionLines,
+	buildIssueVarianceLines,
+	collectDailyMenuIds,
+	collectIssueIngredientIds,
+	decorateIssueVerdicts,
+	fillMissingAverageCosts,
+	filterTasksNotIssuedByProduction,
+	indexActiveMenuItems,
+	isAdHocMissingOwner,
+	sumTheoreticalConsumption,
+	tallyIssueMovements,
+} from "@/lib/issue-day"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 
@@ -101,8 +111,7 @@ async function computeSuggestion(kitchenId: number, issueDate: string) {
 		// A saída TARDIA ligada à tarefa é de um insumo, não a baixa da tarefa (20260926217000).
 		.eq("is_late_issue", false)
 	if (issuedError) throw new Error(`Erro ao conferir as baixas por produção do dia: ${publicDbMessage(issuedError)}`)
-	const issuedByProduction = new Set((issuedMoves ?? []).map((move) => move.production_task_id))
-	const taskList = allTasks.filter((task) => !issuedByProduction.has(task.id))
+	const taskList = filterTasksNotIssuedByProduction(allTasks, issuedMoves ?? [])
 	if (taskList.length === 0) return { lines: [], taskIds: [] as string[] }
 
 	// `meal_type_id` está em `daily_menu`, NÃO em `menu_items`: pedi-lo aqui fazia
@@ -122,42 +131,12 @@ async function computeSuggestion(kitchenId: number, issueDate: string) {
 		.is("deleted_at", null)
 	if (menuError) throw new Error(`Erro ao carregar o cardápio do dia: ${publicDbMessage(menuError)}`)
 
-	const dailyMenuIds = [...new Set((menuItems ?? []).map((item) => item.daily_menu_id).filter((id) => id != null))]
-	const mealTypeByMenu = new Map<string, string | null>()
-	if (dailyMenuIds.length > 0) {
-		const { data: dailyMenus, error: menuTypeError } = await kit.from("daily_menu").select("id, meal_type_id").in("id", dailyMenuIds).is("deleted_at", null)
-		if (menuTypeError) throw new Error(`Erro ao carregar as refeições do dia: ${publicDbMessage(menuTypeError)}`)
-		for (const menu of dailyMenus ?? []) mealTypeByMenu.set(menu.id, menu.meal_type_id ?? null)
-	}
+	const mealTypeByMenu = await loadMealTypeByMenu(kit, collectDailyMenuIds(menuItems ?? []))
 
 	// prato de uma refeição removida sai junto com ela
-	const menuById = new Map(
-		(menuItems ?? []).filter((item) => item.daily_menu_id == null || mealTypeByMenu.has(item.daily_menu_id)).map((item) => [item.id, item])
-	)
+	const menuById = indexActiveMenuItems(menuItems ?? [], mealTypeByMenu)
 
-	const totals = new Map<string, { quantity: number; mealTypeId: string | null }>()
-	for (const task of taskList) {
-		const menuItem = menuById.get(task.menu_item_id) as
-			| { recipe: RecipeSnapshotForIssue | null; planned_portion_quantity: number | null; daily_menu_id: string | null }
-			| undefined
-		if (!menuItem) continue
-		const mealTypeId = menuItem.daily_menu_id ? (mealTypeByMenu.get(menuItem.daily_menu_id) ?? null) : null
-		for (const line of computeTheoreticalConsumption(menuItem.recipe ?? null, Number(menuItem.planned_portion_quantity ?? 0))) {
-			const current = totals.get(line.ingredientId)
-			if (!current) {
-				totals.set(line.ingredientId, { quantity: line.quantity, mealTypeId })
-				continue
-			}
-			// O arroz que vai no almoço E no jantar sai do estoque uma vez só, e
-			// não é de nenhuma das duas refeições: rotulá-lo com a primeira que
-			// apareceu manda o almoxarife separar metade da quantidade. Refeição
-			// ambígua não tem rótulo.
-			totals.set(line.ingredientId, {
-				quantity: current.quantity + line.quantity,
-				mealTypeId: current.mealTypeId === mealTypeId ? current.mealTypeId : null,
-			})
-		}
-	}
+	const totals = sumTheoreticalConsumption(taskList, menuById, mealTypeByMenu)
 	if (totals.size === 0) return { lines: [], taskIds: taskList.map((task) => task.id) }
 
 	// fator de correção e embalagem de saída vêm do insumo
@@ -171,16 +150,18 @@ async function computeSuggestion(kitchenId: number, issueDate: string) {
 	if (ingredientError) throw new Error(`Erro ao carregar os dados dos insumos: ${publicDbMessage(ingredientError)}`)
 	const metaById = new Map((ingredients ?? []).map((row) => [row.id, row]))
 
-	const lines = [...totals.entries()].map(([ingredientId, total]) => {
-		const meta = metaById.get(ingredientId)
-		const gross = total.quantity * Number(meta?.correction_factor ?? 1)
-		return {
-			ingredientId,
-			mealTypeId: total.mealTypeId,
-			suggestedQty: roundToIssuePackage(gross, meta?.issue_package_quantity),
-		}
-	})
+	const lines = buildIssueSuggestionLines(totals, metaById)
 	return { lines, taskIds: taskList.map((task) => task.id) }
+}
+
+/** Refeição de cada cardápio do dia; cardápio removido (soft-delete) fica de fora. */
+async function loadMealTypeByMenu(kit: ReturnType<typeof kitchen>, dailyMenuIds: string[]): Promise<Map<string, string | null>> {
+	const mealTypeByMenu = new Map<string, string | null>()
+	if (dailyMenuIds.length === 0) return mealTypeByMenu
+	const { data: dailyMenus, error: menuTypeError } = await kit.from("daily_menu").select("id, meal_type_id").in("id", dailyMenuIds).is("deleted_at", null)
+	if (menuTypeError) throw new Error(`Erro ao carregar as refeições do dia: ${publicDbMessage(menuTypeError)}`)
+	for (const menu of dailyMenus ?? []) mealTypeByMenu.set(menu.id, menu.meal_type_id ?? null)
+	return mealTypeByMenu
 }
 
 /** Abre (ou recupera) a requisição do dia e recalcula a sugestão. */
@@ -204,7 +185,7 @@ export const openIssueRequestFn = createServerFn({ method: "POST" })
 		const inv = inventory()
 		const issueDate = data.issueDate ?? getBrasiliaToday()
 
-		if (data.origin === "ad_hoc" && (!data.purpose?.trim() || !data.destination?.trim())) {
+		if (isAdHocMissingOwner(data)) {
 			// Saída avulsa sem destino é saída sem dono: não há cardápio para
 			// explicá-la depois. A guarda conferia só o motivo enquanto a mensagem
 			// cobrava os dois, e o destino vazio ia para o banco como `null` —
@@ -213,15 +194,7 @@ export const openIssueRequestFn = createServerFn({ method: "POST" })
 			throw new Error("Saída avulsa exige destino e motivo")
 		}
 
-		const values = {
-			kitchen_id: data.kitchenId,
-			issue_date: issueDate,
-			origin: data.origin,
-			destination: data.destination?.trim() || null,
-			purpose: data.purpose?.trim() || null,
-			authorization_reference: data.authorizationReference?.trim() || null,
-			created_by: userId,
-		}
+		const values = buildIssueRequestValues(data, issueDate, userId)
 
 		// Saída AVULSA: cada abertura é um documento novo. Pode haver várias no dia
 		// (o apoio da manhã e o evento da noite), cada uma com o seu motivo e o seu
@@ -468,18 +441,10 @@ export const fetchIssueRequestFn = createServerFn({ method: "GET" })
 		if (itemsError) throw new Error(`Erro ao carregar os itens do dia: ${publicDbMessage(itemsError)}`)
 		if (movementsError) throw new Error(`Erro ao carregar as saídas do dia: ${publicDbMessage(movementsError)}`)
 
-		const issued = new Map<string, number>()
-		const returned = new Map<string, number>()
-		const costs = new Map<string, number>()
-		for (const move of movements ?? []) {
-			if (move.ingredient_id == null) continue
-			const target = move.type === "issue_return" ? returned : issued
-			target.set(move.ingredient_id, (target.get(move.ingredient_id) ?? 0) + Number(move.quantity))
-			if (move.unit_cost != null) costs.set(move.ingredient_id, Number(move.unit_cost))
-		}
+		const { issued, returned, costs } = tallyIssueMovements(movements ?? [])
 
 		const rows = items ?? []
-		const ingredientIds = [...new Set([...rows.map((row) => row.ingredient_id), ...issued.keys()])]
+		const ingredientIds = collectIssueIngredientIds(rows, issued)
 
 		// Custo médio para o item que NÃO teve movimento nesta requisição. Sem
 		// isso, o item planejado e nunca baixado ficava com custo nulo, o valor do
@@ -493,10 +458,7 @@ export const fetchIssueRequestFn = createServerFn({ method: "GET" })
 				.in("ingredient_id", ingredientIds)
 			// sem custo, o valor do desvio dá zero e o piso nunca é passado
 			if (averagesError) throw new Error(`Erro ao carregar os custos: ${publicDbMessage(averagesError)}`)
-			for (const row of averages ?? []) {
-				if (row.ingredient_id == null) continue
-				if (!costs.has(row.ingredient_id) && row.avg_unit_cost != null) costs.set(row.ingredient_id, Number(row.avg_unit_cost))
-			}
+			fillMissingAverageCosts(costs, averages ?? [])
 		}
 
 		const names = new Map<string, { description: string | null; measure_unit: string | null }>()
@@ -506,29 +468,14 @@ export const fetchIssueRequestFn = createServerFn({ method: "GET" })
 			for (const ingredient of ingredients ?? []) names.set(ingredient.id, ingredient)
 		}
 
-		const lines: IssueLineForVariance[] = ingredientIds.map((ingredientId) => {
-			const row = rows.find((item) => item.ingredient_id === ingredientId)
-			return {
-				ingredientId,
-				suggestedQty: row?.suggested_qty != null ? Number(row.suggested_qty) : null,
-				issuedNetQty: Number(((issued.get(ingredientId) ?? 0) - (returned.get(ingredientId) ?? 0)).toFixed(4)),
-				unitCost: costs.get(ingredientId) ?? null,
-				reason: row?.variance_reason ?? null,
-			}
-		})
+		const lines = buildIssueVarianceLines({ ingredientIds, rows, issued, returned, costs })
 		const closure = checkDayClosure(lines, settings)
 
 		return {
 			request,
 			settings,
 			canClose: closure.canClose,
-			lines: closure.verdicts.map((verdict) => ({
-				...verdict,
-				itemId: rows.find((row) => row.ingredient_id === verdict.ingredientId)?.id ?? null,
-				description: names.get(verdict.ingredientId)?.description ?? "—",
-				measureUnit: names.get(verdict.ingredientId)?.measure_unit ?? null,
-				reason: lines.find((line) => line.ingredientId === verdict.ingredientId)?.reason ?? null,
-			})),
+			lines: decorateIssueVerdicts({ verdicts: closure.verdicts, rows, names, lines }),
 		}
 	})
 

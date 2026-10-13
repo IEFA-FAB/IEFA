@@ -102,6 +102,200 @@ describe("bedrock adapter — chatStream", () => {
 	})
 })
 
+/** Troca id gerado e timestamp por marcadores estáveis, para comparar o evento inteiro. */
+function normalize(events: Record<string, unknown>[]) {
+	return events.map((e) => {
+		const out: Record<string, unknown> = { ...e }
+		for (const key of ["timestamp", "runId", "threadId", "messageId"]) if (key in out) out[key] = `<${key}>`
+		if (typeof out.toolCallId === "string" && out.toolCallId.startsWith("tool_")) out.toolCallId = "<generated>"
+		return out
+	})
+}
+
+describe("bedrock adapter — chatStream, evento a evento", () => {
+	// Eventos como objeto solto: a união do SDK não aceita evento parcial (o que o teste quer).
+	const run = async (events: Record<string, unknown>[], extra: Record<string, unknown> = {}) => {
+		const { client, sent } = fakeClient(events as unknown as ConverseStreamOutput[])
+		const adapter = createBedrockChat("model-x", "us-east-1", client)
+		const out = await collect(adapter.chatStream(opts({ messages: [{ role: "user", content: "x" }], ...extra })))
+		return { out, sent }
+	}
+
+	it("texto e tool intercalados: forma completa de cada evento, na ordem", async () => {
+		const { out } = await run([
+			{ messageStart: { role: "assistant" } },
+			{ contentBlockDelta: { delta: { text: "Vou ver" }, contentBlockIndex: 0 } },
+			{ contentBlockStop: { contentBlockIndex: 0 } },
+			{ contentBlockStart: { start: { toolUse: { toolUseId: "t1", name: "busca" } }, contentBlockIndex: 1 } },
+			{ contentBlockDelta: { delta: { toolUse: { input: '{"q":1}' } }, contentBlockIndex: 1 } },
+			{ contentBlockStop: { contentBlockIndex: 1 } },
+			{ messageStop: { stopReason: "end_turn" } },
+			{ metadata: { usage: { inputTokens: 4, outputTokens: 6 } } },
+		])
+		expect(normalize(out)).toEqual([
+			{ type: "RUN_STARTED", runId: "<runId>", threadId: "<threadId>", model: "model-x", timestamp: "<timestamp>" },
+			{ type: "TEXT_MESSAGE_START", messageId: "<messageId>", model: "model-x", timestamp: "<timestamp>", role: "assistant" },
+			{ type: "TEXT_MESSAGE_CONTENT", messageId: "<messageId>", model: "model-x", timestamp: "<timestamp>", delta: "Vou ver", content: "Vou ver" },
+			{ type: "TOOL_CALL_START", toolCallId: "t1", toolCallName: "busca", toolName: "busca", model: "model-x", timestamp: "<timestamp>", index: 1 },
+			{ type: "TOOL_CALL_ARGS", toolCallId: "t1", model: "model-x", timestamp: "<timestamp>", delta: '{"q":1}', args: '{"q":1}' },
+			{ type: "TOOL_CALL_END", toolCallId: "t1", toolCallName: "busca", toolName: "busca", model: "model-x", timestamp: "<timestamp>", input: { q: 1 } },
+			{ type: "TEXT_MESSAGE_END", messageId: "<messageId>", model: "model-x", timestamp: "<timestamp>" },
+			{
+				type: "RUN_FINISHED",
+				runId: "<runId>",
+				threadId: "<threadId>",
+				model: "model-x",
+				timestamp: "<timestamp>",
+				// Houve tool: `tool_calls` mesmo com stopReason `end_turn`. Total ausente = soma.
+				finishReason: "tool_calls",
+				usage: { promptTokens: 4, completionTokens: 6, totalTokens: 10 },
+			},
+		])
+	})
+
+	it("runId e threadId das opções passam direto", async () => {
+		const { out } = await run([], { runId: "r1", threadId: "th1" })
+		expect(out[0]).toMatchObject({ runId: "r1", threadId: "th1" })
+		expect(out.at(-1)).toMatchObject({ runId: "r1", threadId: "th1", usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 }, finishReason: "stop" })
+	})
+
+	it("tool sem id nem nome e sem índice: id gerado, nome vazio, índice 0", async () => {
+		const { out } = await run([
+			{ contentBlockStart: { start: { toolUse: {} } } },
+			{ contentBlockDelta: { delta: { toolUse: { input: "{}" } } } },
+			{ contentBlockStop: {} },
+		])
+		expect(normalize(out).slice(1, 4)).toEqual([
+			{ type: "TOOL_CALL_START", toolCallId: "<generated>", toolCallName: "", toolName: "", model: "model-x", timestamp: "<timestamp>", index: 0 },
+			{ type: "TOOL_CALL_ARGS", toolCallId: "<generated>", model: "model-x", timestamp: "<timestamp>", delta: "{}", args: "{}" },
+			{ type: "TOOL_CALL_END", toolCallId: "<generated>", toolCallName: "", toolName: "", model: "model-x", timestamp: "<timestamp>", input: {} },
+		])
+	})
+
+	it("input de tool vazio ou inválido fecha com {}", async () => {
+		const { out } = await run([
+			{ contentBlockStart: { start: { toolUse: { toolUseId: "a", name: "x" } }, contentBlockIndex: 0 } },
+			{ contentBlockStop: { contentBlockIndex: 0 } },
+			{ contentBlockStart: { start: { toolUse: { toolUseId: "b", name: "y" } }, contentBlockIndex: 1 } },
+			{ contentBlockDelta: { delta: { toolUse: { input: '{"quebrado":' } }, contentBlockIndex: 1 } },
+			{ contentBlockStop: { contentBlockIndex: 1 } },
+		])
+		expect(out.filter((e) => e.type === "TOOL_CALL_END").map((e) => [e.toolCallId, e.input])).toEqual([
+			["a", {}],
+			["b", {}],
+		])
+	})
+
+	it("delta e fim de bloco sem tool aberta no índice não emitem nada; bloco fechado sai do mapa", async () => {
+		const { out } = await run([
+			{ contentBlockDelta: { delta: { toolUse: { input: "{}" } }, contentBlockIndex: 3 } },
+			{ contentBlockStop: { contentBlockIndex: 3 } },
+			{ contentBlockStart: { start: { toolUse: { toolUseId: "a", name: "x" } }, contentBlockIndex: 0 } },
+			{ contentBlockStop: { contentBlockIndex: 0 } },
+			{ contentBlockDelta: { delta: { toolUse: { input: "{}" } }, contentBlockIndex: 0 } },
+			{ contentBlockStop: { contentBlockIndex: 0 } },
+		])
+		expect(out.map((e) => e.type)).toEqual(["RUN_STARTED", "TOOL_CALL_START", "TOOL_CALL_END", "RUN_FINISHED"])
+	})
+
+	it("texto vazio não abre mensagem; texto vazio com toolUse vai para a tool", async () => {
+		const { out } = await run([
+			{ contentBlockDelta: { delta: { text: "" }, contentBlockIndex: 0 } },
+			{ contentBlockStart: { start: { toolUse: { toolUseId: "a", name: "x" } }, contentBlockIndex: 1 } },
+			{ contentBlockDelta: { delta: { text: "", toolUse: { input: "{}" } }, contentBlockIndex: 1 } },
+		])
+		expect(out.map((e) => e.type)).toEqual(["RUN_STARTED", "TOOL_CALL_START", "TOOL_CALL_ARGS", "RUN_FINISHED"])
+	})
+
+	it("início de bloco de texto (sem toolUse) não emite nada", async () => {
+		const { out } = await run([{ contentBlockStart: { start: {}, contentBlockIndex: 0 } }])
+		expect(out.map((e) => e.type)).toEqual(["RUN_STARTED", "RUN_FINISHED"])
+	})
+
+	it("stopReason e uso no mesmo evento valem os dois; o último uso vence", async () => {
+		const { out } = await run([
+			{ metadata: { usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 } } },
+			{
+				messageStop: { stopReason: "max_tokens" },
+				metadata: { usage: { totalTokens: 9 } },
+			},
+		])
+		expect(out.at(-1)).toMatchObject({ finishReason: "length", usage: { promptTokens: 0, completionTokens: 0, totalTokens: 9 } })
+	})
+
+	it("metadata sem usage não mexe no uso", async () => {
+		const { out } = await run([{ metadata: { metrics: { latencyMs: 1 } } }])
+		expect(out.at(-1)?.usage).toEqual({ promptTokens: 0, completionTokens: 0, totalTokens: 0 })
+	})
+
+	it("logger: request antes, provider por evento, errors no fatal", async () => {
+		const calls: string[] = []
+		const logger = {
+			request: (msg: string) => calls.push(`request:${msg}`),
+			provider: (msg: string, meta: { chunk: unknown }) => calls.push(`provider:${msg}:${JSON.stringify(meta.chunk)}`),
+			errors: (msg: string) => calls.push(`errors:${msg}`),
+		}
+		await run([{ messageStop: { stopReason: "end_turn" } }], { logger, tools: [{ name: "a" }] })
+		expect(calls).toEqual([
+			"request:activity=chat provider=bedrock model=model-x messages=1 tools=1 stream=true",
+			'provider:provider=bedrock:{"messageStop":{"stopReason":"end_turn"}}',
+		])
+
+		const failing = {
+			send: async () => {
+				throw new Error("boom")
+			},
+			// biome-ignore lint/suspicious/noExplicitAny: cliente falso para teste
+		} as any
+		const errs: string[] = []
+		const adapter = createBedrockChat("model-x", "us-east-1", failing)
+		await expect(
+			collect(adapter.chatStream(opts({ messages: [{ role: "user", content: "x" }], logger: { errors: (msg: string) => errs.push(msg) } })))
+		).rejects.toThrow("boom")
+		expect(errs).toEqual(["bedrock.chatStream fatal"])
+	})
+
+	it("erro no meio do stream é registrado e propagado depois dos eventos já emitidos", async () => {
+		const client = {
+			send: async () => ({
+				stream: (async function* () {
+					yield { contentBlockDelta: { delta: { text: "a" }, contentBlockIndex: 0 } }
+					throw new Error("quebrou")
+				})(),
+			}),
+			// biome-ignore lint/suspicious/noExplicitAny: cliente falso para teste
+		} as any
+		const seen: string[] = []
+		const errs: string[] = []
+		const adapter = createBedrockChat("model-x", "us-east-1", client)
+		const stream = adapter.chatStream(opts({ messages: [{ role: "user", content: "x" }], logger: { errors: (msg: string) => errs.push(msg) } }))
+		await expect(
+			(async () => {
+				for await (const ev of stream) seen.push((ev as { type: string }).type)
+			})()
+		).rejects.toThrow("quebrou")
+		expect(seen).toEqual(["RUN_STARTED", "TEXT_MESSAGE_START", "TEXT_MESSAGE_CONTENT"])
+		expect(errs).toEqual(["bedrock.chatStream fatal"])
+	})
+
+	it("repassa o abortSignal ao send", async () => {
+		let signal: unknown
+		const client = {
+			send: async (_command: unknown, options: { abortSignal?: unknown }) => {
+				signal = options.abortSignal
+				return { stream: undefined }
+			},
+			// biome-ignore lint/suspicious/noExplicitAny: cliente falso para teste
+		} as any
+		const abortController = new AbortController()
+		const adapter = createBedrockChat("model-x", "us-east-1", client)
+		const out = await collect(adapter.chatStream(opts({ messages: [{ role: "user", content: "x" }], abortController })))
+		expect(signal).toBe(abortController.signal)
+		// `stream` ausente vale como stream vazio.
+		expect(out.map((e) => e.type)).toEqual(["RUN_STARTED", "RUN_FINISHED"])
+	})
+})
+
 describe("bedrock adapter — structuredOutput", () => {
 	const schema = { type: "object", properties: { ok: { type: "boolean" } } }
 

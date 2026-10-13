@@ -1,13 +1,12 @@
 import { useNavigate, useSearch } from "@tanstack/react-router"
 import { useVirtualizer } from "@tanstack/react-virtual"
-import { ArrowDownAZ, ArrowDownZA, Loader2, Replace, Search, SlidersHorizontal, SquareCheckBig, X } from "lucide-react"
-import { type Ref, useEffect, useId, useImperativeHandle, useMemo, useRef, useState } from "react"
+import { ArrowDownAZ, ArrowDownZA, Loader2, Replace, Search, SquareCheckBig, X } from "lucide-react"
+import { type ReactNode, type Ref, useEffect, useId, useImperativeHandle, useMemo, useRef, useState } from "react"
+import { SearchOptionsPopover } from "@/components/features/shared/SearchOptionsPopover"
 import { Button } from "@/components/ui/button"
 import { ButtonGroup } from "@/components/ui/button-group"
 import { Card, CardFooter } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Switch } from "@/components/ui/switch"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { useGlobalWrite } from "@/hooks/auth/useGlobalWrite"
 import type { BulkSelectedNode } from "@/hooks/business/useBulkIngredientOps"
@@ -21,6 +20,7 @@ import { BulkFindReplaceDialog } from "./BulkFindReplaceDialog"
 import { FolderForm } from "./FolderForm"
 import { IngredientForm } from "./IngredientForm"
 import { IngredientsTreeNode } from "./IngredientsTreeNode"
+import { countVisibleNodes, pickEmptyTreeHint, pickFolderToEdit } from "./ingredients-tree-manager-state"
 
 /**
  * Gerenciador da árvore de insumos
@@ -210,17 +210,7 @@ export function IngredientsTreeManager({ ref, catalog = "exclude" }: { ref?: Ref
 
 	// Contagem do que está efetivamente visível (após busca + chips). `byId` contém
 	// todos os nós incluídos, independente de expand/collapse → reflete o filtro.
-	const visibleCounts = useMemo(() => {
-		let folders = 0
-		let ingredients = 0
-		if (flatTree) {
-			for (const node of Object.values(flatTree.byId)) {
-				if (node.type === "folder") folders++
-				else if (node.type === "ingredient") ingredients++
-			}
-		}
-		return { folders, ingredients }
-	}, [flatTree])
+	const visibleCounts = useMemo(() => countVisibleNodes(flatTree), [flatTree])
 
 	// Virtualização
 	const parentRef = useRef<HTMLDivElement>(null)
@@ -290,6 +280,57 @@ export function IngredientsTreeManager({ ref, catalog = "exclude" }: { ref?: Ref
 		)
 	}
 
+	const renderRows = () => (
+		<div
+			style={{
+				height: `${rowVirtualizer.getTotalSize()}px`,
+				width: "100%",
+				position: "relative",
+			}}
+		>
+			{rowVirtualizer.getVirtualItems().map((virtualRow) => {
+				const node = flatTree?.nodes[virtualRow.index]
+				if (!node) return null
+				return (
+					<div
+						key={virtualRow.key}
+						style={{
+							position: "absolute",
+							top: 0,
+							left: 0,
+							width: "100%",
+							height: `${virtualRow.size}px`,
+							transform: `translateY(${virtualRow.start}px)`,
+						}}
+					>
+						<IngredientsTreeNode
+							node={node}
+							onEdit={(type, data) => handleOpenDialog(type as "folder" | "ingredient", "edit", data as Folder | Ingredient)}
+							onToggle={toggleExpand}
+							itemCount={node.type === "ingredient" ? (itemCountByIngredientId[node.id] ?? 0) : undefined}
+							lastReviewedAt={node.type === "ingredient" ? (lastReviewByIngredientId[node.id] ?? null) : undefined}
+							folderReview={node.type === "folder" ? folderReviewByFolderId.get(node.id) : undefined}
+							folderConference={node.type === "folder" ? folderConferenceByFolderId.get(node.id) : undefined}
+							selectionMode={selectionMode}
+							canWrite={canWrite}
+							selected={selected.has(node.id)}
+							onSelectChange={(checked) => handleSelectChange(node, checked)}
+							onNavigate={
+								node.type === "ingredient"
+									? () =>
+											navigate({
+												to: "/global/ingredients/$ingredientId",
+												params: { ingredientId: node.id },
+											})
+									: undefined
+							}
+						/>
+					</div>
+				)
+			})}
+		</div>
+	)
+
 	return (
 		<div className="space-y-6">
 			{/* Toolbar. Mesma regra da listagem de preparações: só vira uma linha quando busca
@@ -311,213 +352,59 @@ export function IngredientsTreeManager({ ref, catalog = "exclude" }: { ref?: Ref
 						/>
 					</div>
 
-					<Popover>
-						<PopoverTrigger render={<Button variant="outline" size="sm" className="shrink-0" aria-label="Opções de busca" />}>
-							<SlidersHorizontal className="size-4" />
-							<span className="hidden sm:inline">Opções</span>
-							{(searchCaseSensitive || searchAccentSensitive || onlyNotReviewed || onlyGlobalMenu) && (
-								<span className="size-1.5 rounded-full bg-primary" aria-hidden />
-							)}
-						</PopoverTrigger>
-						<PopoverContent align="start" className="w-64">
-							<div className="flex flex-col gap-3 text-sm">
-								<label htmlFor={searchCaseId} className="flex items-center justify-between gap-3 cursor-pointer select-none">
-									Diferenciar maiúsculas
-									<Switch id={searchCaseId} checked={searchCaseSensitive} onCheckedChange={setSearchCaseSensitive} size="sm" />
-								</label>
-								<label htmlFor={searchAccentId} className="flex items-center justify-between gap-3 cursor-pointer select-none">
-									Diferenciar acentos
-									<Switch id={searchAccentId} checked={searchAccentSensitive} onCheckedChange={setSearchAccentSensitive} size="sm" />
-								</label>
-								<label htmlFor={onlyNotReviewedId} className="flex items-center justify-between gap-3 cursor-pointer select-none">
-									Somente não revisados
-									<Switch id={onlyNotReviewedId} checked={onlyNotReviewed} onCheckedChange={setOnlyNotReviewed} size="sm" />
-								</label>
-								<label htmlFor={onlyGlobalMenuId} className="flex items-center justify-between gap-3 cursor-pointer select-none">
-									Somente em cardápio global
-									<Switch id={onlyGlobalMenuId} checked={onlyGlobalMenu} onCheckedChange={setOnlyGlobalMenu} size="sm" />
-								</label>
-							</div>
-						</PopoverContent>
-					</Popover>
+					<SearchOptionsPopover
+						options={[
+							{ id: searchCaseId, label: "Diferenciar maiúsculas", checked: searchCaseSensitive, onCheckedChange: setSearchCaseSensitive },
+							{ id: searchAccentId, label: "Diferenciar acentos", checked: searchAccentSensitive, onCheckedChange: setSearchAccentSensitive },
+							{ id: onlyNotReviewedId, label: "Somente não revisados", checked: onlyNotReviewed, onCheckedChange: setOnlyNotReviewed },
+							{ id: onlyGlobalMenuId, label: "Somente em cardápio global", checked: onlyGlobalMenu, onCheckedChange: setOnlyGlobalMenu },
+						]}
+					/>
 				</div>
 
 				{/* Ações (direita) — `min-w-0` deixa o bloco quebrar em duas linhas em vez de
 				    transbordar por cima da busca. */}
 				<div className="flex flex-wrap items-center gap-2 min-w-0 min-[1400px]:justify-end">
-					{selectionMode ? (
-						<>
-							<Button variant="outline" size="sm" onClick={selectAllVisible} aria-label="Selecionar todos os visíveis">
-								Selecionar Visíveis
-							</Button>
-							<Button variant="outline" size="sm" onClick={exitSelectionMode} aria-label="Sair do modo de seleção">
-								<X className="size-4 mr-2" />
-								Concluir Seleção
-							</Button>
-						</>
-					) : (
-						<>
-							<Button
-								variant="outline"
-								size="sm"
-								onClick={() => setSortDirection((d) => (d === "asc" ? "desc" : "asc"))}
-								aria-label={sortDirection === "asc" ? "Ordenar de Z a A" : "Ordenar de A a Z"}
-							>
-								{sortDirection === "asc" ? <ArrowDownAZ className="size-4 mr-2" /> : <ArrowDownZA className="size-4 mr-2" />}
-								<span className="hidden sm:inline">{sortDirection === "asc" ? "A-Z" : "Z-A"}</span>
-							</Button>
-							<ButtonGroup>
-								<Button variant="outline" size="sm" onClick={expandAll} aria-label="Expandir tudo">
-									Expandir Tudo
-								</Button>
-								<Button variant="outline" size="sm" onClick={collapseAll} aria-label="Recolher tudo">
-									Recolher Tudo
-								</Button>
-							</ButtonGroup>
-
-							{/* Localizar-e-substituir e seleção em massa são escrita: somem para o leitor. */}
-							{canWrite && (
-								<>
-									<Button variant="outline" size="sm" onClick={() => setFindReplaceOpen(true)} aria-label="Localizar e substituir">
-										<Replace className="size-4 mr-2" />
-										<span className="hidden sm:inline">Localizar e Substituir</span>
-										<span className="sm:hidden">Substituir</span>
-									</Button>
-									<Button variant="outline" size="sm" onClick={() => setSelectionMode(true)} aria-label="Selecionar itens">
-										<SquareCheckBig className="size-4 mr-2" />
-										<span className="hidden sm:inline">Selecionar Itens</span>
-										<span className="sm:hidden">Selecionar</span>
-									</Button>
-								</>
-							)}
-						</>
-					)}
+					<TreeToolbarActions
+						selectionMode={selectionMode}
+						onSelectAllVisible={selectAllVisible}
+						onExitSelectionMode={exitSelectionMode}
+						sortDirection={sortDirection}
+						onToggleSort={() => setSortDirection((d) => (d === "asc" ? "desc" : "asc"))}
+						onExpandAll={expandAll}
+						onCollapseAll={collapseAll}
+						canWrite={canWrite}
+						onOpenFindReplace={() => setFindReplaceOpen(true)}
+						onEnterSelectionMode={() => setSelectionMode(true)}
+					/>
 				</div>
 			</Card>
 			{/* Árvore Virtualizada */}
 			<Card>
 				<div ref={parentRef} className="h-150 overflow-auto" role="tree" aria-label={ui.treeLabel}>
-					{globalMenu.error ? (
-						<div className="flex flex-col items-center justify-center h-full gap-3 text-center py-12">
-							<p className="text-destructive">Erro ao carregar os insumos do cardápio global</p>
-							<p className="text-sm text-muted-foreground">{globalMenu.error.message}</p>
-							<Button size="sm" onClick={() => globalMenu.refetch()}>
-								Tentar Novamente
-							</Button>
-						</div>
-					) : globalMenu.isPending ? (
-						<div className="flex items-center justify-center h-full">
-							<Loader2 className="size-8 animate-spin text-muted-foreground" />
-						</div>
-					) : flatTree && flatTree.nodes.length === 0 ? (
-						<div className="flex flex-col items-center justify-center h-full text-muted-foreground py-12">
-							<p className="font-sans">{ui.emptyTitle}</p>
-							{/* Com busca ativa, a dica é ajustar a busca: culpar o recorte do cardápio
-							    global mandaria desligar um filtro que não é a causa. */}
-							{onlyNotReviewed ? (
-								<p className="text-sm mt-2">{ui.emptyReview}</p>
-							) : urlSearch ? (
-								<p className="text-sm mt-2">Tente ajustar os filtros de busca</p>
-							) : (
-								onlyGlobalMenu && <p className="text-sm mt-2">{ui.emptyGlobalMenu}</p>
-							)}
-						</div>
-					) : (
-						<div
-							style={{
-								height: `${rowVirtualizer.getTotalSize()}px`,
-								width: "100%",
-								position: "relative",
-							}}
-						>
-							{rowVirtualizer.getVirtualItems().map((virtualRow) => {
-								const node = flatTree?.nodes[virtualRow.index]
-								if (!node) return null
-								return (
-									<div
-										key={virtualRow.key}
-										style={{
-											position: "absolute",
-											top: 0,
-											left: 0,
-											width: "100%",
-											height: `${virtualRow.size}px`,
-											transform: `translateY(${virtualRow.start}px)`,
-										}}
-									>
-										<IngredientsTreeNode
-											node={node}
-											onEdit={(type, data) => handleOpenDialog(type as "folder" | "ingredient", "edit", data as Folder | Ingredient)}
-											onToggle={toggleExpand}
-											itemCount={node.type === "ingredient" ? (itemCountByIngredientId[node.id] ?? 0) : undefined}
-											lastReviewedAt={node.type === "ingredient" ? (lastReviewByIngredientId[node.id] ?? null) : undefined}
-											folderReview={node.type === "folder" ? folderReviewByFolderId.get(node.id) : undefined}
-											folderConference={node.type === "folder" ? folderConferenceByFolderId.get(node.id) : undefined}
-											selectionMode={selectionMode}
-											canWrite={canWrite}
-											selected={selected.has(node.id)}
-											onSelectChange={(checked) => handleSelectChange(node, checked)}
-											onNavigate={
-												node.type === "ingredient"
-													? () =>
-															navigate({
-																to: "/global/ingredients/$ingredientId",
-																params: { ingredientId: node.id },
-															})
-													: undefined
-											}
-										/>
-									</div>
-								)
-							})}
-						</div>
-					)}
+					<TreeBody
+						globalMenu={globalMenu}
+						isEmpty={!!flatTree && flatTree.nodes.length === 0}
+						emptyTitle={ui.emptyTitle}
+						emptyHint={pickEmptyTreeHint({ onlyNotReviewed, urlSearch, onlyGlobalMenu }, ui)}
+						renderRows={renderRows}
+					/>
 				</div>
 				{stats && (
-					<CardFooter className="flex-col items-stretch gap-3 text-xs text-muted-foreground select-none sm:flex-row sm:items-center sm:justify-between">
-						<div className="flex items-center gap-3">
-							<span>
-								{visibleCounts.folders} {visibleCounts.folders === 1 ? "pasta" : "pastas"}
-							</span>
-							<span aria-hidden>·</span>
-							<span>
-								{visibleCounts.ingredients} {visibleCounts.ingredients === 1 ? ui.noun[0] : ui.noun[1]}
-								{visibleCounts.ingredients !== stats.totalIngredients && <span className="text-muted-foreground/60"> de {stats.totalIngredients}</span>}
-							</span>
-						</div>
-
-						{/* Busca rápida — chips (toggle group). Marcado = categoria visível na árvore. */}
-						<div className="flex items-center gap-2 flex-wrap sm:justify-end">
-							<span className="font-medium mr-0.5">Mostrar</span>
-							<ToggleGroup
-								value={quickFilters}
-								onValueChange={(value) => setQuickFilters(value)}
-								multiple
-								variant="outline"
-								size="sm"
-								spacing={1}
-								aria-label="Filtros rápidos de busca"
-							>
-								{quickFilterChips.map((chip) => (
-									<ToggleGroupItem key={chip.key} value={chip.key} aria-label={chip.label}>
-										{chip.label}
-									</ToggleGroupItem>
-								))}
-							</ToggleGroup>
-						</div>
-					</CardFooter>
+					<TreeFooter
+						visibleCounts={visibleCounts}
+						totalIngredients={stats.totalIngredients}
+						noun={ui.noun}
+						quickFilters={quickFilters}
+						onQuickFiltersChange={setQuickFilters}
+						quickFilterChips={quickFilterChips}
+					/>
 				)}
 			</Card>
 
 			{/* Dialogs */}
 			{dialogState.type === "folder" && (
-				<FolderForm
-					isOpen={dialogState.isOpen}
-					onClose={handleCloseDialog}
-					mode={dialogState.mode}
-					folder={dialogState.mode === "edit" && dialogState.data && "parent_id" in dialogState.data ? (dialogState.data as Folder) : undefined}
-					catalog={catalog}
-				/>
+				<FolderForm isOpen={dialogState.isOpen} onClose={handleCloseDialog} mode={dialogState.mode} folder={pickFolderToEdit(dialogState)} catalog={catalog} />
 			)}
 
 			{dialogState.type === "ingredient" && dialogState.mode === "create" && (
@@ -538,5 +425,176 @@ export function IngredientsTreeManager({ ref, catalog = "exclude" }: { ref?: Ref
 				<BulkActionsBar selectedNodes={selectedNodes} showDeleted={showDeleted} onClear={clearSelection} onDone={clearSelection} catalog={catalog} />
 			)}
 		</div>
+	)
+}
+
+/** Ações da barra (direita): as de seleção em massa ou as de navegação/edição da árvore. */
+function TreeToolbarActions({
+	selectionMode,
+	onSelectAllVisible,
+	onExitSelectionMode,
+	sortDirection,
+	onToggleSort,
+	onExpandAll,
+	onCollapseAll,
+	canWrite,
+	onOpenFindReplace,
+	onEnterSelectionMode,
+}: {
+	selectionMode: boolean
+	onSelectAllVisible: () => void
+	onExitSelectionMode: () => void
+	sortDirection: "asc" | "desc"
+	onToggleSort: () => void
+	onExpandAll: () => void
+	onCollapseAll: () => void
+	canWrite: boolean
+	onOpenFindReplace: () => void
+	onEnterSelectionMode: () => void
+}) {
+	if (selectionMode) {
+		return (
+			<>
+				<Button variant="outline" size="sm" onClick={onSelectAllVisible} aria-label="Selecionar todos os visíveis">
+					Selecionar Visíveis
+				</Button>
+				<Button variant="outline" size="sm" onClick={onExitSelectionMode} aria-label="Sair do modo de seleção">
+					<X className="size-4 mr-2" />
+					Concluir Seleção
+				</Button>
+			</>
+		)
+	}
+	return (
+		<>
+			<Button variant="outline" size="sm" onClick={onToggleSort} aria-label={sortDirection === "asc" ? "Ordenar de Z a A" : "Ordenar de A a Z"}>
+				{sortDirection === "asc" ? <ArrowDownAZ className="size-4 mr-2" /> : <ArrowDownZA className="size-4 mr-2" />}
+				<span className="hidden sm:inline">{sortDirection === "asc" ? "A-Z" : "Z-A"}</span>
+			</Button>
+			<ButtonGroup>
+				<Button variant="outline" size="sm" onClick={onExpandAll} aria-label="Expandir tudo">
+					Expandir Tudo
+				</Button>
+				<Button variant="outline" size="sm" onClick={onCollapseAll} aria-label="Recolher tudo">
+					Recolher Tudo
+				</Button>
+			</ButtonGroup>
+
+			{/* Localizar-e-substituir e seleção em massa são escrita: somem para o leitor. */}
+			{canWrite && (
+				<>
+					<Button variant="outline" size="sm" onClick={onOpenFindReplace} aria-label="Localizar e substituir">
+						<Replace className="size-4 mr-2" />
+						<span className="hidden sm:inline">Localizar e Substituir</span>
+						<span className="sm:hidden">Substituir</span>
+					</Button>
+					<Button variant="outline" size="sm" onClick={onEnterSelectionMode} aria-label="Selecionar itens">
+						<SquareCheckBig className="size-4 mr-2" />
+						<span className="hidden sm:inline">Selecionar Itens</span>
+						<span className="sm:hidden">Selecionar</span>
+					</Button>
+				</>
+			)}
+		</>
+	)
+}
+
+/**
+ * Conteúdo do card da árvore: erro ou carga do recorte do cardápio global, estado vazio,
+ * ou as linhas virtualizadas (`renderRows`, só chamado quando é ele que aparece).
+ */
+function TreeBody({
+	globalMenu,
+	isEmpty,
+	emptyTitle,
+	emptyHint,
+	renderRows,
+}: {
+	globalMenu: { error: Error | null; isPending: boolean; refetch: () => unknown }
+	isEmpty: boolean
+	emptyTitle: string
+	emptyHint: string | null
+	renderRows: () => ReactNode
+}) {
+	if (globalMenu.error) {
+		return (
+			<div className="flex flex-col items-center justify-center h-full gap-3 text-center py-12">
+				<p className="text-destructive">Erro ao carregar os insumos do cardápio global</p>
+				<p className="text-sm text-muted-foreground">{globalMenu.error.message}</p>
+				<Button size="sm" onClick={() => globalMenu.refetch()}>
+					Tentar Novamente
+				</Button>
+			</div>
+		)
+	}
+	if (globalMenu.isPending) {
+		return (
+			<div className="flex items-center justify-center h-full">
+				<Loader2 className="size-8 animate-spin text-muted-foreground" />
+			</div>
+		)
+	}
+	if (isEmpty) {
+		return (
+			<div className="flex flex-col items-center justify-center h-full text-muted-foreground py-12">
+				<p className="font-sans">{emptyTitle}</p>
+				{/* Com busca ativa, a dica é ajustar a busca: culpar o recorte do cardápio
+				    global mandaria desligar um filtro que não é a causa. */}
+				{emptyHint && <p className="text-sm mt-2">{emptyHint}</p>}
+			</div>
+		)
+	}
+	return renderRows()
+}
+
+/** Rodapé da árvore: contagem do recorte visível + chips de busca rápida. */
+function TreeFooter({
+	visibleCounts,
+	totalIngredients,
+	noun,
+	quickFilters,
+	onQuickFiltersChange,
+	quickFilterChips,
+}: {
+	visibleCounts: { folders: number; ingredients: number }
+	totalIngredients: number
+	noun: readonly [string, string]
+	quickFilters: string[]
+	onQuickFiltersChange: (value: string[]) => void
+	quickFilterChips: { key: string; label: string }[]
+}) {
+	return (
+		<CardFooter className="flex-col items-stretch gap-3 text-xs text-muted-foreground select-none sm:flex-row sm:items-center sm:justify-between">
+			<div className="flex items-center gap-3">
+				<span>
+					{visibleCounts.folders} {visibleCounts.folders === 1 ? "pasta" : "pastas"}
+				</span>
+				<span aria-hidden>·</span>
+				<span>
+					{visibleCounts.ingredients} {visibleCounts.ingredients === 1 ? noun[0] : noun[1]}
+					{visibleCounts.ingredients !== totalIngredients && <span className="text-muted-foreground/60"> de {totalIngredients}</span>}
+				</span>
+			</div>
+
+			{/* Busca rápida — chips (toggle group). Marcado = categoria visível na árvore. */}
+			<div className="flex items-center gap-2 flex-wrap sm:justify-end">
+				<span className="font-medium mr-0.5">Mostrar</span>
+				<ToggleGroup
+					value={quickFilters}
+					onValueChange={(value) => onQuickFiltersChange(value)}
+					multiple
+					variant="outline"
+					size="sm"
+					spacing={1}
+					aria-label="Filtros rápidos de busca"
+				>
+					{quickFilterChips.map((chip) => (
+						<ToggleGroupItem key={chip.key} value={chip.key} aria-label={chip.label}>
+							{chip.label}
+						</ToggleGroupItem>
+					))}
+				</ToggleGroup>
+			</div>
+		</CardFooter>
 	)
 }

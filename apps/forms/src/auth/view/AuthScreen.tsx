@@ -1,4 +1,18 @@
-import { safeRedirect } from "@iefa/auth-kit"
+import {
+	checkForgotInput,
+	checkLoginInput,
+	checkRegisterInput,
+	DEFAULT_INVALID_CREDENTIALS_PATTERN,
+	describeSignInFailure,
+	FAB_EMAIL_AUTH_MESSAGES,
+	FAB_INSTITUTIONAL_EMAIL_PATTERN,
+	getEmailHint,
+	getErrorMessage,
+	getPasswordError,
+	persistRememberedEmail,
+	safeRedirect,
+	syncRememberedEmailOnToggle,
+} from "@iefa/auth-kit"
 import { useLoginRateLimiter } from "@iefa/auth-kit/react"
 import { ArrowLeft, CheckCircle, Eye, EyeClosed, Lock, Mail, Refresh, User, WarningCircle } from "iconoir-react"
 import { useEffect, useReducer } from "react"
@@ -9,20 +23,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { type AuthOtpType, isPasswordRecoveryLink, parseOtpType } from "@/lib/auth-otp"
 import { cn } from "@/lib/utils"
 
-const FAB_EMAIL_REGEX = /^[a-zA-Z0-9]+(?:[._-][a-zA-Z0-9]+)*@fab\.mil\.br$/
+// Regras de e-mail/senha e textos vêm de @iefa/auth-kit. O estado continua neste
+// reducer (e não no useAuthScreen): aqui a aba vem só da URL, o verifyOtp aceita
+// qualquer tipo de link, não há redirecionamento por sessão e o envio bem-sucedido
+// do login e da nova senha deixa o botão em "enviando" até a navegação.
+const FAB_EMAIL_REGEX = FAB_INSTITUTIONAL_EMAIL_PATTERN
 const STORAGE_KEY_REMEMBER_EMAIL = "fab_remember_email"
-
-function normalizeEmail(email: string) {
-	return email.trim().toLowerCase()
-}
-
-function getPasswordError(v: string): string | null {
-	if (v.length < 8) return "Mínimo de 8 caracteres."
-	if (!/[a-z]/.test(v)) return "Inclua pelo menos uma letra minúscula."
-	if (!/[A-Z]/.test(v)) return "Inclua pelo menos uma letra maiúscula."
-	if (!/\d/.test(v)) return "Inclua pelo menos um número."
-	return null
-}
+const MESSAGES = FAB_EMAIL_AUTH_MESSAGES
 
 // view derivada da URL — "reset" ativado por token_hash, "forgot" por ?view=forgot
 export type AuthView = "auth" | "forgot" | "reset"
@@ -203,10 +210,10 @@ function ResetView({ state, dispatch, actions, onNavigate, goToAuth }: ResetView
 		try {
 			const { error } = await actions.updateUserPassword(state.newPassword)
 			if (error) throw error
-			alert("Senha atualizada com sucesso!")
+			alert(MESSAGES.resetSuccess)
 			await onNavigate({ to: "/dashboard" })
 		} catch (err) {
-			dispatch({ type: "SET_ERROR", message: err instanceof Error ? err.message : "Erro ao atualizar senha." })
+			dispatch({ type: "SET_ERROR", message: getErrorMessage(err, MESSAGES.resetFallback) })
 		}
 	}
 
@@ -269,17 +276,17 @@ interface ForgotViewProps {
 function ForgotView({ state, dispatch, actions, goToAuth }: ForgotViewProps) {
 	const handleSubmit = async (e: React.SyntheticEvent) => {
 		e.preventDefault()
-		const norm = normalizeEmail(state.forgotEmail)
-		if (!FAB_EMAIL_REGEX.test(norm)) {
-			dispatch({ type: "SET_ERROR", message: "Email inválido. Use seu email @fab.mil.br (sem caracteres especiais)." })
+		const check = checkForgotInput(state.forgotEmail, FAB_EMAIL_REGEX, MESSAGES)
+		if (!check.ok) {
+			dispatch({ type: "SET_ERROR", message: check.message })
 			return
 		}
 		dispatch({ type: "SUBMITTING" })
 		try {
-			await actions.resetPassword(norm)
-			dispatch({ type: "SET_SUCCESS", message: "Link enviado! Verifique sua caixa de entrada." })
+			await actions.resetPassword(check.email)
+			dispatch({ type: "SET_SUCCESS", message: MESSAGES.forgotSuccess })
 		} catch (err) {
-			dispatch({ type: "SET_ERROR", message: err instanceof Error ? err.message : "Erro ao enviar email." })
+			dispatch({ type: "SET_ERROR", message: getErrorMessage(err, MESSAGES.forgotFallback) })
 		}
 	}
 
@@ -352,50 +359,36 @@ interface LoginTabContentProps {
 function LoginTabContent({ state, dispatch, actions, onNavigate, searchParams, isLocked, retryAfter, onSuccess, onFailure, goToForgot }: LoginTabContentProps) {
 	const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		const v = e.target.value
-		const emailError = v && !FAB_EMAIL_REGEX.test(normalizeEmail(v)) ? "Use seu email institucional @fab.mil.br (sem caracteres especiais)." : ""
-		dispatch({ type: "LOGIN_EMAIL", value: v, emailError })
+		dispatch({ type: "LOGIN_EMAIL", value: v, emailError: getEmailHint(v, FAB_EMAIL_REGEX, MESSAGES.emailHint) })
 	}
 
 	const handleRememberMeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		const checked = e.target.checked
 		dispatch({ type: "REMEMBER_ME", value: checked })
-		const norm = normalizeEmail(state.loginEmail)
-		if (checked && state.loginEmail && FAB_EMAIL_REGEX.test(norm)) {
-			localStorage.setItem(STORAGE_KEY_REMEMBER_EMAIL, norm)
-		} else {
-			localStorage.removeItem(STORAGE_KEY_REMEMBER_EMAIL)
-		}
+		syncRememberedEmailOnToggle(localStorage, STORAGE_KEY_REMEMBER_EMAIL, checked, state.loginEmail, FAB_EMAIL_REGEX)
 	}
 
 	const handleSubmit = async (e: React.SyntheticEvent) => {
 		e.preventDefault()
 		if (isLocked) return
-		const norm = normalizeEmail(state.loginEmail)
-		if (!FAB_EMAIL_REGEX.test(norm)) {
-			dispatch({ type: "EMAIL_ERROR", error: "Email inválido. Use seu email @fab.mil.br (sem caracteres especiais)." })
+		const check = checkLoginInput(state.loginEmail, state.loginPassword, FAB_EMAIL_REGEX, MESSAGES)
+		if (!check.ok) {
+			dispatch(check.field === "email" ? { type: "EMAIL_ERROR", error: check.message } : { type: "PASSWORD_ERROR", error: check.message })
 			return
 		}
-		if (!state.loginPassword) {
-			dispatch({ type: "PASSWORD_ERROR", error: "Informe a senha." })
-			return
-		}
+		const norm = check.email
 		dispatch({ type: "SUBMITTING" })
 		try {
 			await actions.signIn(norm, state.loginPassword)
 			onSuccess()
-			if (state.rememberMe) localStorage.setItem(STORAGE_KEY_REMEMBER_EMAIL, norm)
-			else localStorage.removeItem(STORAGE_KEY_REMEMBER_EMAIL)
+			persistRememberedEmail(localStorage, STORAGE_KEY_REMEMBER_EMAIL, state.rememberMe ? norm : null)
 			// href (não to): o destino salvo pode carregar query string, e `to` é
 			// resolvido como pathname puro — o "?" vira parte do path e cai em NotFound.
 			await onNavigate({ href: safeRedirect(searchParams.redirect) ?? "/dashboard", replace: true })
 		} catch (err) {
 			onFailure()
-			const msg = err instanceof Error ? err.message : "Erro desconhecido"
-			if (msg.includes("Email ou senha incorretos") || msg.includes("Invalid login credentials")) {
-				dispatch({ type: "PASSWORD_ERROR", error: "Senha incorreta ou email não cadastrado" })
-			} else {
-				dispatch({ type: "SET_ERROR", message: msg || "Erro durante a autenticação. Tente mais tarde." })
-			}
+			const failure = describeSignInFailure(err, DEFAULT_INVALID_CREDENTIALS_PATTERN, MESSAGES)
+			dispatch(failure.field === "password" ? { type: "PASSWORD_ERROR", error: failure.message } : { type: "SET_ERROR", message: failure.message })
 		}
 	}
 
@@ -522,34 +515,25 @@ interface RegisterTabContentProps {
 function RegisterTabContent({ state, dispatch, actions, onTabChange }: RegisterTabContentProps) {
 	const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		const v = e.target.value
-		const emailError = v && !FAB_EMAIL_REGEX.test(normalizeEmail(v)) ? "Use seu email institucional @fab.mil.br (sem caracteres especiais)." : ""
-		dispatch({ type: "REGISTER_DATA", patch: { email: v }, emailError })
+		dispatch({ type: "REGISTER_DATA", patch: { email: v }, emailError: getEmailHint(v, FAB_EMAIL_REGEX, MESSAGES.emailHint) })
 	}
 
 	const handleSubmit = async (e: React.SyntheticEvent) => {
 		e.preventDefault()
-		const norm = normalizeEmail(state.registerData.email)
-		if (!FAB_EMAIL_REGEX.test(norm)) {
-			dispatch({ type: "REGISTER_EMAIL_ERROR", error: "Email inválido. Use seu email @fab.mil.br (sem caracteres especiais)." })
+		const check = checkRegisterInput(state.registerData, FAB_EMAIL_REGEX, MESSAGES)
+		if (!check.ok) {
+			dispatch(check.field === "email" ? { type: "REGISTER_EMAIL_ERROR", error: check.message } : { type: "SET_ERROR", message: check.message })
 			return
 		}
-		const regPwErr = getPasswordError(state.registerData.password)
-		if (regPwErr) {
-			dispatch({ type: "SET_ERROR", message: regPwErr })
-			return
-		}
-		if (state.registerData.password !== state.registerData.confirm) {
-			dispatch({ type: "SET_ERROR", message: "As senhas não coincidem." })
-			return
-		}
+		const norm = check.email
 		dispatch({ type: "SUBMITTING" })
 		try {
 			await actions.signUp(norm, state.registerData.password, state.registerData.name)
-			dispatch({ type: "SET_SUCCESS", message: "Conta criada! Verifique seu email." })
+			dispatch({ type: "SET_SUCCESS", message: MESSAGES.signUpSuccess })
 			if (onTabChange) onTabChange("login")
 			dispatch({ type: "LOGIN_EMAIL", value: norm, emailError: "" })
 		} catch (err) {
-			dispatch({ type: "SET_ERROR", message: err instanceof Error ? err.message : "Erro ao criar conta." })
+			dispatch({ type: "SET_ERROR", message: getErrorMessage(err, MESSAGES.signUpFallback) })
 		}
 	}
 

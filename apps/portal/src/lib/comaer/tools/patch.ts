@@ -110,112 +110,139 @@ function assertTreatment(document: DocumentInput, paragraphs: Paragraph[]): void
 	}
 }
 
-export function applyPatch(document: DocumentInput, name: string, args: Record<string, unknown>): PatchResult {
-	switch (name) {
-		case "set_form": {
-			// Espécie e âmbito viajam juntos: o par não é livre e quem concilia é o catálogo.
-			const { kind, scope } = reconcileKindAndScope(
-				{ kind: document.kind, scope: document.scope },
-				{ kind: args.kind as string | undefined, scope: args.scope as DocumentInput["scope"] | undefined }
-			)
-			const next: DocumentInput = {
-				...document,
-				kind,
-				scope,
-				classification: (args.classification as DocumentInput["classification"]) ?? document.classification,
-				precedence: (args.precedence as DocumentInput["precedence"]) ?? document.precedence,
-				decision: (args.decision as DocumentInput["decision"]) ?? document.decision,
-			}
-			// Trocar a espécie pode ligar ou desligar a numeração dos parágrafos (carta × ofício).
-			const form = `Forma: ${kind}, âmbito ${scope}.`
-			const hasText = next.paragraphs.some((p) => p.text.trim() !== "")
-			return { document: next, summary: hasText ? textSummary(next, form) : form, touched: ["epigrafe", "numeracao", "fecho"] }
-		}
+type PatchHandler = (document: DocumentInput, args: Record<string, unknown>) => PatchResult
 
-		case "set_parties": {
-			const asGender = (value: unknown): "m" | "f" | undefined => (value === "m" || value === "f" ? value : undefined)
-			// `null` de dentro de array chega INTEIRO: a poda do boundary não desce em array, de
-			// propósito (posição em array é significativa). Copiar `gender`/`via` como vieram
-			// gravava `null` num campo `.optional()` — o documento parava de serializar, o salvar
-			// falhava, o rascunho local parava em silêncio e todo turno seguinte ia sem contexto.
-			const recipients = Array.isArray(args.recipients)
-				? (args.recipients as { position?: unknown; gender?: unknown; via?: unknown }[])
-						.filter((r) => typeof r.position === "string" && r.position.trim() !== "")
-						.map((r) => ({
-							position: r.position as string,
-							gender: asGender(r.gender),
-							via: typeof r.via === "string" && r.via.trim() !== "" ? r.via : undefined,
-						}))
-				: undefined
-			const rawSender = args.sender as { position?: unknown; gender?: unknown } | null | undefined
-			const sender = rawSender
-				? { position: typeof rawSender.position === "string" ? rawSender.position : undefined, gender: asGender(rawSender.gender) }
-				: undefined
-			const addressing = args.addressing as DocumentInput["addressing"] | undefined
-			const next: DocumentInput = {
-				...document,
-				sender: sender?.position?.trim() ? { position: sender.position, gender: sender.gender ?? document.sender?.gender } : document.sender,
-				recipients: recipients?.length ? recipients : document.recipients,
-				addressing: addressing
-					? {
-							formOfAddress: addressing.formOfAddress ?? document.addressing?.formOfAddress ?? "senhoria",
-							gender: addressing.gender ?? document.addressing?.gender ?? "m",
-							name: addressing.name ?? document.addressing?.name,
-							position: addressing.position ?? document.addressing?.position,
-							addressLines: addressing.addressLines ?? document.addressing?.addressLines,
-						}
-					: document.addressing,
-				vocativo: (args.vocativo as string | undefined) ?? document.vocativo,
-				distribution: (args.distribution as DocumentInput["distribution"]) ?? document.distribution,
-			}
-			return { document: next, summary: "Partes atualizadas.", touched: ["preambulo", "enderecamento", "vocativo"] }
-		}
-
-		case "set_ementa": {
-			const next: DocumentInput = {
-				...document,
-				subject: (args.subject as string | undefined) ?? document.subject,
-				references: (args.references as string[] | undefined) ?? document.references,
-				annexes: (args.annexes as string[] | undefined) ?? document.annexes,
-			}
-			return { document: next, summary: "Ementa atualizada.", touched: ["ementa"] }
-		}
-
-		case "write_body": {
-			const paragraphs = asParagraphs(args.paragraphs)
-			if (paragraphs.length === 0) throw new PatchError("O texto precisa de ao menos um parágrafo.")
-			assertTreatment(document, paragraphs)
-			const next = { ...document, paragraphs }
-			return { document: next, summary: textSummary(next, `Texto reescrito com ${paragraphs.length} parágrafo(s).`), touched: ["texto"] }
-		}
-
-		case "replace_paragraph": {
-			const index = paragraphIndex(document, args.number)
-			const [replacement] = asParagraphs([{ text: args.text, items: args.items }])
-			assertTreatment(document, [replacement])
-			const paragraphs = document.paragraphs.map((p, i) => (i === index ? replacement : p))
-			const next = { ...document, paragraphs }
-			return { document: next, summary: textSummary(next, `Parágrafo ${index + 1} substituído.`), touched: ["texto"] }
-		}
-
-		case "insert_paragraph": {
-			const index = paragraphIndex(document, args.number, true)
-			const [added] = asParagraphs([{ text: args.text, items: args.items }])
-			assertTreatment(document, [added])
-			const paragraphs = [...document.paragraphs.slice(0, index), added, ...document.paragraphs.slice(index)]
-			const next = { ...document, paragraphs }
-			return { document: next, summary: textSummary(next, `Parágrafo inserido na posição ${index + 1}.`), touched: ["texto"] }
-		}
-
-		case "remove_paragraph": {
-			const index = paragraphIndex(document, args.number)
-			if (document.paragraphs.length === 1) throw new PatchError("O documento ficaria sem texto; substitua o parágrafo em vez de removê-lo.")
-			const paragraphs = document.paragraphs.filter((_, i) => i !== index)
-			const next = { ...document, paragraphs }
-			return { document: next, summary: textSummary(next, `Parágrafo ${index + 1} removido.`), touched: ["texto"] }
-		}
-
-		default:
-			throw new PatchError(`Remendo desconhecido: ${name}`)
+function applySetForm(document: DocumentInput, args: Record<string, unknown>): PatchResult {
+	// Espécie e âmbito viajam juntos: o par não é livre e quem concilia é o catálogo.
+	const { kind, scope } = reconcileKindAndScope(
+		{ kind: document.kind, scope: document.scope },
+		{ kind: args.kind as string | undefined, scope: args.scope as DocumentInput["scope"] | undefined }
+	)
+	const next: DocumentInput = {
+		...document,
+		kind,
+		scope,
+		classification: (args.classification as DocumentInput["classification"]) ?? document.classification,
+		precedence: (args.precedence as DocumentInput["precedence"]) ?? document.precedence,
+		decision: (args.decision as DocumentInput["decision"]) ?? document.decision,
 	}
+	// Trocar a espécie pode ligar ou desligar a numeração dos parágrafos (carta × ofício).
+	const form = `Forma: ${kind}, âmbito ${scope}.`
+	const hasText = next.paragraphs.some((p) => p.text.trim() !== "")
+	return { document: next, summary: hasText ? textSummary(next, form) : form, touched: ["epigrafe", "numeracao", "fecho"] }
+}
+
+function asGender(value: unknown): "m" | "f" | undefined {
+	return value === "m" || value === "f" ? value : undefined
+}
+
+// `null` de dentro de array chega INTEIRO: a poda do boundary não desce em array, de
+// propósito (posição em array é significativa). Copiar `gender`/`via` como vieram
+// gravava `null` num campo `.optional()` — o documento parava de serializar, o salvar
+// falhava, o rascunho local parava em silêncio e todo turno seguinte ia sem contexto.
+function parseRecipients(raw: unknown): DocumentInput["recipients"] | undefined {
+	if (!Array.isArray(raw)) return undefined
+	return (raw as { position?: unknown; gender?: unknown; via?: unknown }[])
+		.filter((r) => typeof r.position === "string" && r.position.trim() !== "")
+		.map((r) => ({
+			position: r.position as string,
+			gender: asGender(r.gender),
+			via: typeof r.via === "string" && r.via.trim() !== "" ? r.via : undefined,
+		}))
+}
+
+function parseSender(raw: unknown): { position: string | undefined; gender: "m" | "f" | undefined } | undefined {
+	const rawSender = raw as { position?: unknown; gender?: unknown } | null | undefined
+	return rawSender ? { position: typeof rawSender.position === "string" ? rawSender.position : undefined, gender: asGender(rawSender.gender) } : undefined
+}
+
+/** Campo a campo: o que veio do modelo vence, o que não veio fica como estava. */
+function mergeAddressing(addressing: DocumentInput["addressing"] | undefined, current: DocumentInput["addressing"]): DocumentInput["addressing"] {
+	if (!addressing) return current
+	return {
+		formOfAddress: addressing.formOfAddress ?? current?.formOfAddress ?? "senhoria",
+		gender: addressing.gender ?? current?.gender ?? "m",
+		name: addressing.name ?? current?.name,
+		position: addressing.position ?? current?.position,
+		addressLines: addressing.addressLines ?? current?.addressLines,
+	}
+}
+
+function applySetParties(document: DocumentInput, args: Record<string, unknown>): PatchResult {
+	const recipients = parseRecipients(args.recipients)
+	const sender = parseSender(args.sender)
+	const addressing = args.addressing as DocumentInput["addressing"] | undefined
+	const next: DocumentInput = {
+		...document,
+		sender: sender?.position?.trim() ? { position: sender.position, gender: sender.gender ?? document.sender?.gender } : document.sender,
+		recipients: recipients?.length ? recipients : document.recipients,
+		addressing: mergeAddressing(addressing, document.addressing),
+		vocativo: (args.vocativo as string | undefined) ?? document.vocativo,
+		distribution: (args.distribution as DocumentInput["distribution"]) ?? document.distribution,
+	}
+	return { document: next, summary: "Partes atualizadas.", touched: ["preambulo", "enderecamento", "vocativo"] }
+}
+
+function applySetEmenta(document: DocumentInput, args: Record<string, unknown>): PatchResult {
+	const next: DocumentInput = {
+		...document,
+		subject: (args.subject as string | undefined) ?? document.subject,
+		references: (args.references as string[] | undefined) ?? document.references,
+		annexes: (args.annexes as string[] | undefined) ?? document.annexes,
+	}
+	return { document: next, summary: "Ementa atualizada.", touched: ["ementa"] }
+}
+
+function applyWriteBody(document: DocumentInput, args: Record<string, unknown>): PatchResult {
+	const paragraphs = asParagraphs(args.paragraphs)
+	if (paragraphs.length === 0) throw new PatchError("O texto precisa de ao menos um parágrafo.")
+	assertTreatment(document, paragraphs)
+	const next = { ...document, paragraphs }
+	return { document: next, summary: textSummary(next, `Texto reescrito com ${paragraphs.length} parágrafo(s).`), touched: ["texto"] }
+}
+
+function applyReplaceParagraph(document: DocumentInput, args: Record<string, unknown>): PatchResult {
+	const index = paragraphIndex(document, args.number)
+	const [replacement] = asParagraphs([{ text: args.text, items: args.items }])
+	assertTreatment(document, [replacement])
+	const paragraphs = document.paragraphs.map((p, i) => (i === index ? replacement : p))
+	const next = { ...document, paragraphs }
+	return { document: next, summary: textSummary(next, `Parágrafo ${index + 1} substituído.`), touched: ["texto"] }
+}
+
+function applyInsertParagraph(document: DocumentInput, args: Record<string, unknown>): PatchResult {
+	const index = paragraphIndex(document, args.number, true)
+	const [added] = asParagraphs([{ text: args.text, items: args.items }])
+	assertTreatment(document, [added])
+	const paragraphs = [...document.paragraphs.slice(0, index), added, ...document.paragraphs.slice(index)]
+	const next = { ...document, paragraphs }
+	return { document: next, summary: textSummary(next, `Parágrafo inserido na posição ${index + 1}.`), touched: ["texto"] }
+}
+
+function applyRemoveParagraph(document: DocumentInput, args: Record<string, unknown>): PatchResult {
+	const index = paragraphIndex(document, args.number)
+	if (document.paragraphs.length === 1) throw new PatchError("O documento ficaria sem texto; substitua o parágrafo em vez de removê-lo.")
+	const paragraphs = document.paragraphs.filter((_, i) => i !== index)
+	const next = { ...document, paragraphs }
+	return { document: next, summary: textSummary(next, `Parágrafo ${index + 1} removido.`), touched: ["texto"] }
+}
+
+const PATCH_HANDLERS: Record<PatchName, PatchHandler> = {
+	set_form: applySetForm,
+	set_parties: applySetParties,
+	set_ementa: applySetEmenta,
+	write_body: applyWriteBody,
+	replace_paragraph: applyReplaceParagraph,
+	insert_paragraph: applyInsertParagraph,
+	remove_paragraph: applyRemoveParagraph,
+}
+
+function isPatchName(name: string): name is PatchName {
+	// `Object.hasOwn`: nome vindo do modelo não pode alcançar `Object.prototype` (`toString`).
+	return Object.hasOwn(PATCH_HANDLERS, name)
+}
+
+export function applyPatch(document: DocumentInput, name: string, args: Record<string, unknown>): PatchResult {
+	if (!isPatchName(name)) throw new PatchError(`Remendo desconhecido: ${name}`)
+	return PATCH_HANDLERS[name](document, args)
 }

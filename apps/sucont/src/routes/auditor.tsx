@@ -1,20 +1,31 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { Activity, AlertTriangle, Database, FileSpreadsheet, FileText, Layers, LayoutDashboard, Loader2, Presentation, UploadCloud } from "lucide-react"
+import { Database, Layers, LayoutDashboard, Loader2 } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 import { AnalyticNoteModal } from "#/auditor/components/AnalyticNoteModal"
+import { AuditorControlsBar } from "#/auditor/components/AuditorControlsBar"
+import { AuditorEmptyState } from "#/auditor/components/AuditorEmptyState"
+import { AuditorHeaderActions } from "#/auditor/components/AuditorHeaderActions"
+import { AuditorKpiCards } from "#/auditor/components/AuditorKpiCards"
 import { ComparisonChart, EvolutionChart } from "#/auditor/components/Charts"
 import { ChartWrapper } from "#/auditor/components/ChartWrapper"
 import { FileUploadModal } from "#/auditor/components/FileUploadModal"
-import { HealthScoreGauge } from "#/auditor/components/HealthScoreGauge"
+import { PersistOutcomeBanner } from "#/auditor/components/PersistOutcomeBanner"
 import { PresentationMode } from "#/auditor/components/PresentationMode"
 import { RankingList } from "#/auditor/components/RankingList"
 import { SiafiMessageModal } from "#/auditor/components/SiafiMessageModal"
-import { StatCard } from "#/auditor/components/StatCard"
 import { TemporalHeatmap } from "#/auditor/components/TemporalHeatmap"
 import {
+	buildComparisonLabel,
+	buildHierarchyLabel,
+	buildHierarchyOptions,
+	computeKpiStats,
+	computeTrendSeries,
+	filterBaseData,
+	selectPreviousKpiData,
+} from "#/auditor/services/dashboard"
+import {
 	applyRiskClassification,
-	formatCurrency,
 	normalizeData,
 	parseDateString,
 	rawRowsFromStoredBalances,
@@ -24,18 +35,15 @@ import {
 } from "#/auditor/services/dataProcessor"
 import { parseExcelFile } from "#/auditor/services/excelParser"
 import { buildReportDataset } from "#/auditor/services/report"
-import { iccColor, iccLabel } from "#/auditor/theme"
+import { buildRunStartData, createPersistOutcome, type PersistOutcome, saveInChunks } from "#/auditor/services/upload"
 import type { FinancialRecord, RawInputRow, TimeFilter } from "#/auditor/types"
-import { AccountGroup } from "#/auditor/types"
 import { requireToolAccess, useSucontAccess } from "#/auth/pbac"
 import { HubLayout } from "#/components/hub-layout"
-import { Button } from "#/components/ui/button"
 import { Combobox } from "#/components/ui/combobox"
-import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "#/components/ui/empty"
 import { SegmentedControl } from "#/components/ui/segmented-control"
 import { toast } from "#/components/ui/toast"
 import { auditorBalancesQueryOptions } from "#/lib/queries"
-import { type BalanceConflict, finalizeAuditorRunFn, saveAuditorBalancesFn, startAuditorRunFn } from "#/server/auditor.fn"
+import { finalizeAuditorRunFn, saveAuditorBalancesFn, startAuditorRunFn } from "#/server/auditor.fn"
 
 export const Route = createFileRoute("/auditor")({
 	// A divisão exigida sai do catálogo (`sucontTools`), pelo `internalPath`.
@@ -47,24 +55,6 @@ export const Route = createFileRoute("/auditor")({
 	// A tela busca no mount, como antes.
 	component: AuditorPage,
 })
-
-/** Lote de gravação. Acima disso o corpo do POST fica grande demais para um request só. */
-const UPLOAD_CHUNK = 2000
-
-interface PersistOutcome {
-	/** "partial" = parte dos lotes entrou no banco antes da falha. */
-	status: "complete" | "partial" | "failed"
-	filename: string
-	inserted: number
-	unchanged: number
-	changed: number
-	duplicateGrains: number
-	rowsWritten: number
-	rowsTotal: number
-	conflicts: BalanceConflict[]
-	conflictsTruncated: boolean
-	error?: string
-}
 
 function AuditorPage() {
 	const queryClient = useQueryClient()
@@ -155,21 +145,10 @@ function AuditorPage() {
 	}, [uniqueMonths, selectedMonth])
 
 	// 3a. Base filter
-	const baseFilteredData = useMemo(() => {
-		return allData.filter((item) => {
-			const matchSearch = item.ug.toLowerCase().includes(searchTerm.toLowerCase()) || item.cod.includes(searchTerm)
-			const matchRisk = selectedRisk === "TODOS" || item.riskLevel === selectedRisk
-
-			let matchHierarchy = true
-			if (selectedHierarchyFilter.length > 0 && !selectedHierarchyFilter.includes("TODOS")) {
-				if (selectedHierarchyLevel === "ODS") matchHierarchy = selectedHierarchyFilter.includes(item.ods)
-				else if (selectedHierarchyLevel === "ORGAO") matchHierarchy = selectedHierarchyFilter.includes(item.orgaoSuperior)
-				else matchHierarchy = selectedHierarchyFilter.includes(item.ug)
-			}
-
-			return matchSearch && matchHierarchy && matchRisk
-		})
-	}, [allData, searchTerm, selectedHierarchyLevel, selectedHierarchyFilter, selectedRisk])
+	const baseFilteredData = useMemo(
+		() => filterBaseData(allData, { searchTerm, selectedRisk, selectedHierarchyLevel, selectedHierarchyFilter }),
+		[allData, searchTerm, selectedHierarchyLevel, selectedHierarchyFilter, selectedRisk]
+	)
 
 	// 3b. Visualization filter
 	const filteredDataForVisuals = useMemo(() => {
@@ -189,116 +168,22 @@ function AuditorPage() {
 	}, [filteredDataForVisuals, selectedMonth, selectedGroup])
 
 	// 3d. Previous period KPI data
-	const previousKpiData = useMemo(() => {
-		if (!selectedMonth || selectedMonth === "TODOS" || uniqueMonths.length === 0) return []
-
-		let gap = 1
-		if (timeFilter === "TRIMESTRAL") gap = 3
-		if (timeFilter === "SEMESTRAL") gap = 6
-		if (timeFilter === "ANUAL") gap = 12
-
-		const [yearStr, monthStr] = selectedMonth.split("-")
-		let year = parseInt(yearStr, 10)
-		let month = parseInt(monthStr, 10)
-
-		month -= gap
-		while (month <= 0) {
-			month += 12
-			year -= 1
-		}
-
-		const prevMonthStr = `${year}-${month.toString().padStart(2, "0")}`
-
-		return baseFilteredData.filter((item) => item.date === prevMonthStr && (selectedGroup === "ALL" || item.group === selectedGroup))
-	}, [baseFilteredData, selectedMonth, uniqueMonths, selectedGroup, timeFilter])
+	const previousKpiData = useMemo(
+		() => selectPreviousKpiData(baseFilteredData, selectedMonth, uniqueMonths, selectedGroup, timeFilter),
+		[baseFilteredData, selectedMonth, uniqueMonths, selectedGroup, timeFilter]
+	)
 
 	// 4. KPI calculations
-	const stats = useMemo(() => {
-		const totalDiff = kpiData.reduce((acc, curr) => acc + curr.difference, 0)
-		const totalSiafi = kpiData.reduce((acc, curr) => acc + curr.siafiValue, 0)
-		const totalSiloms = kpiData.reduce((acc, curr) => acc + curr.silomsValue, 0)
-
-		const prevDiff = previousKpiData.reduce((acc, curr) => acc + curr.difference, 0)
-		const prevSiafi = previousKpiData.reduce((acc, curr) => acc + curr.siafiValue, 0)
-		const prevSiloms = previousKpiData.reduce((acc, curr) => acc + curr.silomsValue, 0)
-
-		const calculateVar = (curr: number, prev: number) => {
-			if (prev === 0) return curr > 0 ? 100 : 0
-			return ((curr - prev) / prev) * 100
-		}
-
-		const diffVar = calculateVar(totalDiff, prevDiff)
-		const siafiVar = calculateVar(totalSiafi, prevSiafi)
-		const silomsVar = calculateVar(totalSiloms, prevSiloms)
-
-		const topOffender =
-			currentMonthVisuals.length > 0 ? currentMonthVisuals.reduce((prev, current) => (prev.difference > current.difference ? prev : current)) : null
-
-		const topOffenderICC =
-			topOffender && topOffender.siafiValue > 0
-				? Math.max(0, (1 - topOffender.difference / topOffender.siafiValue) * 100)
-				: topOffender?.difference === 0
-					? 100
-					: 0
-
-		const totalUGsCount = new Set(currentMonthVisuals.map((d) => d.ug)).size
-
-		const iccScore = totalSiafi > 0 ? Math.max(0, (1 - totalDiff / totalSiafi) * 100) : totalDiff === 0 ? 100 : 0
-
-		return {
-			totalDiff,
-			totalSiafi,
-			totalSiloms,
-			topOffender,
-			totalUGsCount,
-			healthScore: iccScore,
-			diffVar,
-			siafiVar,
-			silomsVar,
-			topOffenderICC,
-		}
-	}, [kpiData, previousKpiData, currentMonthVisuals])
+	const stats = useMemo(() => computeKpiStats(kpiData, previousKpiData, currentMonthVisuals), [kpiData, previousKpiData, currentMonthVisuals])
 
 	// 3e. Trend series for mini charts
-	const trendSeries = useMemo(() => {
-		if (!selectedMonth || uniqueMonths.length === 0) return { diff: [], siafi: [], siloms: [] }
-		const currentIndex = uniqueMonths.indexOf(selectedMonth)
-
-		let gap = 1
-		if (timeFilter === "TRIMESTRAL") gap = 3
-		if (timeFilter === "SEMESTRAL") gap = 6
-		if (timeFilter === "ANUAL") gap = 12
-
-		const diffs: number[] = []
-		const siafis: number[] = []
-		const siloms: number[] = []
-
-		for (let i = 5; i >= 0; i--) {
-			const idx = currentIndex - i * gap
-			if (idx >= 0) {
-				const month = uniqueMonths[idx]
-				const monthData = baseFilteredData.filter((item) => item.date === month && (selectedGroup === "ALL" || item.group === selectedGroup))
-				diffs.push(monthData.reduce((acc, curr) => acc + curr.difference, 0))
-				siafis.push(monthData.reduce((acc, curr) => acc + curr.siafiValue, 0))
-				siloms.push(monthData.reduce((acc, curr) => acc + curr.silomsValue, 0))
-			}
-		}
-
-		return { diff: diffs, siafi: siafis, siloms: siloms }
-	}, [baseFilteredData, selectedMonth, uniqueMonths, selectedGroup, timeFilter])
+	const trendSeries = useMemo(
+		() => computeTrendSeries(baseFilteredData, selectedMonth, uniqueMonths, selectedGroup, timeFilter),
+		[baseFilteredData, selectedMonth, uniqueMonths, selectedGroup, timeFilter]
+	)
 
 	// Comparison label for ranking
-	const comparisonLabel = useMemo(() => {
-		if (!selectedMonth || kpiData.length === 0) return `Comparando ${timeFilter}`
-		const sampleRecord = kpiData[0]
-
-		const currShortYear = sampleRecord.year.toString().slice(-2)
-		const currMonthNames = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"]
-		const currShort = `${currMonthNames[sampleRecord.monthIndex]}/${currShortYear}`
-		const prevDate = sampleRecord.previousDate || "N/A"
-
-		return `Comparando ${currShort} contra ${prevDate}`
-	}, [kpiData, selectedMonth, timeFilter])
+	const comparisonLabel = useMemo(() => buildComparisonLabel(kpiData, selectedMonth, timeFilter), [kpiData, selectedMonth, timeFilter])
 
 	/**
 	 * Recorte que a Nota Analítica Estratégica descreve.
@@ -313,13 +198,7 @@ function AuditorPage() {
 	 * documento que ninguém pediu.
 	 */
 	/** Só o recorte de hierarquia. É o que o telão respeita — ele tem lâmina por natureza. */
-	const hierarchyLabel = useMemo(
-		() =>
-			selectedHierarchyFilter.length === 0 || selectedHierarchyFilter.includes("TODOS")
-				? "todas as UGs"
-				: `${selectedHierarchyLevel === "ORGAO" ? "Órgão" : selectedHierarchyLevel} ${selectedHierarchyFilter.join(", ")}`,
-		[selectedHierarchyFilter, selectedHierarchyLevel]
-	)
+	const hierarchyLabel = useMemo(() => buildHierarchyLabel(selectedHierarchyFilter, selectedHierarchyLevel), [selectedHierarchyFilter, selectedHierarchyLevel])
 
 	/**
 	 * O recorte da NOTA, que inclui a aba de grupo de contas.
@@ -351,58 +230,15 @@ function AuditorPage() {
 			const payload = rawRowsToBalancePayload(parsed)
 			if (payload.length === 0) throw new Error("Nenhuma competência reconhecida no arquivo.")
 
-			const outcome: PersistOutcome = {
-				status: "failed",
-				filename: file.name,
-				inserted: 0,
-				unchanged: 0,
-				changed: 0,
-				duplicateGrains: 0,
-				rowsWritten: 0,
-				rowsTotal: payload.length,
-				conflicts: [],
-				conflictsTruncated: false,
-			}
+			const outcome = createPersistOutcome(file.name, payload.length)
 
-			const periods = [...new Set(payload.map((r) => r.period))].sort()
 			const { runId } = await startAuditorRunFn({
-				data: {
-					filename: file.name,
-					recordsCount: payload.length,
-					periodLabel: `${periods[0]} a ${periods[periods.length - 1]}`,
-					summary: {
-						periods: periods.length,
-						ugs: new Set(payload.map((r) => r.ugCodigo)).size,
-						sheetRows: parsed.length,
-					},
-				},
+				data: buildRunStartData(file.name, payload, parsed.length),
 			})
 			setLastRunId(runId)
 
-			// A gravação é fatiada e o PostgREST não dá transação entre requests: uma
-			// falha no lote 3 de 4 deixa os dois primeiros COMMITADOS. Anunciar "nada
-			// foi gravado" nesse caso seria a mesma classe de mentira que este PR
-			// existe para eliminar — então o erro é capturado e o que entrou é contado.
-			try {
-				for (let i = 0; i < payload.length; i += UPLOAD_CHUNK) {
-					const slice = payload.slice(i, i + UPLOAD_CHUNK)
-					const result = await saveAuditorBalancesFn({ data: { runId, rows: slice } })
-					outcome.inserted += result.inserted
-					outcome.unchanged += result.unchanged
-					outcome.changed += result.changed
-					outcome.duplicateGrains += result.duplicateGrains
-					outcome.rowsWritten += slice.length
-					outcome.conflictsTruncated = outcome.conflictsTruncated || result.conflictsTruncated
-					for (const conflict of result.conflicts) {
-						if (outcome.conflicts.length < 200) outcome.conflicts.push(conflict)
-						else outcome.conflictsTruncated = true
-					}
-				}
-				outcome.status = "complete"
-			} catch (e) {
-				outcome.error = e instanceof Error ? e.message : "Falha ao gravar"
-				outcome.status = outcome.rowsWritten > 0 ? "partial" : "failed"
-			}
+			// Lotes em sequência; falha no meio vira "partial" (ver `saveInChunks`).
+			await saveInChunks(payload, outcome, (slice) => saveAuditorBalancesFn({ data: { runId, rows: slice } }))
 
 			// A rodada passa a valer o que aterrissou, não o que o arquivo prometia.
 			try {
@@ -468,43 +304,19 @@ function AuditorPage() {
 		setIsMessageModalOpen(true)
 	}
 
-	const hierarchyOptions = [
-		{
-			value: "TODOS",
-			label: `Todas as ${selectedHierarchyLevel === "ODS" ? "ODSs" : selectedHierarchyLevel === "ORGAO" ? "Órgãos" : "UGs"}`,
-		},
-		...(selectedHierarchyLevel === "ODS" ? uniqueODS : selectedHierarchyLevel === "ORGAO" ? uniqueOrgaos : uniqueUGs).map((opt) => ({
-			value: opt,
-			label: opt,
-		})),
-	]
+	const hierarchyOptions = buildHierarchyOptions(selectedHierarchyLevel, { uniqueODS, uniqueOrgaos, uniqueUGs })
 
 	return (
 		<HubLayout
 			actions={
-				// `aria-label` fixo nos três: abaixo de `sm` o rótulo some e o botão fica
-				// só com o ícone, sem nome acessível nenhum.
-				<>
-					{/* A nota é leitura da série: nível 1 basta, como o resto do painel. */}
-					{allData.length > 0 && selectedMonth && (
-						<>
-							<Button variant="outline" size="sm" aria-label="Apresentar" onClick={() => setIsPresenting(true)}>
-								<Presentation className="w-4 h-4" />
-								<span className="hidden sm:inline">Apresentar</span>
-							</Button>
-							<Button variant="outline" size="sm" aria-label="Nota analítica" onClick={() => setIsNoteModalOpen(true)}>
-								<FileText className="w-4 h-4" />
-								<span className="hidden sm:inline">Nota analítica</span>
-							</Button>
-						</>
-					)}
-					{canEdit && (
-						<Button size="sm" aria-label="Importar Excel" onClick={() => setIsUploadModalOpen(true)}>
-							<UploadCloud className="w-4 h-4" />
-							<span className="hidden sm:inline">Importar Excel</span>
-						</Button>
-					)}
-				</>
+				<AuditorHeaderActions
+					hasData={allData.length > 0}
+					selectedMonth={selectedMonth}
+					canEdit={canEdit}
+					onPresent={() => setIsPresenting(true)}
+					onOpenNote={() => setIsNoteModalOpen(true)}
+					onImport={() => setIsUploadModalOpen(true)}
+				/>
 			}
 		>
 			{/* `canEdit` também aqui: fechar o gatilho não basta se o modal segue montável. */}
@@ -606,70 +418,7 @@ function AuditorPage() {
 
 			<div className="space-y-6">
 				{/* RESULTADO DA GRAVAÇÃO */}
-				{persistOutcome && (
-					<div
-						className={`mt-6 rounded-lg border p-4 text-body ${
-							persistOutcome.status === "complete"
-								? "border-border bg-card text-foreground"
-								: persistOutcome.status === "partial"
-									? "border-destructive/30 bg-destructive/10 text-destructive"
-									: "border-warning/30 bg-warning/10 text-warning"
-						}`}
-					>
-						<div className="flex items-start justify-between gap-4">
-							<div className="space-y-1">
-								<p className="font-bold">
-									{persistOutcome.status === "complete"
-										? "Série gravada"
-										: persistOutcome.status === "partial"
-											? "Gravação INCOMPLETA — a série no banco está pela metade"
-											: "Análise não gravada"}
-									<span className="font-normal text-muted-foreground"> · {persistOutcome.filename}</span>
-								</p>
-
-								{persistOutcome.status === "failed" ? (
-									<p>{persistOutcome.error} — os números abaixo vêm do arquivo em memória e serão perdidos ao recarregar a página.</p>
-								) : (
-									<>
-										{persistOutcome.status === "partial" && (
-											<p className="font-medium">
-												{persistOutcome.rowsWritten} de {persistOutcome.rowsTotal} saldos entraram antes da falha ({persistOutcome.error}). Suba o arquivo de
-												novo — a gravação é idempotente e completa o que faltou.
-											</p>
-										)}
-										<p>
-											{persistOutcome.inserted} saldos novos · {persistOutcome.unchanged} sem alteração · {persistOutcome.changed} com valor diferente do que já
-											estava no banco
-										</p>
-										{persistOutcome.duplicateGrains > 0 && (
-											<p>{persistOutcome.duplicateGrains} linha(s) do arquivo repetiam a mesma competência/UG/grupo — valeu a última ocorrência.</p>
-										)}
-									</>
-								)}
-							</div>
-							<Button variant="link" size="sm" onClick={() => setPersistOutcome(null)} className="text-muted-foreground hover:text-foreground no-underline">
-								Fechar
-							</Button>
-						</div>
-
-						{persistOutcome.conflicts.length > 0 && (
-							<details className="mt-3">
-								<summary className="cursor-pointer text-label text-muted-foreground">
-									Competências que já existiam com outro valor ({persistOutcome.changed}
-									{persistOutcome.conflictsTruncated ? ", listando as primeiras" : ""})
-								</summary>
-								<div className="mt-2 max-h-64 overflow-y-auto font-mono text-caption">
-									{persistOutcome.conflicts.map((c) => (
-										<div key={`${c.period}-${c.ugCodigo}-${c.accountGroup}`} className="py-0.5">
-											{c.period} · {c.ugCodigo} · {c.accountGroup}: SIAFI {formatCurrency(c.previous.siafiValue)} → {formatCurrency(c.next.siafiValue)} · SILOMS{" "}
-											{formatCurrency(c.previous.silomsValue)} → {formatCurrency(c.next.silomsValue)}
-										</div>
-									))}
-								</div>
-							</details>
-						)}
-					</div>
-				)}
+				{persistOutcome && <PersistOutcomeBanner persistOutcome={persistOutcome} onClose={() => setPersistOutcome(null)} />}
 
 				{/* FALHA DE LEITURA — distinta do estado vazio */}
 				{storedError && localRows.length === 0 && (
@@ -688,191 +437,24 @@ function AuditorPage() {
 				)}
 
 				{allData.length === 0 && !loadingStored && !storedError && (
-					<Empty className="mt-8">
-						<EmptyHeader>
-							<EmptyMedia variant="icon">
-								<FileSpreadsheet />
-							</EmptyMedia>
-							<EmptyTitle>Nenhuma competência na base</EmptyTitle>
-							<EmptyDescription>
-								{canEdit
-									? "Importe uma planilha. A série fica gravada e reabre sozinha nos próximos acessos."
-									: !loadingAccess &&
-										"Ainda não há competência gravada, e seu acesso é somente leitura. Importar a planilha exige nível 2 no módulo sucont — peça a um gestor da SUCONT-4."}
-							</EmptyDescription>
-						</EmptyHeader>
-						{canEdit && (
-							<EmptyContent>
-								<Button onClick={() => setIsUploadModalOpen(true)}>{uploadMutation.isPending ? "Gravando…" : "Carregar relatório"}</Button>
-							</EmptyContent>
-						)}
-					</Empty>
+					<AuditorEmptyState canEdit={canEdit} loadingAccess={loadingAccess} isPending={uploadMutation.isPending} onUpload={() => setIsUploadModalOpen(true)} />
 				)}
 
 				{allData.length > 0 && (
 					<>
 						{/* CONTROLS BAR */}
-						{/*
-						  `top-14` acompanha o cabeçalho do hub, que tem `h-14`. Com `top-16`
-						  sobrava uma fresta de 8px entre as duas barras grudadas, e o conteúdo
-						  rolava por dentro dela.
-
-						  Flex, e não `grid-cols-12`: cada bloco aqui tem largura própria (as
-						  quatro pílulas de período somam ~345px) e num slot de 4/12 colunas o
-						  conteúdo transbordava a célula SEM recortar — de 768px a ~1400px os três
-						  blocos se imprimiam uns por cima dos outros. Em flex o bloco que não cabe
-						  desce de linha.
-						*/}
-						<div className={`sticky top-14 z-30 pt-4 pb-2 transition-colors bg-background/95 backdrop-blur-md -mx-4 px-4 sm:-mx-6 sm:px-6`}>
-							<div className="flex flex-col gap-2 py-1 xl:flex-row xl:flex-wrap xl:items-center xl:justify-between xl:gap-4">
-								{/* Group Filters */}
-								<div className="flex min-w-0 items-center gap-2 p-1 bg-transparent rounded-lg overflow-x-auto custom-scrollbar">
-									{[
-										{
-											id: "ALL",
-											label: "VISÃO GERAL",
-											activeClass: "text-foreground border border-border",
-										},
-										{
-											id: AccountGroup.BMP,
-											label: "BMP",
-											activeClass: "text-destructive border border-destructive shadow-[0_0_10px_rgba(220,38,38,0.2)]",
-										},
-										{
-											id: AccountGroup.CONSUMO,
-											label: "CONSUMO",
-											activeClass: "text-action border border-action shadow-[0_0_10px_rgba(37,99,235,0.2)]",
-										},
-										{
-											id: AccountGroup.INTANGIVEL,
-											label: "INTANGÍVEL",
-											activeClass: "text-success border border-success shadow-[0_0_10px_rgba(5,150,105,0.2)]",
-										},
-									].map((tab) => (
-										<button
-											key={tab.id}
-											type="button"
-											onClick={() => setSelectedGroup(tab.id)}
-											className={`px-4 py-2 text-label rounded-lg transition-all whitespace-nowrap border border-transparent focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 
-                        ${selectedGroup === tab.id ? tab.activeClass : "text-muted-foreground hover:text-foreground hover:bg-muted"}
-                      `}
-										>
-											{tab.label}
-										</button>
-									))}
-								</div>
-
-								{/* Time Filters + Toggles */}
-								<div className="flex flex-wrap items-center gap-2 xl:shrink-0 xl:justify-end xl:gap-3">
-									<div className={`flex max-w-full shrink-0 overflow-x-auto custom-scrollbar p-1 rounded-lg bg-muted`}>
-										{(["MENSAL", "TRIMESTRAL", "SEMESTRAL", "ANUAL"] as TimeFilter[]).map((tf) => (
-											<button
-												key={tf}
-												type="button"
-												onClick={() => setTimeFilter(tf)}
-												className={`px-3 py-2 text-label rounded-lg whitespace-nowrap transition-all focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50
-                          ${timeFilter === tf ? "bg-action text-action-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}
-                        `}
-											>
-												{tf}
-											</button>
-										))}
-									</div>
-
-									<div className="flex shrink-0 items-center gap-2 px-3 py-2 rounded-lg border bg-muted border-border">
-										<span className="sr-only">Quantidade de UGs consideradas na visualização atual</span>
-										<Database className="w-3.5 h-3.5 text-action" />
-										{/* Abaixo de `sm` fica só a contagem: o rótulo custava uma linha inteira
-										    da barra grudada, que já ocupa boa parte da tela pequena. O texto
-										    completo continua no `sr-only` acima. */}
-										<div className="flex flex-col leading-none">
-											<span className="hidden sm:block text-label text-muted-foreground">Registros Totais</span>
-											<span className={`text-caption text-foreground`}>{stats.totalUGsCount} UGs</span>
-										</div>
-									</div>
-
-									<button
-										type="button"
-										onClick={() => setHideZeros(!hideZeros)}
-										className={`flex shrink-0 items-center gap-2 px-4 py-2 rounded-lg text-label whitespace-nowrap border transition-all focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50
-                      ${hideZeros ? "bg-warning/10 text-warning border-warning/50" : "text-muted-foreground border-border hover:text-foreground"}
-                    `}
-									>
-										<AlertTriangle className="w-4 h-4" />
-										{hideZeros ? "Ocultando Zerados" : "Mostrar Zerados"}
-									</button>
-								</div>
-							</div>
-						</div>
+						<AuditorControlsBar
+							selectedGroup={selectedGroup}
+							onSelectGroup={setSelectedGroup}
+							timeFilter={timeFilter}
+							onSelectTimeFilter={setTimeFilter}
+							totalUGsCount={stats.totalUGsCount}
+							hideZeros={hideZeros}
+							onToggleHideZeros={() => setHideZeros(!hideZeros)}
+						/>
 
 						{/* KPIS */}
-						<div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 pt-2">
-							<StatCard
-								title="Divergência Total"
-								value={stats.totalDiff}
-								subtitle="Diferença Absoluta"
-								icon={AlertTriangle}
-								bgClass="bg-destructive"
-								trendData={trendSeries.diff}
-								variation={`${Math.abs(stats.diffVar).toFixed(1)}% vs período anterior`}
-								isPositive={stats.diffVar < 0}
-							/>
-							<StatCard
-								title="Saldo SIAFI"
-								value={stats.totalSiafi}
-								subtitle="Contábil (Completo)"
-								icon={LayoutDashboard}
-								bgClass="bg-surface-inverted-border/50"
-								trendData={trendSeries.siafi}
-								variation={`${Math.abs(stats.siafiVar).toFixed(1)}% vs período anterior`}
-								isPositive={stats.siafiVar >= 0}
-							/>
-							<StatCard
-								title="Saldo SILOMS"
-								value={stats.totalSiloms}
-								subtitle="Físico (Completo)"
-								icon={Layers}
-								bgClass="bg-surface-inverted-border/50"
-								trendData={trendSeries.siloms}
-								variation={`${Math.abs(stats.silomsVar).toFixed(1)}% vs período anterior`}
-								isPositive={stats.silomsVar >= 0}
-							/>
-							<StatCard
-								title="Maior Divergência"
-								value={stats.topOffender?.ug || "-"}
-								subtitle={stats.topOffender ? formatCurrency(stats.topOffender.difference) : "-"}
-								icon={AlertTriangle}
-								bgClass=""
-								iconColor={iccColor(stats.topOffenderICC)}
-								variation={iccLabel(stats.topOffenderICC)}
-								isPositive={stats.topOffenderICC >= 80}
-							/>
-
-							{/* ICC Card */}
-							{/*
-							  `min-h`, e não `h`: o cabeçalho quebra em três linhas na coluna estreita
-							  do `lg:grid-cols-5` e o arco pede 100px logo abaixo — em altura fixa de
-							  140px com `overflow-hidden` o medidor saía cortado, sem o rótulo da faixa.
-							  Os `StatCard` ao lado usam o mesmo mínimo, e a linha do grid iguala a
-							  altura pelo cartão mais alto.
-							*/}
-							<div
-								className={`bg-card border-border hover:bg-muted/50 rounded-xl shadow-sm border p-4 flex flex-col justify-between transition-all group overflow-hidden relative min-h-[140px]`}
-							>
-								<div className="flex justify-between items-start relative z-10">
-									<div className="flex-1">
-										<p className="text-label text-muted-foreground mb-0.5">ICC</p>
-										<h3 className="text-subheading text-foreground">Indicador de Conciliação Contábil</h3>
-									</div>
-									<div className="w-10 h-10 rounded-lg bg-action flex items-center justify-center flex-shrink-0 ml-2">
-										<Activity className="w-5 h-5 text-action-foreground" />
-									</div>
-								</div>
-								<div className="mt-1 flex-1 flex items-center justify-center">
-									<HealthScoreGauge score={stats.healthScore} />
-								</div>
-							</div>
-						</div>
+						<AuditorKpiCards stats={stats} trendSeries={trendSeries} />
 
 						{/* EVOLUTION CHART */}
 						<ChartWrapper

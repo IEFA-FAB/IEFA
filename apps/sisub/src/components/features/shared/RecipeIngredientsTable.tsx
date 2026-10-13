@@ -27,6 +27,7 @@ import {
 } from "@/lib/technical-sheet"
 import type { RecipeAlternativeFormRow } from "@/types/domain/recipes"
 import { IngredientSelector } from "./IngredientSelector"
+import { appendPickedAlternatives, buildSubstituteExclusions } from "./recipe-ingredients-substitutes"
 
 /** Linha da ficha como o formulário a mantém. Espelha `IngredientFormItem` do `RecipeForm`. */
 export interface RecipeIngredientRow {
@@ -306,24 +307,7 @@ export function RecipeIngredientsTable({
 					    Fica no cabeçalho porque vale para a tabela inteira — por linha seria uma
 					    ficha com metade dos números em cada escala. */}
 					<span className="text-caption text-muted-foreground">Digitar por</span>
-					<ToggleGroup
-						value={[quantityBasis]}
-						// Base UI devolve array mesmo em seleção única. Desmarcar mantém a base atual:
-						// não existe "sem base", e voltar ao default por um clique de desmarque
-						// reinterpretaria toda a coluna em outra escala sem o usuário pedir.
-						onValueChange={(value) => onQuantityBasisChange((value[0] as QuantityBasis) ?? quantityBasis)}
-						variant="outline"
-						size="sm"
-						spacing={1}
-						aria-label="Base de digitação da quantidade"
-					>
-						<ToggleGroupItem value="porcao" aria-label="Digitar a quantidade de uma porção">
-							Porção
-						</ToggleGroupItem>
-						<ToggleGroupItem value="total" aria-label="Digitar a quantidade do rendimento inteiro">
-							Rendimento{portionYield > 0 ? ` (${portionYield})` : ""}
-						</ToggleGroupItem>
-					</ToggleGroup>
+					<QuantityBasisToggle quantityBasis={quantityBasis} portionYield={portionYield} onQuantityBasisChange={onQuantityBasisChange} />
 					<Button type="button" variant="outline" size="sm" onClick={onAdd}>
 						<Plus className="size-4 mr-2" />
 						Adicionar
@@ -400,60 +384,14 @@ export function RecipeIngredientsTable({
 											// invisível faria o usuário achar que alterou o insumo principal.
 											className={cn("data-[invalid]:bg-destructive/5", isSwapped && "bg-primary/5")}
 										>
-											<TableCell className="max-w-72 whitespace-normal font-medium">
-												<div className="flex items-start gap-1.5">
-													<Button
-														type="button"
-														variant="subtle"
-														size="icon-sm"
-														className="-ml-1 shrink-0"
-														aria-expanded={isExpanded}
-														aria-label={`${isExpanded ? "Recolher" : "Expandir"} substitutos de ${row.ingredient_name}`}
-														onClick={() => toggleExpanded(index)}
-													>
-														{isExpanded ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
-													</Button>
-													<div className="min-w-0">
-														<span>{active.name}</span>
-														{isSwapped ? (
-															<Tooltip>
-																<TooltipTrigger
-																	render={
-																		<Badge variant="outline" className="ml-2 align-middle">
-																			<ArrowLeftRight className="size-3" />
-																			substituto
-																		</Badge>
-																	}
-																/>
-																<TooltipContent>
-																	Lendo a ficha com {active.name} no lugar de {row.ingredient_name}. A escolha não é salva.
-																</TooltipContent>
-															</Tooltip>
-														) : (
-															row.alternatives.length > 0 && (
-																<Tooltip>
-																	<TooltipTrigger
-																		render={
-																			<Badge variant="secondary" className="ml-2 align-middle">
-																				<ArrowLeftRight className="size-3" />
-																				{row.alternatives.length}
-																			</Badge>
-																		}
-																	/>
-																	<TooltipContent>
-																		{row.alternatives.length === 1 ? "1 substituto cadastrado" : `${row.alternatives.length} substitutos cadastrados`}
-																	</TooltipContent>
-																</Tooltip>
-															)
-														)}
-														{messages.length > 0 && (
-															<p role="alert" className="text-caption text-destructive">
-																{messages.join(" · ")}
-															</p>
-														)}
-													</div>
-												</div>
-											</TableCell>
+											<IngredientNameCell
+												row={row}
+												activeName={active.name}
+												isExpanded={isExpanded}
+												isSwapped={isSwapped}
+												messages={messages}
+												onToggleExpanded={() => toggleExpanded(index)}
+											/>
 											<TableCell className="text-muted-foreground">{active.unit}</TableCell>
 											<TableCell className="text-right">
 												<SheetNumberInput
@@ -610,129 +548,276 @@ export function RecipeIngredientsTable({
 								)
 							})}
 						</TableBody>
-						<TableFooter>
-							<TableRow className="hover:bg-transparent">
-								<TableCell colSpan={3} className="font-medium">
-									TOTAL
-								</TableCell>
-								{/* A linha TOTAL é a única que NÃO se digita: é soma de coluna, e um campo ali
-								    aceitaria um número que as linhas não produzem. O hover diz de onde vem. */}
-								<TableCell className={cn("border-l border-border text-right", mixedUnits && "text-muted-foreground")}>
-									<TotalCell value={totals.grossWeight} formula="Soma dos PB de todas as linhas, no candidato em exibição." />
-								</TableCell>
-								<TableCell />
-								<TableCell className={cn("text-right", mixedUnits && "text-muted-foreground")}>
-									<TotalCell value={totals.netWeight} formula="Soma dos PL por porção. É o peso de uma porção da preparação inteira." />
-								</TableCell>
-								<TableCell />
-								<TableCell className={cn("border-r border-border text-right", mixedUnits && "text-muted-foreground")}>
-									<TotalCell value={totals.rehydratedWeight} formula="Soma dos pesos reidratados de todas as linhas." />
-								</TableCell>
-								<TableCell colSpan={2} />
-							</TableRow>
-						</TableFooter>
+						<SheetTotalsFooter totals={totals} mixedUnits={mixedUnits} />
 					</Table>
 				)}
 
-				{/* Legenda do modelo — as siglas não são óbvias fora do formulário em papel. */}
-				{ingredients.length > 0 && (
-					<p className="text-caption text-muted-foreground">
-						PB = Peso Bruto · PL = Peso Líquido · FC = PB ÷ PL · IR = Peso reidratado ÷ Peso seco. A faixa PER CAPITA é o valor por porção
-						{portionYield > 0 ? ` (rendimento: ${portionYield} porções)` : " (defina o rendimento na aba Detalhes)"}. Toda coluna aceita digitação: as de{" "}
-						<span className="border-dashed border-b border-muted-foreground/60">borda tracejada</span> são calculadas — passe o mouse para ver a fórmula e o que
-						a digitação ajusta. Expanda a linha para cadastrar substitutos, escolher qual deles a ficha está lendo e trocar qual é o insumo principal.
-					</p>
-				)}
-
-				{/* Digitando por porção, o que vai para o banco é o produto — dizer isso na tela
-				    evita a conclusão de que o rendimento "não fez nada", e avisa que mexer no
-				    rendimento depois reinterpreta o que já foi digitado. */}
-				{/* Rendimento 1 com base "porção" é a armadilha da tela: o total gravado sai igual
-				    ao digitado, e a ficha de 100 porções vai para o banco 100× menor. A base vem
-				    do sessionStorage (segue de uma ficha para a outra) e o rendimento nasce em 1
-				    na criação, então a combinação acontece sozinha, sem ninguém escolher. Aviso,
-				    e não bloqueio: rendimento 1 é legítimo (preparação de porção única). */}
-				{ingredients.length > 0 && quantityBasis === "porcao" && portionYield <= 1 && (
-					<p className="text-caption text-warning">
-						Rendimento em {portionYield > 0 ? portionYield : "1"} porção: digitando por porção, o total gravado fica igual ao digitado. Se a ficha rende mais de
-						uma porção, defina o rendimento na aba Detalhes antes de preencher as quantidades.
-					</p>
-				)}
-
-				{ingredients.length > 0 && quantityBasis === "porcao" && portionYield > 1 && (
-					<p className="text-caption text-muted-foreground">
-						Você está digitando a quantidade de <strong className="font-medium text-foreground">1 porção</strong>; a coluna PL total mostra o que é gravado (×{" "}
-						{portionYield > 0 ? portionYield : "rendimento"}). Defina o rendimento antes de digitar — alterá-lo depois muda a leitura por porção das linhas já
-						preenchidas, não o total gravado.
-					</p>
-				)}
-
-				{/* O TOTAL passou a somar substituto: sem dizer isso, o número diverge do que a
-				    ficha salva e ninguém sabe por quê. */}
-				{swapped > 0 && (
-					<p className="text-caption text-primary">
-						{swapped === 1 ? "1 linha está lendo um substituto" : `${swapped} linhas estão lendo um substituto`} — o TOTAL acompanha. A escolha é só de leitura
-						e não é salva; as quantidades, sim. Para trocar o insumo da linha de vez, use <strong className="font-medium">Tornar principal</strong> na expansão.
-					</p>
-				)}
-
-				{/* O TOTAL do formulário em papel pressupõe uma unidade só; o catálogo mistura KG,
-				    LT e UN. Somar assim mesmo e ficar calado seria imprimir um número inventado. */}
-				{mixedUnits && (
-					<Tooltip>
-						<TooltipTrigger
-							render={
-								<p className="w-fit cursor-help text-caption text-warning">
-									O TOTAL soma unidades diferentes ({totals.units.join(", ")}) — use como referência, não como peso.
-								</p>
-							}
-						/>
-						<TooltipContent>A linha TOTAL do modelo em papel só faz sentido com a ficha toda na mesma unidade.</TooltipContent>
-					</Tooltip>
-				)}
+				<SheetNotes
+					hasIngredients={ingredients.length > 0}
+					portionYield={portionYield}
+					quantityBasis={quantityBasis}
+					swapped={swapped}
+					mixedUnits={mixedUnits}
+					units={totals.units}
+				/>
 
 				<FieldError errors={errors} />
 			</CardContent>
 
 			{/* Seletor do substituto — montado fora da tabela para não remontar a cada teclada nela. */}
 			{substituteFor != null && openRow && (
-				<IngredientSelector
-					isOpen
-					title={`Substitutos de ${openRow.ingredient_name}`}
-					// O insumo da própria linha não substitui a si mesmo, e o mesmo substituto não
-					// entra duas vezes: o índice único da tabela rejeitaria o segundo com um 23505
-					// sem mensagem, já depois de o usuário ter clicado em salvar.
-					excluded={
-						new Map<string, { label: string; checked?: boolean }>([
-							...(openRow.ingredient_id ? [[openRow.ingredient_id, { label: "Insumo principal" }] as const] : []),
-							...openRow.alternatives.map((alt) => [alt.ingredient_id, { label: "Já adicionado", checked: true }] as const),
-						])
-					}
-					confirmLabel={(count) => (count <= 1 ? "Adicionar substituto" : `Adicionar ${count} substitutos`)}
-					onClose={() => setSubstituteFor(null)}
-					onSelect={(picked) => {
-						const taken = new Set([openRow.ingredient_id, ...openRow.alternatives.map((alt) => alt.ingredient_id)])
-						patch(substituteFor, {
-							alternatives: [
-								...openRow.alternatives,
-								...picked
-									.filter((ingredient) => !taken.has(ingredient.id))
-									.map((ingredient) => ({
-										ingredient_id: ingredient.id,
-										ingredient_name: ingredient.description ?? "",
-										measure_unit: ingredient.measure_unit ?? "UN",
-										// Só serve para a promoção a principal não perder a pasta do insumo.
-										folder_id: ingredient.folder_id ?? null,
-										// Nasce com a quantidade do principal: é o palpite certo na maioria dos
-										// casos e deixa explícito o que ajustar quando não é.
-										net_quantity: openRow.net_quantity,
-									})),
-							],
-						})
-					}}
-				/>
+				<SubstituteSelector row={openRow} onClose={() => setSubstituteFor(null)} onAddAlternatives={(alternatives) => patch(substituteFor, { alternatives })} />
 			)}
 		</Card>
+	)
+}
+
+/** Primeira célula da linha: expandir substitutos, nome do candidato em exibição e erros da linha. */
+function IngredientNameCell({
+	row,
+	activeName,
+	isExpanded,
+	isSwapped,
+	messages,
+	onToggleExpanded,
+}: {
+	row: RecipeIngredientRow
+	activeName: string
+	isExpanded: boolean
+	isSwapped: boolean
+	messages: (string | undefined)[]
+	onToggleExpanded: () => void
+}) {
+	return (
+		<TableCell className="max-w-72 whitespace-normal font-medium">
+			<div className="flex items-start gap-1.5">
+				<Button
+					type="button"
+					variant="subtle"
+					size="icon-sm"
+					className="-ml-1 shrink-0"
+					aria-expanded={isExpanded}
+					aria-label={`${isExpanded ? "Recolher" : "Expandir"} substitutos de ${row.ingredient_name}`}
+					onClick={onToggleExpanded}
+				>
+					{isExpanded ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
+				</Button>
+				<div className="min-w-0">
+					<span>{activeName}</span>
+					<CandidateBadge row={row} activeName={activeName} isSwapped={isSwapped} />
+					{messages.length > 0 && (
+						<p role="alert" className="text-caption text-destructive">
+							{messages.join(" · ")}
+						</p>
+					)}
+				</div>
+			</div>
+		</TableCell>
+	)
+}
+
+/** Selo ao lado do nome: lendo um substituto, ou quantos substitutos a linha tem. */
+function CandidateBadge({ row, activeName, isSwapped }: { row: RecipeIngredientRow; activeName: string; isSwapped: boolean }) {
+	if (isSwapped) {
+		return (
+			<Tooltip>
+				<TooltipTrigger
+					render={
+						<Badge variant="outline" className="ml-2 align-middle">
+							<ArrowLeftRight className="size-3" />
+							substituto
+						</Badge>
+					}
+				/>
+				<TooltipContent>
+					Lendo a ficha com {activeName} no lugar de {row.ingredient_name}. A escolha não é salva.
+				</TooltipContent>
+			</Tooltip>
+		)
+	}
+	if (row.alternatives.length === 0) return null
+	return (
+		<Tooltip>
+			<TooltipTrigger
+				render={
+					<Badge variant="secondary" className="ml-2 align-middle">
+						<ArrowLeftRight className="size-3" />
+						{row.alternatives.length}
+					</Badge>
+				}
+			/>
+			<TooltipContent>{row.alternatives.length === 1 ? "1 substituto cadastrado" : `${row.alternatives.length} substitutos cadastrados`}</TooltipContent>
+		</Tooltip>
+	)
+}
+
+/** Seletor da base de digitação (cabeçalho da tabela). */
+function QuantityBasisToggle({
+	quantityBasis,
+	portionYield,
+	onQuantityBasisChange,
+}: {
+	quantityBasis: QuantityBasis
+	portionYield: number
+	onQuantityBasisChange: (basis: QuantityBasis) => void
+}) {
+	return (
+		<ToggleGroup
+			value={[quantityBasis]}
+			// Base UI devolve array mesmo em seleção única. Desmarcar mantém a base atual:
+			// não existe "sem base", e voltar ao default por um clique de desmarque
+			// reinterpretaria toda a coluna em outra escala sem o usuário pedir.
+			onValueChange={(value) => onQuantityBasisChange((value[0] as QuantityBasis) ?? quantityBasis)}
+			variant="outline"
+			size="sm"
+			spacing={1}
+			aria-label="Base de digitação da quantidade"
+		>
+			<ToggleGroupItem value="porcao" aria-label="Digitar a quantidade de uma porção">
+				Porção
+			</ToggleGroupItem>
+			<ToggleGroupItem value="total" aria-label="Digitar a quantidade do rendimento inteiro">
+				Rendimento{portionYield > 0 ? ` (${portionYield})` : ""}
+			</ToggleGroupItem>
+		</ToggleGroup>
+	)
+}
+
+/** Linha TOTAL da ficha. */
+function SheetTotalsFooter({ totals, mixedUnits }: { totals: ReturnType<typeof technicalSheetTotals>; mixedUnits: boolean }) {
+	return (
+		<TableFooter>
+			<TableRow className="hover:bg-transparent">
+				<TableCell colSpan={3} className="font-medium">
+					TOTAL
+				</TableCell>
+				{/* A linha TOTAL é a única que NÃO se digita: é soma de coluna, e um campo ali
+				    aceitaria um número que as linhas não produzem. O hover diz de onde vem. */}
+				<TableCell className={cn("border-l border-border text-right", mixedUnits && "text-muted-foreground")}>
+					<TotalCell value={totals.grossWeight} formula="Soma dos PB de todas as linhas, no candidato em exibição." />
+				</TableCell>
+				<TableCell />
+				<TableCell className={cn("text-right", mixedUnits && "text-muted-foreground")}>
+					<TotalCell value={totals.netWeight} formula="Soma dos PL por porção. É o peso de uma porção da preparação inteira." />
+				</TableCell>
+				<TableCell />
+				<TableCell className={cn("border-r border-border text-right", mixedUnits && "text-muted-foreground")}>
+					<TotalCell value={totals.rehydratedWeight} formula="Soma dos pesos reidratados de todas as linhas." />
+				</TableCell>
+				<TableCell colSpan={2} />
+			</TableRow>
+		</TableFooter>
+	)
+}
+
+/** Aviso da base "porção": o que vai para o banco é o produto pelo rendimento. */
+function QuantityBasisNotice({ hasIngredients, quantityBasis, portionYield }: { hasIngredients: boolean; quantityBasis: QuantityBasis; portionYield: number }) {
+	if (!hasIngredients || quantityBasis !== "porcao") return null
+	/* Rendimento 1 com base "porção" é a armadilha da tela: o total gravado sai igual
+	    ao digitado, e a ficha de 100 porções vai para o banco 100× menor. A base vem
+	    do sessionStorage (segue de uma ficha para a outra) e o rendimento nasce em 1
+	    na criação, então a combinação acontece sozinha, sem ninguém escolher. Aviso,
+	    e não bloqueio: rendimento 1 é legítimo (preparação de porção única). */
+	if (portionYield <= 1) {
+		return (
+			<p className="text-caption text-warning">
+				Rendimento em {portionYield > 0 ? portionYield : "1"} porção: digitando por porção, o total gravado fica igual ao digitado. Se a ficha rende mais de uma
+				porção, defina o rendimento na aba Detalhes antes de preencher as quantidades.
+			</p>
+		)
+	}
+	if (portionYield > 1) {
+		return (
+			<p className="text-caption text-muted-foreground">
+				Você está digitando a quantidade de <strong className="font-medium text-foreground">1 porção</strong>; a coluna PL total mostra o que é gravado (×{" "}
+				{portionYield > 0 ? portionYield : "rendimento"}). Defina o rendimento antes de digitar — alterá-lo depois muda a leitura por porção das linhas já
+				preenchidas, não o total gravado.
+			</p>
+		)
+	}
+	// Rendimento NaN não cai em nenhum dos dois avisos.
+	return null
+}
+
+/** Legenda e avisos abaixo da tabela. */
+function SheetNotes({
+	hasIngredients,
+	portionYield,
+	quantityBasis,
+	swapped,
+	mixedUnits,
+	units,
+}: {
+	hasIngredients: boolean
+	portionYield: number
+	quantityBasis: QuantityBasis
+	swapped: number
+	mixedUnits: boolean
+	units: string[]
+}) {
+	return (
+		<>
+			{/* Legenda do modelo — as siglas não são óbvias fora do formulário em papel. */}
+			{hasIngredients && (
+				<p className="text-caption text-muted-foreground">
+					PB = Peso Bruto · PL = Peso Líquido · FC = PB ÷ PL · IR = Peso reidratado ÷ Peso seco. A faixa PER CAPITA é o valor por porção
+					{portionYield > 0 ? ` (rendimento: ${portionYield} porções)` : " (defina o rendimento na aba Detalhes)"}. Toda coluna aceita digitação: as de{" "}
+					<span className="border-dashed border-b border-muted-foreground/60">borda tracejada</span> são calculadas — passe o mouse para ver a fórmula e o que a
+					digitação ajusta. Expanda a linha para cadastrar substitutos, escolher qual deles a ficha está lendo e trocar qual é o insumo principal.
+				</p>
+			)}
+
+			{/* Digitando por porção, o que vai para o banco é o produto — dizer isso na tela
+			    evita a conclusão de que o rendimento "não fez nada", e avisa que mexer no
+			    rendimento depois reinterpreta o que já foi digitado. */}
+			<QuantityBasisNotice hasIngredients={hasIngredients} quantityBasis={quantityBasis} portionYield={portionYield} />
+
+			{/* O TOTAL passou a somar substituto: sem dizer isso, o número diverge do que a
+			    ficha salva e ninguém sabe por quê. */}
+			{swapped > 0 && (
+				<p className="text-caption text-primary">
+					{swapped === 1 ? "1 linha está lendo um substituto" : `${swapped} linhas estão lendo um substituto`} — o TOTAL acompanha. A escolha é só de leitura e
+					não é salva; as quantidades, sim. Para trocar o insumo da linha de vez, use <strong className="font-medium">Tornar principal</strong> na expansão.
+				</p>
+			)}
+
+			{/* O TOTAL do formulário em papel pressupõe uma unidade só; o catálogo mistura KG,
+			    LT e UN. Somar assim mesmo e ficar calado seria imprimir um número inventado. */}
+			{mixedUnits && (
+				<Tooltip>
+					<TooltipTrigger
+						render={
+							<p className="w-fit cursor-help text-caption text-warning">
+								O TOTAL soma unidades diferentes ({units.join(", ")}) — use como referência, não como peso.
+							</p>
+						}
+					/>
+					<TooltipContent>A linha TOTAL do modelo em papel só faz sentido com a ficha toda na mesma unidade.</TooltipContent>
+				</Tooltip>
+			)}
+		</>
+	)
+}
+
+/** Seletor dos substitutos de uma linha (exclusões e acréscimo em `recipe-ingredients-substitutes`). */
+function SubstituteSelector({
+	row,
+	onClose,
+	onAddAlternatives,
+}: {
+	row: RecipeIngredientRow
+	onClose: () => void
+	onAddAlternatives: (alternatives: RecipeAlternativeFormRow[]) => void
+}) {
+	return (
+		<IngredientSelector
+			isOpen
+			title={`Substitutos de ${row.ingredient_name}`}
+			excluded={buildSubstituteExclusions(row)}
+			confirmLabel={(count) => (count <= 1 ? "Adicionar substituto" : `Adicionar ${count} substitutos`)}
+			onClose={onClose}
+			onSelect={(picked) => onAddAlternatives(appendPickedAlternatives(row, picked))}
+		/>
 	)
 }
 

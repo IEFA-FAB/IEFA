@@ -30,7 +30,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { discardDraft } from "@/hooks/forms/useDraft"
 import { cn } from "@/lib/cn"
 import type { DraftChange, DraftFields } from "@/lib/drafts/draft-diff"
-import { computeIngredientDiff } from "@/lib/ingredient-diff"
 import {
 	ceafaQueryOptions,
 	ingredientLastReviewQueryOptions,
@@ -42,6 +41,7 @@ import {
 	useRestoreIngredientVersion,
 	useSaveIngredientDetails,
 } from "@/services/IngredientsService"
+import type { IngredientVersion } from "@/types/domain/ingredient-versions"
 import { DraftSaveBar } from "../shared/DraftSaveBar"
 import { FolderCombobox } from "./FolderCombobox"
 import { IngredientAllergensField } from "./IngredientAllergensField"
@@ -49,24 +49,20 @@ import { IngredientDeliveryCycleField } from "./IngredientDeliveryCycleField"
 import { IngredientHistorySheet } from "./IngredientHistorySheet"
 import { IngredientItemsManager } from "./IngredientItemsManager"
 import { IngredientVersionPreview } from "./IngredientVersionPreview"
+import {
+	buildBaseNutrientValues,
+	buildFolderOptions,
+	type IngredientFormTab,
+	resolveIngredientFormTab,
+	resolveNutritionReference,
+	selectVersionPreview,
+} from "./ingredient-detail-form-state"
 import { NutritionReferenceCombobox } from "./NutritionReferenceCombobox"
 import { PurchaseItemsManager } from "./PurchaseItemsManager"
 
 // API tipada da rota de detalhe — hooks (useSearch/useNavigate) já ligados ao ?tab= validado
 // pela rota, sem cast. getRouteApi evita o import circular com o módulo da rota.
 const ingredientRoute = getRouteApi("/_protected/_modules/global/ingredients/$ingredientId")
-
-// Tabs do formulário — estado persistido na URL (?tab=) para navegação e links compartilháveis.
-// Espelha a estrutura de abas do RecipeForm (preparação).
-/**
- * "substituicoes" saiu daqui: a substituição é decisão de PREPARAÇÃO ("nesta receita, o
- * que entra no lugar deste item"), não de cadastro do insumo, e é onde ela morava no
- * SISUBWEB. A aba passou para o editor da preparação (`RecipeForm`); os dados continuam
- * em `kitchen.ingredient_substitution`, que não mudou. Um `?tab=substituicoes` antigo cai
- * no fallback "detalhes".
- */
-const INGREDIENT_FORM_TABS = ["detalhes", "nutricao", "compra", "produto"] as const
-type IngredientFormTab = (typeof INGREDIENT_FORM_TABS)[number]
 
 // Todas as abas são de leitura (campos/tabelas/managers) → largura confortável centralizada,
 // crescendo simétrico a partir do centro para evitar "pulo" lateral ao alternar abas.
@@ -121,7 +117,7 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 	// `validateSearch: { tab?: string }`); o fallback "detalhes" cobre valores fora do enum.
 	const navigate = ingredientRoute.useNavigate()
 	const search = ingredientRoute.useSearch()
-	const activeTab: IngredientFormTab = INGREDIENT_FORM_TABS.includes(search.tab as IngredientFormTab) ? (search.tab as IngredientFormTab) : "detalhes"
+	const activeTab: IngredientFormTab = resolveIngredientFormTab(search.tab)
 	const setTab = (tab: IngredientFormTab) => navigate({ search: (prev) => ({ ...prev, tab }), replace: true })
 
 	const { saveIngredientDetails, isSaving } = useSaveIngredientDetails()
@@ -138,26 +134,12 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 	const [ceafaOpen, setCeafaOpen] = useState(false)
 	const [ceafaSearch, setCeafaSearch] = useState("")
 	const [nutritionReferenceOverride, setNutritionReferenceOverride] = useState<NutritionReferenceSummary | null | undefined>(undefined)
-	const nutritionReference = nutritionReferenceOverride !== undefined ? nutritionReferenceOverride : serverNutritionReference
+	const nutritionReference = resolveNutritionReference(nutritionReferenceOverride, serverNutritionReference)
 	const nutritionReferenceLocked = nutritionReference != null
 
 	// Caminho hierárquico de cada pasta (ex.: "Hortifruti / Frutas / Cítricas") — usado para
 	// exibir a estrutura e permitir busca por qualquer parte do caminho no combobox.
-	const folderOptions = useMemo(() => {
-		const byId = new Map(folders.map((f) => [f.id, f]))
-		const pathOf = (f: Folder): string => {
-			const parts: string[] = []
-			let cur: Folder | undefined = f
-			const seen = new Set<string>()
-			while (cur && !seen.has(cur.id)) {
-				seen.add(cur.id)
-				parts.unshift(cur.description ?? "Sem Nome")
-				cur = cur.parent_id ? byId.get(cur.parent_id) : undefined
-			}
-			return parts.join(" / ")
-		}
-		return folders.map((f) => ({ id: f.id, name: f.description ?? "Sem Nome", path: pathOf(f) })).sort((a, b) => a.path.localeCompare(b.path, "pt-BR"))
-	}, [folders])
+	const folderOptions = useMemo(() => buildFolderOptions(folders), [folders])
 
 	// Histórico de versões (estilo Google Docs)
 	const [historyOpen, setHistoryOpen] = useState(false)
@@ -170,11 +152,7 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 	const syncedNutrients = nutrients ?? []
 
 	// Derive initial nutrient values from server data; user edits are tracked via overrides
-	const baseNutrientValues = useMemo(() => {
-		if (!nutrients || !ingredientNutrients) return {}
-		const map = Object.fromEntries(ingredientNutrients.map((pn) => [pn.nutrient_id, pn.nutrient_value]))
-		return Object.fromEntries(nutrients.map((n) => [n.id, map[n.id] != null ? String(map[n.id]) : ""]))
-	}, [nutrients, ingredientNutrients])
+	const baseNutrientValues = useMemo(() => buildBaseNutrientValues(nutrients, ingredientNutrients), [nutrients, ingredientNutrients])
 
 	// Local nutrient state (controlled separately from the main form)
 	const [nutrientOverrides, setNutrientOverrides] = useState<Record<string, string>>({})
@@ -294,16 +272,12 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 	}
 
 	const isIngredientTab = activeTab === "detalhes" || activeTab === "nutricao"
+	const ingredientName = ingredient.description ?? "Insumo"
 
 	const folder = folders.find((f) => f.id === ingredient.folder_id)
 
 	// ── Estado derivado do histórico/preview ──────────────────────────────────
-	const versionList = versions ?? []
-	const selectedIndex = selectedVersionId ? versionList.findIndex((v) => v.id === selectedVersionId) : -1
-	const selectedVersion = selectedIndex >= 0 ? versionList[selectedIndex] : null
-	const previousVersion = selectedIndex >= 0 ? versionList[selectedIndex + 1] : undefined
-	const isPreviewing = selectedVersion != null
-	const previewDiff = selectedVersion ? computeIngredientDiff(previousVersion?.snapshot ?? null, selectedVersion.snapshot) : null
+	const { versionList, selectedIndex, selectedVersion, previousVersion, isPreviewing, previewDiff } = selectVersionPreview(versions, selectedVersionId)
 
 	// Itens de compra/produto gravam a versão no servidor; aqui só atualiza o histórico na tela.
 	const handleVersionChanged = () => {
@@ -334,9 +308,6 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 			toast.error(msg || "Erro ao restaurar versão")
 		}
 	}
-
-	const formatVersionStamp = (dateStr: string) =>
-		new Date(dateStr).toLocaleString("pt-BR", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
 
 	// Registra um evento de revisão (conferência) — confirma que o insumo foi conferido.
 	const handleReview = async () => {
@@ -382,60 +353,22 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 				description={folder?.description ?? undefined}
 				onBack={() => window.history.back()}
 			>
-				<Button type="button" variant="outline" size="sm" onClick={() => setHistoryOpen(true)}>
-					<History className="size-4" />
-					Histórico
-					{versionList.length > 0 && <span className="text-xs text-muted-foreground">({versionList.length})</span>}
-				</Button>
-				<Tooltip>
-					<TooltipTrigger
-						render={
-							<Button type="button" variant="outline" size="sm" onClick={handleReview} disabled={isReviewing}>
-								{isReviewing ? <Loader2 className="size-4 animate-spin" /> : <CircleCheck className="size-4" />}
-								Revisado
-							</Button>
-						}
-					/>
-					<TooltipContent>Registrar conferência deste insumo (revisão pelos nutricionistas)</TooltipContent>
-				</Tooltip>
+				<HistoryButton versionCount={versionList.length} onOpen={() => setHistoryOpen(true)} />
+				<ReviewButton isReviewing={isReviewing} onReview={handleReview} />
 			</PageHeader>
 
 			{/* Status de revisão (conferência pelos nutricionistas) */}
-			{!isPreviewing && (
-				<div className="flex items-center gap-2 text-sm text-muted-foreground">
-					<CalendarCheck className="size-4 shrink-0" />
-					{lastReview ? (
-						<span>
-							Última revisão em <strong className="font-medium text-foreground">{formatVersionStamp(lastReview.reviewed_at)}</strong>
-							{lastReview.reviewed_by_name ? ` por ${lastReview.reviewed_by_name}` : ""}
-						</span>
-					) : (
-						<span>Este insumo ainda não foi revisado.</span>
-					)}
-				</div>
-			)}
+			{!isPreviewing && <ReviewStatusLine lastReview={lastReview} />}
 
 			{/* Banner de preview de versão histórica */}
 			{isPreviewing && selectedVersion && (
-				<div className="flex flex-col gap-2 rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-					<div className="flex items-center gap-2 text-sm">
-						<History className="size-4 shrink-0 text-warning" />
-						<span className="text-foreground">
-							Visualizando <strong>v{selectedVersion.version_number}</strong> de {formatVersionStamp(selectedVersion.created_at)} por{" "}
-							{selectedVersion.changed_by_name ?? "autor desconhecido"}
-						</span>
-					</div>
-					<div className="flex shrink-0 gap-2">
-						<Button type="button" variant="ghost" size="sm" onClick={() => setSelectedVersionId(null)}>
-							<ArrowLeft className="size-4" />
-							Voltar ao atual
-						</Button>
-						<Button type="button" variant="outline" size="sm" onClick={() => setRestoreConfirmOpen(true)} disabled={isRestoring || selectedIndex === 0}>
-							{isRestoring ? <Loader2 className="size-4 animate-spin" /> : <RotateCcw className="size-4" />}
-							Restaurar esta versão
-						</Button>
-					</div>
-				</div>
+				<VersionPreviewBanner
+					version={selectedVersion}
+					isRestoring={isRestoring}
+					isCurrentVersion={selectedIndex === 0}
+					onBackToCurrent={() => setSelectedVersionId(null)}
+					onRestore={() => setRestoreConfirmOpen(true)}
+				/>
 			)}
 
 			{selectedVersion && previewDiff ? (
@@ -656,7 +589,7 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 						<TabsContent value="compra" className={READING_PANEL}>
 							<PurchaseItemsManager
 								ingredientId={ingredient.id}
-								ingredientName={ingredient.description ?? "Insumo"}
+								ingredientName={ingredientName}
 								ingredientHref={`${ingredientHref}?tab=compra`}
 								onChanged={handleVersionChanged}
 							/>
@@ -666,7 +599,7 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 						<TabsContent value="produto" className={READING_PANEL}>
 							<IngredientItemsManager
 								ingredientId={ingredient.id}
-								ingredientName={ingredient.description ?? "Insumo"}
+								ingredientName={ingredientName}
 								ingredientHref={`${ingredientHref}?tab=produto`}
 								onChanged={handleVersionChanged}
 							/>
@@ -719,31 +652,145 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 			/>
 
 			{/* Confirmação de restauração — dialog da aplicação (nunca window.confirm) */}
-			<AlertDialog open={restoreConfirmOpen} onOpenChange={(open) => !open && setRestoreConfirmOpen(false)}>
-				<AlertDialogContent size="sm">
-					<AlertDialogHeader>
-						<AlertDialogTitle>Restaurar versão</AlertDialogTitle>
-						<AlertDialogDescription>
-							{selectedVersion ? (
-								<>
-									Restaurar o insumo para a versão <strong>v{selectedVersion.version_number}</strong> de {formatVersionStamp(selectedVersion.created_at)}? O
-									estado atual será substituído — e mantido no histórico como uma nova versão.
-								</>
-							) : (
-								"Restaurar o insumo para a versão selecionada?"
-							)}
-						</AlertDialogDescription>
-					</AlertDialogHeader>
-					<AlertDialogFooter>
-						<AlertDialogCancel disabled={isRestoring}>Cancelar</AlertDialogCancel>
-						<AlertDialogAction onClick={confirmRestore} disabled={isRestoring}>
-							{isRestoring ? <Loader2 className="size-4 mr-2 animate-spin" /> : <RotateCcw className="size-4 mr-2" />}
-							Restaurar
-						</AlertDialogAction>
-					</AlertDialogFooter>
-				</AlertDialogContent>
-			</AlertDialog>
+			<RestoreVersionDialog
+				open={restoreConfirmOpen}
+				onClose={() => setRestoreConfirmOpen(false)}
+				version={selectedVersion}
+				isRestoring={isRestoring}
+				onConfirm={confirmRestore}
+			/>
 		</div>
+	)
+}
+
+/** Data e hora da gravação de uma versão ou revisão ("12 de jun. de 2026, 14:29"). */
+function formatVersionStamp(dateStr: string) {
+	return new Date(dateStr).toLocaleString("pt-BR", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
+}
+
+function HistoryButton({ versionCount, onOpen }: { versionCount: number; onOpen: () => void }) {
+	return (
+		<Button type="button" variant="outline" size="sm" onClick={onOpen}>
+			<History className="size-4" />
+			Histórico
+			{versionCount > 0 && <span className="text-xs text-muted-foreground">({versionCount})</span>}
+		</Button>
+	)
+}
+
+function ReviewButton({ isReviewing, onReview }: { isReviewing: boolean; onReview: () => void }) {
+	return (
+		<Tooltip>
+			<TooltipTrigger
+				render={
+					<Button type="button" variant="outline" size="sm" onClick={onReview} disabled={isReviewing}>
+						{isReviewing ? <Loader2 className="size-4 animate-spin" /> : <CircleCheck className="size-4" />}
+						Revisado
+					</Button>
+				}
+			/>
+			<TooltipContent>Registrar conferência deste insumo (revisão pelos nutricionistas)</TooltipContent>
+		</Tooltip>
+	)
+}
+
+/** Status de revisão (conferência pelos nutricionistas) */
+function ReviewStatusLine({ lastReview }: { lastReview: { reviewed_at: string; reviewed_by_name?: string | null } | null | undefined }) {
+	return (
+		<div className="flex items-center gap-2 text-sm text-muted-foreground">
+			<CalendarCheck className="size-4 shrink-0" />
+			{lastReview ? (
+				<span>
+					Última revisão em <strong className="font-medium text-foreground">{formatVersionStamp(lastReview.reviewed_at)}</strong>
+					{lastReview.reviewed_by_name ? ` por ${lastReview.reviewed_by_name}` : ""}
+				</span>
+			) : (
+				<span>Este insumo ainda não foi revisado.</span>
+			)}
+		</div>
+	)
+}
+
+/** Banner de preview de versão histórica */
+function VersionPreviewBanner({
+	version,
+	isRestoring,
+	isCurrentVersion,
+	onBackToCurrent,
+	onRestore,
+}: {
+	version: IngredientVersion
+	isRestoring: boolean
+	/** A versão aberta já é a vigente: restaurar não mudaria nada. */
+	isCurrentVersion: boolean
+	onBackToCurrent: () => void
+	onRestore: () => void
+}) {
+	return (
+		<div className="flex flex-col gap-2 rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+			<div className="flex items-center gap-2 text-sm">
+				<History className="size-4 shrink-0 text-warning" />
+				<span className="text-foreground">
+					Visualizando <strong>v{version.version_number}</strong> de {formatVersionStamp(version.created_at)} por{" "}
+					{version.changed_by_name ?? "autor desconhecido"}
+				</span>
+			</div>
+			<div className="flex shrink-0 gap-2">
+				<Button type="button" variant="ghost" size="sm" onClick={onBackToCurrent}>
+					<ArrowLeft className="size-4" />
+					Voltar ao atual
+				</Button>
+				<Button type="button" variant="outline" size="sm" onClick={onRestore} disabled={isRestoring || isCurrentVersion}>
+					{isRestoring ? <Loader2 className="size-4 animate-spin" /> : <RotateCcw className="size-4" />}
+					Restaurar esta versão
+				</Button>
+			</div>
+		</div>
+	)
+}
+
+/** Confirmação de restauração — dialog da aplicação (nunca window.confirm) */
+function RestoreVersionDialog({
+	open,
+	onClose,
+	version,
+	isRestoring,
+	onConfirm,
+}: {
+	open: boolean
+	onClose: () => void
+	version: IngredientVersion | null
+	isRestoring: boolean
+	onConfirm: () => void
+}) {
+	return (
+		<AlertDialog open={open} onOpenChange={(next) => !next && onClose()}>
+			<AlertDialogContent size="sm">
+				<AlertDialogHeader>
+					<AlertDialogTitle>Restaurar versão</AlertDialogTitle>
+					<AlertDialogDescription>
+						<RestoreVersionDescription version={version} />
+					</AlertDialogDescription>
+				</AlertDialogHeader>
+				<AlertDialogFooter>
+					<AlertDialogCancel disabled={isRestoring}>Cancelar</AlertDialogCancel>
+					<AlertDialogAction onClick={onConfirm} disabled={isRestoring}>
+						{isRestoring ? <Loader2 className="size-4 mr-2 animate-spin" /> : <RotateCcw className="size-4 mr-2" />}
+						Restaurar
+					</AlertDialogAction>
+				</AlertDialogFooter>
+			</AlertDialogContent>
+		</AlertDialog>
+	)
+}
+
+function RestoreVersionDescription({ version }: { version: IngredientVersion | null }) {
+	if (!version) return "Restaurar o insumo para a versão selecionada?"
+	return (
+		<>
+			Restaurar o insumo para a versão <strong>v{version.version_number}</strong> de {formatVersionStamp(version.created_at)}? O estado atual será substituído —
+			e mantido no histórico como uma nova versão.
+		</>
 	)
 }
 

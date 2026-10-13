@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import { Link, useNavigate } from "@tanstack/react-router"
-import { addDays, format, parseISO, startOfWeek } from "date-fns"
-import { ptBR } from "date-fns/locale"
+import { format, parseISO, startOfWeek } from "date-fns"
 import { ArrowLeft, FileText, Loader2, Printer } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 import { createPortal } from "react-dom"
@@ -23,6 +22,21 @@ import {
 	useMenuPrintOrganization,
 	usePreparationDigests,
 } from "@/components/features/local/planning/MenuPrintParts"
+import { collectPreparationSources, getScopeKitchenId } from "@/components/features/local/planning/menu-print-data"
+import {
+	buildBaseByCell,
+	buildCellIndex,
+	buildDayColumns,
+	buildGroupLegend,
+	type CellEntry,
+	countHiddenGridItems,
+	describeEmptyMealTypes,
+	formatWeekInputValue,
+	formatWeekLabel,
+	type GroupLegendEntry,
+	getWeekdayDate,
+	sortMealTypes,
+} from "@/components/features/local/planning/weekly-menu-print"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
@@ -36,19 +50,12 @@ import {
 	DEFAULT_COMMAND_TABLE_MAX_PROPORTION,
 	DEFAULT_PRINT_OPTIONS,
 	describeAllergens,
-	formatPrintedDemand,
-	groupPrintColor,
 	isCommandTableItem,
-	isMainDish,
 	type PreparationEntry,
-	type PreparationSource,
 } from "@/lib/cardapio-print"
-import { menuItemGroupLabel, menuItemGroupOrder } from "@/lib/menu-item-groups"
 import { queryKeys } from "@/lib/query-keys"
-import { describeRecipeVersion } from "@/lib/recipe-versions"
 import { WEEKDAYS } from "@/lib/weekdays"
 import { fetchMealTypesFn } from "@/server/meal-types.fn"
-import type { MenuTemplateWithItems } from "@/types/domain/planning"
 
 /**
  * WeeklyMenuPrint — visão imprimível / "baixar PDF" de um Cardápio Semanal.
@@ -78,20 +85,6 @@ import type { MenuTemplateWithItems } from "@/types/domain/planning"
  * prato principal sai em negrito.
  */
 
-/**
- * Uma preparação dentro de uma célula (refeição × dia) da grade. `demand` é o efetivo fixo do item
- * já formatado ("120 pax"); a porcentagem não sai na folha. `color` é a tinta do grupo, sem `#`.
- */
-type CellEntry = { name: string; group: string | null; main: boolean; sortOrder: number; demand: string | null; color: string | null }
-
-/** Item da legenda de cores: um por grupo presente na grade, na ordem de leitura. */
-type GroupLegendEntry = { key: string; label: string; color: string }
-
-/** Extrai o nome exibível de um item do template (snapshot → origem → fallback). */
-function itemRecipeName(item: MenuTemplateWithItems["items"][number]): string {
-	return item.recipe_origin?.name?.trim() || "Preparação sem nome"
-}
-
 interface WeeklyMenuPrintProps {
 	templateId: string
 	scope: PrintScope
@@ -105,13 +98,13 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 
 	// Versão das fichas na lista de preparações: a cozinha produz pela folha, e uma ficha antiga
 	// saía idêntica a uma atual. O catálogo diz qual é a vencedora de cada linhagem.
-	const { data: catalog } = useRecipes({ kitchen_id: scope.kind === "kitchen" ? scope.kitchenId : null })
+	const { data: catalog } = useRecipes({ kitchen_id: getScopeKitchenId(scope) })
 	const recipeRefs = useMemo(() => (template?.items ?? []).flatMap((i) => (i.recipe_id ? [{ recipe_id: i.recipe_id }] : [])), [template])
 	const { outdatedById } = useTemplateRecipeVersions(template?.items, catalog, recipeRefs)
 
 	// Meal types: cozinha → genéricos + da cozinha; global → apenas genéricos
 	// (kitchen_id null). fetchMealTypesFn aceita null; o hook useMealTypes não.
-	const mealTypeKitchenId = scope.kind === "kitchen" ? scope.kitchenId : null
+	const mealTypeKitchenId = getScopeKitchenId(scope)
 	const { data: mealTypes } = useQuery({
 		queryKey: queryKeys.mealTypes.byKitchen(mealTypeKitchenId),
 		queryFn: () => fetchMealTypesFn({ data: { kitchenId: mealTypeKitchenId } }),
@@ -142,9 +135,7 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 		[template, hideCommandTable, commandTableMaxProportion]
 	)
 	// Conta o que sumiria da grade: item sem dia ou refeição nunca apareceu nela.
-	const hiddenCount = (template?.items ?? []).filter(
-		(item) => item.day_of_week != null && item.meal_type_id && isCommandTableItem(item, { hideCommandTable, commandTableMaxProportion })
-	).length
+	const hiddenCount = countHiddenGridItems(template?.items, { hideCommandTable, commandTableMaxProportion })
 
 	// Só as fichas que saem na folha: ingrediente de ficha oculta seria busca (e espera) à toa.
 	const originIds = useMemo(() => [...new Set(printedItems.flatMap((i) => (i.recipe_origin?.id ? [i.recipe_origin.id] : [])))], [printedItems])
@@ -199,53 +190,18 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 	}
 
 	if (!template) {
-		return (
-			<div className="p-8 text-center bg-destructive/10 text-destructive rounded-md">
-				<p className="text-subheading">Cardápio semanal não encontrado.</p>
-				{scope.kind === "kitchen" ? (
-					<Link
-						to="/kitchen/$kitchenId/weekly-menus"
-						params={{ kitchenId: scope.kitchenIdStr }}
-						className="text-sm text-primary mt-2 flex items-center justify-center hover:underline"
-					>
-						← Voltar para listagem
-					</Link>
-				) : (
-					<Link to="/global/weekly-menus" className="text-sm text-primary mt-2 flex items-center justify-center hover:underline">
-						← Voltar para listagem
-					</Link>
-				)}
-			</div>
-		)
+		return <WeeklyMenuNotFound scope={scope} />
 	}
 
 	// Ordena os tipos de refeição (linhas da grade) por sort_order → nome.
-	const orderedMealTypes = (mealTypes ?? []).slice().sort((a, b) => (a.sort_order ?? 999) - (b.sort_order ?? 999) || (a.name ?? "").localeCompare(b.name ?? ""))
+	const orderedMealTypes = sortMealTypes(mealTypes)
 
 	// Índice (dia → refeição → preparações), ordenadas pela ordem de leitura do
 	// CONJUNTO daquela refeição e depois pela posição dentro do grupo.
-	const cellIndex = new Map<string, CellEntry[]>()
-	for (const item of printedItems) {
-		if (item.day_of_week == null || !item.meal_type_id) continue
-		const key = `${item.day_of_week}:${item.meal_type_id}`
-		const list = cellIndex.get(key) ?? []
-		list.push({
-			name: itemRecipeName(item),
-			group: item.item_group ?? null,
-			main: isMainDish(item.item_group),
-			sortOrder: item.sort_order ?? 0,
-			demand: formatPrintedDemand(item),
-			color: groupPrintColor(item.item_group),
-		})
-		cellIndex.set(key, list)
-	}
-	for (const [key, list] of cellIndex) {
-		const groups = groupsFor(key.split(":")[1])
-		list.sort((a, b) => menuItemGroupOrder(a.group, groups) - menuItemGroupOrder(b.group, groups) || a.sortOrder - b.sortOrder)
-	}
+	const cellIndex = buildCellIndex(printedItems, groupsFor)
 
 	// Efetivo base por (dia + refeição): sai no topo da célula.
-	const baseByCell = new Map((template.meals ?? []).map((m) => [`${m.day_of_week}:${m.meal_type_id}`, m.base_headcount]))
+	const baseByCell = buildBaseByCell(template.meals)
 
 	// Lista de preparações: fichas distintas do cardápio; `buildPreparationEntries` decide,
 	// pelas opções, quais têm algo a mostrar (preparo e/ou ingredientes).
@@ -253,57 +209,21 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 	// Preparo conta com QUALQUER um dos dois campos. Filtrar só por `preparation_method`
 	// derrubava da lista impressa a ficha cujo texto foi todo para o pré-preparo — a
 	// preparação continuaria no cardápio e sumiria da folha que a cozinha lê.
-	const prepMap = new Map<string, PreparationSource>()
-	for (const item of printedItems) {
-		const r = item.recipe_origin
-		if (!r || prepMap.has(r.id)) continue
-		prepMap.set(r.id, {
-			id: r.id,
-			name: r.name?.trim() || "Preparação sem nome",
-			version: describeRecipeVersion(r.version ?? 1, outdatedById.get(r.id)),
-			prePreparation: r.pre_preparation_method?.trim() || null,
-			method: r.preparation_method?.trim() || null,
-		})
-	}
-	const preparations = buildPreparationEntries([...prepMap.values()], digestsById, options)
+	const preparations = buildPreparationEntries(collectPreparationSources(printedItems, outdatedById), digestsById, options)
 
-	// Legenda das cores: grupos presentes na grade, na ordem das linhas e, dentro de cada
-	// refeição, na ordem do conjunto dela. Sem legenda, a cor não diz nada a quem lê a folha.
-	const groupLegend: GroupLegendEntry[] = []
-	if (options.groupColors) {
-		const seen = new Set<string>()
-		for (const mt of orderedMealTypes) {
-			const groups = groupsFor(mt.id)
-			// As células já vêm na ordem do conjunto; juntar as da semana e reordenar pelo
-			// conjunto põe a legenda na mesma ordem de leitura da linha.
-			const present = WEEKDAYS.flatMap((d) => cellIndex.get(`${d.num}:${mt.id}`) ?? [])
-				.filter((e) => e.group != null && e.color != null)
-				.sort((x, y) => menuItemGroupOrder(x.group, groups) - menuItemGroupOrder(y.group, groups))
-			for (const entry of present) {
-				if (entry.group == null || entry.color == null || seen.has(entry.group)) continue
-				seen.add(entry.group)
-				groupLegend.push({ key: entry.group, label: menuItemGroupLabel(entry.group, [...groups, ...allGroups]), color: entry.color })
-			}
-		}
-	}
+	// Legenda das cores: vazia sem `groupColors` (ver `buildGroupLegend`).
+	const groupLegend = buildGroupLegend(options.groupColors, orderedMealTypes, cellIndex, groupsFor, allGroups)
 
-	const dayDate = (dow: number): Date | null => (weekStart ? addDays(weekStart, dow - 1) : null)
+	const dayDate = (dow: number): Date | null => getWeekdayDate(weekStart, dow)
 
 	// Dados derivados compartilhados pelas duas cópias do documento (tela + impressão).
-	const dayColumns = WEEKDAYS.map((d) => {
-		const date = dayDate(d.num)
-		return { num: d.num, label: d.label, dateLabel: date ? format(date, "dd/MM") : null }
-	})
+	const dayColumns = buildDayColumns(weekStart)
 	const mealRows = orderedMealTypes.map((mt) => ({ id: mt.id, name: mt.name ?? "" }))
-	const emptyMessage = scope.kind === "kitchen" ? "Nenhum tipo de refeição configurado para esta cozinha." : "Nenhum tipo de refeição genérico configurado."
+	const emptyMessage = describeEmptyMealTypes(scope)
 
-	const weekLabel = (() => {
-		if (!weekStart) return template.name ?? ""
-		const end = addDays(weekStart, 6)
-		return `SEMANA DE ${format(weekStart, "dd 'de' MMMM", { locale: ptBR })} A ${format(end, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}`.toUpperCase()
-	})()
+	const weekLabel = formatWeekLabel(weekStart, template.name)
 
-	const weekInputValue = weekStart ? format(weekStart, "yyyy-MM-dd") : ""
+	const weekInputValue = formatWeekInputValue(weekStart)
 
 	// Export .docx (Word): reaproveita os mesmos dados/ordem da grade do print.
 	const handleDownloadDocx = () =>
@@ -352,94 +272,24 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 			<style>{PRINT_CSS}</style>
 
 			{/* Barra de ações — oculta na impressão */}
-			<div className="cardapio-no-print flex flex-wrap items-center gap-2 mb-4">
-				<Button
-					variant="outline"
-					size="sm"
-					nativeButton={false}
-					render={
-						scope.kind === "kitchen" ? (
-							<Link to="/kitchen/$kitchenId/weekly-menus/$weeklyMenuId" params={{ kitchenId: scope.kitchenIdStr, weeklyMenuId: templateId }}>
-								<ArrowLeft className="size-4 mr-2" />
-								Voltar ao editor
-							</Link>
-						) : (
-							<Link to="/global/weekly-menus/$weeklyMenuId" params={{ weeklyMenuId: templateId }}>
-								<ArrowLeft className="size-4 mr-2" />
-								Voltar ao editor
-							</Link>
-						)
-					}
-				/>
-				<div className="flex items-center gap-2 ml-auto">
-					<label htmlFor="week-start" className="text-xs text-muted-foreground">
-						Semana de:
-					</label>
-					<input
-						id="week-start"
-						type="date"
-						value={weekInputValue}
-						onChange={(e) => handleWeekChange(e.target.value)}
-						className="h-9 rounded-none border border-input bg-background px-2 text-sm"
-					/>
-					<Button variant="outline" size="sm" onClick={handleDownloadDocx} disabled={isExporting || ingredientsPending}>
-						{isExporting ? <Loader2 className="size-4 mr-2 animate-spin" /> : <FileText className="size-4 mr-2" />}
-						Baixar DOCX
-					</Button>
-					<Button size="sm" onClick={() => window.print()} disabled={ingredientsPending}>
-						{ingredientsPending ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Printer className="size-4 mr-2" />}
-						Imprimir / Baixar PDF
-					</Button>
-				</div>
-			</div>
+			<WeeklyActionBar
+				scope={scope}
+				templateId={templateId}
+				weekInputValue={weekInputValue}
+				onWeekChange={handleWeekChange}
+				onDownloadDocx={handleDownloadDocx}
+				isExporting={isExporting}
+				ingredientsPending={ingredientsPending}
+			/>
 
 			{/* Opções de impressão — ocultas na impressão; valem só nesta página */}
-			<div className="cardapio-no-print flex flex-wrap items-center gap-x-6 gap-y-2 mb-4 text-sm">
-				<label htmlFor="print-show-method" className="flex items-center gap-2">
-					<Checkbox id="print-show-method" checked={options.showMethod} onCheckedChange={(checked) => updateOptions({ showMethod: checked === true })} />
-					Mostrar modo de preparo
-				</label>
-				<label htmlFor="print-group-colors" className="flex items-center gap-2">
-					<Checkbox id="print-group-colors" checked={options.groupColors} onCheckedChange={(checked) => updateOptions({ groupColors: checked === true })} />
-					Cores por grupo
-				</label>
-				<IngredientsModeSelect value={options.ingredients} onChange={(ingredients) => updateOptions({ ingredients })} />
-				<div className="flex items-center gap-2">
-					<label htmlFor="print-hide-command-table" className="flex items-center gap-2">
-						<Checkbox
-							id="print-hide-command-table"
-							checked={options.hideCommandTable}
-							onCheckedChange={(checked) => updateOptions({ hideCommandTable: checked === true })}
-						/>
-						Ocultar mesa de comando: até
-					</label>
-					<Input
-						type="number"
-						min={0}
-						max={100}
-						step={0.5}
-						inputMode="decimal"
-						aria-label="Porcentagem máxima da mesa de comando"
-						className="w-20"
-						disabled={!options.hideCommandTable}
-						// Não controlado: controlado, apagar o campo para redigitar era desfeito na hora
-						// (valor vazio não vira número) e "3" virava "53".
-						defaultValue={DEFAULT_COMMAND_TABLE_MAX_PROPORTION}
-						onChange={(e) => {
-							const next = e.target.valueAsNumber
-							// Até 100%: acima disso a porcentagem é do per capita, e esconderia o prato principal.
-							if (Number.isFinite(next) && next >= 0 && next <= 100) updateOptions({ commandTableMaxProportion: next })
-						}}
-					/>
-					<span>% do efetivo</span>
-					{hiddenCount > 0 && (
-						<span className="text-muted-foreground">
-							({hiddenCount} {hiddenCount === 1 ? "item oculto na grade" : "itens ocultos na grade"})
-						</span>
-					)}
-				</div>
-				{digestsError && <DigestsErrorNotice onRetry={retryDigests} />}
-			</div>
+			<WeeklyPrintOptionsBar
+				options={options}
+				onOptionsChange={updateOptions}
+				hiddenCount={hiddenCount}
+				digestsError={digestsError}
+				onRetryDigests={retryDigests}
+			/>
 
 			{/* Documento — cópia editável, na tela */}
 			<CardapioDocument
@@ -488,6 +338,143 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 					</div>,
 					document.body
 				)}
+		</div>
+	)
+}
+
+// ─── Tela (fora da impressão) ──────────────────────────────────────────────
+
+function WeeklyMenuNotFound({ scope }: { scope: PrintScope }) {
+	return (
+		<div className="p-8 text-center bg-destructive/10 text-destructive rounded-md">
+			<p className="text-subheading">Cardápio semanal não encontrado.</p>
+			{scope.kind === "kitchen" ? (
+				<Link
+					to="/kitchen/$kitchenId/weekly-menus"
+					params={{ kitchenId: scope.kitchenIdStr }}
+					className="text-sm text-primary mt-2 flex items-center justify-center hover:underline"
+				>
+					← Voltar para listagem
+				</Link>
+			) : (
+				<Link to="/global/weekly-menus" className="text-sm text-primary mt-2 flex items-center justify-center hover:underline">
+					← Voltar para listagem
+				</Link>
+			)}
+		</div>
+	)
+}
+
+interface WeeklyActionBarProps {
+	scope: PrintScope
+	templateId: string
+	weekInputValue: string
+	onWeekChange: (value: string) => void
+	onDownloadDocx: () => void
+	isExporting: boolean
+	ingredientsPending: boolean
+}
+
+function WeeklyActionBar({ scope, templateId, weekInputValue, onWeekChange, onDownloadDocx, isExporting, ingredientsPending }: WeeklyActionBarProps) {
+	return (
+		<div className="cardapio-no-print flex flex-wrap items-center gap-2 mb-4">
+			<Button
+				variant="outline"
+				size="sm"
+				nativeButton={false}
+				render={
+					scope.kind === "kitchen" ? (
+						<Link to="/kitchen/$kitchenId/weekly-menus/$weeklyMenuId" params={{ kitchenId: scope.kitchenIdStr, weeklyMenuId: templateId }}>
+							<ArrowLeft className="size-4 mr-2" />
+							Voltar ao editor
+						</Link>
+					) : (
+						<Link to="/global/weekly-menus/$weeklyMenuId" params={{ weeklyMenuId: templateId }}>
+							<ArrowLeft className="size-4 mr-2" />
+							Voltar ao editor
+						</Link>
+					)
+				}
+			/>
+			<div className="flex items-center gap-2 ml-auto">
+				<label htmlFor="week-start" className="text-xs text-muted-foreground">
+					Semana de:
+				</label>
+				<input
+					id="week-start"
+					type="date"
+					value={weekInputValue}
+					onChange={(e) => onWeekChange(e.target.value)}
+					className="h-9 rounded-none border border-input bg-background px-2 text-sm"
+				/>
+				<Button variant="outline" size="sm" onClick={onDownloadDocx} disabled={isExporting || ingredientsPending}>
+					{isExporting ? <Loader2 className="size-4 mr-2 animate-spin" /> : <FileText className="size-4 mr-2" />}
+					Baixar DOCX
+				</Button>
+				<Button size="sm" onClick={() => window.print()} disabled={ingredientsPending}>
+					{ingredientsPending ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Printer className="size-4 mr-2" />}
+					Imprimir / Baixar PDF
+				</Button>
+			</div>
+		</div>
+	)
+}
+
+interface WeeklyPrintOptionsBarProps {
+	options: CardapioPrintOptions
+	onOptionsChange: (patch: Partial<CardapioPrintOptions>) => void
+	hiddenCount: number
+	digestsError: boolean
+	onRetryDigests: () => void
+}
+
+function WeeklyPrintOptionsBar({ options, onOptionsChange: updateOptions, hiddenCount, digestsError, onRetryDigests }: WeeklyPrintOptionsBarProps) {
+	return (
+		<div className="cardapio-no-print flex flex-wrap items-center gap-x-6 gap-y-2 mb-4 text-sm">
+			<label htmlFor="print-show-method" className="flex items-center gap-2">
+				<Checkbox id="print-show-method" checked={options.showMethod} onCheckedChange={(checked) => updateOptions({ showMethod: checked === true })} />
+				Mostrar modo de preparo
+			</label>
+			<label htmlFor="print-group-colors" className="flex items-center gap-2">
+				<Checkbox id="print-group-colors" checked={options.groupColors} onCheckedChange={(checked) => updateOptions({ groupColors: checked === true })} />
+				Cores por grupo
+			</label>
+			<IngredientsModeSelect value={options.ingredients} onChange={(ingredients) => updateOptions({ ingredients })} />
+			<div className="flex items-center gap-2">
+				<label htmlFor="print-hide-command-table" className="flex items-center gap-2">
+					<Checkbox
+						id="print-hide-command-table"
+						checked={options.hideCommandTable}
+						onCheckedChange={(checked) => updateOptions({ hideCommandTable: checked === true })}
+					/>
+					Ocultar mesa de comando: até
+				</label>
+				<Input
+					type="number"
+					min={0}
+					max={100}
+					step={0.5}
+					inputMode="decimal"
+					aria-label="Porcentagem máxima da mesa de comando"
+					className="w-20"
+					disabled={!options.hideCommandTable}
+					// Não controlado: controlado, apagar o campo para redigitar era desfeito na hora
+					// (valor vazio não vira número) e "3" virava "53".
+					defaultValue={DEFAULT_COMMAND_TABLE_MAX_PROPORTION}
+					onChange={(e) => {
+						const next = e.target.valueAsNumber
+						// Até 100%: acima disso a porcentagem é do per capita, e esconderia o prato principal.
+						if (Number.isFinite(next) && next >= 0 && next <= 100) updateOptions({ commandTableMaxProportion: next })
+					}}
+				/>
+				<span>% do efetivo</span>
+				{hiddenCount > 0 && (
+					<span className="text-muted-foreground">
+						({hiddenCount} {hiddenCount === 1 ? "item oculto na grade" : "itens ocultos na grade"})
+					</span>
+				)}
+			</div>
+			{digestsError && <DigestsErrorNotice onRetry={onRetryDigests} />}
 		</div>
 	)
 }

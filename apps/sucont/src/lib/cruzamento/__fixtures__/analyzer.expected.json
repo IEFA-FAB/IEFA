@@ -1,0 +1,652 @@
+{
+	"amplo": {
+		"stats": {
+			"totalUgs": 9,
+			"ugsRegulares": 1,
+			"ugsAtencao": 4,
+			"ugsCriticas": 4,
+			"synthesis": "Verifica-se concentração de inconsistências nas UGs 120062, 120052, 999999, 120110, com maior impacto financeiro na UG 120062, demandando atuação prioritária."
+		},
+		"ugAnalysis": [
+			{
+				"ug": "120062",
+				"ugName": "BASP",
+				"orgaoSuperior": "IV COMAR",
+				"ods": "COMPREP",
+				"conferente": "1T ÉRIKA VICENTE",
+				"status": "CRÍTICA",
+				"inconsistenciesCount": 3,
+				"financialImpact": 104,
+				"details": [
+					{
+						"contaCorrente": "I1",
+						"status": "UG INDEVIDA NA 897210300",
+						"ug8972": "120075, 120062",
+						"saldo8972": 150,
+						"ug8971": "120052",
+						"saldo8971": 150,
+						"diferenca": 0
+					},
+					{
+						"contaCorrente": "I2",
+						"status": "DIVERGÊNCIA DE SALDO",
+						"ug8972": "120062",
+						"saldo8972": 0,
+						"ug8971": "120075",
+						"saldo8971": 100,
+						"diferenca": 100
+					},
+					{
+						"contaCorrente": "D4",
+						"status": "DIVERGÊNCIA DE SALDO",
+						"ug8972": "120052",
+						"saldo8972": 1,
+						"ug8971": "120062",
+						"saldo8971": 5,
+						"diferenca": 4
+					}
+				],
+				"diagnosis": [
+					"Registro na conta 897210300 por UG diferente da 120052, única autorizada por definição desta Setorial",
+					"Divergência entre o direito a receber (8971) e a responsabilidade registrada (8972)",
+					"Estorno parcial ou baixa não refletida em ambas as contas"
+				]
+			},
+			{
+				"ug": "120090",
+				"ugName": "CABW",
+				"orgaoSuperior": "CELOG",
+				"ods": "COMGAP",
+				"conferente": "2S PÂMELA",
+				"status": "ATENÇÃO",
+				"inconsistenciesCount": 1,
+				"financialImpact": 30,
+				"details": [
+					{
+						"contaCorrente": "D1",
+						"status": "DIVERGÊNCIA DE SALDO",
+						"ug8972": "120052",
+						"saldo8972": 10,
+						"ug8971": "120090",
+						"saldo8971": 40,
+						"diferenca": 30
+					}
+				],
+				"diagnosis": [
+					"Divergência entre o direito a receber (8971) e a responsabilidade registrada (8972)",
+					"Estorno parcial ou baixa não refletida em ambas as contas"
+				]
+			},
+			{
+				"ug": "120052",
+				"ugName": "SDPP/PAÍS",
+				"orgaoSuperior": "DIRAD",
+				"ods": "SEFA",
+				"conferente": "1S ELIANA",
+				"status": "CRÍTICA",
+				"inconsistenciesCount": 1,
+				"financialImpact": 80,
+				"details": [
+					{
+						"contaCorrente": "A1",
+						"status": "AUSÊNCIA NA 897110300",
+						"ug8972": "120052",
+						"saldo8972": -80,
+						"ug8971": "-",
+						"saldo8971": null,
+						"diferenca": 80
+					}
+				],
+				"diagnosis": [
+					"Falta de apropriação da responsabilidade de terceiros (A Receber)",
+					"Baixa indevida na conta 897110300"
+				]
+			},
+			{
+				"ug": "999999",
+				"ugName": "Desconhecida",
+				"orgaoSuperior": "-",
+				"ods": "-",
+				"conferente": "NÃO ATRIBUÍDO",
+				"status": "CRÍTICA",
+				"inconsistenciesCount": 1,
+				"financialImpact": 70,
+				"details": [
+					{
+						"contaCorrente": "A2",
+						"status": "AUSÊNCIA NA 897210300",
+						"ug8972": "-",
+						"saldo8972": null,
+						"ug8971": "999999",
+						"saldo8971": 70,
+						"diferenca": 70
+					}
+				],
+				"diagnosis": [
+					"Falta de apropriação da responsabilidade da UG",
+					"Baixa indevida na conta 897210300"
+				]
+			},
+			{
+				"ug": "120075",
+				"ugName": "BACO",
+				"orgaoSuperior": "V COMAR",
+				"ods": "COMPREP",
+				"conferente": "2S PÂMELA",
+				"status": "ATENÇÃO",
+				"inconsistenciesCount": 1,
+				"financialImpact": 4,
+				"details": [
+					{
+						"contaCorrente": "D2",
+						"status": "DIVERGÊNCIA DE SALDO",
+						"ug8972": "120052",
+						"saldo8972": 1,
+						"ug8971": "120075",
+						"saldo8971": 5,
+						"diferenca": 4
+					}
+				],
+				"diagnosis": [
+					"Divergência entre o direito a receber (8971) e a responsabilidade registrada (8972)",
+					"Estorno parcial ou baixa não refletida em ambas as contas"
+				]
+			},
+			{
+				"ug": "120100",
+				"ugName": "SDAB",
+				"orgaoSuperior": "DIRAD",
+				"ods": "SEFA",
+				"conferente": "1S ELIANA",
+				"status": "ATENÇÃO",
+				"inconsistenciesCount": 1,
+				"financialImpact": 20,
+				"details": [
+					{
+						"contaCorrente": "T1",
+						"status": "DIVERGÊNCIA DE SALDO",
+						"ug8972": "120052",
+						"saldo8972": 10,
+						"ug8971": "120100",
+						"saldo8971": 30,
+						"diferenca": 20
+					}
+				],
+				"diagnosis": [
+					"Divergência entre o direito a receber (8971) e a responsabilidade registrada (8972)",
+					"Estorno parcial ou baixa não refletida em ambas as contas"
+				]
+			},
+			{
+				"ug": "120101",
+				"ugName": "Desconhecida",
+				"orgaoSuperior": "-",
+				"ods": "-",
+				"conferente": "NÃO ATRIBUÍDO",
+				"status": "ATENÇÃO",
+				"inconsistenciesCount": 2,
+				"financialImpact": 20,
+				"details": [
+					{
+						"contaCorrente": "T2",
+						"status": "DIVERGÊNCIA DE SALDO",
+						"ug8972": "120052",
+						"saldo8972": 20,
+						"ug8971": "120101",
+						"saldo8971": 30,
+						"diferenca": 10
+					},
+					{
+						"contaCorrente": "T3",
+						"status": "DIVERGÊNCIA DE SALDO",
+						"ug8972": "120052",
+						"saldo8972": 10,
+						"ug8971": "120101",
+						"saldo8971": 20,
+						"diferenca": 10
+					}
+				],
+				"diagnosis": [
+					"Divergência entre o direito a receber (8971) e a responsabilidade registrada (8972)",
+					"Estorno parcial ou baixa não refletida em ambas as contas"
+				]
+			},
+			{
+				"ug": "120110",
+				"ugName": "Desconhecida",
+				"orgaoSuperior": "-",
+				"ods": "-",
+				"conferente": "NÃO ATRIBUÍDO",
+				"status": "CRÍTICA",
+				"inconsistenciesCount": 2,
+				"financialImpact": 15,
+				"details": [
+					{
+						"contaCorrente": "D3",
+						"status": "DIVERGÊNCIA DE SALDO",
+						"ug8972": "120052",
+						"saldo8972": 40,
+						"ug8971": "120110",
+						"saldo8971": 50,
+						"diferenca": 10
+					},
+					{
+						"contaCorrente": "A3",
+						"status": "AUSÊNCIA NA 897210300",
+						"ug8972": "-",
+						"saldo8972": null,
+						"ug8971": "120110",
+						"saldo8971": 5,
+						"diferenca": 5
+					}
+				],
+				"diagnosis": [
+					"Divergência entre o direito a receber (8971) e a responsabilidade registrada (8972)",
+					"Estorno parcial ou baixa não refletida em ambas as contas",
+					"Falta de apropriação da responsabilidade da UG",
+					"Baixa indevida na conta 897210300"
+				]
+			},
+			{
+				"ug": "120120",
+				"ugName": "Desconhecida",
+				"orgaoSuperior": "-",
+				"ods": "-",
+				"conferente": "NÃO ATRIBUÍDO",
+				"status": "REGULAR",
+				"inconsistenciesCount": 0,
+				"financialImpact": 0,
+				"details": [],
+				"diagnosis": []
+			}
+		],
+		"ranking": [
+			{
+				"ug": "120062",
+				"ugName": "BASP",
+				"orgaoSuperior": "IV COMAR",
+				"ods": "COMPREP",
+				"conferente": "1T ÉRIKA VICENTE",
+				"status": "CRÍTICA",
+				"inconsistenciesCount": 3,
+				"financialImpact": 104,
+				"details": [
+					{
+						"contaCorrente": "I1",
+						"status": "UG INDEVIDA NA 897210300",
+						"ug8972": "120075, 120062",
+						"saldo8972": 150,
+						"ug8971": "120052",
+						"saldo8971": 150,
+						"diferenca": 0
+					},
+					{
+						"contaCorrente": "I2",
+						"status": "DIVERGÊNCIA DE SALDO",
+						"ug8972": "120062",
+						"saldo8972": 0,
+						"ug8971": "120075",
+						"saldo8971": 100,
+						"diferenca": 100
+					},
+					{
+						"contaCorrente": "D4",
+						"status": "DIVERGÊNCIA DE SALDO",
+						"ug8972": "120052",
+						"saldo8972": 1,
+						"ug8971": "120062",
+						"saldo8971": 5,
+						"diferenca": 4
+					}
+				],
+				"diagnosis": [
+					"Registro na conta 897210300 por UG diferente da 120052, única autorizada por definição desta Setorial",
+					"Divergência entre o direito a receber (8971) e a responsabilidade registrada (8972)",
+					"Estorno parcial ou baixa não refletida em ambas as contas"
+				]
+			},
+			{
+				"ug": "120052",
+				"ugName": "SDPP/PAÍS",
+				"orgaoSuperior": "DIRAD",
+				"ods": "SEFA",
+				"conferente": "1S ELIANA",
+				"status": "CRÍTICA",
+				"inconsistenciesCount": 1,
+				"financialImpact": 80,
+				"details": [
+					{
+						"contaCorrente": "A1",
+						"status": "AUSÊNCIA NA 897110300",
+						"ug8972": "120052",
+						"saldo8972": -80,
+						"ug8971": "-",
+						"saldo8971": null,
+						"diferenca": 80
+					}
+				],
+				"diagnosis": [
+					"Falta de apropriação da responsabilidade de terceiros (A Receber)",
+					"Baixa indevida na conta 897110300"
+				]
+			},
+			{
+				"ug": "999999",
+				"ugName": "Desconhecida",
+				"orgaoSuperior": "-",
+				"ods": "-",
+				"conferente": "NÃO ATRIBUÍDO",
+				"status": "CRÍTICA",
+				"inconsistenciesCount": 1,
+				"financialImpact": 70,
+				"details": [
+					{
+						"contaCorrente": "A2",
+						"status": "AUSÊNCIA NA 897210300",
+						"ug8972": "-",
+						"saldo8972": null,
+						"ug8971": "999999",
+						"saldo8971": 70,
+						"diferenca": 70
+					}
+				],
+				"diagnosis": [
+					"Falta de apropriação da responsabilidade da UG",
+					"Baixa indevida na conta 897210300"
+				]
+			},
+			{
+				"ug": "120090",
+				"ugName": "CABW",
+				"orgaoSuperior": "CELOG",
+				"ods": "COMGAP",
+				"conferente": "2S PÂMELA",
+				"status": "ATENÇÃO",
+				"inconsistenciesCount": 1,
+				"financialImpact": 30,
+				"details": [
+					{
+						"contaCorrente": "D1",
+						"status": "DIVERGÊNCIA DE SALDO",
+						"ug8972": "120052",
+						"saldo8972": 10,
+						"ug8971": "120090",
+						"saldo8971": 40,
+						"diferenca": 30
+					}
+				],
+				"diagnosis": [
+					"Divergência entre o direito a receber (8971) e a responsabilidade registrada (8972)",
+					"Estorno parcial ou baixa não refletida em ambas as contas"
+				]
+			},
+			{
+				"ug": "120101",
+				"ugName": "Desconhecida",
+				"orgaoSuperior": "-",
+				"ods": "-",
+				"conferente": "NÃO ATRIBUÍDO",
+				"status": "ATENÇÃO",
+				"inconsistenciesCount": 2,
+				"financialImpact": 20,
+				"details": [
+					{
+						"contaCorrente": "T2",
+						"status": "DIVERGÊNCIA DE SALDO",
+						"ug8972": "120052",
+						"saldo8972": 20,
+						"ug8971": "120101",
+						"saldo8971": 30,
+						"diferenca": 10
+					},
+					{
+						"contaCorrente": "T3",
+						"status": "DIVERGÊNCIA DE SALDO",
+						"ug8972": "120052",
+						"saldo8972": 10,
+						"ug8971": "120101",
+						"saldo8971": 20,
+						"diferenca": 10
+					}
+				],
+				"diagnosis": [
+					"Divergência entre o direito a receber (8971) e a responsabilidade registrada (8972)",
+					"Estorno parcial ou baixa não refletida em ambas as contas"
+				]
+			},
+			{
+				"ug": "120100",
+				"ugName": "SDAB",
+				"orgaoSuperior": "DIRAD",
+				"ods": "SEFA",
+				"conferente": "1S ELIANA",
+				"status": "ATENÇÃO",
+				"inconsistenciesCount": 1,
+				"financialImpact": 20,
+				"details": [
+					{
+						"contaCorrente": "T1",
+						"status": "DIVERGÊNCIA DE SALDO",
+						"ug8972": "120052",
+						"saldo8972": 10,
+						"ug8971": "120100",
+						"saldo8971": 30,
+						"diferenca": 20
+					}
+				],
+				"diagnosis": [
+					"Divergência entre o direito a receber (8971) e a responsabilidade registrada (8972)",
+					"Estorno parcial ou baixa não refletida em ambas as contas"
+				]
+			},
+			{
+				"ug": "120110",
+				"ugName": "Desconhecida",
+				"orgaoSuperior": "-",
+				"ods": "-",
+				"conferente": "NÃO ATRIBUÍDO",
+				"status": "CRÍTICA",
+				"inconsistenciesCount": 2,
+				"financialImpact": 15,
+				"details": [
+					{
+						"contaCorrente": "D3",
+						"status": "DIVERGÊNCIA DE SALDO",
+						"ug8972": "120052",
+						"saldo8972": 40,
+						"ug8971": "120110",
+						"saldo8971": 50,
+						"diferenca": 10
+					},
+					{
+						"contaCorrente": "A3",
+						"status": "AUSÊNCIA NA 897210300",
+						"ug8972": "-",
+						"saldo8972": null,
+						"ug8971": "120110",
+						"saldo8971": 5,
+						"diferenca": 5
+					}
+				],
+				"diagnosis": [
+					"Divergência entre o direito a receber (8971) e a responsabilidade registrada (8972)",
+					"Estorno parcial ou baixa não refletida em ambas as contas",
+					"Falta de apropriação da responsabilidade da UG",
+					"Baixa indevida na conta 897210300"
+				]
+			},
+			{
+				"ug": "120075",
+				"ugName": "BACO",
+				"orgaoSuperior": "V COMAR",
+				"ods": "COMPREP",
+				"conferente": "2S PÂMELA",
+				"status": "ATENÇÃO",
+				"inconsistenciesCount": 1,
+				"financialImpact": 4,
+				"details": [
+					{
+						"contaCorrente": "D2",
+						"status": "DIVERGÊNCIA DE SALDO",
+						"ug8972": "120052",
+						"saldo8972": 1,
+						"ug8971": "120075",
+						"saldo8971": 5,
+						"diferenca": 4
+					}
+				],
+				"diagnosis": [
+					"Divergência entre o direito a receber (8971) e a responsabilidade registrada (8972)",
+					"Estorno parcial ou baixa não refletida em ambas as contas"
+				]
+			},
+			{
+				"ug": "120120",
+				"ugName": "Desconhecida",
+				"orgaoSuperior": "-",
+				"ods": "-",
+				"conferente": "NÃO ATRIBUÍDO",
+				"status": "REGULAR",
+				"inconsistenciesCount": 0,
+				"financialImpact": 0,
+				"details": [],
+				"diagnosis": []
+			}
+		]
+	},
+	"soAtencao": {
+		"stats": {
+			"totalUgs": 1,
+			"ugsRegulares": 0,
+			"ugsAtencao": 1,
+			"ugsCriticas": 0,
+			"synthesis": "Verifica-se inconsistências com maior impacto financeiro na UG 120090, demandando atuação prioritária."
+		},
+		"ugAnalysis": [
+			{
+				"ug": "120090",
+				"ugName": "CABW",
+				"orgaoSuperior": "CELOG",
+				"ods": "COMGAP",
+				"conferente": "2S PÂMELA",
+				"status": "ATENÇÃO",
+				"inconsistenciesCount": 1,
+				"financialImpact": 30,
+				"details": [
+					{
+						"contaCorrente": "D1",
+						"status": "DIVERGÊNCIA DE SALDO",
+						"ug8972": "120052",
+						"saldo8972": 10,
+						"ug8971": "120090",
+						"saldo8971": 40,
+						"diferenca": 30
+					}
+				],
+				"diagnosis": [
+					"Divergência entre o direito a receber (8971) e a responsabilidade registrada (8972)",
+					"Estorno parcial ou baixa não refletida em ambas as contas"
+				]
+			}
+		],
+		"ranking": [
+			{
+				"ug": "120090",
+				"ugName": "CABW",
+				"orgaoSuperior": "CELOG",
+				"ods": "COMGAP",
+				"conferente": "2S PÂMELA",
+				"status": "ATENÇÃO",
+				"inconsistenciesCount": 1,
+				"financialImpact": 30,
+				"details": [
+					{
+						"contaCorrente": "D1",
+						"status": "DIVERGÊNCIA DE SALDO",
+						"ug8972": "120052",
+						"saldo8972": 10,
+						"ug8971": "120090",
+						"saldo8971": 40,
+						"diferenca": 30
+					}
+				],
+				"diagnosis": [
+					"Divergência entre o direito a receber (8971) e a responsabilidade registrada (8972)",
+					"Estorno parcial ou baixa não refletida em ambas as contas"
+				]
+			}
+		]
+	},
+	"criticaSemImpacto": {
+		"stats": {
+			"totalUgs": 1,
+			"ugsRegulares": 0,
+			"ugsAtencao": 0,
+			"ugsCriticas": 1,
+			"synthesis": "Não foram encontradas inconsistências significativas nas UGs analisadas."
+		},
+		"ugAnalysis": [
+			{
+				"ug": "120062",
+				"ugName": "BASP",
+				"orgaoSuperior": "IV COMAR",
+				"ods": "COMPREP",
+				"conferente": "1T ÉRIKA VICENTE",
+				"status": "CRÍTICA",
+				"inconsistenciesCount": 1,
+				"financialImpact": 0,
+				"details": [
+					{
+						"contaCorrente": "I1",
+						"status": "UG INDEVIDA NA 897210300",
+						"ug8972": "120062",
+						"saldo8972": 100,
+						"ug8971": "120062",
+						"saldo8971": 100,
+						"diferenca": 0
+					}
+				],
+				"diagnosis": [
+					"Registro na conta 897210300 por UG diferente da 120052, única autorizada por definição desta Setorial"
+				]
+			}
+		],
+		"ranking": [
+			{
+				"ug": "120062",
+				"ugName": "BASP",
+				"orgaoSuperior": "IV COMAR",
+				"ods": "COMPREP",
+				"conferente": "1T ÉRIKA VICENTE",
+				"status": "CRÍTICA",
+				"inconsistenciesCount": 1,
+				"financialImpact": 0,
+				"details": [
+					{
+						"contaCorrente": "I1",
+						"status": "UG INDEVIDA NA 897210300",
+						"ug8972": "120062",
+						"saldo8972": 100,
+						"ug8971": "120062",
+						"saldo8971": 100,
+						"diferenca": 0
+					}
+				],
+				"diagnosis": [
+					"Registro na conta 897210300 por UG diferente da 120052, única autorizada por definição desta Setorial"
+				]
+			}
+		]
+	},
+	"vazio": {
+		"stats": {
+			"totalUgs": 0,
+			"ugsRegulares": 0,
+			"ugsAtencao": 0,
+			"ugsCriticas": 0,
+			"synthesis": "Não foram encontradas inconsistências significativas nas UGs analisadas."
+		},
+		"ugAnalysis": [],
+		"ranking": []
+	}
+}

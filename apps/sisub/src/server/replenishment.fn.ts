@@ -13,16 +13,10 @@
 
 import {
 	type AcquisitionKind,
-	applyCorrectionFactors,
-	calculateNetNeed,
 	computeDispensaSum,
 	type DirectContractLimitRow,
 	type DispensaEntry,
-	decideChannel,
-	estimateLeadTime,
 	fetchProcurementNeeds,
-	fitsDispensaRoom,
-	type PurchaseChannel,
 	resolveDirectContractLimit,
 } from "@iefa/sisub-domain"
 import { addCivilDays, getBrasiliaToday } from "@iefa/sisub-domain/civil-date"
@@ -36,6 +30,19 @@ import { publicDbMessage } from "@/lib/db-error-message"
 import { currentFiscalYear } from "@/lib/expense-execution"
 import { purchaseUnitIdOfKitchen } from "@/lib/kitchen-purchase-unit.server"
 import { readAllPages, readAllPagesIn } from "@/lib/read-all-pages"
+import {
+	buildReplenishmentSuggestion,
+	computeTransitByIngredient,
+	groupObservedLeadTimes,
+	indexDefaultPurchaseLinks,
+	indexOwnArpBalances,
+	indexStockByIngredient,
+	type ReplenishmentContext,
+	type ReplenishmentSuggestion,
+	rankReplenishmentSuggestions,
+	sumOrderedQtyByPurchaseItem,
+	sumReceivedByIngredient,
+} from "@/lib/replenishment-plan"
 import { checkSupplierSicaf } from "@/lib/sicaf.server"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
@@ -142,21 +149,7 @@ const inventory = () => getServerClient("inventory")
 const kitchen = () => getServerClient("kitchen")
 const procurement = () => getServerClient("procurement")
 
-export interface ReplenishmentSuggestion {
-	ingredientId: string
-	description: string
-	measureUnit: string | null
-	grossDemand: number
-	availableStock: number
-	expiringExcluded: number
-	inTransit: number
-	netNeed: number
-	coverageDays: number
-	leadTime: { days: number; source: string }
-	channel: PurchaseChannel
-	reason: string
-	calcMemory: string
-}
+export type { ReplenishmentSuggestion }
 
 /** Sugestões de reposição para o horizonte (default 14 dias), com memória de cálculo. */
 export const fetchReplenishmentSuggestionsFn = createServerFn({ method: "GET" })
@@ -229,36 +222,10 @@ export const fetchReplenishmentSuggestionsFn = createServerFn({ method: "GET" })
 		])
 
 		const factorsById = new Map(ingredients.map((i) => [i.id, i]))
-		const stockById = new Map<string, { available: number; expiring: number }>()
-		for (const row of balances) {
-			if (row.ingredient_id == null) continue // filtrado no `.in()`; coluna de view sai nulável
-			const entry = stockById.get(row.ingredient_id) ?? { available: 0, expiring: 0 }
-			const qty = Number(row.balance)
-			if (qty <= 0) continue
-			if (row.expiry_date != null && row.expiry_date <= horizonEnd) entry.expiring += qty
-			else entry.available += qty
-			stockById.set(row.ingredient_id, entry)
-		}
-		const purchaseQty = new Map<string, number>()
-		for (const order of transitOrders) {
-			for (const item of order.supply_order_item ?? []) {
-				if (!item.purchase_item_id) continue
-				purchaseQty.set(item.purchase_item_id, (purchaseQty.get(item.purchase_item_id) ?? 0) + Number(item.ordered_qty))
-			}
-		}
-		const defaultPurchaseByIngredient = new Map<string, string>()
-		const priceByIngredient = new Map<string, { unitPrice: number | null; conversionFactor: number }>()
-		const catmatByIngredient = new Map<string, boolean>()
-		const catmatCodeByIngredient = new Map<string, number>()
-		for (const link of links) {
-			catmatByIngredient.set(link.ingredient_id, link.purchase_item?.catmat_item_codigo != null)
-			if (link.purchase_item?.catmat_item_codigo != null) catmatCodeByIngredient.set(link.ingredient_id, Number(link.purchase_item.catmat_item_codigo))
-			defaultPurchaseByIngredient.set(link.ingredient_id, link.purchase_item_id)
-			priceByIngredient.set(link.ingredient_id, {
-				unitPrice: link.purchase_item?.unit_price != null ? Number(link.purchase_item.unit_price) : null,
-				conversionFactor: Number(link.conversion_factor ?? 1) || 1,
-			})
-		}
+		const stockById = indexStockByIngredient(balances, horizonEnd)
+		const purchaseQty = sumOrderedQtyByPurchaseItem(transitOrders)
+		const defaultPurchase = indexDefaultPurchaseLinks(links)
+		const { defaultPurchaseByIngredient, catmatCodeByIngredient } = defaultPurchase
 		const policyById = new Map(policies.map((p) => [p.ingredient_id, p]))
 
 		const [receiptItems, transitLinks, arpItems, leadTimes, classByCatmat] = await Promise.all([
@@ -323,126 +290,32 @@ export const fetchReplenishmentSuggestionsFn = createServerFn({ method: "GET" })
 			loadMaterialClassByCatmat([...catmatCodeByIngredient.values()]),
 		])
 
-		const receivedByIngredient = new Map<string, number>()
-		for (const item of receiptItems) {
-			if (!item.ingredient_id) continue
-			receivedByIngredient.set(item.ingredient_id, (receivedByIngredient.get(item.ingredient_id) ?? 0) + Number(item.received_qty_base))
-		}
-		const transitById = new Map<string, number>()
-		const seen = new Set<string>()
-		for (const link of transitLinks) {
-			if (seen.has(link.purchase_item_id)) continue
-			seen.add(link.purchase_item_id)
-			if (!ingredientSet.has(link.ingredient_id)) continue
-			const qty = (purchaseQty.get(link.purchase_item_id) ?? 0) * (Number(link.conversion_factor ?? 1) || 1)
-			transitById.set(link.ingredient_id, (transitById.get(link.ingredient_id) ?? 0) + qty)
-		}
-		for (const [ingredientId, received] of receivedByIngredient) {
-			transitById.set(ingredientId, Math.max(0, (transitById.get(ingredientId) ?? 0) - received))
-		}
-
-		const arpBalanceById = new Map<string, number>()
-		const expectedSupplierByIngredient = new Map<string, string>()
-		for (const item of arpItems) {
-			const ingredientId = item.quantity_estimate_item.ingredient_id
-			if (!ingredientId) continue
-			if (item.arp.data_vigencia_fim != null && item.arp.data_vigencia_fim < today) continue
-			arpBalanceById.set(ingredientId, (arpBalanceById.get(ingredientId) ?? 0) + Number(item.saldo_empenho ?? 0))
-			if (item.ni_fornecedor != null) expectedSupplierByIngredient.set(ingredientId, String(item.ni_fornecedor))
-		}
-
-		// por item de compra — mediana global misturava fornecedores/itens sem
-		// relação (review) e contaminava a recomendação de canal
-		const observedByPurchaseItem = new Map<string, number[]>()
-		for (const row of leadTimes) {
-			if (row.purchase_item_id == null || !Number.isFinite(Number(row.lead_time_days))) continue
-			// chave composta fornecedor:item; fallback só-item quando o fornecedor
-			// esperado é desconhecido (review: mediana misturava fornecedores)
-			for (const key of [row.ni_fornecedor != null ? `${row.ni_fornecedor}:${row.purchase_item_id}` : null, row.purchase_item_id].filter(
-				(key) => key != null
-			)) {
-				const list = observedByPurchaseItem.get(key) ?? []
-				list.push(Number(row.lead_time_days))
-				observedByPurchaseItem.set(key, list)
-			}
-		}
+		const transitById = computeTransitByIngredient({
+			transitLinks,
+			purchaseQty,
+			ingredientSet,
+			receivedByIngredient: sumReceivedByIngredient(receiptItems),
+		})
+		const { arpBalanceById, expectedSupplierByIngredient } = indexOwnArpBalances(arpItems, today)
+		const observedByPurchaseItem = groupObservedLeadTimes(leadTimes)
 
 		// (7) somatório da dispensa por ramo (classe do CATMAT) na unidade gestora que compra pela cozinha
 		const dispensaRoom = await loadDispensaRoomByClass(purchaseUnitId, [...classByCatmat.values()])
 
-		return needs
-			.map((need) => {
-				const factors = factorsById.get(need.ingredient_id)
-				const grossDemand = applyCorrectionFactors(need.estimated_quantity, {
-					correctionFactor: factors?.correction_factor != null ? Number(factors.correction_factor) : null,
-					rehydrationIndex: factors?.rehydration_index != null ? Number(factors.rehydration_index) : null,
-				})
-				const stock = stockById.get(need.ingredient_id) ?? { available: 0, expiring: 0 }
-				const inTransit = Number((transitById.get(need.ingredient_id) ?? 0).toFixed(4))
-				// estoque mínimo da política entra na demanda: a sugestão precisa
-				// recompor a reserva, não só cobrir o horizonte (review)
-				const policy = policyById.get(need.ingredient_id)
-				const minStock = Number(policy?.min_stock ?? 0)
-				const netNeed = calculateNetNeed({ grossDemand: grossDemand + minStock, availableStock: stock.available, inTransit })
-
-				const dailyDemand = grossDemand / data.horizonDays
-				const coverageDays = dailyDemand > 0 ? Math.floor(stock.available / dailyDemand) : data.horizonDays
-				const defaultPurchaseId = defaultPurchaseByIngredient.get(need.ingredient_id)
-				// prefere o histórico do FORNECEDOR esperado (ARP vigente) para o item;
-				// sem fornecedor conhecido, cai no histórico do item (todos fornecedores)
-				const expectedSupplier = expectedSupplierByIngredient.get(need.ingredient_id)
-				const observedDays =
-					defaultPurchaseId == null
-						? []
-						: ((expectedSupplier != null ? observedByPurchaseItem.get(`${expectedSupplier}:${defaultPurchaseId}`) : undefined) ??
-							observedByPurchaseItem.get(defaultPurchaseId) ??
-							[])
-				const leadTime = estimateLeadTime(observedDays, null, policy?.coverage_days ?? 7)
-				// valor estimado ≈ (necessidade ÷ fator de conversão) × preço unitário
-				// do item de compra; limite de dispensa por valor (art. 75, I/II da
-				// Lei 14.133 — teto atualizado por decreto) habilita o Contrata+
-				// (review: canal ficava permanentemente inalcançável)
-				const price = priceByIngredient.get(need.ingredient_id)
-				const estimatedValue = price?.unitPrice != null ? (netNeed / price.conversionFactor) * price.unitPrice : null
-				// O valor tem de caber no que RESTA do limite no ramo do item — o somatório do exercício,
-				// não o item sozinho (art. 75, § 1º). A folga consumida por uma sugestão desconta das
-				// seguintes do mesmo ramo; sem classe ou com dispensa sem valor, não se presume folga.
-				const catmat = catmatCodeByIngredient.get(need.ingredient_id)
-				const lineCode = catmat != null ? classByCatmat.get(catmat) : undefined
-				const remaining = lineCode ? (dispensaRoom.get(lineCode) ?? null) : null
-				const smallValue = fitsDispensaRoom(estimatedValue, remaining)
-				if (smallValue && lineCode && remaining != null && estimatedValue != null) dispensaRoom.set(lineCode, remaining - estimatedValue)
-				const decision = decideChannel({
-					netNeed,
-					ownArpBalance: arpBalanceById.get(need.ingredient_id) ?? 0,
-					// carona não é pesquisada automaticamente (custo de API por item);
-					// a busca manual de ARP externa fica na tela de anexos quantitativos
-					caronaAvailable: null,
-					hasCatmat: catmatByIngredient.get(need.ingredient_id) ?? false,
-					coverageDays,
-					urgencyThresholdDays: policy?.urgency_threshold_days ?? leadTime.days,
-					smallValue,
-					dispensaRemaining: remaining,
-				})
-
-				return {
-					ingredientId: need.ingredient_id,
-					description: need.ingredient_name,
-					measureUnit: need.measure_unit,
-					grossDemand,
-					availableStock: Number(stock.available.toFixed(4)),
-					expiringExcluded: Number(stock.expiring.toFixed(4)),
-					inTransit,
-					netNeed,
-					coverageDays,
-					leadTime,
-					channel: decision.channel,
-					reason: decision.reason,
-					calcMemory: `bruta ${need.estimated_quantity} × FC ${factors?.correction_factor ?? 1} ÷ IR ${factors?.rehydration_index ?? 1} = ${grossDemand}${minStock > 0 ? ` + mínimo ${minStock}` : ""}; − estoque ${stock.available.toFixed(2)} (excl. ${stock.expiring.toFixed(2)} vencendo) − trânsito ${inTransit} = ${netNeed}`,
-				}
-			})
-			.filter((s) => s.netNeed > 0 || s.expiringExcluded > 0)
-			.sort((a, b) => b.netNeed - a.netNeed)
+		const context: ReplenishmentContext = {
+			...defaultPurchase,
+			horizonDays: data.horizonDays,
+			factorsById,
+			stockById,
+			transitById,
+			policyById,
+			expectedSupplierByIngredient,
+			observedByPurchaseItem,
+			arpBalanceById,
+			classByCatmat,
+			dispensaRoom,
+		}
+		return rankReplenishmentSuggestions(needs.map((need) => buildReplenishmentSuggestion(need, context)))
 	})
 
 /**

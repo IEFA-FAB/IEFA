@@ -107,23 +107,24 @@ export function todayIso(today: Date): string {
 	return `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`
 }
 
-export function checkDemand(demand: DemandPayload, today: Date = new Date()): DemandCheck[] {
-	const checks: DemandCheck[] = []
-	// Ids únicos: viram chave de lista na tela, e o mesmo teste pode disparar duas vezes no
-	// mesmo lugar (dois requisitos com travessão, um risco que casa com dois genéricos).
-	const seen = new Map<string, number>()
-	const add = (check: DemandCheck) => {
-		const count = seen.get(check.id) ?? 0
-		seen.set(check.id, count + 1)
-		checks.push(count === 0 ? check : { ...check, id: `${check.id}-${count + 1}` })
-	}
-	const { context, solution, planning } = demand
-	const fundamentals = demand.objectives.filter((objective) => objective.kind === "fundamental" && objective.text.trim())
-	const means = demand.objectives.filter((objective) => objective.kind === "means" && objective.text.trim())
-	const prices = summarizePrices(demand)
-	const framing = frameProcurement(demand, prices.total, today)
+/** O que toda etapa da conferência recebe: a demanda, os derivados comuns e o `add` único. */
+interface CheckRun {
+	demand: DemandPayload
+	today: Date
+	add: (check: DemandCheck) => void
+	fundamentals: DemandPayload["objectives"]
+	means: DemandPayload["objectives"]
+	prices: ReturnType<typeof summarizePrices>
+	framing: ReturnType<typeof frameProcurement>
+}
 
-	// ── Problema ──────────────────────────────────────────────────────────────
+type Objective = DemandPayload["objectives"][number]
+type Item = DemandPayload["items"][number]
+type Risk = DemandPayload["risks"][number]
+
+// ── Problema ──────────────────────────────────────────────────────────────
+function checkContext({ demand, today, add }: CheckRun): void {
+	const { context } = demand
 	if (!demand.requestingArea.trim())
 		add({ id: "area", severity: "bloqueia", step: "contexto", message: "Informe a área requisitante como ela aparece no sistema." })
 	if (context.problem.trim().length < 40)
@@ -153,8 +154,11 @@ export function checkDemand(demand: DemandPayload, today: Date = new Date()): De
 		})
 	if (context.priority === "alta" && !context.priorityReason.trim())
 		add({ id: "priority", severity: "atencao", step: "contexto", message: "Prioridade alta pede justificativa no DFD." })
+}
 
-	// ── Objetivos ─────────────────────────────────────────────────────────────
+// ── Objetivos ─────────────────────────────────────────────────────────────
+function checkObjectives(run: CheckRun): void {
+	const { add, fundamentals } = run
 	if (fundamentals.length === 0)
 		add({
 			id: "fundamental",
@@ -180,6 +184,11 @@ export function checkDemand(demand: DemandPayload, today: Date = new Date()): De
 				basis: "Value-Focused Thinking (atributo do objetivo)",
 			})
 	}
+	checkMeansLinks(run)
+	checkObjectiveTrace(run)
+}
+
+function checkMeansLinks({ add, fundamentals, means }: CheckRun): void {
 	for (const objective of means) {
 		const linked = objective.supports.filter((target) => fundamentals.some((fundamental) => fundamental.id === target))
 		if (linked.length === 0)
@@ -191,12 +200,21 @@ export function checkDemand(demand: DemandPayload, today: Date = new Date()): De
 				basis: "Value-Focused Thinking (rede meios-fins)",
 			})
 	}
+}
+
+/** Objetivo fundamental realizado por algum requisito, direto ou por um objetivo-meio que o sustenta. */
+function isRealizedByRequirement(fundamental: Objective, means: readonly Objective[], requirements: DemandPayload["solution"]["requirements"]): boolean {
+	const realizedByRequirement = requirements.some((requirement) => requirement.objectiveId === fundamental.id)
+	const realizedByMeans = means.some(
+		(objective) => objective.supports.includes(fundamental.id) && requirements.some((requirement) => requirement.objectiveId === objective.id)
+	)
+	return realizedByRequirement || realizedByMeans
+}
+
+function checkObjectiveTrace({ demand, add, fundamentals, means }: CheckRun): void {
+	const { requirements } = demand.solution
 	for (const fundamental of fundamentals) {
-		const realizedByRequirement = solution.requirements.some((requirement) => requirement.objectiveId === fundamental.id)
-		const realizedByMeans = means.some(
-			(objective) => objective.supports.includes(fundamental.id) && solution.requirements.some((requirement) => requirement.objectiveId === objective.id)
-		)
-		if (solution.requirements.length > 0 && !realizedByRequirement && !realizedByMeans)
+		if (requirements.length > 0 && !isRealizedByRequirement(fundamental, means, requirements))
 			add({
 				id: `trace-${fundamental.id}`,
 				severity: "atencao",
@@ -205,8 +223,11 @@ export function checkDemand(demand: DemandPayload, today: Date = new Date()): De
 				basis: "rastreabilidade objetivo → requisito (art. 18, § 1º, III)",
 			})
 	}
+}
 
-	// ── Alternativas ──────────────────────────────────────────────────────────
+// ── Alternativas ──────────────────────────────────────────────────────────
+function checkAlternatives(run: CheckRun): void {
+	const { demand, add } = run
 	const alternatives = demand.alternatives.filter((alternative) => alternative.name.trim())
 	const chosen = alternatives.find((alternative) => alternative.id === demand.chosenAlternativeId) ?? null
 	if (alternatives.length < 2)
@@ -233,25 +254,7 @@ export function checkDemand(demand: DemandPayload, today: Date = new Date()): De
 			message: "Examine se há ata de registro de preços vigente (da UASG ou de outro órgão) que cubra o objeto, e registre o resultado como alternativa.",
 			basis: LESSON,
 		})
-	if (chosen) {
-		for (const fundamental of fundamentals) {
-			const rating = chosen.ratings[fundamental.id]
-			if (!rating)
-				add({
-					id: `rating-${fundamental.id}`,
-					severity: "atencao",
-					step: "alternativas",
-					message: `Avalie a alternativa escolhida no objetivo "${fundamental.text.slice(0, 60)}".`,
-				})
-			else if (rating === "nao_atende")
-				add({
-					id: `rating-no-${fundamental.id}`,
-					severity: "atencao",
-					step: "alternativas",
-					message: `A alternativa escolhida não atende o objetivo "${fundamental.text.slice(0, 60)}". Revise a escolha ou o objetivo.`,
-				})
-		}
-	}
+	if (chosen) checkChosenRatings(run, chosen)
 	for (const alternative of alternatives) {
 		if (alternative.id !== demand.chosenAlternativeId && !alternative.notes.trim())
 			add({
@@ -261,8 +264,32 @@ export function checkDemand(demand: DemandPayload, today: Date = new Date()): De
 				message: `Registre por que a alternativa "${alternative.name.slice(0, 60)}" foi descartada.`,
 			})
 	}
+}
 
-	// ── Solução ───────────────────────────────────────────────────────────────
+function checkChosenRatings({ add, fundamentals }: CheckRun, chosen: DemandPayload["alternatives"][number]): void {
+	for (const fundamental of fundamentals) {
+		const rating = chosen.ratings[fundamental.id]
+		if (!rating)
+			add({
+				id: `rating-${fundamental.id}`,
+				severity: "atencao",
+				step: "alternativas",
+				message: `Avalie a alternativa escolhida no objetivo "${fundamental.text.slice(0, 60)}".`,
+			})
+		else if (rating === "nao_atende")
+			add({
+				id: `rating-no-${fundamental.id}`,
+				severity: "atencao",
+				step: "alternativas",
+				message: `A alternativa escolhida não atende o objetivo "${fundamental.text.slice(0, 60)}". Revise a escolha ou o objetivo.`,
+			})
+	}
+}
+
+// ── Solução ───────────────────────────────────────────────────────────────
+function checkSolution(run: CheckRun): void {
+	const { add } = run
+	const { solution } = run.demand
 	if (!solution.nature)
 		add({ id: "nature", severity: "bloqueia", step: "solucao", message: "Defina a natureza do objeto (bem, serviço, serviço de engenharia, obra ou TIC)." })
 	if (!solution.object.trim()) add({ id: "object", severity: "bloqueia", step: "solucao", message: "Escreva o objeto em uma frase." })
@@ -287,6 +314,12 @@ export function checkDemand(demand: DemandPayload, today: Date = new Date()): De
 				message: `A exclusão "${exclusion.text.slice(0, 60)}" precisa do motivo, que vai ao ETP e ao TR.`,
 				basis: LESSON,
 			})
+	checkSolutionConditions(run)
+}
+
+/** Parcelamento, exclusividade, entrega e instalação. */
+function checkSolutionConditions({ demand, add }: CheckRun): void {
+	const { solution } = demand
 	if (solution.parcelamento.decision === "grupo_unico" && !solution.parcelamento.rationale.trim())
 		add({
 			id: "parcelamento",
@@ -315,66 +348,97 @@ export function checkDemand(demand: DemandPayload, today: Date = new Date()): De
 				"Aquisição sem instalação: o modelo de TR de compras traz, em texto fixo, montagem e instalação a cargo do contratado no recebimento. O guia aponta o trecho para justificativa nos autos.",
 			basis: LESSON,
 		})
+}
 
-	// ── Itens ─────────────────────────────────────────────────────────────────
+// ── Itens ─────────────────────────────────────────────────────────────────
+function checkItems(run: CheckRun): void {
+	const { demand, add } = run
 	if (demand.items.length === 0) add({ id: "items", severity: "bloqueia", step: "itens", message: "Inclua os itens da contratação." })
 	demand.items.forEach((item, index) => {
 		const label = `Item ${index + 1}`
-		if (!item.description.trim() || !item.unit.trim() || item.quantity === null || item.quantity <= 0)
-			add({ id: `item-${item.id}`, severity: "bloqueia", step: "itens", message: `${label}: descrição, unidade e quantidade são obrigatórias.` })
-		if (!item.catalogCode)
-			add({
-				id: `catalog-${item.id}`,
-				severity: "atencao",
-				step: "itens",
-				message: `${label}: informe o código ${item.catalogKind} do catálogo do Compras.gov.br.`,
-			})
-		if (!item.quantityRationale.trim())
-			add({
-				id: `rationale-${item.id}`,
-				severity: "atencao",
-				step: "itens",
-				message: `${label}: registre a memória de cálculo da quantidade.`,
-				basis: "art. 18, § 1º, IV",
-			})
-		if (!item.expenseNature) add({ id: `nd-${item.id}`, severity: "atencao", step: "itens", message: `${label}: informe a natureza de despesa.` })
-		else if (item.expenseNature.startsWith("4.4.90.52"))
-			add({
-				id: `nd-incorp-${item.id}`,
-				severity: "dica",
-				step: "itens",
-				message: `${label}: 4.4.90.52 é material permanente. Se o bem será incorporado ao imóvel (janela, porta, esquadria), a natureza é 3.3.90.30.24; confira o vínculo PDM × ND no catálogo.`,
-				basis: "Portaria STN nº 448/2002 (incorporabilidade); lição das janelas do E-102",
-			})
-		else if (solution.nature === "bem" && item.expenseNature.startsWith("3.3.90.39"))
-			add({ id: `nd-mismatch-${item.id}`, severity: "atencao", step: "itens", message: `${label}: 3.3.90.39 é serviço, mas o objeto é bem.` })
-		else if ((solution.nature === "servico" || solution.nature === "servico_engenharia") && item.expenseNature.startsWith("3.3.90.30"))
-			add({ id: `nd-mismatch-${item.id}`, severity: "atencao", step: "itens", message: `${label}: 3.3.90.30 é material de consumo, mas o objeto é serviço.` })
+		checkItemFields(add, item, label)
+		checkExpenseNature(add, item, label, demand.solution.nature)
 	})
+}
 
-	// ── Preços ────────────────────────────────────────────────────────────────
-	const isExclusive = solution.exclusivity.isExclusive
-	for (const summary of prices.items) {
+function checkItemFields(add: CheckRun["add"], item: Item, label: string): void {
+	if (!item.description.trim() || !item.unit.trim() || item.quantity === null || item.quantity <= 0)
+		add({ id: `item-${item.id}`, severity: "bloqueia", step: "itens", message: `${label}: descrição, unidade e quantidade são obrigatórias.` })
+	if (!item.catalogCode)
+		add({
+			id: `catalog-${item.id}`,
+			severity: "atencao",
+			step: "itens",
+			message: `${label}: informe o código ${item.catalogKind} do catálogo do Compras.gov.br.`,
+		})
+	if (!item.quantityRationale.trim())
+		add({
+			id: `rationale-${item.id}`,
+			severity: "atencao",
+			step: "itens",
+			message: `${label}: registre a memória de cálculo da quantidade.`,
+			basis: "art. 18, § 1º, IV",
+		})
+}
+
+function checkExpenseNature(add: CheckRun["add"], item: Item, label: string, nature: DemandPayload["solution"]["nature"]): void {
+	if (!item.expenseNature) add({ id: `nd-${item.id}`, severity: "atencao", step: "itens", message: `${label}: informe a natureza de despesa.` })
+	else if (item.expenseNature.startsWith("4.4.90.52"))
+		add({
+			id: `nd-incorp-${item.id}`,
+			severity: "dica",
+			step: "itens",
+			message: `${label}: 4.4.90.52 é material permanente. Se o bem será incorporado ao imóvel (janela, porta, esquadria), a natureza é 3.3.90.30.24; confira o vínculo PDM × ND no catálogo.`,
+			basis: "Portaria STN nº 448/2002 (incorporabilidade); lição das janelas do E-102",
+		})
+	else if (nature === "bem" && item.expenseNature.startsWith("3.3.90.39"))
+		add({ id: `nd-mismatch-${item.id}`, severity: "atencao", step: "itens", message: `${label}: 3.3.90.39 é serviço, mas o objeto é bem.` })
+	else if ((nature === "servico" || nature === "servico_engenharia") && item.expenseNature.startsWith("3.3.90.30"))
+		add({ id: `nd-mismatch-${item.id}`, severity: "atencao", step: "itens", message: `${label}: 3.3.90.30 é material de consumo, mas o objeto é serviço.` })
+}
+
+// ── Preços ────────────────────────────────────────────────────────────────
+function checkPrices(run: CheckRun): void {
+	const { demand, add } = run
+	const isExclusive = demand.solution.exclusivity.isExclusive
+	for (const summary of run.prices.items) {
 		const index = demand.items.findIndex((item) => item.id === summary.itemId)
-		const label = `Item ${index + 1}`
-		if (summary.values.length === 0) add({ id: `price-${summary.itemId}`, severity: "bloqueia", step: "precos", message: `${label}: sem nenhum preço válido.` })
-		else if (!isExclusive && summary.values.length < MIN_QUOTES)
-			add({
-				id: `price-few-${summary.itemId}`,
-				severity: "atencao",
-				step: "precos",
-				message: `${label}: ${summary.values.length} preço(s) válido(s); a pesquisa direta pede no mínimo ${MIN_QUOTES}. Se não houver mais, registre as consultas sem resposta.`,
-				basis: "IN SEGES/ME nº 65/2021, art. 5º, IV, e § 2º",
-			})
-		if (summary.cv !== null && summary.cv > CV_THRESHOLD && demand.priceMethod !== "mediana")
-			add({
-				id: `cv-${summary.itemId}`,
-				severity: demand.priceMethod === "auto" ? "dica" : "atencao",
-				step: "precos",
-				message: `${label}: coeficiente de variação de ${(summary.cv * 100).toFixed(1)}%${demand.priceMethod === "auto" ? "; a estimativa usa a mediana" : ", acima de 25%: a média não representa o conjunto"}.`,
-				basis: "IN SEGES/ME nº 65/2021, art. 6º",
-			})
+		checkPriceSummary(run, summary, `Item ${index + 1}`, isExclusive)
 	}
+	checkQuotes(run)
+	const validSources = new Set(demand.quotes.filter((quote) => !quote.excludedReason.trim()).map((quote) => quote.source))
+	if (demand.solution.nature === "bem" && validSources.size === 1 && validSources.has("tabela_referencia"))
+		add({
+			id: "only-tables",
+			severity: "atencao",
+			step: "precos",
+			message: "Bem sob medida cotado só por tabela: tabelas e sítios servem de controle de razoabilidade; o preço vem das propostas.",
+			basis: LESSON,
+		})
+}
+
+function checkPriceSummary({ demand, add }: CheckRun, summary: CheckRun["prices"]["items"][number], label: string, isExclusive: boolean): void {
+	if (summary.values.length === 0) add({ id: `price-${summary.itemId}`, severity: "bloqueia", step: "precos", message: `${label}: sem nenhum preço válido.` })
+	else if (!isExclusive && summary.values.length < MIN_QUOTES)
+		add({
+			id: `price-few-${summary.itemId}`,
+			severity: "atencao",
+			step: "precos",
+			message: `${label}: ${summary.values.length} preço(s) válido(s); a pesquisa direta pede no mínimo ${MIN_QUOTES}. Se não houver mais, registre as consultas sem resposta.`,
+			basis: "IN SEGES/ME nº 65/2021, art. 5º, IV, e § 2º",
+		})
+	if (summary.cv !== null && summary.cv > CV_THRESHOLD && demand.priceMethod !== "mediana")
+		add({
+			id: `cv-${summary.itemId}`,
+			severity: demand.priceMethod === "auto" ? "dica" : "atencao",
+			step: "precos",
+			message: `${label}: coeficiente de variação de ${(summary.cv * 100).toFixed(1)}%${demand.priceMethod === "auto" ? "; a estimativa usa a mediana" : ", acima de 25%: a média não representa o conjunto"}.`,
+			basis: "IN SEGES/ME nº 65/2021, art. 6º",
+		})
+}
+
+/** Propostas vencidas, cotações dependentes e cotação sem fonte ou data. */
+function checkQuotes({ demand, today, add }: CheckRun): void {
 	for (const quoteId of expiredQuotes(demand.quotes, todayIso(today))) {
 		const quote = demand.quotes.find((candidate) => candidate.id === quoteId)
 		add({
@@ -399,17 +463,10 @@ export function checkDemand(demand: DemandPayload, today: Date = new Date()): De
 		if (!quote.supplier.trim() || !quote.date)
 			add({ id: `quote-${quote.id}`, severity: "atencao", step: "precos", message: "Toda cotação precisa da fonte (fornecedor ou sítio) e da data." })
 	}
-	const validSources = new Set(demand.quotes.filter((quote) => !quote.excludedReason.trim()).map((quote) => quote.source))
-	if (solution.nature === "bem" && validSources.size === 1 && validSources.has("tabela_referencia"))
-		add({
-			id: "only-tables",
-			severity: "atencao",
-			step: "precos",
-			message: "Bem sob medida cotado só por tabela: tabelas e sítios servem de controle de razoabilidade; o preço vem das propostas.",
-			basis: LESSON,
-		})
+}
 
-	// ── Riscos ────────────────────────────────────────────────────────────────
+// ── Riscos ────────────────────────────────────────────────────────────────
+function checkRisks({ demand, add, framing }: CheckRun): void {
 	const risks = demand.risks.filter((risk) => risk.risk.trim())
 	if (risks.length === 0)
 		add({ id: "risks", severity: "bloqueia", step: "riscos", message: "Registre os riscos da contratação (normalmente de 3 a 6).", basis: "art. 18, § 1º, X" })
@@ -423,41 +480,7 @@ export function checkDemand(demand: DemandPayload, today: Date = new Date()): De
 			message: `${risks.length} riscos: mapa longo parece lista genérica. Funda os de mesma causa e leve os genéricos a cláusula do TR.`,
 			basis: `${LESSON} (cerca: 10 riscos viraram 4)`,
 		})
-	for (const risk of risks) {
-		const label = `Risco "${risk.risk.slice(0, 50)}"`
-		if (risk.probability === null || risk.impact === null)
-			add({ id: `scale-${risk.id}`, severity: "bloqueia", step: "riscos", message: `${label}: informe probabilidade e impacto (1 a 5).` })
-		if (risk.probability === 5)
-			add({
-				id: `certain-${risk.id}`,
-				severity: "atencao",
-				step: "riscos",
-				message: `${label}: probabilidade 5 é fato certo; trate como premissa ou providência.`,
-			})
-		for (const [pattern, where] of GENERIC_RISKS)
-			if (pattern.test(risk.risk))
-				add({ id: `generic-${risk.id}`, severity: "atencao", step: "riscos", message: `${label} é genérico: ${where}.`, basis: LESSON })
-		if (!risk.preventiveAction.trim() || !risk.contingencyAction.trim())
-			add({ id: `actions-${risk.id}`, severity: "atencao", step: "riscos", message: `${label}: registre a ação preventiva e a de contingência.` })
-		if (!risk.preventiveOwner.trim() || !risk.contingencyOwner.trim())
-			add({ id: `owners-${risk.id}`, severity: "atencao", step: "riscos", message: `${label}: indique o responsável de cada ação (papel, em campo próprio).` })
-		if (/respons[áa]vel\s*:/i.test(`${risk.preventiveAction} ${risk.contingencyAction}`))
-			add({
-				id: `owner-in-text-${risk.id}`,
-				severity: "atencao",
-				step: "riscos",
-				message: `${label}: o responsável vai no campo próprio, não no texto da ação.`,
-				basis: LESSON,
-			})
-		if (!risk.allocationDetail.trim())
-			add({
-				id: `allocation-${risk.id}`,
-				severity: "atencao",
-				step: "riscos",
-				message: `${label}: detalhe por que o risco cabe a essa parte, a consequência contratual e a fronteira com o risco vizinho.`,
-				basis: "art. 103, § 1º",
-			})
-	}
+	for (const risk of risks) checkRisk(add, risk)
 	if (risks.some((risk) => risk.allocatedTo === "contratada") && framing.route !== "inexigibilidade_74_I")
 		add({
 			id: "risk-contractor",
@@ -467,8 +490,52 @@ export function checkDemand(demand: DemandPayload, today: Date = new Date()): De
 				'No Compras.gov.br, "Contratada" exige CNPJ, que só existe depois da adjudicação. Lance esses riscos depois da seleção ou como "Administração", com a consequência contratual no detalhamento.',
 			basis: LESSON,
 		})
+}
 
-	// ── Planejamento ──────────────────────────────────────────────────────────
+function checkRisk(add: CheckRun["add"], risk: Risk): void {
+	const label = `Risco "${risk.risk.slice(0, 50)}"`
+	if (risk.probability === null || risk.impact === null)
+		add({ id: `scale-${risk.id}`, severity: "bloqueia", step: "riscos", message: `${label}: informe probabilidade e impacto (1 a 5).` })
+	if (risk.probability === 5)
+		add({
+			id: `certain-${risk.id}`,
+			severity: "atencao",
+			step: "riscos",
+			message: `${label}: probabilidade 5 é fato certo; trate como premissa ou providência.`,
+		})
+	for (const [pattern, where] of GENERIC_RISKS)
+		if (pattern.test(risk.risk))
+			add({ id: `generic-${risk.id}`, severity: "atencao", step: "riscos", message: `${label} é genérico: ${where}.`, basis: LESSON })
+	checkRiskActions(add, risk, label)
+}
+
+/** Ações, responsáveis e alocação de um risco. */
+function checkRiskActions(add: CheckRun["add"], risk: Risk, label: string): void {
+	if (!risk.preventiveAction.trim() || !risk.contingencyAction.trim())
+		add({ id: `actions-${risk.id}`, severity: "atencao", step: "riscos", message: `${label}: registre a ação preventiva e a de contingência.` })
+	if (!risk.preventiveOwner.trim() || !risk.contingencyOwner.trim())
+		add({ id: `owners-${risk.id}`, severity: "atencao", step: "riscos", message: `${label}: indique o responsável de cada ação (papel, em campo próprio).` })
+	if (/respons[áa]vel\s*:/i.test(`${risk.preventiveAction} ${risk.contingencyAction}`))
+		add({
+			id: `owner-in-text-${risk.id}`,
+			severity: "atencao",
+			step: "riscos",
+			message: `${label}: o responsável vai no campo próprio, não no texto da ação.`,
+			basis: LESSON,
+		})
+	if (!risk.allocationDetail.trim())
+		add({
+			id: `allocation-${risk.id}`,
+			severity: "atencao",
+			step: "riscos",
+			message: `${label}: detalhe por que o risco cabe a essa parte, a consequência contratual e a fronteira com o risco vizinho.`,
+			basis: "art. 103, § 1º",
+		})
+}
+
+// ── Planejamento ──────────────────────────────────────────────────────────
+function checkPlanning({ demand, add }: CheckRun): void {
+	const { context, solution, planning } = demand
 	const roles = new Set(planning.team.filter((member) => member.name.trim()).map((member) => member.role))
 	if (!roles.has("requisitante") || !roles.has("tecnica"))
 		add({
@@ -490,11 +557,13 @@ export function checkDemand(demand: DemandPayload, today: Date = new Date()): De
 			message: "Descreva os impactos ambientais do objeto e as medidas de mitigação.",
 			basis: "art. 18, § 1º, XII",
 		})
+}
 
-	// ── Enquadramento ─────────────────────────────────────────────────────────
+// ── Enquadramento ─────────────────────────────────────────────────────────
+function checkFraming({ demand, add, prices, framing }: CheckRun): void {
 	for (const [index, warning] of framing.warnings.entries())
 		add({ id: `framing-${index}`, severity: framing.route === "licitacao" ? "dica" : "atencao", step: "precos", message: warning })
-	if ((framing.route === "dispensa_75_I" || framing.route === "dispensa_75_II") && planning.sameNatureSpent === 0)
+	if ((framing.route === "dispensa_75_I" || framing.route === "dispensa_75_II") && demand.planning.sameNatureSpent === 0)
 		add({
 			id: "same-nature",
 			severity: "dica",
@@ -510,8 +579,10 @@ export function checkDemand(demand: DemandPayload, today: Date = new Date()): De
 			step: "precos",
 			message: `Valor de ${formatBRL(prices.total)}: item até R$ 80.000,00 tem participação exclusiva de ME e EPP (art. 48, I, da LC nº 123/2006), salvo as exceções do art. 49.`,
 		})
+}
 
-	// ── Redação (todos os textos) ─────────────────────────────────────────────
+// ── Redação (todos os textos) ─────────────────────────────────────────────
+function checkWriting({ demand, add }: CheckRun): void {
 	for (const entry of freeTexts(demand)) {
 		if (/[—–]/.test(entry.value))
 			add({
@@ -531,7 +602,42 @@ export function checkDemand(demand: DemandPayload, today: Date = new Date()): De
 					basis: LESSON,
 				})
 	}
+}
 
+/**
+ * Etapas na ordem em que as pendências aparecem. A ordem importa além da tela: o `add`
+ * numera o id repetido pela ordem de chegada (`generic-k2`, `generic-k2-2`).
+ */
+const CHECK_STAGES: ReadonlyArray<(run: CheckRun) => void> = [
+	checkContext,
+	checkObjectives,
+	checkAlternatives,
+	checkSolution,
+	checkItems,
+	checkPrices,
+	checkRisks,
+	checkPlanning,
+	checkFraming,
+	checkWriting,
+]
+
+export function checkDemand(demand: DemandPayload, today: Date = new Date()): DemandCheck[] {
+	const checks: DemandCheck[] = []
+	// Ids únicos: viram chave de lista na tela, e o mesmo teste pode disparar duas vezes no
+	// mesmo lugar (dois requisitos com travessão, um risco que casa com dois genéricos).
+	const seen = new Map<string, number>()
+	const add = (check: DemandCheck) => {
+		const count = seen.get(check.id) ?? 0
+		seen.set(check.id, count + 1)
+		checks.push(count === 0 ? check : { ...check, id: `${check.id}-${count + 1}` })
+	}
+	const fundamentals = demand.objectives.filter((objective) => objective.kind === "fundamental" && objective.text.trim())
+	const means = demand.objectives.filter((objective) => objective.kind === "means" && objective.text.trim())
+	const prices = summarizePrices(demand)
+	const framing = frameProcurement(demand, prices.total, today)
+
+	const run: CheckRun = { demand, today, add, fundamentals, means, prices, framing }
+	for (const stage of CHECK_STAGES) stage(run)
 	return checks
 }
 

@@ -2,8 +2,8 @@ import type { EditScope, SetSnackClassification } from "@iefa/sisub-domain"
 import { getBrasiliaToday } from "@iefa/sisub-domain/civil-date"
 import { MAX_EVENT_MEALS } from "@iefa/sisub-domain/schemas"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { Link, type LinkOptions, useNavigate } from "@tanstack/react-router"
-import { AlertTriangle, CalendarPlus, Copy, GitFork, Layers, ListChecks, Loader2, Plus, Printer, Save, Users } from "lucide-react"
+import { type LinkOptions, useNavigate } from "@tanstack/react-router"
+import { Loader2 } from "lucide-react"
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react"
 import { AddModelMealDialog } from "@/components/features/local/planning/AddModelMealDialog"
 import { ApplyEventDialog } from "@/components/features/local/planning/ApplyEventDialog"
@@ -11,22 +11,44 @@ import { EventMealCard } from "@/components/features/local/planning/EventMealCar
 import { EventMealDialog } from "@/components/features/local/planning/EventMealDialog"
 import type { BoardArrangement, BoardItem } from "@/components/features/local/planning/MealGroupBoard"
 import type { MealTypeInfo } from "@/components/features/local/planning/MealTypeSection"
-import { MenuFindBar } from "@/components/features/local/planning/MenuFindBar"
 import { MenuHeadcountDialog } from "@/components/features/local/planning/MenuHeadcountDialog"
 import { MenuSelectionBar } from "@/components/features/local/planning/MenuSelectionBar"
+import {
+	ForkNotice,
+	GlobalEventMealsAlert,
+	OccasionContentSummary,
+	OccasionFillToolbar,
+	OccasionHeaderActions,
+	OccasionMealsEmpty,
+	OccasionMetadataCard,
+	OccasionNotFound,
+	OccasionSlotAlerts,
+} from "@/components/features/local/planning/OccasionMenuEditorParts"
+import {
+	buildInitialOccasionContent,
+	buildOccasionUpdates,
+	buildSlotOptions,
+	collectRecipeIdsInMeal,
+	deriveOccasionEditorFlags,
+	describeMealOrigin,
+	getKitchenId,
+	getLockedSlotName,
+	getMealDialogView,
+	getPrintTooltipLabel,
+	hasReadySlots,
+	isForkOnSave,
+	isTemplateOutOfContext,
+	type MealDialogState,
+	resolveSlotName,
+	saveBlockReason,
+} from "@/components/features/local/planning/occasion-menu-editor"
 import { RecipeSelector } from "@/components/features/local/planning/RecipeSelector"
-import { RecipeVersionBadge, RecipeVersionUpdateButton } from "@/components/features/local/planning/RecipeVersionUpdateDialog"
+import { RecipeVersionBadge } from "@/components/features/local/planning/RecipeVersionUpdateDialog"
 import { SnackStandardPanel } from "@/components/features/local/planning/SnackStandardPanel"
-import { type AutoSaveState, AutoSaveStatus } from "@/components/features/shared/AutoSaveStatus"
+import type { AutoSaveState } from "@/components/features/shared/AutoSaveStatus"
 import { UnsavedChangesGuard } from "@/components/features/shared/UnsavedChangesGuard"
 import { PageHeader } from "@/components/layout/PageHeader"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
-import { Input } from "@/components/ui/input"
 import { toast } from "@/components/ui/toast"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useTemplateRecipeVersions } from "@/hooks/business/useTemplateRecipeVersions"
 import { mealTypesQueryOptions } from "@/hooks/data/useMealTypes"
 import { useRecipes } from "@/hooks/data/useRecipes"
@@ -38,13 +60,11 @@ import {
 	countEventMealHeadcountTargets,
 	countItemsLeavingComposition,
 	type EventMealDraft,
-	eventDraftFrom,
 	eventItemsPayload,
 	eventMealsPayload,
 	mealsFromModel,
 	moveEventMeal,
 	newEventMeal,
-	newSupportKitMeal,
 	removeEventMeal,
 	setEventMealBase,
 	upsertEventMeal,
@@ -52,22 +72,16 @@ import {
 import { applyRecipeSelection, type HeadcountPlan, menuItemKey, removeMenuItems, replaceMenuRecipe, setItemHeadcount } from "@/lib/menu-fill"
 import {
 	EMPTY_SNACK_STANDARD_DRAFT,
-	isSnackStandard as isSnackStandardTemplate,
 	OCCASION_DAY,
 	OCCASION_MENU_COPY,
 	type OccasionMenuType,
-	parseMonthlyOccurrences,
 	proportionModeFor,
-	SNACK_MEAL_TYPE_NAME,
 	type SnackStandardDraft,
 	snackClassificationFromDraft,
-	snackDraftFromTemplate,
 	snackDraftIssues,
-	withLegacySnackPortions,
 } from "@/lib/occasion-menu"
 import { queryKeys } from "@/lib/query-keys"
 import { replaceRecipeVersions } from "@/lib/recipe-versions"
-import { catalogFolderPath } from "@/lib/template-catalog-tree"
 import type { TemplateItemDraft } from "@/types/domain/planning"
 
 /**
@@ -180,7 +194,7 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 	const copy = OCCASION_MENU_COPY[templateType]
 	const isSupportMenu = templateType === "apoio"
 	const proportionMode = proportionModeFor(templateType)
-	const kitchenId = editContext.scope === "kitchen" ? editContext.kitchenId : null
+	const kitchenId = getKitchenId(editContext)
 
 	const { data: template, isLoading: templateLoading } = useTemplate(templateId)
 	// No catálogo global só os tipos de refeição genéricos (kitchen_id = null). As query options
@@ -190,13 +204,10 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 	// as globais e a cozinha não enxergava as próprias preparações no cardápio.
 	const { data: allRecipes } = useRecipes({ kitchen_id: kitchenId })
 
-	// Template global aberto numa cozinha: salvar vai forkar. `menu_template` não é versionado,
-	// então a edição in-place de um global a partir da cozinha sobrescreveria o plano da FAB
-	// inteira sem histórico.
-	const willFork = editContext.scope === "kitchen" && template != null && template.kitchen_id == null
-	// A rota global só edita o catálogo; um template de cozinha aberto por ela seria recusado
-	// no salvamento (TEMPLATE_SCOPE_MISMATCH) depois de o usuário já ter editado tudo.
-	const outOfContext = template != null && (template.template_type !== templateType || (editContext.scope === "global" && template.kitchen_id != null))
+	// Template global aberto numa cozinha: salvar vai forkar (o porquê está em `isForkOnSave`).
+	const willFork = isForkOnSave(editContext, template)
+	// Template fora do contexto da rota: seria recusado no salvamento (`isTemplateOutOfContext`).
+	const outOfContext = isTemplateOutOfContext(template, templateType, editContext)
 
 	// Mesmo escopo: auto-save e "Salvar" gravam em fila, na ordem em que foram disparados.
 	const { mutate: saveTemplate, isPending: isSaving } = useSaveTemplateEdit({ scopeId: `template-save:${templateId}` })
@@ -206,17 +217,22 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 
 	const [editorState, dispatch] = useReducer(occasionEditorReducer, initialOccasionEditorState)
 	const { name, description, occurrences, items, initialized, selectorOpen, selectedMealTypeId, selectedGroup, snack, eventMeals } = editorState
-	const isSnackStandard = isSupportMenu && snack.enabled
+	// Quantidade absoluta, padrão de lanche, modelo global… — as regras estão em `deriveOccasionEditorFlags`.
+	const {
+		isSnackStandard,
+		isKitchenTemplate,
+		allowAbsolutes,
+		allowMealAbsolutes,
+		isGlobalEvent,
+		canAddModelMeal,
+		showOccurrences,
+		canApplyToCalendar,
+		isSuggestedSlot,
+		headcountScope,
+	} = deriveOccasionEditorFlags({ editContext, templateType, isSupportMenu, snackEnabled: snack.enabled, willFork, kitchenId })
 	// Tipo de refeição de sistema dos padrões de lanche — `fetchMealTypes` não o devolve. Buscado
 	// em todo apoio: um que DEIXOU de ser padrão ainda pode ter refeição nele.
 	const { data: snackMealType, error: snackMealTypeError, isFetched: snackMealTypeFetched } = useSnackMealType(isSupportMenu)
-	// Na cozinha tudo termina local (edição in-place ou cópia); no catálogo global é só molde.
-	const isKitchenTemplate = editContext.scope === "kitchen"
-	// Quantidade ABSOLUTA (pax, efetivo, kits, ocorrências) é da cozinha: o modelo global só guarda
-	// a relativa (proporção, preparações por grupo). No padrão de lanche os kits vêm do pedido, e o
-	// pax seria lido como porções por kit — por isso ele também não mostra efetivo nem pax.
-	const allowAbsolutes = isKitchenTemplate
-	const allowMealAbsolutes = allowAbsolutes && !isSnackStandard
 	// Data civil de Brasília: o mesmo "hoje" que o painel usa para cobrar a revisão trimestral.
 	const snackIssues = useMemo(() => snackDraftIssues(snack, getBrasiliaToday()), [snack])
 	const hasSnackIssues = Object.keys(snackIssues).length > 0
@@ -242,7 +258,7 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 	/** Refeição do evento no diálogo: nova (ainda fora do rascunho) ou existente. */
 	// `open` à parte do conteúdo: fechar mantém refeição e modo até a animação terminar — sem
 	// isso o título trocava para "Editar refeição" enquanto o diálogo de uma NOVA saía da tela.
-	const [mealDialog, setMealDialog] = useState<{ meal: EventMealDraft; isNew: boolean; open: boolean } | null>(null)
+	const [mealDialog, setMealDialog] = useState<MealDialogState>(null)
 	const prevInitializedRef = useRef(false)
 	const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 	// Conteúdo da última gravação bem-sucedida. O efeito de auto-save também reage à troca
@@ -258,32 +274,15 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 	contentSignatureRef.current = contentSignature
 
 	const updates = useMemo(
-		() => ({
-			name: name.trim(),
-			description: description.trim() || null,
-			// Só o apoio tem recorrência — e só na cozinha. No modelo global vai `null`: limpa o número
-			// que um modelo antigo tenha (o servidor o recusaria). Mandar `null` num evento local
-			// limparia a coluna à toa.
-			...(isSupportMenu || !allowAbsolutes ? { expected_monthly_occurrences: allowAbsolutes ? parseMonthlyOccurrences(occurrences) : null } : {}),
-		}),
+		() => buildOccasionUpdates({ name, description, occurrences, isSupportMenu, allowAbsolutes }),
 		[name, description, occurrences, isSupportMenu, allowAbsolutes]
 	)
 
-	// Modelo global de evento é uma variante: uma refeição. Outra opção é outro modelo na pasta.
-	const isGlobalEvent = editContext.scope === "global" && templateType === "event"
-	// Evento da cozinha monta-se com refeições de modelos (composição, não herança).
-	const canAddModelMeal = editContext.scope === "kitchen" && templateType === "event" && !willFork
 	const { mutate: duplicateVariant, isPending: isDuplicating } = useDuplicateTemplateAsVariant()
 	// Procedência das refeições: o nome e a pasta do modelo de onde vieram.
 	const { data: scopeTemplates } = useMenuTemplates(kitchenId)
 	const { data: folders } = useTemplateFolders(kitchenId !== null ? templateType : null)
-	const originLabel = (sourceTemplateId: string | null | undefined) => {
-		if (!sourceTemplateId) return null
-		const source = scopeTemplates?.find((t) => t.id === sourceTemplateId)
-		if (!source) return "modelo removido"
-		const path = source.kitchen_id == null ? catalogFolderPath(folders, source.folder_id) : null
-		return path ? `${path} · ${source.name}` : (source.name ?? "modelo")
-	}
+	const originLabel = (sourceTemplateId: string | null | undefined) => describeMealOrigin(scopeTemplates, folders, sourceTemplateId)
 
 	const payloadItems = useMemo(() => eventItemsPayload(items, eventMeals, { allowItemHeadcount: allowMealAbsolutes }), [items, eventMeals, allowMealAbsolutes])
 	const payloadEventMeals = useMemo(() => eventMealsPayload(eventMeals, { allowBase: allowMealAbsolutes }), [eventMeals, allowMealAbsolutes])
@@ -291,27 +290,16 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 	// ser gravada: o salvamento a cobra em vez de o servidor recusar o cardápio inteiro.
 	const mealWithoutSlot = eventMeals.find((m) => m.meal_type_id === "")
 
-	// O apoio sem refeição abre com o "Kit", e o horário dele depende dos tipos de refeição: a
-	// carga espera por eles (e pelo de sistema dos lanches) para não nascer sem horário.
-	const slotsReady = !isSupportMenu || (mealTypesFetched && snackMealTypeFetched)
+	// O apoio sem refeição abre com o "Kit": a carga espera pelos horários (`hasReadySlots`).
+	const slotsReady = hasReadySlots(isSupportMenu, mealTypesFetched, snackMealTypeFetched)
 	useEffect(() => {
 		if (!template || initialized || !slotsReady) return
-		dispatch({ type: "SET_NAME", value: template.name ?? "" })
-		dispatch({ type: "SET_DESCRIPTION", value: template.description ?? "" })
-		dispatch({ type: "SET_OCCURRENCES", value: template.expected_monthly_occurrences != null ? String(template.expected_monthly_occurrences) : "" })
-		const isSnack = isSupportMenu && isSnackStandardTemplate(template)
-		// Padrão gravado antes da proporção única guardava as porções por kit no pax.
-		const storedItems = isSnack ? template.items.map(withLegacySnackPortions) : template.items
-		const draft = eventDraftFrom(template.event_meals, storedItems, templateType)
-		// Apoio sem refeição nenhuma: o kit simples, sem grupos. Padrão de lanche fica no horário de
-		// sistema; os demais, no primeiro horário da cozinha (a refeição deixa trocar).
-		if (isSupportMenu && draft.meals.length === 0) {
-			const slot = (isSnack ? snackMealType?.id : undefined) ?? mealTypes?.[0]?.id ?? snackMealType?.id ?? ""
-			draft.meals.push(newSupportKitMeal(slot))
-		}
-		const meals = isSnack && snackMealType ? draft.meals.map((m) => ({ ...m, meal_type_id: snackMealType.id })) : draft.meals
-		dispatch({ type: "SET_EVENT_CONTENT", meals, items: draft.items })
-		dispatch({ type: "SET_SNACK", value: snackDraftFromTemplate(template) })
+		const initial = buildInitialOccasionContent(template, { isSupportMenu, templateType, mealTypes, snackMealType })
+		dispatch({ type: "SET_NAME", value: initial.name })
+		dispatch({ type: "SET_DESCRIPTION", value: initial.description })
+		dispatch({ type: "SET_OCCURRENCES", value: initial.occurrences })
+		dispatch({ type: "SET_EVENT_CONTENT", meals: initial.meals, items: initial.items })
+		dispatch({ type: "SET_SNACK", value: initial.snack })
 		dispatch({ type: "SET_INITIALIZED" })
 	}, [template, initialized, slotsReady, isSupportMenu, templateType, mealTypes, snackMealType])
 
@@ -596,16 +584,9 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 
 	/** `afterSave`: o que fazer com o id gravado (o do fork, se houve) — no lugar de trocar a rota para o editor dele. */
 	const handleSave = (afterSave?: (savedId: string) => void) => {
-		if (!name.trim()) {
-			toast.error(`Dê um nome ${copy.article === "o" ? "ao" : "à"} ${copy.noun} antes de salvar.`)
-			return
-		}
-		if (hasSnackIssues) {
-			toast.error("Corrija os campos do padrão de lanche antes de salvar.")
-			return
-		}
-		if (mealWithoutSlot) {
-			toast.error(`Escolha o horário da refeição "${mealWithoutSlot.name}" antes de salvar.`)
+		const blockReason = saveBlockReason({ name, hasSnackIssues, mealWithoutSlot, copy })
+		if (blockReason) {
+			toast.error(blockReason)
 			return
 		}
 		if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
@@ -641,23 +622,14 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 	/** Refeições do cardápio — é por elas que o localizar, a seleção e o quantitativo agrupam. */
 	const hasItemsUnder = (mealId: string) => items.some((i) => i.meal_type_id === mealId)
 	const sectionMealTypes: MealTypeInfo[] = eventMeals.map((m) => ({ id: m.id, name: m.name }))
-	/**
-	 * Horários que a refeição pode escolher: os da cozinha e, num apoio com refeição no horário de
-	 * sistema dos lanches (padrão, ou padrão que deixou de ser), também ele.
-	 */
-	const slotOptions: MealTypeInfo[] = [
-		...(mealTypes ?? []),
-		...(snackMealType && !mealTypes?.some((mt) => mt.id === snackMealType.id) && eventMeals.some((m) => m.meal_type_id === snackMealType.id)
-			? [snackMealType]
-			: []),
-	]
-	const slotName = (mealTypeId: string) =>
-		mealTypes?.find((mt) => mt.id === mealTypeId)?.name ?? (snackMealType?.id === mealTypeId ? (snackMealType.name ?? SNACK_MEAL_TYPE_NAME) : null)
+	/** Horários que a refeição pode escolher (os da cozinha e, se preciso, o de sistema dos lanches). */
+	const slotOptions: MealTypeInfo[] = buildSlotOptions(mealTypes, snackMealType, eventMeals)
+	const slotName = (mealTypeId: string) => resolveSlotName(mealTypes, snackMealType, mealTypeId)
 
 	const totalRecipes = items.length
 	const groupsWithContent = sectionMealTypes.filter((mt) => hasItemsUnder(mt.id)).length
 
-	const currentSelectorRecipeIds = selectedMealTypeId ? items.flatMap((i) => (i.meal_type_id === selectedMealTypeId ? [i.recipe_id] : [])) : []
+	const currentSelectorRecipeIds = collectRecipeIdsInMeal(items, selectedMealTypeId)
 
 	// ── Render ─────────────────────────────────────────────────────────────────
 
@@ -670,19 +642,11 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 	}
 
 	if (!template || outOfContext) {
-		return (
-			<div className="p-8 text-center bg-destructive/10 text-destructive rounded-md">
-				<p className="text-subheading">
-					{copy.singular} não {copy.article === "o" ? "encontrado" : "encontrada"}.
-				</p>
-				<Button variant="link" size="sm" className="mt-2" onClick={() => navigate(listLink)}>
-					← Voltar para {copy.plural.toLowerCase()}
-				</Button>
-			</div>
-		)
+		return <OccasionNotFound copy={copy} onBack={() => navigate(listLink)} />
 	}
 
 	const namePlaceholder = copy.namePlaceholder.split(",")[0]
+	const mealDialogView = getMealDialogView(mealDialog)
 	// Mesmo critério do "Duplicar como variante": o que está na tela ainda não foi gravado.
 	const hasPendingChanges = contentSignature !== savedSignatureRef.current
 	/**
@@ -707,129 +671,47 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 	return (
 		<div className="space-y-6">
 			<PageHeader title={`Editar ${copy.singular}`} onBack={() => navigate(listLink)}>
-				<div className="flex items-center gap-2">
-					<AutoSaveStatus status={saveStatus} onRetry={() => handleSave()} />
-					<RecipeVersionUpdateButton outdated={outdated} onApply={handleUpdateVersions} />
-					{/* A folha lê o que está GRAVADO: com edição pendente, o clique salva antes e abre a folha do
-					    que foi gravado. Link de verdade, para abrir em outra aba quando não há pendência. */}
-					<Tooltip>
-						<TooltipTrigger
-							render={
-								<Button
-									nativeButton={false}
-									type="button"
-									variant="outline"
-									size="sm"
-									render={
-										<Link
-											{...printLink(templateId)}
-											onClick={(e) => {
-												if (!hasPendingChanges) return
-												e.preventDefault()
-												handleSave(printAfterSave)
-											}}
-										>
-											<Printer className="size-4 sm:mr-2" />
-											<span className="hidden sm:inline">Imprimir</span>
-										</Link>
-									}
-								/>
-							}
-						></TooltipTrigger>
-						<TooltipContent>
-							{!hasPendingChanges
-								? `Imprimir / baixar PDF ${copy.article === "o" ? "do" : "da"} ${copy.noun}`
-								: willFork
-									? "Salvar a cópia desta cozinha e imprimir"
-									: "Salvar e imprimir / baixar PDF"}
-						</TooltipContent>
-					</Tooltip>
-					{/* Aplicar é materializar no calendário de UMA cozinha — não existe no catálogo.
-						    Padrão de lanche não entra por aqui: a produção dele nasce do aceite do pedido, e
-						    nele o número do item é porções por KIT, não efetivo do dia. */}
-					{kitchenId !== null && !isSnackStandard && (
-						<Button variant="outline" size="sm" disabled={totalRecipes === 0} onClick={() => setApplyOpen(true)}>
-							<CalendarPlus className="size-4 mr-2" />
-							Aplicar ao Calendário
-						</Button>
-					)}
-					{editContext.scope === "global" && (
-						<Button
-							variant="outline"
-							size="sm"
-							// A variante sai do que está GRAVADO: com edição ainda não salva, ela não levaria o que está na tela.
-							disabled={isDuplicating || contentSignature !== savedSignatureRef.current}
-							title={contentSignature !== savedSignatureRef.current ? "Espere o salvamento automático para duplicar." : undefined}
-							onClick={() => duplicateVariant(templateId, { onSuccess: (created) => navigate(editorLink(created.id)) })}
-						>
-							<Copy className="size-4 mr-2" />
-							Duplicar como variante
-						</Button>
-					)}
-					<Button type="button" variant="outline" size="sm" onClick={() => navigate(listLink)}>
-						Cancelar
-					</Button>
-					<Button size="sm" disabled={isSaving || !name.trim()} onClick={() => handleSave()}>
-						{isSaving ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Save className="size-4 mr-2" />}
-						Salvar
-					</Button>
-				</div>
+				<OccasionHeaderActions
+					saveStatus={saveStatus}
+					onRetry={() => handleSave()}
+					outdated={outdated}
+					onApplyVersions={handleUpdateVersions}
+					printLinkOptions={printLink(templateId)}
+					onPrintClick={(e) => {
+						if (!hasPendingChanges) return
+						e.preventDefault()
+						handleSave(printAfterSave)
+					}}
+					printTooltip={getPrintTooltipLabel(hasPendingChanges, willFork, copy)}
+					canApplyToCalendar={canApplyToCalendar}
+					totalRecipes={totalRecipes}
+					onOpenApply={() => setApplyOpen(true)}
+					isGlobalScope={editContext.scope === "global"}
+					isDuplicating={isDuplicating}
+					hasPendingChanges={contentSignature !== savedSignatureRef.current}
+					onDuplicate={() => duplicateVariant(templateId, { onSuccess: (created) => navigate(editorLink(created.id)) })}
+					onCancel={() => navigate(listLink)}
+					isSaving={isSaving}
+					name={name}
+					onSave={() => handleSave()}
+				/>
 			</PageHeader>
 
-			{willFork && (
-				<Alert>
-					<GitFork className="size-4" />
-					<AlertTitle>Modelo global</AlertTitle>
-					<AlertDescription>
-						{copy.article === "o" ? "Este" : "Esta"} {copy.noun} é do catálogo global da SDAB. Ao salvar, uma cópia local desta cozinha é criada com as suas
-						alterações — o modelo global permanece intacto e as demais unidades continuam vendo o original. O salvamento automático fica desligado até lá.
-					</AlertDescription>
-				</Alert>
-			)}
+			{willFork && <ForkNotice copy={copy} />}
 
 			<div className="space-y-6">
 				{/* Metadata */}
-				<Card>
-					<CardContent>
-						<FieldGroup className={isSupportMenu && allowAbsolutes ? "grid grid-cols-1 md:grid-cols-3 gap-4" : "grid grid-cols-1 md:grid-cols-2 gap-4"}>
-							<Field>
-								<FieldLabel htmlFor="name">
-									Nome <span className="text-destructive">*</span>
-								</FieldLabel>
-								<Input id="name" value={name} onChange={(e) => dispatch({ type: "SET_NAME", value: e.target.value })} placeholder={namePlaceholder} required />
-							</Field>
-							{/* Ocorrências por mês são da cozinha: o modelo global não as tem. */}
-							{isSupportMenu && allowAbsolutes && (
-								<Field>
-									<FieldLabel htmlFor="occurrences">{isSnackStandard ? "Kits por mês" : "Ocorrências/mês"}</FieldLabel>
-									<Input
-										id="occurrences"
-										type="number"
-										min={1}
-										inputMode="numeric"
-										value={occurrences}
-										onChange={(e) => dispatch({ type: "SET_OCCURRENCES", value: e.target.value })}
-										placeholder={isSnackStandard ? "Ex.: 40" : "Ex.: 30"}
-									/>
-									{isSnackStandard && (
-										<FieldDescription>
-											O anexo quantitativo multiplica igual: porções por kit × kits por mês × vigência. Em branco, conta como 1 kit.
-										</FieldDescription>
-									)}
-								</Field>
-							)}
-							<Field>
-								<FieldLabel htmlFor="description">Descrição (opcional)</FieldLabel>
-								<Input
-									id="description"
-									value={description}
-									onChange={(e) => dispatch({ type: "SET_DESCRIPTION", value: e.target.value })}
-									placeholder="Contexto ou observações"
-								/>
-							</Field>
-						</FieldGroup>
-					</CardContent>
-				</Card>
+				<OccasionMetadataCard
+					name={name}
+					description={description}
+					occurrences={occurrences}
+					namePlaceholder={namePlaceholder}
+					showOccurrences={showOccurrences}
+					isSnackStandard={isSnackStandard}
+					onNameChange={(value) => dispatch({ type: "SET_NAME", value })}
+					onDescriptionChange={(value) => dispatch({ type: "SET_DESCRIPTION", value })}
+					onOccurrencesChange={(value) => dispatch({ type: "SET_OCCURRENCES", value })}
+				/>
 
 				{/* Sumário */}
 				{isSupportMenu && (
@@ -844,106 +726,34 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 					/>
 				)}
 
-				{isSnackStandard && snackMealTypeError && (
-					<Alert variant="destructive">
-						<AlertTitle>Tipo de refeição dos lanches indisponível</AlertTitle>
-						<AlertDescription>
-							Não foi possível carregar o horário "Lanches de Bordo/Apoio" ({snackMealTypeError.message}). As refeições do padrão ficam nele de todo modo: o
-							servidor as fixa ao salvar.
-						</AlertDescription>
-					</Alert>
-				)}
+				<OccasionSlotAlerts isSnackStandard={isSnackStandard} snackMealTypeError={snackMealTypeError} mealWithoutSlot={mealWithoutSlot} />
 
-				{mealWithoutSlot && (
-					<Alert variant="destructive">
-						<AlertTriangle className="size-4" />
-						<AlertTitle>Refeição sem horário</AlertTitle>
-						<AlertDescription>
-							Escolha em que horário do calendário "{mealWithoutSlot.name}" é servida (lápis da refeição). Sem ele o cardápio não é salvo.
-						</AlertDescription>
-					</Alert>
-				)}
-
-				{(totalRecipes > 0 || sectionMealTypes.length > 0) && (
-					<div className="flex items-center gap-4 text-sm text-muted-foreground px-1">
-						<span>
-							<strong className="text-foreground tabular-nums">{totalRecipes}</strong> {totalRecipes === 1 ? "preparação" : "preparações"}{" "}
-							{copy.article === "o" ? "no" : "na"} {copy.noun}
-						</span>
-						{sectionMealTypes.length > 1 && (
-							<>
-								<span className="text-muted-foreground/40">·</span>
-								<span>
-									<strong className="text-foreground tabular-nums">{groupsWithContent}</strong>/{sectionMealTypes.length} refeições com preparação
-								</span>
-							</>
-						)}
-					</div>
-				)}
+				<OccasionContentSummary totalRecipes={totalRecipes} mealCount={sectionMealTypes.length} groupsWithContent={groupsWithContent} copy={copy} />
 
 				{/* Preenchimento: localizar, quantitativo por refeição e seleção em massa */}
-				<div className="flex flex-wrap items-center gap-2">
-					<MenuFindBar
-						items={items}
-						nameOf={(recipeId) => recipeById.get(recipeId)?.name}
-						mealTypeOrder={sectionMealTypes.map((m) => m.id)}
-						dayLabel={null}
-						mealLabel={(mealTypeId) => sectionMealTypes.find((m) => m.id === mealTypeId)?.name ?? "Refeição"}
-						kitchenId={kitchenId}
-						onGoTo={(match) => setHighlightedKey(match.key)}
-						onReplaceAll={(keys, recipeId) => dispatch({ type: "SET_ITEMS", value: replaceMenuRecipe(items, keys, recipeId) })}
-						onSelectMatches={(keys) => {
-							setSelectionMode(true)
-							addToSelection(keys)
-						}}
-					/>
-					{/* O auxiliador preenche o efetivo (kits) de cada refeição — número da cozinha: some no
-					    modelo global e no padrão de lanche, cujos kits vêm do pedido. */}
-					{allowMealAbsolutes && (
-						<Button type="button" variant="outline" size="sm" onClick={() => setHeadcountOpen(true)}>
-							<Users className="size-4 sm:mr-2" />
-							<span className="hidden sm:inline">Quantitativo</span>
-						</Button>
-					)}
-					<Button
-						type="button"
-						variant={selectionMode ? "default" : "outline"}
-						size="sm"
-						onClick={() => (selectionMode ? exitSelectionMode() : setSelectionMode(true))}
-					>
-						<ListChecks className="size-4 sm:mr-2" />
-						<span className="hidden sm:inline">{selectionMode ? "Sair da seleção" : "Selecionar"}</span>
-					</Button>
-					{canAddModelMeal && (
-						<Button type="button" size="sm" variant="outline" disabled={eventMeals.length >= MAX_EVENT_MEALS} onClick={() => setModelMealOpen(true)}>
-							<Layers />
-							Refeição de um modelo
-						</Button>
-					)}
-					{/* Modelo global de evento tem uma refeição: outra opção é outro modelo ("Duplicar como variante"). */}
-					{!(isGlobalEvent && eventMeals.length >= 1) && (
-						<Button
-							type="button"
-							size="sm"
-							// Teto do schema: a refeição a mais faria o servidor recusar o cardápio inteiro.
-							disabled={eventMeals.length >= MAX_EVENT_MEALS}
-							onClick={openNewMeal}
-						>
-							<Plus />
-							Nova refeição
-						</Button>
-					)}
-				</div>
-				{isGlobalEvent && eventMeals.length > 1 && (
-					<Alert variant="destructive">
-						<AlertTriangle className="size-4" />
-						<AlertTitle>Modelo com mais de uma refeição</AlertTitle>
-						<AlertDescription>
-							Modelo global de evento é uma opção de um formato só. Deixe aqui uma refeição e crie as outras como modelos nas pastas delas; sem isso, o
-							salvamento é recusado.
-						</AlertDescription>
-					</Alert>
-				)}
+				<OccasionFillToolbar
+					items={items}
+					nameOf={(recipeId) => recipeById.get(recipeId)?.name}
+					sectionMealTypes={sectionMealTypes}
+					kitchenId={kitchenId}
+					onGoTo={(match) => setHighlightedKey(match.key)}
+					onReplaceAll={(keys, recipeId) => dispatch({ type: "SET_ITEMS", value: replaceMenuRecipe(items, keys, recipeId) })}
+					onSelectMatches={(keys) => {
+						setSelectionMode(true)
+						addToSelection(keys)
+					}}
+					showHeadcount={allowMealAbsolutes}
+					onOpenHeadcount={() => setHeadcountOpen(true)}
+					selectionMode={selectionMode}
+					onEnterSelection={() => setSelectionMode(true)}
+					onExitSelection={exitSelectionMode}
+					canAddModelMeal={canAddModelMeal}
+					isGlobalEvent={isGlobalEvent}
+					mealCount={eventMeals.length}
+					onOpenModelMeal={() => setModelMealOpen(true)}
+					onNewMeal={openNewMeal}
+				/>
+				<GlobalEventMealsAlert isGlobalEvent={isGlobalEvent} mealCount={eventMeals.length} />
 
 				{/* Refeições do cardápio: cada uma com a própria composição */}
 				{eventMeals.length > 0 ? (
@@ -979,46 +789,33 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 						})}
 					</div>
 				) : (
-					<div className="rounded-md border border-dashed p-10 text-center">
-						<p className="text-sm text-muted-foreground mb-1">
-							{copy.article === "o" ? "Este" : "Esta"} {copy.noun} ainda não tem refeições.
-						</p>
-						<p className="text-xs text-muted-foreground/60 mb-3">
-							{isSupportMenu
-								? 'Crie a refeição do kit — ou "Refeição" e "Lanche", quando o kit tiver as duas — e ponha as preparações nela.'
-								: "Crie as refeições do evento — coquetel, jantar de gala… — e monte a composição de cada uma: entradas, volantes, prato principal."}
-						</p>
-						<Button type="button" size="sm" variant="outline" onClick={openNewMeal}>
-							<Plus />
-							Nova refeição
-						</Button>
-					</div>
+					<OccasionMealsEmpty copy={copy} isSupportMenu={isSupportMenu} onNewMeal={openNewMeal} />
 				)}
 			</div>
 
 			<EventMealDialog
-				open={mealDialog?.open ?? false}
+				open={mealDialogView.open}
 				onOpenChange={(open) => {
 					if (!open) setMealDialog((current) => (current ? { ...current, open: false } : null))
 				}}
-				meal={mealDialog?.meal ?? null}
-				isNew={mealDialog?.isNew ?? false}
+				meal={mealDialogView.meal}
+				isNew={mealDialogView.isNew}
 				mealTypes={slotOptions}
 				countLeaving={(mealId, groups) => countItemsLeavingComposition(items, mealId, groups)}
 				onSubmit={handleSubmitEventMeal}
 				templateType={templateType}
 				allowBase={allowMealAbsolutes}
 				// Padrão de lanche: o horário é o de sistema, fixado pelo servidor ao salvar.
-				lockedSlotName={isSnackStandard ? (snackMealType?.name ?? SNACK_MEAL_TYPE_NAME) : null}
+				lockedSlotName={getLockedSlotName(isSnackStandard, snackMealType)}
 				// No modelo global o horário é sugestão: a cozinha escolhe ao aplicar ou montar.
-				isSuggestedSlot={editContext.scope === "global" && !isSnackStandard}
+				isSuggestedSlot={isSuggestedSlot}
 			/>
 
 			<MenuHeadcountDialog
 				open={headcountOpen}
 				onOpenChange={setHeadcountOpen}
 				mealTypes={sectionMealTypes}
-				scope={isSupportMenu ? "support-meal-kits" : "event-meal-base"}
+				scope={headcountScope}
 				countTargets={(plan, overwrite) => countEventMealHeadcountTargets(eventMeals, plan, { overwrite })}
 				onApply={handleApplyHeadcountPlan}
 			/>
