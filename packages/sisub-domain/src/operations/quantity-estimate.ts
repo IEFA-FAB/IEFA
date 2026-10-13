@@ -748,30 +748,30 @@ export async function updateQuantityEstimateDraft(db: SisubDb, ctx: UserContext,
 // ─── Salvar itens calculados no rascunho (substitui todos) ───────────────────
 
 /** Texto vazio, nulo ou ausente vira `null` — o `x || null` dos campos de texto do item. */
-function blankToNull(value: string | null | undefined): string | null {
+function toNullIfBlank(value: string | null | undefined): string | null {
 	return value || null
 }
 
 function buildItemPayload(item: DraftItem, draftId: string, computedAt: string): ItemInsert {
 	return {
 		quantityEstimateId: draftId,
-		ingredientId: blankToNull(item.ingredient_id),
+		ingredientId: toNullIfBlank(item.ingredient_id),
 		ingredientName: item.ingredient_name,
-		folderId: blankToNull(item.folder_id),
-		folderDescription: blankToNull(item.folder_description),
+		folderId: toNullIfBlank(item.folder_id),
+		folderDescription: toNullIfBlank(item.folder_description),
 		// Mesma forma do código do catálogo que o insumo grava: rascunho antigo no cliente ("kg") não
 		// vira linha fora do catálogo no anexo.
 		measureUnit: toMeasureUnitCode(item.measure_unit),
 		estimatedQuantity: item.estimated_quantity,
-		purchaseItemId: blankToNull(item.purchase_item_id),
-		purchaseItemDescription: blankToNull(item.purchase_item_description),
-		purchaseMeasureUnit: blankToNull(item.purchase_measure_unit),
+		purchaseItemId: toNullIfBlank(item.purchase_item_id),
+		purchaseItemDescription: toNullIfBlank(item.purchase_item_description),
+		purchaseMeasureUnit: toNullIfBlank(item.purchase_measure_unit),
 		purchaseQuantity: item.purchase_quantity ?? null,
 		conversionFactor: item.conversion_factor ?? null,
 		catmatItemCodigo: item.catmat_item_codigo ?? null,
-		catmatItemDescricao: blankToNull(item.catmat_item_descricao),
+		catmatItemDescricao: toNullIfBlank(item.catmat_item_descricao),
 		unitPrice: item.unit_price ?? null,
-		itemDescription: blankToNull(item.item_description),
+		itemDescription: toNullIfBlank(item.item_description),
 		computedAt,
 		// Ausente não entra no payload: o update preserva a escolha gravada. Recalcular a estimada
 		// não pode apagar o acréscimo ou o mínimo que alguém ajustou no item.

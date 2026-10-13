@@ -4,16 +4,16 @@
  */
 import { afterEach, describe, expect, test, vi } from "vitest"
 import {
-	invoiceLinkWarnings,
+	buildReceiptContextEmpenho,
+	buildReceiptContextInvoice,
+	buildReceiptContextSupplyOrder,
+	collectInvoiceLinkWarnings,
+	formatSupplyOrderLabel,
+	getLinkResultCounts,
 	isSwitchingNfe,
 	type LinkInvoiceItem,
 	type LinkReceiptLine,
-	linkResultCounts,
 	planInvoiceLink,
-	receiptContextEmpenho,
-	receiptContextInvoice,
-	receiptContextSupplyOrder,
-	supplyOrderLabel,
 } from "@/lib/receipt-documents"
 
 afterEach(() => {
@@ -113,10 +113,10 @@ describe("planInvoiceLink", () => {
 	})
 })
 
-describe("invoiceLinkWarnings", () => {
+describe("collectInvoiceLinkWarnings", () => {
 	test("CNPJ da nota primeiro; sem ele, o CPF; documento da entrega ausente vira nulo", () => {
 		expect(
-			invoiceLinkWarnings({
+			collectInvoiceLinkWarnings({
 				receiptSupplierDocument: "111",
 				empenhoSupplierCnpj: "222",
 				invoice: { supplier_cnpj: "333", supplier_cpf: "111" },
@@ -130,7 +130,7 @@ describe("invoiceLinkWarnings", () => {
 			"O recebimento já foi efetivado: o vínculo não muda quantidade, custo nem estoque.",
 		])
 		expect(
-			invoiceLinkWarnings({
+			collectInvoiceLinkWarnings({
 				receiptSupplierDocument: undefined,
 				empenhoSupplierCnpj: null,
 				invoice: { supplier_cnpj: null, supplier_cpf: "111" },
@@ -141,19 +141,19 @@ describe("invoiceLinkWarnings", () => {
 	})
 })
 
-describe("linkResultCounts", () => {
+describe("getLinkResultCounts", () => {
 	test("primeira linha da função; sem linha, zero", () => {
-		expect(linkResultCounts([{ linked_items: 3, costed_items: 1 }])).toEqual({ linkedItems: 3, costedItems: 1 })
-		expect(linkResultCounts([])).toEqual({ linkedItems: 0, costedItems: 0 })
-		expect(linkResultCounts(null)).toEqual({ linkedItems: 0, costedItems: 0 })
-		expect(linkResultCounts([{ linked_items: null, costed_items: null }])).toEqual({ linkedItems: 0, costedItems: 0 })
+		expect(getLinkResultCounts([{ linked_items: 3, costed_items: 1 }])).toEqual({ linkedItems: 3, costedItems: 1 })
+		expect(getLinkResultCounts([])).toEqual({ linkedItems: 0, costedItems: 0 })
+		expect(getLinkResultCounts(null)).toEqual({ linkedItems: 0, costedItems: 0 })
+		expect(getLinkResultCounts([{ linked_items: null, costed_items: null }])).toEqual({ linkedItems: 0, costedItems: 0 })
 	})
 })
 
 describe("contexto do recebimento", () => {
 	test("rótulo da OF", () => {
-		expect(supplyOrderLabel("12/2026")).toBe("OF 12/2026")
-		expect(supplyOrderLabel(null)).toBe("OF sem número")
+		expect(formatSupplyOrderLabel("12/2026")).toBe("OF 12/2026")
+		expect(formatSupplyOrderLabel(null)).toBe("OF sem número")
 	})
 
 	const note = {
@@ -165,17 +165,17 @@ describe("contexto do recebimento", () => {
 	}
 
 	test("sem nota, nada", () => {
-		expect(receiptContextInvoice(null)).toBeNull()
+		expect(buildReceiptContextInvoice(null)).toBeNull()
 	})
 
 	test("nota autorizada e consultada há pouco: sem problema", () => {
 		vi.useFakeTimers()
 		vi.setSystemTime(new Date("2026-10-13T12:00:00Z"))
-		expect(receiptContextInvoice(note)).toEqual({ problem: null, cancelled: false, label: "NF-e 000012345 · Padaria Boa" })
+		expect(buildReceiptContextInvoice(note)).toEqual({ problem: null, cancelled: false, label: "NF-e 000012345 · Padaria Boa" })
 	})
 
 	test("nota cancelada, sem emitente no rótulo", () => {
-		expect(receiptContextInvoice({ ...note, supplier_name: null, situation_result: "cancelled" })).toEqual({
+		expect(buildReceiptContextInvoice({ ...note, supplier_name: null, situation_result: "cancelled" })).toEqual({
 			problem: "NF-e cancelada pelo emitente — não sustenta efetivação nem pagamento",
 			cancelled: true,
 			label: "NF-e 000012345",
@@ -183,20 +183,20 @@ describe("contexto do recebimento", () => {
 	})
 
 	test("nota sem consulta: o problema diz para consultar", () => {
-		const invoice = receiptContextInvoice({ ...note, situation_result: null, situation_checked_at: null })
+		const invoice = buildReceiptContextInvoice({ ...note, situation_result: null, situation_checked_at: null })
 		expect(invoice?.cancelled).toBe(false)
 		expect(invoice?.problem).toMatch(/^Consulte a situação da NF-e na SEFAZ/)
 	})
 
 	test("OF ligada: aguardando empenho ou não", () => {
-		expect(receiptContextSupplyOrder(null, "of-1")).toBeNull()
-		expect(receiptContextSupplyOrder({ number: "12/2026", empenho_id: null }, "of-1")).toEqual({ id: "of-1", label: "OF 12/2026", awaitingEmpenho: true })
-		expect(receiptContextSupplyOrder({ number: null, empenho_id: "ne-1" }, "of-1")).toEqual({ id: "of-1", label: "OF sem número", awaitingEmpenho: false })
+		expect(buildReceiptContextSupplyOrder(null, "of-1")).toBeNull()
+		expect(buildReceiptContextSupplyOrder({ number: "12/2026", empenho_id: null }, "of-1")).toEqual({ id: "of-1", label: "OF 12/2026", awaitingEmpenho: true })
+		expect(buildReceiptContextSupplyOrder({ number: null, empenho_id: "ne-1" }, "of-1")).toEqual({ id: "of-1", label: "OF sem número", awaitingEmpenho: false })
 	})
 
 	test("empenho ligado, com e sem favorecido", () => {
-		expect(receiptContextEmpenho(null)).toBeNull()
-		expect(receiptContextEmpenho({ numero_empenho: "2026NE1", favorecido_nome: "Padaria" })).toEqual({ label: "2026NE1 · Padaria" })
-		expect(receiptContextEmpenho({ numero_empenho: "2026NE1", favorecido_nome: null })).toEqual({ label: "2026NE1" })
+		expect(buildReceiptContextEmpenho(null)).toBeNull()
+		expect(buildReceiptContextEmpenho({ numero_empenho: "2026NE1", favorecido_nome: "Padaria" })).toEqual({ label: "2026NE1 · Padaria" })
+		expect(buildReceiptContextEmpenho({ numero_empenho: "2026NE1", favorecido_nome: null })).toEqual({ label: "2026NE1" })
 	})
 })

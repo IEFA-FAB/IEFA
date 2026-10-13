@@ -22,7 +22,7 @@ import {
 	useMenuPrintOrganization,
 	usePreparationDigests,
 } from "@/components/features/local/planning/MenuPrintParts"
-import { collectPreparationSources, scopeKitchenId } from "@/components/features/local/planning/menu-print-data"
+import { collectPreparationSources, getScopeKitchenId } from "@/components/features/local/planning/menu-print-data"
 import {
 	buildBaseByCell,
 	buildCellIndex,
@@ -30,12 +30,12 @@ import {
 	buildGroupLegend,
 	type CellEntry,
 	countHiddenGridItems,
-	emptyMealTypesMessage,
+	describeEmptyMealTypes,
 	formatWeekInputValue,
 	formatWeekLabel,
 	type GroupLegendEntry,
+	getWeekdayDate,
 	sortMealTypes,
-	weekdayDate,
 } from "@/components/features/local/planning/weekly-menu-print"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -98,13 +98,13 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 
 	// Versão das fichas na lista de preparações: a cozinha produz pela folha, e uma ficha antiga
 	// saía idêntica a uma atual. O catálogo diz qual é a vencedora de cada linhagem.
-	const { data: catalog } = useRecipes({ kitchen_id: scopeKitchenId(scope) })
+	const { data: catalog } = useRecipes({ kitchen_id: getScopeKitchenId(scope) })
 	const recipeRefs = useMemo(() => (template?.items ?? []).flatMap((i) => (i.recipe_id ? [{ recipe_id: i.recipe_id }] : [])), [template])
 	const { outdatedById } = useTemplateRecipeVersions(template?.items, catalog, recipeRefs)
 
 	// Meal types: cozinha → genéricos + da cozinha; global → apenas genéricos
 	// (kitchen_id null). fetchMealTypesFn aceita null; o hook useMealTypes não.
-	const mealTypeKitchenId = scopeKitchenId(scope)
+	const mealTypeKitchenId = getScopeKitchenId(scope)
 	const { data: mealTypes } = useQuery({
 		queryKey: queryKeys.mealTypes.byKitchen(mealTypeKitchenId),
 		queryFn: () => fetchMealTypesFn({ data: { kitchenId: mealTypeKitchenId } }),
@@ -214,12 +214,12 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 	// Legenda das cores: vazia sem `groupColors` (ver `buildGroupLegend`).
 	const groupLegend = buildGroupLegend(options.groupColors, orderedMealTypes, cellIndex, groupsFor, allGroups)
 
-	const dayDate = (dow: number): Date | null => weekdayDate(weekStart, dow)
+	const dayDate = (dow: number): Date | null => getWeekdayDate(weekStart, dow)
 
 	// Dados derivados compartilhados pelas duas cópias do documento (tela + impressão).
 	const dayColumns = buildDayColumns(weekStart)
 	const mealRows = orderedMealTypes.map((mt) => ({ id: mt.id, name: mt.name ?? "" }))
-	const emptyMessage = emptyMealTypesMessage(scope)
+	const emptyMessage = describeEmptyMealTypes(scope)
 
 	const weekLabel = formatWeekLabel(weekStart, template.name)
 

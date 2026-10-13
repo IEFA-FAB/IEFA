@@ -49,7 +49,7 @@ export function listApplyDates(input: { dates?: string[]; startDate: string; end
 }
 
 /** Dia do modelo (1…7) que cai na data, com a semana do modelo começando em `startDayOfWeek` (1=Seg … 7=Dom). */
-export function templateDayForDate(dateStr: string, startDayOfWeek: number): number {
+export function computeTemplateDayForDate(dateStr: string, startDayOfWeek: number): number {
 	const jsDay = new Date(`${dateStr}T00:00:00Z`).getUTCDay() // 0=Dom … 6=Sáb
 	const dateDayOfWeek = jsDay === 0 ? 7 : jsDay // 1=Seg … 7=Dom
 	return ((dateDayOfWeek - startDayOfWeek + 7) % 7) + 1
@@ -68,7 +68,7 @@ export function buildBaseHeadcountByCell(meals: readonly { dayOfWeek: number; me
 }
 
 /** Snapshot snake_case com `ingredients` aninhado — idêntico ao addMenuItem. */
-export function recipeSnapshotOf(recipe: unknown): Record<string, unknown> {
+export function buildRecipeSnapshot(recipe: unknown): Record<string, unknown> {
 	return recipe ? toWire<Record<string, unknown>>(recipe, { recipeIngredientsInKitchens: "ingredients", ingredientInKitchen: "ingredient" }) : {}
 }
 
@@ -129,7 +129,7 @@ export function buildWeeklyMenuItemRows(
 		rows.push({
 			dailyMenuId: menuId,
 			recipeOriginId: item.recipeId,
-			recipe: recipeSnapshotOf(item.recipesInKitchen),
+			recipe: buildRecipeSnapshot(item.recipesInKitchen),
 			plannedPortionQuantity: plannedPortion ?? null,
 			// Preserva grupo/ordem/proporção do template no cardápio materializado.
 			itemGroup: item.itemGroup,
@@ -174,7 +174,7 @@ export function planWeeklyMaterialization(params: {
 	const plan: WeeklyMaterializationPlan = { newMenus: [], newMenuItems: [], itemsSkipped: 0, datesSkipped: new Set<string>() }
 
 	for (const dateStr of params.dates) {
-		const templateDay = templateDayForDate(dateStr, params.startDayOfWeek)
+		const templateDay = computeTemplateDayForDate(dateStr, params.startDayOfWeek)
 		const { byMealType, skipped } = groupWeeklyItemsByMealType(params.templateItems, templateDay)
 		plan.itemsSkipped += skipped
 
@@ -269,7 +269,7 @@ export type ExistingMenuItem = {
 }
 
 /** Base do sort dos itens acrescentados: depois do maior existente, sem colidir com a rotina. */
-export function nextMenuSortOrder(existingItems: readonly Pick<ExistingMenuItem, "sortOrder">[]): number {
+export function computeNextMenuSortOrder(existingItems: readonly Pick<ExistingMenuItem, "sortOrder">[]): number {
 	return existingItems.reduce((max, r) => Math.max(max, (r.sortOrder ?? 0) + 1), 0)
 }
 
@@ -314,7 +314,7 @@ export function buildEventMenuItemRows(
 	return items.map((item, index) => ({
 		dailyMenuId: menuId,
 		recipeOriginId: item.recipeId,
-		recipe: recipeSnapshotOf(item.recipesInKitchen),
+		recipe: buildRecipeSnapshot(item.recipesInKitchen),
 		// Já resolvido por item (e somado entre refeições do mesmo horário) acima.
 		plannedPortionQuantity: item.headcountOverride ?? null,
 		itemGroup: item.itemGroup,

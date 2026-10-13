@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import {
 	assessEventMealDraft,
 	type DraftGroup,
-	eventMealDialogTitle,
+	getEventMealDialogTitle,
 	MAX_LABEL,
 	MAX_NAME,
 	toDraftGroup,
@@ -300,7 +300,7 @@ export function EventMealDialog({
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent className="sm:max-w-[680px] max-h-[85vh] overflow-y-auto">
 				<DialogHeader>
-					<DialogTitle>{eventMealDialogTitle(isNew, isSupportMenu)}</DialogTitle>
+					<DialogTitle>{getEventMealDialogTitle(isNew, isSupportMenu)}</DialogTitle>
 					<DialogDescription>
 						{isSupportMenu
 							? 'As refeições do apoio são dele: um kit simples é uma refeição só, sem grupos. Separe "Refeição" e "Lanche" ou marque os componentes (sanduíche, bebida…) quando o kit pedir.'

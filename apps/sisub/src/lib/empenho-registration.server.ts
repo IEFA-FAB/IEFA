@@ -46,8 +46,8 @@ import {
 	type ArpItemsSummary,
 	collectArpAcquisitions,
 	collectArpItemIds,
+	createEmptyArpItemsSummary,
 	type EmpenhoArpItemRow,
-	emptyArpItemsSummary,
 	pickArpAcquisition,
 	resolveEmpenhoHeaderFields,
 	resolveEmpenhoItemFields,
@@ -158,7 +158,7 @@ async function loadArpItemsSummary(
 	arpItemIds: string[],
 	unitId: number
 ): Promise<ArpItemsSummary & { arpAcquisitions: string[] }> {
-	if (arpItemIds.length === 0) return { ...emptyArpItemsSummary(), arpAcquisitions: [] }
+	if (arpItemIds.length === 0) return { ...createEmptyArpItemsSummary(), arpAcquisitions: [] }
 	const { data: itemRows, error: itemError } = await proc
 		.from("arp_item")
 		.select(

@@ -53,19 +53,19 @@ import type { RecipeAlternativeFormRow, RecipeWithIngredients } from "@/types/do
 import {
 	describeSupersedingVersion,
 	findSupersedingHead,
+	getLineageRecipeId,
+	getRecipeDraftBarCaption,
+	getRecipeDraftTitle,
+	getRecipeSaveCaption,
+	getReviewRecipeId,
 	isFlowEnabled,
 	isForkingGlobalRecipe,
 	isRecipeFieldsTab,
-	lineageRecipeIdOf,
 	RECIPE_FORM_TABS,
 	type RecipeFormMode,
 	type RecipeFormTab,
-	recipeDraftBarCaption,
-	recipeDraftTitle,
-	recipeSaveCaption,
 	resolveEditContext,
 	resolveRecipeFormTab,
-	reviewRecipeIdOf,
 } from "./recipe-form-state"
 
 // Abas de leitura (campos/texto) mantêm largura confortável e centralizada; a aba "fluxo"
@@ -505,7 +505,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 	// (aba esquecida, rascunho de outro dia, link do histórico), o servidor recusa o Salvar —
 	// gravaria por cima do que mudou. A tela avisa antes e oferece levar o rascunho para a
 	// vigente (`carryDraftToHead`).
-	const lineageHead = useRecipeLineageHead(lineageRecipeIdOf(mode, initialData), editContext)
+	const lineageHead = useRecipeLineageHead(getLineageRecipeId(mode, initialData), editContext)
 	// Só uma vigente com id conta: resposta sem id (erro que chegou como dado) não bloqueia o
 	// Salvar com um "versão vundefined".
 	const supersededBy = findSupersedingHead(mode, initialData, lineageHead.data)
@@ -526,7 +526,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 
 	// Revisão (conferência pelos nutricionistas) — só para preparações persistidas em edição.
 	// A UI (e os hooks de revisão) vive em <RecipeReviewActions>, montado só quando há id.
-	const reviewRecipeId = reviewRecipeIdOf(mode, initialData)
+	const reviewRecipeId = getReviewRecipeId(mode, initialData)
 
 	const [selectorOpen, setSelectorOpen] = useState(false)
 
@@ -741,7 +741,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 	// Contexto do modo — distinto do nome (editado no título da página)
 	const modeBadge = renderModeBadge(mode, initialData)
 
-	const saveCaption = recipeSaveCaption(mode, willFork)
+	const saveCaption = getRecipeSaveCaption(mode, willFork)
 
 	return (
 		<div className="flex min-h-full flex-col space-y-6">
@@ -1229,7 +1229,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 					<DraftSaveBar<RecipeFormValues>
 						draftKey={draftKey}
 						primary={isRecipeTab}
-						caption={recipeDraftBarCaption(supersededBy, isRecipeTab, saveCaption)}
+						caption={getRecipeDraftBarCaption(supersededBy, isRecipeTab, saveCaption)}
 						saveBlocked={!!supersededBy}
 						formId="recipe-form"
 						saveLabel="Salvar Preparação"
@@ -1237,7 +1237,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 						isPending={isPending}
 						// Editar sem mudança não grava versão; criar e personalizar sempre gravam.
 						allowCleanSave={mode !== "edit" || willFork}
-						title={recipeDraftTitle(mode, initialData)}
+						title={getRecipeDraftTitle(mode, initialData)}
 						href={typeof window === "undefined" ? null : `${window.location.pathname}${window.location.search}`}
 						baseline={recipeFormValues(initialData)}
 						current={values}

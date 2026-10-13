@@ -70,6 +70,6 @@ export function assessEventMealDraft({
 	return { resolved, hasBlank, duplicate, tooMany, invertedCount, leaving, suggestions, missingGroups, canSave }
 }
 
-export function eventMealDialogTitle(isNew: boolean, isSupportMenu: boolean): string {
+export function getEventMealDialogTitle(isNew: boolean, isSupportMenu: boolean): string {
 	return isNew ? (isSupportMenu ? "Nova refeição do apoio" : "Nova refeição do evento") : "Editar refeição"
 }

@@ -25,10 +25,10 @@ import { toast } from "@/components/ui/toast"
 import { deleteReceiptLotFn, updateReceiptItemFn, upsertReceiptLotFn } from "@/server/receiving.fn"
 import {
 	buildConservationItems,
+	buildInitialLotFields,
 	buildLotDrafts,
 	evaluateLot,
-	initialLotFields,
-	lotRowClassName,
+	getLotRowClassName,
 	NUM,
 	requiredRange,
 	type TemperatureRangeC,
@@ -128,7 +128,7 @@ function LotEditor({
 	onSaved: () => void
 	onCancel?: () => void
 }) {
-	const initial = initialLotFields(lot, suggested)
+	const initial = buildInitialLotFields(lot, suggested)
 	const [code, setCode] = useState(initial.code)
 	const [expiry, setExpiry] = useState(initial.expiry)
 	const [quantity, setQuantity] = useState(initial.quantity)
@@ -189,7 +189,7 @@ function LotEditor({
 
 	return (
 		<>
-			<tr className={lotRowClassName(outOfRange, classDivergence)}>
+			<tr className={getLotRowClassName(outOfRange, classDivergence)}>
 				<td className="py-1.5 px-2">
 					<Input className="h-7 text-xs font-mono" placeholder="lote" value={code} disabled={!editable} onChange={(e) => setCode(e.target.value)} />
 				</td>

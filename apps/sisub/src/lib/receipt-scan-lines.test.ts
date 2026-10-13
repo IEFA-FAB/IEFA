@@ -3,7 +3,7 @@
  * hierarquia de embalagem por SKU.
  */
 import { describe, expect, test } from "vitest"
-import { catalogGtinsBySku, hierarchyGtinsBySku, indexInvoiceItems, toScanLine } from "@/lib/receipt-scan-lines"
+import { collectCatalogGtinsBySku, collectHierarchyGtinsBySku, indexInvoiceItems, toScanLine } from "@/lib/receipt-scan-lines"
 
 describe("o que a nota declara", () => {
 	test("por item da nota; leitura nula é vazia", () => {
@@ -15,7 +15,7 @@ describe("o que a nota declara", () => {
 
 describe("o que o catálogo conhece", () => {
 	test("GTIN do SKU primeiro, aliases na ordem; SKU sem GTIN só com alias", () => {
-		const catalog = catalogGtinsBySku(
+		const catalog = collectCatalogGtinsBySku(
 			[
 				{ id: "sku-1", gtin: "A" },
 				{ id: "sku-2", gtin: null },
@@ -34,7 +34,7 @@ describe("o que o catálogo conhece", () => {
 	})
 
 	test("leituras nulas não quebram", () => {
-		expect(catalogGtinsBySku(null, null).size).toBe(0)
+		expect(collectCatalogGtinsBySku(null, null).size).toBe(0)
 	})
 })
 
@@ -45,7 +45,7 @@ describe("hierarquia de embalagem", () => {
 			["sku-2", ["CX2"]],
 			["sku-3", ["SOLTO"]],
 		])
-		const hierarchy = hierarchyGtinsBySku(catalog, [
+		const hierarchy = collectHierarchyGtinsBySku(catalog, [
 			// caixa da unidade conhecida (pai)
 			{ gtin: "UN", parent_gtin: "CX" },
 			// fardo que contém a caixa: não é parente direto do conhecido
@@ -64,11 +64,11 @@ describe("hierarquia de embalagem", () => {
 
 	test("pai que o item já conhece não se repete", () => {
 		const catalog = new Map([["sku-1", ["UN", "CX"]]])
-		expect(hierarchyGtinsBySku(catalog, [{ gtin: "UN", parent_gtin: "CX" }]).size).toBe(0)
+		expect(collectHierarchyGtinsBySku(catalog, [{ gtin: "UN", parent_gtin: "CX" }]).size).toBe(0)
 	})
 
 	test("hierarquia nula", () => {
-		expect(hierarchyGtinsBySku(new Map([["sku-1", ["A"]]]), null).size).toBe(0)
+		expect(collectHierarchyGtinsBySku(new Map([["sku-1", ["A"]]]), null).size).toBe(0)
 	})
 })
 

@@ -29,8 +29,8 @@ import {
 	buildSupplyOrderItemRow,
 	buildSupplyOrderRow,
 	collectOrderArpItemIds,
+	getKitchenPurchaseUnitId,
 	isSupplyOrderGateMessage,
-	kitchenPurchaseUnitIdOf,
 	toLinkEmpenhoFacts,
 } from "@/lib/supply-order-rows"
 
@@ -159,7 +159,7 @@ async function loadEmpenhoForOrder(finance: ReturnType<typeof getServerClient<"f
 	return row
 }
 
-/** Unidade compradora da cozinha, lida da linha (`kitchenPurchaseUnitIdOf`). */
+/** Unidade compradora da cozinha, lida da linha (`getKitchenPurchaseUnitId`). */
 async function loadKitchenPurchaseUnitId(kitchenId: number): Promise<number | null> {
 	const { data: kitchenRow, error: kitchenError } = await getServerClient("kitchen")
 		.from("kitchen")
@@ -167,7 +167,7 @@ async function loadKitchenPurchaseUnitId(kitchenId: number): Promise<number | nu
 		.eq("id", kitchenId)
 		.maybeSingle()
 	if (kitchenError) throw new Error(`Erro ao conferir a cozinha: ${publicDbMessage(kitchenError)}`)
-	return kitchenPurchaseUnitIdOf(kitchenRow)
+	return getKitchenPurchaseUnitId(kitchenRow)
 }
 
 /**

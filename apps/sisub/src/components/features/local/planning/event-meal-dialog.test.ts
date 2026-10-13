@@ -1,7 +1,7 @@
 import { MAX_EVENT_MEAL_GROUPS } from "@iefa/sisub-domain/schemas"
 import { describe, expect, test, vi } from "vitest"
 import { type EventMealDraft, groupSuggestionsFor } from "@/lib/event-meals"
-import { assessEventMealDraft, type DraftGroup, eventMealDialogTitle, fromDraftGroup, MAX_LABEL, MAX_NAME, toDraftGroup } from "./event-meal-dialog"
+import { assessEventMealDraft, type DraftGroup, fromDraftGroup, getEventMealDialogTitle, MAX_LABEL, MAX_NAME, toDraftGroup } from "./event-meal-dialog"
 
 const meal: EventMealDraft = { id: "m1", name: "Coquetel", meal_type_id: "mt1", groups: [], base_headcount: null }
 const group = (over: Partial<DraftGroup> = {}): DraftGroup => ({ key: "entrada", label: "Entradas", minItems: "", maxItems: "", ...over })
@@ -82,10 +82,10 @@ describe("assessEventMealDraft", () => {
 	})
 })
 
-describe("eventMealDialogTitle", () => {
+describe("getEventMealDialogTitle", () => {
 	test("nova (evento ou apoio) ou edição", () => {
-		expect(eventMealDialogTitle(true, true)).toBe("Nova refeição do apoio")
-		expect(eventMealDialogTitle(true, false)).toBe("Nova refeição do evento")
-		expect(eventMealDialogTitle(false, true)).toBe("Editar refeição")
+		expect(getEventMealDialogTitle(true, true)).toBe("Nova refeição do apoio")
+		expect(getEventMealDialogTitle(true, false)).toBe("Nova refeição do evento")
+		expect(getEventMealDialogTitle(false, true)).toBe("Editar refeição")
 	})
 })

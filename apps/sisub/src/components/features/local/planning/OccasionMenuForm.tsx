@@ -4,14 +4,14 @@ import { CalendarRange, GitFork, Loader2, Plus, Sandwich } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import type { OccasionMenuCopy } from "@/components/features/local/planning/occasion-menu-editor"
 import {
-	afterCreateHint,
-	createdOccasionMessage,
-	forkSourceSummary,
+	buildNewOccasionDraftKey,
+	describeAfterCreateHint,
+	describeForkSource,
+	describeNewOccasionExplainerTail,
+	formatCreatedOccasionMessage,
+	getOccasionFormTitle,
+	getOccasionNamePlaceholder,
 	isNoMealChosen,
-	newOccasionDraftKey,
-	newOccasionExplainerTail,
-	occasionFormTitle,
-	occasionNamePlaceholder,
 } from "@/components/features/local/planning/occasion-menu-form"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
@@ -56,7 +56,7 @@ function ForkSourceCard({
 					Modelo de origem
 				</CardTitle>
 				<CardDescription>
-					{forkSourceSummary(isSourceGlobal, isSupportMenu)} Alterações futuras no original não afetam a versão local.
+					{describeForkSource(isSourceGlobal, isSupportMenu)} Alterações futuras no original não afetam a versão local.
 					{isSupportMenu && isSnackStandard(baseTemplate) && (
 						<>
 							{" "}
@@ -126,7 +126,7 @@ function NewOccasionExplainer({
 		<div className="rounded-md border bg-muted/30 p-4 flex items-start gap-3">
 			<Icon className="size-4 text-muted-foreground mt-0.5 shrink-0" />
 			<p className="text-sm text-muted-foreground">
-				{copy.explainer} {newOccasionExplainerTail({ isGlobal, templateType, copy })}
+				{copy.explainer} {describeNewOccasionExplainerTail({ isGlobal, templateType, copy })}
 			</p>
 		</div>
 	)
@@ -149,7 +149,7 @@ function OccasionFormFooter({
 }) {
 	return (
 		<div className="flex items-center justify-between">
-			<p className="text-xs text-muted-foreground">{afterCreateHint(isFork, copy)}</p>
+			<p className="text-xs text-muted-foreground">{describeAfterCreateHint(isFork, copy)}</p>
 			<div className="flex gap-2">
 				<Button type="button" variant="outline" onClick={onCancel}>
 					Cancelar
@@ -214,7 +214,7 @@ export function OccasionMenuForm({ templateType, kitchenId, forkFrom, folderId, 
 		setName((current) => current || (baseTemplate.name ?? ""))
 	}, [isFork, baseTemplate])
 
-	const storageKey = newOccasionDraftKey(templateType, kitchenId)
+	const storageKey = buildNewOccasionDraftKey(templateType, kitchenId)
 	const storageLoadedRef = useRef(false)
 
 	useEffect(() => {
@@ -262,7 +262,7 @@ export function OccasionMenuForm({ templateType, kitchenId, forkFrom, folderId, 
 				},
 			})
 		},
-		onSuccess: (data) => onCreated(data, createdOccasionMessage(copy, data.name)),
+		onSuccess: (data) => onCreated(data, formatCreatedOccasionMessage(copy, data.name)),
 		onError: (err) => toast.error(`Erro: ${err.message}`),
 	})
 
@@ -294,7 +294,7 @@ export function OccasionMenuForm({ templateType, kitchenId, forkFrom, folderId, 
 		else createBlank()
 	}
 
-	const title = occasionFormTitle({ isFork, isGlobal, copy })
+	const title = getOccasionFormTitle({ isFork, isGlobal, copy })
 	const handleMealCheckedChange = (mealId: string, checked: boolean) =>
 		setSkippedMealIds((prev) => {
 			const next = new Set(prev)
@@ -344,7 +344,7 @@ export function OccasionMenuForm({ templateType, kitchenId, forkFrom, folderId, 
 								id="name"
 								value={name}
 								onChange={(e) => setName(e.target.value)}
-								placeholder={occasionNamePlaceholder(isFork, baseTemplate?.name, copy)}
+								placeholder={getOccasionNamePlaceholder(isFork, baseTemplate?.name, copy)}
 								required
 								suppressHydrationWarning
 							/>

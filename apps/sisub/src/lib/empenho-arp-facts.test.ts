@@ -3,9 +3,9 @@ import { describe, expect, it } from "vitest"
 import {
 	collectArpAcquisitions,
 	collectArpItemIds,
+	createEmptyArpItemsSummary,
 	type EmpenhoArpHeaderRow,
 	type EmpenhoArpItemRow,
-	emptyArpItemsSummary,
 	pickArpAcquisition,
 	resolveEmpenhoHeaderFields,
 	resolveEmpenhoItemFields,
@@ -106,7 +106,7 @@ describe("summarizeArpItems", () => {
 	})
 
 	it("sem itens: resumo vazio e sincronizado", () => {
-		expect(summarizeArpItems([], new Map(), new Map(), 7)).toEqual(emptyArpItemsSummary())
+		expect(summarizeArpItems([], new Map(), new Map(), 7)).toEqual(createEmptyArpItemsSummary())
 	})
 
 	it("item de ARP de outra unidade, ou de ARP não achada, recusa", () => {

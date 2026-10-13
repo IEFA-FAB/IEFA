@@ -374,7 +374,7 @@ function* handleContentBlockStop(state: ChatStreamState, index: number): Generat
 	state.toolBlocks.delete(index)
 }
 
-function usageFromMetadata(u: TokenUsage): Usage {
+function toStreamUsage(u: TokenUsage): Usage {
 	return {
 		promptTokens: u.inputTokens ?? 0,
 		completionTokens: u.outputTokens ?? 0,
@@ -405,7 +405,7 @@ function* handleStreamEvent(state: ChatStreamState, ev: ConverseStreamOutput): G
 	}
 
 	if (ev.messageStop) state.stopReason = ev.messageStop.stopReason
-	if (ev.metadata?.usage) state.usage = usageFromMetadata(ev.metadata.usage)
+	if (ev.metadata?.usage) state.usage = toStreamUsage(ev.metadata.usage)
 }
 
 // ── Adapter ───────────────────────────────────────────────────────────────────

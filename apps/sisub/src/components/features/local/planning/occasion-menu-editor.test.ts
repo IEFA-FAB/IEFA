@@ -3,19 +3,19 @@ import { type EventMealDraft, SUPPORT_KIT_MEAL_NAME } from "@/lib/event-meals"
 import { EMPTY_SNACK_STANDARD_DRAFT, OCCASION_DAY, OCCASION_MENU_COPY, SNACK_MEAL_TYPE_NAME } from "@/lib/occasion-menu"
 import type { TemplateItemDraft } from "@/types/domain/planning"
 import {
-	areSlotsReady,
 	buildInitialOccasionContent,
 	buildOccasionUpdates,
 	buildSlotOptions,
+	collectRecipeIdsInMeal,
 	deriveOccasionEditorFlags,
 	describeMealOrigin,
+	getKitchenId,
+	getLockedSlotName,
+	getMealDialogView,
+	getPrintTooltipLabel,
+	hasReadySlots,
 	isForkOnSave,
 	isTemplateOutOfContext,
-	kitchenIdOf,
-	lockedSlotNameFor,
-	mealDialogViewOf,
-	printTooltipLabel,
-	recipeIdsInMeal,
 	resolveSlotName,
 	saveBlockReason,
 } from "./occasion-menu-editor"
@@ -36,10 +36,10 @@ const meal = (over: Partial<EventMealDraft> = {}): EventMealDraft => ({
 const item = (over: Partial<TemplateItemDraft> = {}): TemplateItemDraft =>
 	({ day_of_week: OCCASION_DAY, meal_type_id: "m1", recipe_id: "r1", headcount_override: null, recommended_proportion: null, ...over }) as TemplateItemDraft
 
-describe("kitchenIdOf", () => {
+describe("getKitchenId", () => {
 	test("cozinha devolve o id; global, null", () => {
-		expect(kitchenIdOf(KITCHEN)).toBe(7)
-		expect(kitchenIdOf(GLOBAL)).toBeNull()
+		expect(getKitchenId(KITCHEN)).toBe(7)
+		expect(getKitchenId(GLOBAL)).toBeNull()
 	})
 })
 
@@ -133,14 +133,14 @@ describe("deriveOccasionEditorFlags", () => {
 	})
 })
 
-describe("areSlotsReady", () => {
+describe("hasReadySlots", () => {
 	test("evento não espera horário", () => {
-		expect(areSlotsReady(false, false, false)).toBe(true)
+		expect(hasReadySlots(false, false, false)).toBe(true)
 	})
 	test("apoio espera os dois", () => {
-		expect(areSlotsReady(true, true, true)).toBe(true)
-		expect(areSlotsReady(true, true, false)).toBe(false)
-		expect(areSlotsReady(true, false, true)).toBe(false)
+		expect(hasReadySlots(true, true, true)).toBe(true)
+		expect(hasReadySlots(true, true, false)).toBe(false)
+		expect(hasReadySlots(true, false, true)).toBe(false)
 	})
 })
 
@@ -314,40 +314,40 @@ describe("buildSlotOptions e resolveSlotName", () => {
 	})
 })
 
-describe("lockedSlotNameFor", () => {
+describe("getLockedSlotName", () => {
 	test("só no padrão de lanche", () => {
-		expect(lockedSlotNameFor(false, { id: "s", name: "X" })).toBeNull()
-		expect(lockedSlotNameFor(true, { id: "s", name: "X" })).toBe("X")
-		expect(lockedSlotNameFor(true, { id: "s", name: null })).toBe(SNACK_MEAL_TYPE_NAME)
-		expect(lockedSlotNameFor(true, undefined)).toBe(SNACK_MEAL_TYPE_NAME)
+		expect(getLockedSlotName(false, { id: "s", name: "X" })).toBeNull()
+		expect(getLockedSlotName(true, { id: "s", name: "X" })).toBe("X")
+		expect(getLockedSlotName(true, { id: "s", name: null })).toBe(SNACK_MEAL_TYPE_NAME)
+		expect(getLockedSlotName(true, undefined)).toBe(SNACK_MEAL_TYPE_NAME)
 	})
 })
 
-describe("mealDialogViewOf", () => {
+describe("getMealDialogView", () => {
 	test("fechado sem refeição", () => {
-		expect(mealDialogViewOf(null)).toEqual({ open: false, meal: null, isNew: false })
+		expect(getMealDialogView(null)).toEqual({ open: false, meal: null, isNew: false })
 	})
 	test("repassa o estado", () => {
 		const m = meal()
-		expect(mealDialogViewOf({ meal: m, isNew: true, open: false })).toEqual({ open: false, meal: m, isNew: true })
+		expect(getMealDialogView({ meal: m, isNew: true, open: false })).toEqual({ open: false, meal: m, isNew: true })
 	})
 })
 
-describe("recipeIdsInMeal", () => {
+describe("collectRecipeIdsInMeal", () => {
 	test("preparações da refeição aberta, na ordem", () => {
 		const items = [item({ recipe_id: "a" }), item({ meal_type_id: "m2", recipe_id: "b" }), item({ recipe_id: "c" })]
-		expect(recipeIdsInMeal(items, "m1")).toEqual(["a", "c"])
-		expect(recipeIdsInMeal(items, null)).toEqual([])
-		expect(recipeIdsInMeal(items, "")).toEqual([])
+		expect(collectRecipeIdsInMeal(items, "m1")).toEqual(["a", "c"])
+		expect(collectRecipeIdsInMeal(items, null)).toEqual([])
+		expect(collectRecipeIdsInMeal(items, "")).toEqual([])
 	})
 })
 
-describe("printTooltipLabel", () => {
+describe("getPrintTooltipLabel", () => {
 	test("sem pendência, com pendência e no fork", () => {
-		expect(printTooltipLabel(false, true, eventCopy)).toBe("Imprimir / baixar PDF do evento")
-		expect(printTooltipLabel(false, false, feminineCopy)).toBe("Imprimir / baixar PDF da ceia")
-		expect(printTooltipLabel(true, true, eventCopy)).toBe("Salvar a cópia desta cozinha e imprimir")
-		expect(printTooltipLabel(true, false, eventCopy)).toBe("Salvar e imprimir / baixar PDF")
+		expect(getPrintTooltipLabel(false, true, eventCopy)).toBe("Imprimir / baixar PDF do evento")
+		expect(getPrintTooltipLabel(false, false, feminineCopy)).toBe("Imprimir / baixar PDF da ceia")
+		expect(getPrintTooltipLabel(true, true, eventCopy)).toBe("Salvar a cópia desta cozinha e imprimir")
+		expect(getPrintTooltipLabel(true, false, eventCopy)).toBe("Salvar e imprimir / baixar PDF")
 	})
 })
 

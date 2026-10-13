@@ -179,7 +179,7 @@ function createResolver(entryBySpecifier: Map<string, string>, tree: SourceTree)
 }
 
 /** Exports do alvo que chegam à chave; `undefined` quando o alvo não resolve ou nenhum chega. */
-function reachingExportsOf(target: string | undefined, taintedExports: TaintedExports): Set<string> | undefined {
+function findReachingExports(target: string | undefined, taintedExports: TaintedExports): Set<string> | undefined {
 	const exported = target ? taintedExports.get(target) : undefined
 	if (!exported || exported.size === 0) return undefined
 	return exported
@@ -198,7 +198,7 @@ function seedHitLocals(hit: KeyHit, declarations: Declaration[], locals: Set<str
 function addImportedLocals(file: string, source: string, locals: Set<string>, resolve: Resolver, taintedExports: TaintedExports): void {
 	for (const match of source.matchAll(IMPORT)) {
 		if (match[1]) continue
-		const exported = reachingExportsOf(resolve(file, match[5] as string), taintedExports)
+		const exported = findReachingExports(resolve(file, match[5] as string), taintedExports)
 		if (!exported) continue
 		if (match[2] && exported.has("default")) locals.add(match[2])
 		if (match[4]) locals.add(match[4])
@@ -233,7 +233,7 @@ function addLocalExportList(source: string, locals: Set<string>, mine: Set<strin
 function addReexports(file: string, source: string, mine: Set<string>, resolve: Resolver, taintedExports: TaintedExports): void {
 	for (const match of source.matchAll(REEXPORT)) {
 		if (match[1]) continue
-		const exported = reachingExportsOf(resolve(file, match[4] as string), taintedExports)
+		const exported = findReachingExports(resolve(file, match[4] as string), taintedExports)
 		if (!exported) continue
 		if (match[2] !== undefined) {
 			for (const [imported, name] of parseSpecifiers(match[2])) if (exported.has(imported)) mine.add(name)
@@ -282,14 +282,14 @@ function isAppWriter(source: string, entryBySpecifier: Map<string, string>, tain
 	let writes = false
 	for (const match of source.matchAll(IMPORT)) {
 		if (match[1]) continue
-		const exported = reachingExportsOf(entryBySpecifier.get(match[5] as string), taintedExports)
+		const exported = findReachingExports(entryBySpecifier.get(match[5] as string), taintedExports)
 		if (!exported) continue
 		const names = parseSpecifiers(match[3] ?? "").map(([imported]) => imported)
 		if (match[2]) names.push("default")
 		if (match[4] || names.some((name) => exported.has(name))) writes = true
 	}
 	for (const match of source.matchAll(DYNAMIC_IMPORT)) {
-		if (reachingExportsOf(entryBySpecifier.get(match[1] as string), taintedExports)) writes = true
+		if (findReachingExports(entryBySpecifier.get(match[1] as string), taintedExports)) writes = true
 	}
 	return writes
 }

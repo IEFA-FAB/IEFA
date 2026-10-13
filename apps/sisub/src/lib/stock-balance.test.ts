@@ -2,12 +2,12 @@ import { describe, expect, it, vi } from "vitest"
 import {
 	aggregateStockBalance,
 	applyStockItemNames,
+	buildStockItemKey,
 	collectLotIds,
 	listDescribableIds,
 	type StockBalanceViewRow,
 	type StockLotMeta,
 	selectVisibleStockItems,
-	stockItemKey,
 } from "@/lib/stock-balance"
 
 const row = (overrides: Partial<StockBalanceViewRow>): StockBalanceViewRow => ({
@@ -32,14 +32,14 @@ const meta = (overrides: Partial<StockLotMeta> = {}): StockLotMeta => ({
 
 const TODAY = "2026-10-13"
 
-describe("collectLotIds e stockItemKey", () => {
+describe("collectLotIds e buildStockItemKey", () => {
 	it("lotes sem repetição e sem o saldo sem lote", () => {
 		expect(collectLotIds([{ lot_id: "a" }, { lot_id: null }, { lot_id: "a" }, { lot_id: "b" }])).toEqual(["a", "b"])
 	})
 
 	it("chave por insumo, senão por preparação", () => {
-		expect(stockItemKey({ ingredient_id: "x", frozen_preparation_id: "y" })).toBe("i:x")
-		expect(stockItemKey({ ingredient_id: null, frozen_preparation_id: "y" })).toBe("f:y")
+		expect(buildStockItemKey({ ingredient_id: "x", frozen_preparation_id: "y" })).toBe("i:x")
+		expect(buildStockItemKey({ ingredient_id: null, frozen_preparation_id: "y" })).toBe("f:y")
 	})
 })
 

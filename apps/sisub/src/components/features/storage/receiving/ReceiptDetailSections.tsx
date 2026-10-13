@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Spinner } from "@/components/ui/spinner"
 import type { fetchReceiptContextFn, fetchReceiptFn } from "@/server/receiving.fn"
-import { receiptPrintTitle } from "./receipt-detail"
+import { getReceiptPrintTitle } from "./receipt-detail"
 
 type Receipt = Awaited<ReturnType<typeof fetchReceiptFn>>
 type ReceiptContext = Awaited<ReturnType<typeof fetchReceiptContextFn>>
@@ -105,7 +105,7 @@ export function DeferredInvoiceCheckAlert({ deferredAt, reason }: { deferredAt: 
 export function ReceiptPrintHeader({ receipt, sourceText }: { receipt: Receipt; sourceText: string }) {
 	return (
 		<div className="hidden print:block">
-			<h1 className="text-heading">{receiptPrintTitle(receipt.status)}</h1>
+			<h1 className="text-heading">{getReceiptPrintTitle(receipt.status)}</h1>
 			<p className="text-xs">Recebimento {receipt.id}</p>
 			<p className="text-caption">Origem: {sourceText}</p>
 			{receipt.provisional_at && <p className="text-xs">Provisório em: {new Date(receipt.provisional_at).toLocaleString("pt-BR")}</p>}

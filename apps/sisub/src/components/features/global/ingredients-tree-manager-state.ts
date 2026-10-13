@@ -17,7 +17,7 @@ export function countVisibleNodes(flatTree: FlatIngredientTree | null | undefine
 }
 
 /** Pasta a editar no dialog: só em modo edição e só quando o dado é de fato uma pasta. */
-export function folderToEdit(dialogState: IngredientDialogState): Folder | undefined {
+export function pickFolderToEdit(dialogState: IngredientDialogState): Folder | undefined {
 	return dialogState.mode === "edit" && dialogState.data && "parent_id" in dialogState.data ? (dialogState.data as Folder) : undefined
 }
 

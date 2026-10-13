@@ -4,6 +4,7 @@
  */
 import { describe, expect, test } from "vitest"
 import {
+	buildIncomingNoteScope,
 	buildNfeRows,
 	buildSupplyOrderRows,
 	buildUnbilledRows,
@@ -14,7 +15,6 @@ import {
 	type IncomingNote,
 	type IncomingOrder,
 	type IncomingRow,
-	incomingNoteScope,
 	indexNoteReceipts,
 	indexOrderReceipts,
 	paginateIncoming,
@@ -153,8 +153,8 @@ describe("OF enviada com saldo a receber", () => {
 
 describe("NF-e sem recebimento efetivado", () => {
 	test("escopo: só a cozinha sem unidade compradora; com ela, também a nota não reivindicada da unidade", () => {
-		expect(incomingNoteScope(KITCHEN, null)).toBe("kitchen_id.eq.7")
-		expect(incomingNoteScope(KITCHEN, 5)).toBe("kitchen_id.eq.7,and(kitchen_id.is.null,unit_id.eq.5)")
+		expect(buildIncomingNoteScope(KITCHEN, null)).toBe("kitchen_id.eq.7")
+		expect(buildIncomingNoteScope(KITCHEN, 5)).toBe("kitchen_id.eq.7,and(kitchen_id.is.null,unit_id.eq.5)")
 	})
 
 	test("nota disponível sem pendência: registrar o recebimento", () => {

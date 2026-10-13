@@ -34,12 +34,12 @@ import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { publicDbMessage } from "@/lib/db-error-message"
 import {
+	buildIncomingNoteScope,
 	buildNfeRows,
 	buildSupplyOrderRows,
 	buildUnbilledRows,
 	countPendingByNote,
 	INCOMING_KINDS,
-	incomingNoteScope,
 	indexNoteReceipts,
 	indexOrderReceipts,
 	paginateIncoming,
@@ -130,7 +130,7 @@ export const fetchIncomingFn = createServerFn({ method: "GET" })
 		// chegar via NF-e": só `kitchen_id` fazia o painel dizer que não há nada
 		// pendente quando há.
 		const purchaseUnit = await purchaseUnitIdOfKitchen(data.kitchenId)
-		const scope = incomingNoteScope(data.kitchenId, purchaseUnit)
+		const scope = buildIncomingNoteScope(data.kitchenId, purchaseUnit)
 		const noteRows = await readAllPages("as notas", (from, to) =>
 			inv
 				.from("nfe_document")

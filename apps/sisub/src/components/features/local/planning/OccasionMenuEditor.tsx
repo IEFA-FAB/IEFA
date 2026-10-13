@@ -25,20 +25,20 @@ import {
 	OccasionSlotAlerts,
 } from "@/components/features/local/planning/OccasionMenuEditorParts"
 import {
-	areSlotsReady,
 	buildInitialOccasionContent,
 	buildOccasionUpdates,
 	buildSlotOptions,
+	collectRecipeIdsInMeal,
 	deriveOccasionEditorFlags,
 	describeMealOrigin,
+	getKitchenId,
+	getLockedSlotName,
+	getMealDialogView,
+	getPrintTooltipLabel,
+	hasReadySlots,
 	isForkOnSave,
 	isTemplateOutOfContext,
-	kitchenIdOf,
-	lockedSlotNameFor,
 	type MealDialogState,
-	mealDialogViewOf,
-	printTooltipLabel,
-	recipeIdsInMeal,
 	resolveSlotName,
 	saveBlockReason,
 } from "@/components/features/local/planning/occasion-menu-editor"
@@ -194,7 +194,7 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 	const copy = OCCASION_MENU_COPY[templateType]
 	const isSupportMenu = templateType === "apoio"
 	const proportionMode = proportionModeFor(templateType)
-	const kitchenId = kitchenIdOf(editContext)
+	const kitchenId = getKitchenId(editContext)
 
 	const { data: template, isLoading: templateLoading } = useTemplate(templateId)
 	// No catálogo global só os tipos de refeição genéricos (kitchen_id = null). As query options
@@ -290,8 +290,8 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 	// ser gravada: o salvamento a cobra em vez de o servidor recusar o cardápio inteiro.
 	const mealWithoutSlot = eventMeals.find((m) => m.meal_type_id === "")
 
-	// O apoio sem refeição abre com o "Kit": a carga espera pelos horários (`areSlotsReady`).
-	const slotsReady = areSlotsReady(isSupportMenu, mealTypesFetched, snackMealTypeFetched)
+	// O apoio sem refeição abre com o "Kit": a carga espera pelos horários (`hasReadySlots`).
+	const slotsReady = hasReadySlots(isSupportMenu, mealTypesFetched, snackMealTypeFetched)
 	useEffect(() => {
 		if (!template || initialized || !slotsReady) return
 		const initial = buildInitialOccasionContent(template, { isSupportMenu, templateType, mealTypes, snackMealType })
@@ -629,7 +629,7 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 	const totalRecipes = items.length
 	const groupsWithContent = sectionMealTypes.filter((mt) => hasItemsUnder(mt.id)).length
 
-	const currentSelectorRecipeIds = recipeIdsInMeal(items, selectedMealTypeId)
+	const currentSelectorRecipeIds = collectRecipeIdsInMeal(items, selectedMealTypeId)
 
 	// ── Render ─────────────────────────────────────────────────────────────────
 
@@ -646,7 +646,7 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 	}
 
 	const namePlaceholder = copy.namePlaceholder.split(",")[0]
-	const mealDialogView = mealDialogViewOf(mealDialog)
+	const mealDialogView = getMealDialogView(mealDialog)
 	// Mesmo critério do "Duplicar como variante": o que está na tela ainda não foi gravado.
 	const hasPendingChanges = contentSignature !== savedSignatureRef.current
 	/**
@@ -682,7 +682,7 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 						e.preventDefault()
 						handleSave(printAfterSave)
 					}}
-					printTooltip={printTooltipLabel(hasPendingChanges, willFork, copy)}
+					printTooltip={getPrintTooltipLabel(hasPendingChanges, willFork, copy)}
 					canApplyToCalendar={canApplyToCalendar}
 					totalRecipes={totalRecipes}
 					onOpenApply={() => setApplyOpen(true)}
@@ -806,7 +806,7 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 				templateType={templateType}
 				allowBase={allowMealAbsolutes}
 				// Padrão de lanche: o horário é o de sistema, fixado pelo servidor ao salvar.
-				lockedSlotName={lockedSlotNameFor(isSnackStandard, snackMealType)}
+				lockedSlotName={getLockedSlotName(isSnackStandard, snackMealType)}
 				// No modelo global o horário é sugestão: a cozinha escolhe ao aplicar ou montar.
 				isSuggestedSlot={isSuggestedSlot}
 			/>

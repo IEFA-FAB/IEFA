@@ -60,10 +60,10 @@ import {
 	buildEventMealBases,
 	buildEventMenuItemRows,
 	collectAppliedRecipeIds,
+	computeNextMenuSortOrder,
 	groupEventItemsBySlot,
 	listApplyDates,
 	type MaterializableItem,
-	nextMenuSortOrder,
 	partitionFreshItems,
 	planWeeklyMaterialization,
 	resolveEventItemDemands,
@@ -1685,7 +1685,7 @@ async function appendEventItemsToMenu(
 			.from(menuItemsInKitchen)
 			.where(and(eq(menuItemsInKitchen.dailyMenuId, menuId), isNull(menuItemsInKitchen.deletedAt)))
 	)
-	const baseSort = nextMenuSortOrder(existingItems)
+	const baseSort = computeNextMenuSortOrder(existingItems)
 	const { fresh, alreadyAppliedCount } = partitionFreshItems(items, collectAppliedRecipeIds(existingItems, templateId))
 	const rows = buildEventMenuItemRows(menuId, fresh, baseSort, templateId, templateType)
 	if (rows.length > 0) {

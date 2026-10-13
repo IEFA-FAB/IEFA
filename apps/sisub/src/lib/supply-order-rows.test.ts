@@ -4,18 +4,18 @@ import {
 	buildSupplyOrderItemRow,
 	buildSupplyOrderRow,
 	collectOrderArpItemIds,
+	getKitchenPurchaseUnitId,
 	isSupplyOrderGateMessage,
-	kitchenPurchaseUnitIdOf,
 	toLinkEmpenhoFacts,
 } from "@/lib/supply-order-rows"
 
-describe("kitchenPurchaseUnitIdOf", () => {
+describe("getKitchenPurchaseUnitId", () => {
 	it("unidade compradora vence a unidade da cozinha; cozinha ausente dá null", () => {
-		expect(kitchenPurchaseUnitIdOf({ unit_id: 1, purchase_unit_id: 2 })).toBe(2)
-		expect(kitchenPurchaseUnitIdOf({ unit_id: 1, purchase_unit_id: null })).toBe(1)
-		expect(kitchenPurchaseUnitIdOf({ unit_id: null, purchase_unit_id: null })).toBeNull()
-		expect(kitchenPurchaseUnitIdOf(null)).toBeNull()
-		expect(kitchenPurchaseUnitIdOf(undefined)).toBeNull()
+		expect(getKitchenPurchaseUnitId({ unit_id: 1, purchase_unit_id: 2 })).toBe(2)
+		expect(getKitchenPurchaseUnitId({ unit_id: 1, purchase_unit_id: null })).toBe(1)
+		expect(getKitchenPurchaseUnitId({ unit_id: null, purchase_unit_id: null })).toBeNull()
+		expect(getKitchenPurchaseUnitId(null)).toBeNull()
+		expect(getKitchenPurchaseUnitId(undefined)).toBeNull()
 	})
 })
 

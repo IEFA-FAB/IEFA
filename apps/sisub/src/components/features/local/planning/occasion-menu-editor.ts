@@ -22,7 +22,7 @@ import type { MenuTemplate, MenuTemplateWithItems, TemplateItemDraft } from "@/t
 export type OccasionMenuCopy = (typeof OCCASION_MENU_COPY)[OccasionMenuType]
 
 /** Cozinha da rota; `null` no catálogo global. */
-export function kitchenIdOf(editContext: EditScope): number | null {
+export function getKitchenId(editContext: EditScope): number | null {
 	return editContext.scope === "kitchen" ? editContext.kitchenId : null
 }
 
@@ -92,7 +92,7 @@ export function deriveOccasionEditorFlags({
 
 // O apoio sem refeição abre com o "Kit", e o horário dele depende dos tipos de refeição: a
 // carga espera por eles (e pelo de sistema dos lanches) para não nascer sem horário.
-export function areSlotsReady(isSupportMenu: boolean, mealTypesFetched: boolean, snackMealTypeFetched: boolean): boolean {
+export function hasReadySlots(isSupportMenu: boolean, mealTypesFetched: boolean, snackMealTypeFetched: boolean): boolean {
 	return !isSupportMenu || (mealTypesFetched && snackMealTypeFetched)
 }
 
@@ -192,7 +192,7 @@ export function resolveSlotName(mealTypes: readonly SlotMealType[] | undefined, 
 }
 
 /** Padrão de lanche: o horário é o de sistema, fixado pelo servidor ao salvar. */
-export function lockedSlotNameFor(isSnackStandard: boolean, snackMealType: SlotMealType | null | undefined): string | null {
+export function getLockedSlotName(isSnackStandard: boolean, snackMealType: SlotMealType | null | undefined): string | null {
 	return isSnackStandard ? (snackMealType?.name ?? SNACK_MEAL_TYPE_NAME) : null
 }
 
@@ -200,17 +200,17 @@ export function lockedSlotNameFor(isSnackStandard: boolean, snackMealType: SlotM
 export type MealDialogState = { meal: EventMealDraft; isNew: boolean; open: boolean } | null
 
 /** Props do diálogo de refeição a partir do estado (fechado e vazio quando não há refeição). */
-export function mealDialogViewOf(mealDialog: MealDialogState) {
+export function getMealDialogView(mealDialog: MealDialogState) {
 	return { open: mealDialog?.open ?? false, meal: mealDialog?.meal ?? null, isNew: mealDialog?.isNew ?? false }
 }
 
 /** Preparações já na refeição aberta no seletor (nenhuma, sem refeição aberta). */
-export function recipeIdsInMeal(items: readonly TemplateItemDraft[], mealTypeId: string | null): string[] {
+export function collectRecipeIdsInMeal(items: readonly TemplateItemDraft[], mealTypeId: string | null): string[] {
 	return mealTypeId ? items.flatMap((i) => (i.meal_type_id === mealTypeId ? [i.recipe_id] : [])) : []
 }
 
 /** Dica do botão Imprimir: com edição pendente, ele salva antes. */
-export function printTooltipLabel(hasPendingChanges: boolean, willFork: boolean, copy: OccasionMenuCopy): string {
+export function getPrintTooltipLabel(hasPendingChanges: boolean, willFork: boolean, copy: OccasionMenuCopy): string {
 	return !hasPendingChanges
 		? `Imprimir / baixar PDF ${copy.article === "o" ? "do" : "da"} ${copy.noun}`
 		: willFork

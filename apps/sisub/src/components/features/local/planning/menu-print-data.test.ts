@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest"
-import { collectPreparationSources, scopeKitchenId } from "./menu-print-data"
+import { collectPreparationSources, getScopeKitchenId } from "./menu-print-data"
 
 type Items = Parameters<typeof collectPreparationSources>[0]
 type OutdatedMap = Parameters<typeof collectPreparationSources>[1]
@@ -11,10 +11,10 @@ function origin(id: string, extra: Record<string, unknown> = {}) {
 const items = (...list: unknown[]) => list as unknown as Items
 const noOutdated: OutdatedMap = new Map()
 
-describe("scopeKitchenId", () => {
+describe("getScopeKitchenId", () => {
 	test("cozinha: o id numérico; global: null", () => {
-		expect(scopeKitchenId({ kind: "kitchen", kitchenId: 7, kitchenIdStr: "7" })).toBe(7)
-		expect(scopeKitchenId({ kind: "global" })).toBeNull()
+		expect(getScopeKitchenId({ kind: "kitchen", kitchenId: 7, kitchenIdStr: "7" })).toBe(7)
+		expect(getScopeKitchenId({ kind: "global" })).toBeNull()
 	})
 })
 

@@ -90,7 +90,7 @@ export function planInvoiceLink(input: {
 }
 
 /** Avisos do vínculo: fornecedor da entrega, do empenho e da nota que não batem, nota sem itens. */
-export function invoiceLinkWarnings(input: {
+export function collectInvoiceLinkWarnings(input: {
 	receiptSupplierDocument: string | null | undefined
 	empenhoSupplierCnpj: string | null
 	invoice: { supplier_cnpj: string | null; supplier_cpf: string | null }
@@ -107,7 +107,7 @@ export function invoiceLinkWarnings(input: {
 }
 
 /** Contagens que `link_receipt_documents` devolve; sem linha, zero. */
-export function linkResultCounts(result: ReadonlyArray<{ linked_items: number | null; costed_items: number | null }> | null) {
+export function getLinkResultCounts(result: ReadonlyArray<{ linked_items: number | null; costed_items: number | null }> | null) {
 	const row = (result ?? [])[0]
 	return {
 		linkedItems: Number(row?.linked_items ?? 0),
@@ -117,7 +117,7 @@ export function linkResultCounts(result: ReadonlyArray<{ linked_items: number | 
 
 // ── Contexto do recebimento (`fetchReceiptContextFn`) ──────────────────────
 
-export function supplyOrderLabel(number: string | null): string {
+export function formatSupplyOrderLabel(number: string | null): string {
 	return number ? `OF ${number}` : "OF sem número"
 }
 
@@ -130,7 +130,7 @@ export interface ContextInvoiceRow {
 }
 
 /** A nota do recebimento como a tela a mostra: o problema para efetivar, se está cancelada e o rótulo. */
-export function receiptContextInvoice(note: ContextInvoiceRow | null) {
+export function buildReceiptContextInvoice(note: ContextInvoiceRow | null) {
 	if (!note) return null
 	const invoice = { status: String(note.status), situationResult: note.situation_result ?? null, situationCheckedAt: note.situation_checked_at ?? null }
 	return {
@@ -140,16 +140,16 @@ export function receiptContextInvoice(note: ContextInvoiceRow | null) {
 	}
 }
 
-export function receiptContextSupplyOrder(order: { number: string | null; empenho_id: string | null } | null, supplyOrderId: string | null) {
+export function buildReceiptContextSupplyOrder(order: { number: string | null; empenho_id: string | null } | null, supplyOrderId: string | null) {
 	if (!order) return null
 	return {
 		id: String(supplyOrderId),
-		label: supplyOrderLabel(order.number),
+		label: formatSupplyOrderLabel(order.number),
 		// a NE desta entrega se vincula na OF (SICAF), e o recebimento a acompanha
 		awaitingEmpenho: order.empenho_id == null,
 	}
 }
 
-export function receiptContextEmpenho(empenho: { numero_empenho: string | null; favorecido_nome: string | null } | null) {
+export function buildReceiptContextEmpenho(empenho: { numero_empenho: string | null; favorecido_nome: string | null } | null) {
 	return empenho ? { label: `${empenho.numero_empenho}${empenho.favorecido_nome ? ` · ${empenho.favorecido_nome}` : ""}` } : null
 }

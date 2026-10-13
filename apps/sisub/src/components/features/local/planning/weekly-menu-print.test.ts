@@ -7,12 +7,12 @@ import {
 	buildGroupLegend,
 	type CellEntry,
 	countHiddenGridItems,
-	emptyMealTypesMessage,
+	describeEmptyMealTypes,
 	formatWeekInputValue,
 	formatWeekLabel,
+	getWeekdayDate,
 	itemRecipeName,
 	sortMealTypes,
-	weekdayDate,
 } from "./weekly-menu-print"
 
 type CellItems = Parameters<typeof buildCellIndex>[0]
@@ -208,19 +208,19 @@ describe("buildGroupLegend", () => {
 	})
 })
 
-describe("weekdayDate e buildDayColumns", () => {
+describe("getWeekdayDate e buildDayColumns", () => {
 	const monday = new Date(2026, 9, 12)
 
 	test("sem semana: sem data", () => {
-		expect(weekdayDate(null, 3)).toBeNull()
+		expect(getWeekdayDate(null, 3)).toBeNull()
 		const columns = buildDayColumns(null)
 		expect(columns).toHaveLength(7)
 		expect(columns.every((c) => c.dateLabel === null)).toBe(true)
 	})
 
 	test("com semana: dia ISO a partir da segunda", () => {
-		expect(weekdayDate(monday, 1)).toEqual(new Date(2026, 9, 12))
-		expect(weekdayDate(monday, 7)).toEqual(new Date(2026, 9, 18))
+		expect(getWeekdayDate(monday, 1)).toEqual(new Date(2026, 9, 12))
+		expect(getWeekdayDate(monday, 7)).toEqual(new Date(2026, 9, 18))
 		expect(buildDayColumns(monday)).toEqual([
 			{ num: 1, label: "Segunda-feira", dateLabel: "12/10" },
 			{ num: 2, label: "Terça-feira", dateLabel: "13/10" },
@@ -254,9 +254,9 @@ describe("formatWeekInputValue", () => {
 	})
 })
 
-describe("emptyMealTypesMessage", () => {
+describe("describeEmptyMealTypes", () => {
 	test("texto por escopo", () => {
-		expect(emptyMealTypesMessage({ kind: "kitchen", kitchenId: 1, kitchenIdStr: "1" })).toBe("Nenhum tipo de refeição configurado para esta cozinha.")
-		expect(emptyMealTypesMessage({ kind: "global" })).toBe("Nenhum tipo de refeição genérico configurado.")
+		expect(describeEmptyMealTypes({ kind: "kitchen", kitchenId: 1, kitchenIdStr: "1" })).toBe("Nenhum tipo de refeição configurado para esta cozinha.")
+		expect(describeEmptyMealTypes({ kind: "global" })).toBe("Nenhum tipo de refeição genérico configurado.")
 	})
 })

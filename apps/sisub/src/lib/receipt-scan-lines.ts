@@ -26,7 +26,7 @@ export function indexInvoiceItems(items: ReadonlyArray<ScanInvoiceItem & { id: s
  * O que o CATÁLOGO conhece, por SKU: o GTIN do SKU primeiro, depois os aliases aprendidos na
  * operação, na ordem em que vieram.
  */
-export function catalogGtinsBySku(
+export function collectCatalogGtinsBySku(
 	skus: ReadonlyArray<{ id: string; gtin: string | null }> | null,
 	aliases: ReadonlyArray<{ gtin: string; ingredient_item_id: string }> | null
 ): Map<string, string[]> {
@@ -41,7 +41,7 @@ export function catalogGtinsBySku(
 }
 
 /** Os GTINs da hierarquia de embalagem ligados aos conhecidos do item e que ele ainda não conhece. */
-function relatedGtins(gtins: readonly string[], nodes: ReadonlyArray<{ gtin: string; parent_gtin: string | null }>): string[] {
+function findRelatedGtins(gtins: readonly string[], nodes: ReadonlyArray<{ gtin: string; parent_gtin: string | null }>): string[] {
 	const related: string[] = []
 	for (const node of nodes) {
 		const isChildOfKnown = node.parent_gtin != null && gtins.includes(node.parent_gtin)
@@ -53,14 +53,14 @@ function relatedGtins(gtins: readonly string[], nodes: ReadonlyArray<{ gtin: str
 }
 
 /** Hierarquia de embalagem: caixa ↔ unidade do mesmo produto, por SKU. Item sem parente fica fora. */
-export function hierarchyGtinsBySku(
+export function collectHierarchyGtinsBySku(
 	catalogByItem: ReadonlyMap<string, string[]>,
 	hierarchy: ReadonlyArray<{ gtin: string; parent_gtin: string | null }> | null
 ): Map<string, string[]> {
 	const nodes = hierarchy ?? []
 	const hierarchyByItem = new Map<string, string[]>()
 	for (const [itemId, gtins] of catalogByItem) {
-		const related = relatedGtins(gtins, nodes)
+		const related = findRelatedGtins(gtins, nodes)
 		if (related.length > 0) hierarchyByItem.set(itemId, [...new Set(related)])
 	}
 	return hierarchyByItem
@@ -78,7 +78,7 @@ function numberOrNull(value: number | null | undefined): number | null {
 	return value != null ? Number(value) : null
 }
 
-function gtinsOf(itemId: string | null, bySku: ReadonlyMap<string, string[]>): string[] {
+function collectGtins(itemId: string | null, bySku: ReadonlyMap<string, string[]>): string[] {
 	return itemId ? (bySku.get(itemId) ?? []) : []
 }
 
@@ -93,8 +93,8 @@ export function toScanLine(
 		receiptItemId: row.id,
 		invoiceGtin: nfe?.gtin ?? null,
 		invoiceGtinTrib: nfe?.gtin_trib ?? null,
-		catalogGtins: gtinsOf(row.ingredient_item_id, catalogByItem),
-		hierarchyGtins: gtinsOf(row.ingredient_item_id, hierarchyByItem),
+		catalogGtins: collectGtins(row.ingredient_item_id, catalogByItem),
+		hierarchyGtins: collectGtins(row.ingredient_item_id, hierarchyByItem),
 		commercialQty: numberOrNull(nfe?.commercial_qty),
 		taxableQty: numberOrNull(nfe?.taxable_qty),
 		invoicedQtyBase: numberOrNull(row.invoiced_qty_base),

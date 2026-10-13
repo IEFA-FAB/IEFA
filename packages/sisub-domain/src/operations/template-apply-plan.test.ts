@@ -3,19 +3,19 @@ import {
 	buildBaseHeadcountByCell,
 	buildEventMealBases,
 	buildEventMenuItemRows,
+	buildRecipeSnapshot,
 	buildWeeklyMenuItemRows,
 	collectAppliedRecipeIds,
+	computeNextMenuSortOrder,
+	computeTemplateDayForDate,
 	groupEventItemsBySlot,
 	groupWeeklyItemsByMealType,
 	listApplyDates,
 	type MaterializableItem,
-	nextMenuSortOrder,
 	partitionFreshItems,
 	planWeeklyMaterialization,
-	recipeSnapshotOf,
 	resolveEventItemDemands,
 	resolveWeeklyMealHeadcount,
-	templateDayForDate,
 } from "./template-apply-plan.ts"
 
 const TEMPLATE = "tpl-1"
@@ -60,15 +60,15 @@ describe("listApplyDates", () => {
 	})
 })
 
-describe("templateDayForDate", () => {
+describe("computeTemplateDayForDate", () => {
 	test("semana começando na segunda: segunda = 1, domingo = 7", () => {
-		expect(templateDayForDate("2024-01-01", 1)).toBe(1) // segunda
-		expect(templateDayForDate("2024-01-07", 1)).toBe(7) // domingo
+		expect(computeTemplateDayForDate("2024-01-01", 1)).toBe(1) // segunda
+		expect(computeTemplateDayForDate("2024-01-07", 1)).toBe(7) // domingo
 	})
 
 	test("semana começando na quarta: quarta = 1, segunda = 6", () => {
-		expect(templateDayForDate("2024-01-03", 3)).toBe(1)
-		expect(templateDayForDate("2024-01-01", 3)).toBe(6)
+		expect(computeTemplateDayForDate("2024-01-03", 3)).toBe(1)
+		expect(computeTemplateDayForDate("2024-01-01", 3)).toBe(6)
 	})
 })
 
@@ -82,13 +82,13 @@ describe("buildBaseHeadcountByCell", () => {
 	})
 })
 
-describe("recipeSnapshotOf", () => {
+describe("buildRecipeSnapshot", () => {
 	test("sem receita, objeto vazio", () => {
-		expect(recipeSnapshotOf(null)).toEqual({})
+		expect(buildRecipeSnapshot(null)).toEqual({})
 	})
 
 	test("receita vira snake_case com `ingredients` e `ingredient`", () => {
-		expect(recipeSnapshotOf({ portionYield: 10, recipeIngredientsInKitchens: [{ netQuantity: 1, ingredientInKitchen: { measureUnit: "kg" } }] })).toEqual({
+		expect(buildRecipeSnapshot({ portionYield: 10, recipeIngredientsInKitchens: [{ netQuantity: 1, ingredientInKitchen: { measureUnit: "kg" } }] })).toEqual({
 			portion_yield: 10,
 			ingredients: [{ net_quantity: 1, ingredient: { measure_unit: "kg" } }],
 		})
@@ -252,9 +252,9 @@ describe("evento e apoio", () => {
 		])
 	})
 
-	test("nextMenuSortOrder: depois do maior existente; vazio começa em 0", () => {
-		expect(nextMenuSortOrder([])).toBe(0)
-		expect(nextMenuSortOrder([{ sortOrder: 3 }, { sortOrder: null }])).toBe(4)
+	test("computeNextMenuSortOrder: depois do maior existente; vazio começa em 0", () => {
+		expect(computeNextMenuSortOrder([])).toBe(0)
+		expect(computeNextMenuSortOrder([{ sortOrder: 3 }, { sortOrder: null }])).toBe(4)
 	})
 
 	test("collectAppliedRecipeIds: receita deste template e a original de uma troca do dia", () => {

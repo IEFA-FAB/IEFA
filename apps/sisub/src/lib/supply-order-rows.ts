@@ -9,7 +9,7 @@
 import { resolvePurchaseUnitId } from "@iefa/sisub-domain/operations"
 
 /** Unidade COMPRADORA da cozinha (`purchase_unit_id ?? unit_id`); cozinha não achada dá null. */
-export function kitchenPurchaseUnitIdOf(kitchenRow: { unit_id: number | null; purchase_unit_id: number | null } | null | undefined): number | null {
+export function getKitchenPurchaseUnitId(kitchenRow: { unit_id: number | null; purchase_unit_id: number | null } | null | undefined): number | null {
 	return resolvePurchaseUnitId({ unitId: kitchenRow?.unit_id ?? null, purchaseUnitId: kitchenRow?.purchase_unit_id ?? null })
 }
 

@@ -50,7 +50,7 @@ export function isForkingGlobalRecipe(mode: RecipeFormMode, initialData: LoadedR
 }
 
 /** Id cuja linhagem é consultada para saber se a versão aberta é a vigente (criar não tem). */
-export function lineageRecipeIdOf(mode: RecipeFormMode, initialData: LoadedRecipe | null | undefined): string | undefined {
+export function getLineageRecipeId(mode: RecipeFormMode, initialData: LoadedRecipe | null | undefined): string | undefined {
 	return mode === "create" ? undefined : initialData?.id
 }
 
@@ -67,7 +67,7 @@ export function findSupersedingHead<THead extends { id?: unknown }>(
 }
 
 /** Revisão (conferência) só existe para preparação persistida aberta em edição. */
-export function reviewRecipeIdOf(mode: RecipeFormMode, initialData: LoadedRecipe | null | undefined): string | null {
+export function getReviewRecipeId(mode: RecipeFormMode, initialData: LoadedRecipe | null | undefined): string | null {
 	return mode === "edit" ? (initialData?.id ?? null) : null
 }
 
@@ -77,7 +77,7 @@ export function isFlowEnabled(mode: RecipeFormMode, initialData: LoadedRecipe | 
 }
 
 /** O que o Salvar faz, dito na barra quando ela está nas abas da preparação. */
-export function recipeSaveCaption(mode: RecipeFormMode, willFork: boolean): string {
+export function getRecipeSaveCaption(mode: RecipeFormMode, willFork: boolean): string {
 	return mode === "create"
 		? "Salvar cria a preparação."
 		: willFork
@@ -86,7 +86,7 @@ export function recipeSaveCaption(mode: RecipeFormMode, willFork: boolean): stri
 }
 
 /** Legenda da barra de salvar: bloqueio por versão superada vence; fora das abas da preparação, só o aviso de pendência. */
-export function recipeDraftBarCaption(supersededBy: { version: number | null } | null, isRecipeTab: boolean, saveCaption: string): string {
+export function getRecipeDraftBarCaption(supersededBy: { version: number | null } | null, isRecipeTab: boolean, saveCaption: string): string {
 	return supersededBy
 		? `Salvar está bloqueado: abra a versão vigente (v${supersededBy.version}) para levar suas alterações.`
 		: isRecipeTab
@@ -95,7 +95,7 @@ export function recipeDraftBarCaption(supersededBy: { version: number | null } |
 }
 
 /** Título do rascunho na lista de rascunhos abertos. */
-export function recipeDraftTitle(mode: RecipeFormMode, initialData: LoadedRecipe | null | undefined): string {
+export function getRecipeDraftTitle(mode: RecipeFormMode, initialData: LoadedRecipe | null | undefined): string {
 	return mode === "create" ? "Nova preparação" : `Preparação: ${initialData?.name ?? ""}`
 }
 

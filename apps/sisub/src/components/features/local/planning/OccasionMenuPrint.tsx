@@ -21,7 +21,7 @@ import {
 	useMenuPrintOrganization,
 	usePreparationDigests,
 } from "@/components/features/local/planning/MenuPrintParts"
-import { scopeKitchenId } from "@/components/features/local/planning/menu-print-data"
+import { getScopeKitchenId } from "@/components/features/local/planning/menu-print-data"
 import {
 	collectOccasionPreparationSources,
 	formatOccasionDateLabel,
@@ -71,7 +71,7 @@ type OccasionPrintOptions = Pick<CardapioPrintOptions, "showMethod" | "ingredien
 export function OccasionMenuPrint({ templateId, templateType, scope, date, onDateChange, editorLink, listLink, canEdit }: OccasionMenuPrintProps) {
 	const copy = OCCASION_MENU_COPY[templateType]
 	const isSupportMenu = templateType === "apoio"
-	const kitchenId = scopeKitchenId(scope)
+	const kitchenId = getScopeKitchenId(scope)
 	const { data: template, isLoading, isFetching: templateFetching } = useTemplate(templateId)
 
 	// Versão das fichas na lista de preparações, como no semanal.

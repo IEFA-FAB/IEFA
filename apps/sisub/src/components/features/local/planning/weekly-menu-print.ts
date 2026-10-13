@@ -116,14 +116,14 @@ export function buildGroupLegend(
 }
 
 /** Data do dia `dow` (ISO, 1 = segunda) na semana que começa em `weekStart`; `null` sem semana. */
-export function weekdayDate(weekStart: Date | null, dow: number): Date | null {
+export function getWeekdayDate(weekStart: Date | null, dow: number): Date | null {
 	return weekStart ? addDays(weekStart, dow - 1) : null
 }
 
 /** Colunas da grade, datadas quando há semana escolhida. */
 export function buildDayColumns(weekStart: Date | null): DayColumn[] {
 	return WEEKDAYS.map((d) => {
-		const date = weekdayDate(weekStart, d.num)
+		const date = getWeekdayDate(weekStart, d.num)
 		return { num: d.num, label: d.label, dateLabel: date ? format(date, "dd/MM") : null }
 	})
 }
@@ -141,6 +141,6 @@ export function formatWeekInputValue(weekStart: Date | null): string {
 }
 
 /** Grade sem linhas: o texto depende de onde vêm os tipos de refeição. */
-export function emptyMealTypesMessage(scope: PrintScope): string {
+export function describeEmptyMealTypes(scope: PrintScope): string {
 	return scope.kind === "kitchen" ? "Nenhum tipo de refeição configurado para esta cozinha." : "Nenhum tipo de refeição genérico configurado."
 }

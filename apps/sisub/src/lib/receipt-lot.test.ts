@@ -3,7 +3,16 @@
  * as linhas gravadas em `goods_receipt_item_lot`.
  */
 import { afterEach, describe, expect, test, vi } from "vitest"
-import { arrivalDate, assessLot, hasLotInfo, initialInvoiceLot, invoiceLotSource, lotPayload, lotUpdateFromLine, lotWriteError } from "@/lib/receipt-lot"
+import {
+	arrivalDate,
+	assessLot,
+	buildInitialInvoiceLot,
+	buildLotPayload,
+	buildLotUpdateFromLine,
+	createLotWriteError,
+	findInvoiceLotSource,
+	hasLotInfo,
+} from "@/lib/receipt-lot"
 import type { RequiredRange } from "@/lib/receipt-spec"
 
 const FROZEN: RequiredRange = { minC: -18, maxC: -12, conservationClass: "congelado", minShelfLifeDays: 30 }
@@ -72,11 +81,11 @@ describe("assessLot", () => {
 	})
 })
 
-describe("lotPayload", () => {
+describe("buildLotPayload", () => {
 	const fields = { receiptItemId: "it-1", lotCode: "  L-01 ", quantityBase: 10 }
 
 	test("sem aceite: campos de aceite nulos, opcionais nulos, código aparado", () => {
-		expect(lotPayload(fields, { measured: null, received: null, divergence: null, outOfRange: false }, "user-1")).toEqual({
+		expect(buildLotPayload(fields, { measured: null, received: null, divergence: null, outOfRange: false }, "user-1")).toEqual({
 			receipt_item_id: "it-1",
 			lot_code: "L-01",
 			expiry_date: null,
@@ -94,7 +103,7 @@ describe("lotPayload", () => {
 	test("fora da faixa: grava quem aceitou e quando", () => {
 		vi.useFakeTimers()
 		vi.setSystemTime(new Date("2026-10-13T12:00:00Z"))
-		const payload = lotPayload(
+		const payload = buildLotPayload(
 			{ ...fields, expiryDate: "2026-11-01", unitCost: 0, divergenceNote: "  ok " },
 			{ measured: -5, received: "congelado", divergence: "motivo", outOfRange: true },
 			"user-1"
@@ -113,17 +122,17 @@ describe("lotPayload", () => {
 
 	test("nota só de espaços vira nula", () => {
 		expect(
-			lotPayload({ ...fields, divergenceNote: "   " }, { measured: null, received: null, divergence: null, outOfRange: false }, "u").divergence_note
+			buildLotPayload({ ...fields, divergenceNote: "   " }, { measured: null, received: null, divergence: null, outOfRange: false }, "u").divergence_note
 		).toBeNull()
 	})
 })
 
-describe("lotWriteError", () => {
+describe("createLotWriteError", () => {
 	test("código repetido na linha tem frase própria, com o código como veio", () => {
-		expect(lotWriteError({ code: "23505", message: "duplicate key" }, " L-01").message).toBe('Lote " L-01" já lançado nesta linha')
+		expect(createLotWriteError({ code: "23505", message: "duplicate key" }, " L-01").message).toBe('Lote " L-01" já lançado nesta linha')
 	})
 	test("o resto passa pela mensagem pública do banco", () => {
-		expect(lotWriteError({ code: "P0001", message: "Lote recusado pela regra" }, "L-01").message).toMatch(/^Erro ao gravar lote: /)
+		expect(createLotWriteError({ code: "P0001", message: "Lote recusado pela regra" }, "L-01").message).toMatch(/^Erro ao gravar lote: /)
 	})
 })
 
@@ -132,13 +141,13 @@ describe("lote inicial da NF-e", () => {
 
 	test("a linha de origem vem pelo item da nota", () => {
 		const byNfeItem = new Map([["nf-1", source]])
-		expect(invoiceLotSource("nf-1", byNfeItem)).toBe(source)
-		expect(invoiceLotSource(null, byNfeItem)).toBeUndefined()
-		expect(invoiceLotSource("nf-x", byNfeItem)).toBeUndefined()
+		expect(findInvoiceLotSource("nf-1", byNfeItem)).toBe(source)
+		expect(findInvoiceLotSource(null, byNfeItem)).toBeUndefined()
+		expect(findInvoiceLotSource("nf-x", byNfeItem)).toBeUndefined()
 	})
 
 	test("lote e validade da nota, julgada contra o mínimo", () => {
-		expect(initialInvoiceLot({ id: "it-1", received_qty_base: 12, unit_cost: 2.5 }, source, { index: 0, today: "2026-10-13" }, 30)).toEqual({
+		expect(buildInitialInvoiceLot({ id: "it-1", received_qty_base: 12, unit_cost: 2.5 }, source, { index: 0, today: "2026-10-13" }, 30)).toEqual({
 			receipt_item_id: "it-1",
 			lot_code: "ABC",
 			expiry_date: "2026-10-20",
@@ -149,7 +158,7 @@ describe("lote inicial da NF-e", () => {
 	})
 
 	test("sem código na nota (ou só espaços), o sintético pela posição", () => {
-		expect(initialInvoiceLot({ id: "it-1", received_qty_base: 1, unit_cost: null }, undefined, { index: 2, today: "2026-10-13" }, null)).toEqual({
+		expect(buildInitialInvoiceLot({ id: "it-1", received_qty_base: 1, unit_cost: null }, undefined, { index: 2, today: "2026-10-13" }, null)).toEqual({
 			receipt_item_id: "it-1",
 			lot_code: "SEM-LOTE-2026-10-13-3",
 			expiry_date: null,
@@ -158,7 +167,8 @@ describe("lote inicial da NF-e", () => {
 			divergence_reason: null,
 		})
 		expect(
-			initialInvoiceLot({ id: "it-1", received_qty_base: 1, unit_cost: null }, { ...source, lotCode: "  " }, { index: 0, today: "2026-10-13" }, null).lot_code
+			buildInitialInvoiceLot({ id: "it-1", received_qty_base: 1, unit_cost: null }, { ...source, lotCode: "  " }, { index: 0, today: "2026-10-13" }, null)
+				.lot_code
 		).toBe("SEM-LOTE-2026-10-13-1")
 	})
 })
@@ -172,7 +182,7 @@ describe("lote da entrega sem nota", () => {
 	})
 
 	test("com código: troca o sintético; validade julgada contra a chegada", () => {
-		expect(lotUpdateFromLine({ lotCode: " L1 ", expiryDate: "2026-10-05" }, "2026-10-01", 10)).toEqual({
+		expect(buildLotUpdateFromLine({ lotCode: " L1 ", expiryDate: "2026-10-05" }, "2026-10-01", 10)).toEqual({
 			lot_code: "L1",
 			expiry_date: "2026-10-05",
 			divergence_reason: "Validade de 4 dias na entrega, abaixo do mínimo de 10 da especificação",
@@ -180,12 +190,12 @@ describe("lote da entrega sem nota", () => {
 	})
 
 	test("sem código: o sintético fica (a chave nem aparece)", () => {
-		const update = lotUpdateFromLine({ lotCode: "  ", expiryDate: "2026-12-01" }, "2026-10-01", null)
+		const update = buildLotUpdateFromLine({ lotCode: "  ", expiryDate: "2026-12-01" }, "2026-10-01", null)
 		expect(update).toEqual({ expiry_date: "2026-12-01", divergence_reason: null })
 		expect("lot_code" in update).toBe(false)
 	})
 
 	test("só código: validade nula e sem motivo", () => {
-		expect(lotUpdateFromLine({ lotCode: "L2" }, "2026-10-01", 30)).toEqual({ lot_code: "L2", expiry_date: null, divergence_reason: null })
+		expect(buildLotUpdateFromLine({ lotCode: "L2" }, "2026-10-01", 30)).toEqual({ lot_code: "L2", expiry_date: null, divergence_reason: null })
 	})
 })

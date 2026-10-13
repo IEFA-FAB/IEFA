@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest"
-import { buildScopeParams, deriveCountState, hasScopeValue, scopeValueLabel } from "./counts-page"
+import { buildScopeParams, deriveCountState, getScopeValueLabel, hasScopeValue } from "./counts-page"
 
 type Line = { ingredientId: string | null; ownRound: boolean; needsRecount: boolean | null }
 const line = (patch: Partial<Line>): Line => ({ ingredientId: "a", ownRound: true, needsRecount: false, ...patch })
@@ -36,9 +36,9 @@ describe("deriveCountState", () => {
 
 describe("escopo", () => {
 	test("rótulo do valor", () => {
-		expect(scopeValueLabel("menu_cycle")).toBe("Dias do ciclo")
-		expect(scopeValueLabel("location")).toBe("Local")
-		expect(scopeValueLabel("conservation_class")).toBe("Classe")
+		expect(getScopeValueLabel("menu_cycle")).toBe("Dias do ciclo")
+		expect(getScopeValueLabel("location")).toBe("Local")
+		expect(getScopeValueLabel("conservation_class")).toBe("Classe")
 	})
 
 	test("quais escopos pedem valor", () => {

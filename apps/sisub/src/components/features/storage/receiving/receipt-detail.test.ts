@@ -1,14 +1,14 @@
 import { describe, expect, test } from "vitest"
 import {
 	buildConservationItems,
+	buildInitialLotFields,
 	buildLotDrafts,
 	describeReceiptHeader,
 	describeReceiptSource,
 	evaluateLot,
-	initialLotFields,
+	getLotRowClassName,
+	getReceiptPrintTitle,
 	isAwaitingDefinitive,
-	lotRowClassName,
-	receiptPrintTitle,
 	requiredRange,
 	resolveNeedsDesignation,
 	tallyConservation,
@@ -53,16 +53,16 @@ describe("resolveNeedsDesignation", () => {
 	})
 })
 
-describe("describeReceiptHeader e receiptPrintTitle", () => {
+describe("describeReceiptHeader e getReceiptPrintTitle", () => {
 	test("situação traduzida ou crua; recusa entra com data", () => {
 		expect(describeReceiptHeader({ status: "draft", rejected_at: null }, "NF-e 1")).toBe("Situação: Rascunho · NF-e 1")
 		expect(describeReceiptHeader({ status: "outro", rejected_at: null }, "x")).toBe("Situação: outro · x")
 		expect(describeReceiptHeader({ status: "rejected", rejected_at: "2026-01-02T15:00:00Z" }, "x")).toMatch(/^Situação: Rejeitado · x · Recusado em /)
 	})
 	test("título do termo", () => {
-		expect(receiptPrintTitle("rejected")).toBe("Termo de Recusa de Recebimento")
-		expect(receiptPrintTitle("definitive")).toBe("Termo de Recebimento — Definitivo")
-		expect(receiptPrintTitle("provisional")).toBe("Termo de Recebimento — Provisório")
+		expect(getReceiptPrintTitle("rejected")).toBe("Termo de Recusa de Recebimento")
+		expect(getReceiptPrintTitle("definitive")).toBe("Termo de Recebimento — Definitivo")
+		expect(getReceiptPrintTitle("provisional")).toBe("Termo de Recebimento — Provisório")
 	})
 })
 
@@ -81,11 +81,18 @@ describe("tallyConservation", () => {
 
 describe("lote em edição", () => {
 	test("rascunho de inclusão: vazio com a sugerida", () => {
-		expect(initialLotFields(null, "resfriado" as never)).toEqual({ code: "", expiry: "", quantity: "", temperature: "", conservation: "resfriado", note: "" })
+		expect(buildInitialLotFields(null, "resfriado" as never)).toEqual({
+			code: "",
+			expiry: "",
+			quantity: "",
+			temperature: "",
+			conservation: "resfriado",
+			note: "",
+		})
 	})
 	test("lote existente: valores gravados (temperatura zero incluída)", () => {
 		expect(
-			initialLotFields(
+			buildInitialLotFields(
 				{ lot_code: "L1", expiry_date: "2026-12-01", quantity_base: 3, measured_temperature_c: 0, conservation_class: null, divergence_note: null },
 				"resfriado" as never
 			)
@@ -110,9 +117,9 @@ describe("lote em edição", () => {
 	})
 
 	test("classe da linha: fora da faixa vence a divergência", () => {
-		expect(lotRowClassName(true, "x")).toBe("bg-destructive/5")
-		expect(lotRowClassName(false, "x")).toBe("bg-warning/5")
-		expect(lotRowClassName(false, null)).toBeUndefined()
+		expect(getLotRowClassName(true, "x")).toBe("bg-destructive/5")
+		expect(getLotRowClassName(false, "x")).toBe("bg-warning/5")
+		expect(getLotRowClassName(false, null)).toBeUndefined()
 	})
 
 	test("rascunhos para o saldo de lotes", () => {

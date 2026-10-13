@@ -39,7 +39,7 @@ export const getPeriodGap = (timeFilter: TimeFilter): number => {
 	return gap
 }
 
-const matchesMonthAndGroup = (item: FinancialRecord, month: string, selectedGroup: string): boolean =>
+const isInMonthAndGroup = (item: FinancialRecord, month: string, selectedGroup: string): boolean =>
 	item.date === month && (selectedGroup === "ALL" || item.group === selectedGroup)
 
 /** 3d. Registros do período anterior ao selecionado (YYYY-MM), no grupo escolhido. */
@@ -66,7 +66,7 @@ export const selectPreviousKpiData = (
 
 	const prevMonthStr = `${year}-${month.toString().padStart(2, "0")}`
 
-	return baseFilteredData.filter((item) => matchesMonthAndGroup(item, prevMonthStr, selectedGroup))
+	return baseFilteredData.filter((item) => isInMonthAndGroup(item, prevMonthStr, selectedGroup))
 }
 
 export interface KpiStats {
@@ -157,7 +157,7 @@ export const computeTrendSeries = (
 		const idx = currentIndex - i * gap
 		if (idx >= 0) {
 			const month = uniqueMonths[idx]
-			const monthData = baseFilteredData.filter((item) => matchesMonthAndGroup(item, month, selectedGroup))
+			const monthData = baseFilteredData.filter((item) => isInMonthAndGroup(item, month, selectedGroup))
 			diffs.push(sumBy(monthData, (r) => r.difference))
 			siafis.push(sumBy(monthData, (r) => r.siafiValue))
 			siloms.push(sumBy(monthData, (r) => r.silomsValue))

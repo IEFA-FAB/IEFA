@@ -13,7 +13,7 @@ export function getErrorMessage(error: unknown): string {
 }
 
 /** O servidor oferece algum caminho além da sugestão: CPF, pedido à administração ou conta de seção. */
-export function offersSaramAlternatives(status: Pick<SaramStatus, "actions">): boolean {
+export function hasSaramAlternatives(status: Pick<SaramStatus, "actions">): boolean {
 	return hasSaramAction(status, "verify_cpf") || hasSaramAction(status, "request_link") || hasSaramAction(status, "set_institutional")
 }
 

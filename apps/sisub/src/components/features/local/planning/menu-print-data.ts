@@ -11,7 +11,7 @@ import type { MenuTemplateWithItems } from "@/types/domain/planning"
 type TemplateItem = MenuTemplateWithItems["items"][number]
 
 /** Cozinha do escopo; `null` no catálogo global. */
-export function scopeKitchenId(scope: PrintScope): number | null {
+export function getScopeKitchenId(scope: PrintScope): number | null {
 	return scope.kind === "kitchen" ? scope.kitchenId : null
 }
 

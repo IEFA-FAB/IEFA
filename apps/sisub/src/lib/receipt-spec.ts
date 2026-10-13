@@ -23,12 +23,12 @@ export interface RequiredRange {
  * A especificação padrão do insumo só é lida quando a da linha não decide a classe: não há
  * especificação da linha, ou ela não tem classe.
  */
-export function needsDefaultSpec(lineSpec: SpecRow | null): boolean {
+export function isDefaultSpecNeeded(lineSpec: SpecRow | null): boolean {
 	return !lineSpec || lineSpec.conservation_class == null
 }
 
 /** A especificação padrão que veio do embed `purchase_item:purchase_item_id (...)`, desde que não excluída. */
-export function activeDefaultSpec(data: unknown): SpecRow | null {
+export function pickActiveDefaultSpec(data: unknown): SpecRow | null {
 	const candidate = (data as { purchase_item?: SpecRow | null } | null)?.purchase_item ?? null
 	return candidate && candidate.deleted_at == null ? candidate : null
 }
@@ -92,7 +92,7 @@ interface SpecLike {
 }
 
 /** Linha com insumo cuja especificação de compra não existe ou não tem classe: cai na padrão do insumo. */
-export function needsDefaultSpecForItem(item: Omit<ReceiptItemKeys, "id" | "ingredient_item_id">, specById: ReadonlyMap<string, SpecLike>): boolean {
+export function isDefaultSpecNeededForItem(item: Omit<ReceiptItemKeys, "id" | "ingredient_item_id">, specById: ReadonlyMap<string, SpecLike>): boolean {
 	return !!item.ingredient_id && (!item.purchase_item_id || specById.get(item.purchase_item_id)?.conservation_class == null)
 }
 
@@ -104,7 +104,7 @@ export function fallbackIngredientIds(
 	return [
 		...new Set(
 			items
-				.filter((item) => needsDefaultSpecForItem(item, specById))
+				.filter((item) => isDefaultSpecNeededForItem(item, specById))
 				.map((item) => item.ingredient_id)
 				.filter((id) => id != null)
 		),
@@ -131,7 +131,7 @@ export interface ReceiptItemLookup<LineSpec extends SpecLike, DefaultSpec extend
 }
 
 /** O que a conferência mostra da linha além das colunas dela. */
-export function receiptItemDetails<LineSpec extends SpecLike, DefaultSpec extends SpecLike, Lot>(
+export function buildReceiptItemDetails<LineSpec extends SpecLike, DefaultSpec extends SpecLike, Lot>(
 	item: ReceiptItemKeys,
 	lookup: ReceiptItemLookup<LineSpec, DefaultSpec, Lot>
 ) {
@@ -145,7 +145,7 @@ export function receiptItemDetails<LineSpec extends SpecLike, DefaultSpec extend
 		conditioning: lineSpec ?? defaultSpec ?? null,
 		// A classe que a conferência sugere: a da linha, ou a da padrão quando a da linha é nula.
 		suggested_conservation_class:
-			lineSpec?.conservation_class ?? (needsDefaultSpecForItem(item, lookup.specById) ? defaultSpec?.conservation_class : null) ?? null,
+			lineSpec?.conservation_class ?? (isDefaultSpecNeededForItem(item, lookup.specById) ? defaultSpec?.conservation_class : null) ?? null,
 		lots: lookup.lotsByItem.get(item.id) ?? [],
 	}
 }

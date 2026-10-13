@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import type { FlatIngredientTree, Folder, Ingredient, IngredientDialogState, IngredientTreeNode } from "@/types/domain/ingredients"
-import { countVisibleNodes, folderToEdit, pickEmptyTreeHint } from "./ingredients-tree-manager-state"
+import { countVisibleNodes, pickEmptyTreeHint, pickFolderToEdit } from "./ingredients-tree-manager-state"
 
 const node = (id: string, type: IngredientTreeNode["type"]): IngredientTreeNode => ({
 	id,
@@ -34,22 +34,22 @@ describe("countVisibleNodes", () => {
 	})
 })
 
-describe("folderToEdit", () => {
+describe("pickFolderToEdit", () => {
 	const folder = { id: "f", parent_id: null, description: "Pasta" } as unknown as Folder
 	const ingredient = { id: "i", description: "Arroz" } as unknown as Ingredient
 	const state = (over: Partial<IngredientDialogState>): IngredientDialogState => ({ isOpen: true, mode: "edit", type: "folder", ...over })
 
 	it("edição de pasta: devolve a pasta", () => {
-		expect(folderToEdit(state({ data: folder }))).toBe(folder)
+		expect(pickFolderToEdit(state({ data: folder }))).toBe(folder)
 	})
 	it("criação: undefined mesmo com dado", () => {
-		expect(folderToEdit(state({ mode: "create", data: folder }))).toBeUndefined()
+		expect(pickFolderToEdit(state({ mode: "create", data: folder }))).toBeUndefined()
 	})
 	it("edição sem dado: undefined", () => {
-		expect(folderToEdit(state({ data: undefined }))).toBeUndefined()
+		expect(pickFolderToEdit(state({ data: undefined }))).toBeUndefined()
 	})
 	it("edição com dado que não é pasta: undefined", () => {
-		expect(folderToEdit(state({ data: ingredient }))).toBeUndefined()
+		expect(pickFolderToEdit(state({ data: ingredient }))).toBeUndefined()
 	})
 })
 

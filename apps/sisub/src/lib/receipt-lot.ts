@@ -70,7 +70,7 @@ export interface LotFields {
 }
 
 /** A linha de `goods_receipt_item_lot` que a conferência grava (insert ou update). */
-export function lotPayload(
+export function buildLotPayload(
 	fields: LotFields,
 	lot: { measured: number | null; received: ConservationClass | null; divergence: string | null; outOfRange: boolean },
 	userId: string
@@ -94,7 +94,7 @@ export function lotPayload(
 }
 
 /** Erro da escrita do lote: o código repetido na linha tem frase própria. */
-export function lotWriteError(error: { code?: string; message: string }, lotCode: string): Error {
+export function createLotWriteError(error: { code?: string; message: string }, lotCode: string): Error {
 	return error.code === "23505" ? new Error(`Lote "${lotCode}" já lançado nesta linha`) : new Error(`Erro ao gravar lote: ${publicDbMessage(error)}`)
 }
 
@@ -106,7 +106,7 @@ export interface InvoiceLotSource {
 }
 
 /** A linha da NF-e de onde o item inserido veio. */
-export function invoiceLotSource<S>(nfeItemId: string | null, byNfeItem: ReadonlyMap<string, S>): S | undefined {
+export function findInvoiceLotSource<S>(nfeItemId: string | null, byNfeItem: ReadonlyMap<string, S>): S | undefined {
 	return nfeItemId ? byNfeItem.get(nfeItemId) : undefined
 }
 
@@ -114,7 +114,7 @@ export function invoiceLotSource<S>(nfeItemId: string | null, byNfeItem: Readonl
  * Lote inicial com o rastro da nota. Sem código de lote na nota, um sintético por posição; a
  * validade que veio na nota é julgada contra o mínimo da especificação (EST-REC-05).
  */
-export function initialInvoiceLot(
+export function buildInitialInvoiceLot(
 	item: { id: string; received_qty_base: number; unit_cost: number | null },
 	source: InvoiceLotSource | undefined,
 	position: { index: number; today: string },
@@ -140,7 +140,7 @@ export function hasLotInfo(line: { lotCode?: string | null; expiryDate?: string 
  * O que a entrega sem nota grava no lote sem código que a conferência criou. Sem código
  * informado, o código sintético fica.
  */
-export function lotUpdateFromLine(line: { lotCode?: string | null; expiryDate?: string | null }, arrival: string, minShelfLifeDays: number | null) {
+export function buildLotUpdateFromLine(line: { lotCode?: string | null; expiryDate?: string | null }, arrival: string, minShelfLifeDays: number | null) {
 	return {
 		...(line.lotCode?.trim() ? { lot_code: line.lotCode.trim() } : {}),
 		expiry_date: line.expiryDate ?? null,

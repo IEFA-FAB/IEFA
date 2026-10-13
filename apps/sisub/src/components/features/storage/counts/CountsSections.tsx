@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import type { fetchCountSheetFn, listInventoryCountsFn } from "@/server/count.fn"
-import { hasScopeValue, NUM, SCOPE_LABELS, type ScannedTarget, STATUS_LABELS, scopeValueLabel, TYPE_LABELS } from "./counts-page"
+import { getScopeValueLabel, hasScopeValue, NUM, SCOPE_LABELS, type ScannedTarget, STATUS_LABELS, TYPE_LABELS } from "./counts-page"
 
 type CountSheet = NonNullable<Awaited<ReturnType<typeof fetchCountSheetFn>>>
 export type CountLine = CountSheet["lines"][number]
@@ -91,7 +91,7 @@ export function OpenCountCard({
 				</div>
 				{hasScopeValue(scope) && (
 					<div className="space-y-1">
-						<Label htmlFor="scope-value">{scopeValueLabel(scope)}</Label>
+						<Label htmlFor="scope-value">{getScopeValueLabel(scope)}</Label>
 						<Input id="scope-value" className="w-40" value={scopeValue} onChange={(event) => onScopeValueChange(event.target.value)} />
 					</div>
 				)}

@@ -3,17 +3,17 @@ import {
 	describeSupersedingVersion,
 	findSupersedingHead,
 	formatDateTime,
+	getLineageRecipeId,
+	getRecipeDraftBarCaption,
+	getRecipeDraftTitle,
+	getRecipeSaveCaption,
+	getReviewRecipeId,
 	isFlowEnabled,
 	isForkingGlobalRecipe,
 	isRecipeFieldsTab,
-	lineageRecipeIdOf,
 	RECIPE_FORM_TABS,
-	recipeDraftBarCaption,
-	recipeDraftTitle,
-	recipeSaveCaption,
 	resolveEditContext,
 	resolveRecipeFormTab,
-	reviewRecipeIdOf,
 } from "./recipe-form-state"
 
 const globalRecipe = { id: "r1", name: "Arroz", version: 3, kitchen_id: null }
@@ -70,14 +70,14 @@ describe("isForkingGlobalRecipe", () => {
 	})
 })
 
-describe("lineageRecipeIdOf", () => {
+describe("getLineageRecipeId", () => {
 	it("criar não consulta linhagem", () => {
-		expect(lineageRecipeIdOf("create", globalRecipe)).toBeUndefined()
+		expect(getLineageRecipeId("create", globalRecipe)).toBeUndefined()
 	})
 	it("edição e fork consultam pelo id carregado", () => {
-		expect(lineageRecipeIdOf("edit", globalRecipe)).toBe("r1")
-		expect(lineageRecipeIdOf("fork", globalRecipe)).toBe("r1")
-		expect(lineageRecipeIdOf("edit", null)).toBeUndefined()
+		expect(getLineageRecipeId("edit", globalRecipe)).toBe("r1")
+		expect(getLineageRecipeId("fork", globalRecipe)).toBe("r1")
+		expect(getLineageRecipeId("edit", null)).toBeUndefined()
 	})
 })
 
@@ -104,12 +104,12 @@ describe("findSupersedingHead", () => {
 	})
 })
 
-describe("reviewRecipeIdOf", () => {
+describe("getReviewRecipeId", () => {
 	it("só em edição de preparação persistida", () => {
-		expect(reviewRecipeIdOf("edit", globalRecipe)).toBe("r1")
-		expect(reviewRecipeIdOf("edit", null)).toBeNull()
-		expect(reviewRecipeIdOf("fork", globalRecipe)).toBeNull()
-		expect(reviewRecipeIdOf("create", globalRecipe)).toBeNull()
+		expect(getReviewRecipeId("edit", globalRecipe)).toBe("r1")
+		expect(getReviewRecipeId("edit", null)).toBeNull()
+		expect(getReviewRecipeId("fork", globalRecipe)).toBeNull()
+		expect(getReviewRecipeId("create", globalRecipe)).toBeNull()
 	})
 })
 
@@ -123,38 +123,38 @@ describe("isFlowEnabled", () => {
 	})
 })
 
-describe("recipeSaveCaption", () => {
+describe("getRecipeSaveCaption", () => {
 	it("criar", () => {
-		expect(recipeSaveCaption("create", true)).toBe("Salvar cria a preparação.")
+		expect(getRecipeSaveCaption("create", true)).toBe("Salvar cria a preparação.")
 	})
 	it("forkando", () => {
-		expect(recipeSaveCaption("edit", true)).toBe("Salvar cria uma cópia local desta cozinha. A preparação global não é alterada.")
+		expect(getRecipeSaveCaption("edit", true)).toBe("Salvar cria uma cópia local desta cozinha. A preparação global não é alterada.")
 	})
 	it("versionando", () => {
-		expect(recipeSaveCaption("edit", false)).toBe("Salvar gera automaticamente uma nova versão desta preparação.")
-		expect(recipeSaveCaption("fork", false)).toBe("Salvar gera automaticamente uma nova versão desta preparação.")
+		expect(getRecipeSaveCaption("edit", false)).toBe("Salvar gera automaticamente uma nova versão desta preparação.")
+		expect(getRecipeSaveCaption("fork", false)).toBe("Salvar gera automaticamente uma nova versão desta preparação.")
 	})
 })
 
-describe("recipeDraftBarCaption", () => {
+describe("getRecipeDraftBarCaption", () => {
 	it("versão superada vence", () => {
-		expect(recipeDraftBarCaption({ version: 5 }, true, "X")).toBe("Salvar está bloqueado: abra a versão vigente (v5) para levar suas alterações.")
+		expect(getRecipeDraftBarCaption({ version: 5 }, true, "X")).toBe("Salvar está bloqueado: abra a versão vigente (v5) para levar suas alterações.")
 	})
 	it("aba da preparação: a legenda do Salvar", () => {
-		expect(recipeDraftBarCaption(null, true, "X")).toBe("X")
+		expect(getRecipeDraftBarCaption(null, true, "X")).toBe("X")
 	})
 	it("fora das abas da preparação: só o aviso de pendência", () => {
-		expect(recipeDraftBarCaption(null, false, "X")).toBe("Há alterações na preparação ainda não salvas.")
+		expect(getRecipeDraftBarCaption(null, false, "X")).toBe("Há alterações na preparação ainda não salvas.")
 	})
 })
 
-describe("recipeDraftTitle", () => {
+describe("getRecipeDraftTitle", () => {
 	it("criar", () => {
-		expect(recipeDraftTitle("create", globalRecipe)).toBe("Nova preparação")
+		expect(getRecipeDraftTitle("create", globalRecipe)).toBe("Nova preparação")
 	})
 	it("editar/fork leva o nome; sem dado, vazio", () => {
-		expect(recipeDraftTitle("edit", globalRecipe)).toBe("Preparação: Arroz")
-		expect(recipeDraftTitle("fork", null)).toBe("Preparação: ")
+		expect(getRecipeDraftTitle("edit", globalRecipe)).toBe("Preparação: Arroz")
+		expect(getRecipeDraftTitle("fork", null)).toBe("Preparação: ")
 	})
 })
 

@@ -1,6 +1,6 @@
 import { SARAM_FALLBACK_ERROR_MESSAGE } from "@iefa/database/saram-link"
 import { describe, expect, test } from "vitest"
-import { type Feedback, getAlternativesTitle, getErrorMessage, getFeedbackSource, offersSaramAlternatives, selectFeedback } from "./military-record-panel"
+import { type Feedback, getAlternativesTitle, getErrorMessage, getFeedbackSource, hasSaramAlternatives, selectFeedback } from "./military-record-panel"
 
 describe("getErrorMessage", () => {
 	test("Error com mensagem", () => expect(getErrorMessage(new Error("boom"))).toBe("boom"))
@@ -8,7 +8,7 @@ describe("getErrorMessage", () => {
 	test("não-Error cai no texto padrão", () => expect(getErrorMessage("boom")).toBe(SARAM_FALLBACK_ERROR_MESSAGE))
 })
 
-describe("offersSaramAlternatives", () => {
+describe("hasSaramAlternatives", () => {
 	test.each([
 		[["verify_cpf"], true],
 		[["request_link"], true],
@@ -16,7 +16,7 @@ describe("offersSaramAlternatives", () => {
 		[["confirm_candidate", "set_personal", "withdraw_request"], false],
 		[[], false],
 	] as const)("%j → %p", (actions, expected) => {
-		expect(offersSaramAlternatives({ actions: [...actions] })).toBe(expected)
+		expect(hasSaramAlternatives({ actions: [...actions] })).toBe(expected)
 	})
 })
 

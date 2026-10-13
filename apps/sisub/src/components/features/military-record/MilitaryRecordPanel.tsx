@@ -47,7 +47,7 @@ import {
 	getAlternativesTitle,
 	getErrorMessage,
 	getFeedbackSource,
-	offersSaramAlternatives,
+	hasSaramAlternatives,
 	selectFeedback,
 } from "./military-record-panel"
 
@@ -121,7 +121,7 @@ export function MilitaryRecordPanel({ status, api, now }: { status: SaramStatus;
 	// Vínculo antigo cujo e-mail localiza o dono: o banco oferece confirmar pelo e-mail (troca o legacy
 	// por um verificado). Um candidato sem dígito de homônimo é um clique; o resto pede os 4 dígitos.
 	// Essa regra vive em `describeSaramPanel` (`panel.confirmStep`), a mesma do sucont.
-	const offersAlternatives = offersSaramAlternatives(status)
+	const offersAlternatives = hasSaramAlternatives(status)
 	// Sem sugestão nem candidato, as alternativas SÃO a tela; com sugestão, ficam atrás do "Não sou eu".
 	const alternativesVisible = panel.alternativesAlwaysOpen || (showAlternatives && offersAlternatives)
 

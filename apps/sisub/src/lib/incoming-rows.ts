@@ -96,12 +96,12 @@ export function isOrderFullyReceived(order: IncomingOrder, index: OrderReceiptIn
 	return index.definitiveByOrder.has(order.id) && order.status !== "partially_received" && !index.openByOrder.has(order.id)
 }
 
-export function supplyOrderSummary(order: IncomingOrder, empenho: IncomingEmpenho | undefined): string {
+export function describeSupplyOrderSummary(order: IncomingOrder, empenho: IncomingEmpenho | undefined): string {
 	if (empenho?.numero_empenho) return `Empenho ${empenho.numero_empenho}`
 	return order.empenho_id == null ? "Aguardando empenho" : "Empenho não identificado"
 }
 
-export function supplyOrderNextAction(order: IncomingOrder, openReceiptId: string | null, late: number): string {
+export function describeSupplyOrderNextAction(order: IncomingOrder, openReceiptId: string | null, late: number): string {
 	if (openReceiptId) return "Concluir o recebimento"
 	if (order.status === "partially_received") return "Receber o saldo restante"
 	return late > 0 ? "Cobrar o fornecedor" : "Aguardando entrega"
@@ -129,8 +129,8 @@ export function buildSupplyOrderRows(
 			referenceDate: order.expected_delivery,
 			daysLate: late,
 			value: null,
-			summary: supplyOrderSummary(order, empenho),
-			nextAction: supplyOrderNextAction(order, openReceiptId, late),
+			summary: describeSupplyOrderSummary(order, empenho),
+			nextAction: describeSupplyOrderNextAction(order, openReceiptId, late),
 			supplyOrderId: order.id,
 			nfeDocumentId: null,
 			goodsReceiptId: openReceiptId,
@@ -146,7 +146,7 @@ export function buildSupplyOrderRows(
  * Nota da cozinha E nota enviada à UNIDADE compradora que nenhuma cozinha
  * reivindicou ainda (`kitchen_id` nulo).
  */
-export function incomingNoteScope(kitchenId: number, purchaseUnit: number | null): string {
+export function buildIncomingNoteScope(kitchenId: number, purchaseUnit: number | null): string {
 	return purchaseUnit == null ? `kitchen_id.eq.${kitchenId}` : `kitchen_id.eq.${kitchenId},and(kitchen_id.is.null,unit_id.eq.${purchaseUnit})`
 }
 
@@ -202,14 +202,14 @@ interface NoteState {
 	pending: number
 }
 
-export function nfeSummary(state: NoteState): string {
+export function describeNfeSummary(state: NoteState): string {
 	if (state.cancelled) return "Cancelada na SEFAZ"
 	if (state.openReceiptId) return "Recebimento em andamento"
 	if (state.unclaimed) return "Enviada à unidade, ainda sem cozinha"
 	return state.announced ? "Anunciada pela chave, XML não recebido" : "Nota disponível"
 }
 
-export function nfeNextAction(state: NoteState): string {
+export function describeNfeNextAction(state: NoteState): string {
 	if (state.cancelled) return "Não receber — confirme com o fornecedor"
 	if (state.openReceiptId) return "Concluir o recebimento"
 	if (state.unclaimed) return "Assumir a nota para esta cozinha"
@@ -244,8 +244,8 @@ export function buildNfeRows(notes: readonly IncomingNote[], index: NoteReceiptI
 			// e passava nota comum à frente de OF realmente atrasada.
 			daysLate: 0,
 			value: note.total_value == null ? null : Number(note.total_value),
-			summary: nfeSummary(state),
-			nextAction: nfeNextAction(state),
+			summary: describeNfeSummary(state),
+			nextAction: describeNfeNextAction(state),
 			supplyOrderId: null,
 			nfeDocumentId: note.id,
 			goodsReceiptId: openReceiptId,

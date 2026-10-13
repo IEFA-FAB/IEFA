@@ -4,33 +4,33 @@
  */
 import { describe, expect, test } from "vitest"
 import {
-	activeDefaultSpec,
+	buildReceiptItemDetails,
 	defaultSpecsByIngredient,
 	fallbackIngredientIds,
 	groupLotsByItem,
 	indexById,
+	isDefaultSpecNeeded,
+	isDefaultSpecNeededForItem,
 	narrowSpec,
-	needsDefaultSpec,
-	needsDefaultSpecForItem,
-	receiptItemDetails,
+	pickActiveDefaultSpec,
 	resolveRequiredRange,
 } from "@/lib/receipt-spec"
 
 describe("requiredRangeFor — resolução da especificação", () => {
 	test("lê a padrão só quando a da linha falta ou não tem classe", () => {
-		expect(needsDefaultSpec(null)).toBe(true)
-		expect(needsDefaultSpec({ conservation_class: null })).toBe(true)
-		expect(needsDefaultSpec({})).toBe(true)
-		expect(needsDefaultSpec({ conservation_class: "congelado" })).toBe(false)
+		expect(isDefaultSpecNeeded(null)).toBe(true)
+		expect(isDefaultSpecNeeded({ conservation_class: null })).toBe(true)
+		expect(isDefaultSpecNeeded({})).toBe(true)
+		expect(isDefaultSpecNeeded({ conservation_class: "congelado" })).toBe(false)
 	})
 
 	test("padrão do embed: excluída não vale; ausente é nula", () => {
-		expect(activeDefaultSpec(null)).toBeNull()
-		expect(activeDefaultSpec({ purchase_item: null })).toBeNull()
-		expect(activeDefaultSpec({})).toBeNull()
-		expect(activeDefaultSpec({ purchase_item: { conservation_class: "seco", deleted_at: "2026-01-01" } })).toBeNull()
+		expect(pickActiveDefaultSpec(null)).toBeNull()
+		expect(pickActiveDefaultSpec({ purchase_item: null })).toBeNull()
+		expect(pickActiveDefaultSpec({})).toBeNull()
+		expect(pickActiveDefaultSpec({ purchase_item: { conservation_class: "seco", deleted_at: "2026-01-01" } })).toBeNull()
 		const live = { conservation_class: "seco", deleted_at: null }
-		expect(activeDefaultSpec({ purchase_item: live })).toBe(live)
+		expect(pickActiveDefaultSpec({ purchase_item: live })).toBe(live)
 	})
 
 	test("faixa e validade da linha; classe da padrão quando a da linha é nula", () => {
@@ -98,11 +98,11 @@ describe("fetchReceiptFn — linhas da conferência", () => {
 			["pi-classe", narrowSpec(spec("pi-classe", "seco"))],
 			["pi-sem-classe", narrowSpec(spec("pi-sem-classe", null))],
 		])
-		expect(needsDefaultSpecForItem({ ingredient_id: null, purchase_item_id: null }, specById)).toBe(false)
-		expect(needsDefaultSpecForItem({ ingredient_id: "i", purchase_item_id: null }, specById)).toBe(true)
-		expect(needsDefaultSpecForItem({ ingredient_id: "i", purchase_item_id: "pi-sem-classe" }, specById)).toBe(true)
-		expect(needsDefaultSpecForItem({ ingredient_id: "i", purchase_item_id: "pi-desconhecido" }, specById)).toBe(true)
-		expect(needsDefaultSpecForItem({ ingredient_id: "i", purchase_item_id: "pi-classe" }, specById)).toBe(false)
+		expect(isDefaultSpecNeededForItem({ ingredient_id: null, purchase_item_id: null }, specById)).toBe(false)
+		expect(isDefaultSpecNeededForItem({ ingredient_id: "i", purchase_item_id: null }, specById)).toBe(true)
+		expect(isDefaultSpecNeededForItem({ ingredient_id: "i", purchase_item_id: "pi-sem-classe" }, specById)).toBe(true)
+		expect(isDefaultSpecNeededForItem({ ingredient_id: "i", purchase_item_id: "pi-desconhecido" }, specById)).toBe(true)
+		expect(isDefaultSpecNeededForItem({ ingredient_id: "i", purchase_item_id: "pi-classe" }, specById)).toBe(false)
 	})
 
 	test("insumos da padrão sem repetição", () => {
@@ -150,7 +150,7 @@ describe("fetchReceiptFn — linhas da conferência", () => {
 	}
 
 	test("linha com especificação própria com classe: ela é o acondicionamento e a sugestão", () => {
-		expect(receiptItemDetails({ id: "it-1", ingredient_id: "ing-1", purchase_item_id: "pi-1", ingredient_item_id: "sku-1" }, lookup)).toEqual({
+		expect(buildReceiptItemDetails({ id: "it-1", ingredient_id: "ing-1", purchase_item_id: "pi-1", ingredient_item_id: "sku-1" }, lookup)).toEqual({
 			description: "Carne bovina",
 			measure_unit: "kg",
 			gtin: "7891234567890",
@@ -161,7 +161,7 @@ describe("fetchReceiptFn — linhas da conferência", () => {
 	})
 
 	test("linha com especificação sem classe: acondicionamento da linha, classe da padrão", () => {
-		const details = receiptItemDetails({ id: "it-2", ingredient_id: "ing-1", purchase_item_id: "pi-2", ingredient_item_id: "sku-2" }, lookup)
+		const details = buildReceiptItemDetails({ id: "it-2", ingredient_id: "ing-1", purchase_item_id: "pi-2", ingredient_item_id: "sku-2" }, lookup)
 		expect(details.conditioning).toBe(lineSpecWithoutClass)
 		expect(details.suggested_conservation_class).toBe("congelado")
 		expect(details.gtin).toBeNull()
@@ -169,14 +169,14 @@ describe("fetchReceiptFn — linhas da conferência", () => {
 	})
 
 	test("linha sem item de compra: tudo da padrão", () => {
-		const details = receiptItemDetails({ id: "it-3", ingredient_id: "ing-1", purchase_item_id: null, ingredient_item_id: null }, lookup)
+		const details = buildReceiptItemDetails({ id: "it-3", ingredient_id: "ing-1", purchase_item_id: null, ingredient_item_id: null }, lookup)
 		expect(details.conditioning).toBe(defaultSpec)
 		expect(details.suggested_conservation_class).toBe("congelado")
 		expect(details.gtin).toBeNull()
 	})
 
 	test("linha sem insumo nem especificação: descrição de traço e tudo nulo", () => {
-		expect(receiptItemDetails({ id: "it-4", ingredient_id: null, purchase_item_id: null, ingredient_item_id: "sku-desconhecido" }, lookup)).toEqual({
+		expect(buildReceiptItemDetails({ id: "it-4", ingredient_id: null, purchase_item_id: null, ingredient_item_id: "sku-desconhecido" }, lookup)).toEqual({
 			description: "—",
 			measure_unit: null,
 			gtin: null,
@@ -187,7 +187,7 @@ describe("fetchReceiptFn — linhas da conferência", () => {
 	})
 
 	test("insumo sem padrão e linha sem classe: sugestão nula", () => {
-		const details = receiptItemDetails({ id: "it-5", ingredient_id: "ing-sem-padrao", purchase_item_id: "pi-2", ingredient_item_id: null }, lookup)
+		const details = buildReceiptItemDetails({ id: "it-5", ingredient_id: "ing-sem-padrao", purchase_item_id: "pi-2", ingredient_item_id: null }, lookup)
 		expect(details.suggested_conservation_class).toBeNull()
 		expect(details.description).toBe("—")
 	})

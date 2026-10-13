@@ -53,7 +53,7 @@ interface ChatRule {
 	answer: (ctx: ChatContext) => string
 }
 
-const includesAny = (lowerQuery: string, terms: string[]) => terms.some((term) => lowerQuery.includes(term))
+const hasAny = (lowerQuery: string, terms: string[]) => terms.some((term) => lowerQuery.includes(term))
 
 const FALLBACK_ANSWER =
 	'Desculpe, não consegui interpretar essa pergunta. Como Oráculo SUCONT, posso ajudá-lo com:\n- "Qual ODS possui maior risco contábil?"\n- "Qual Órgão Superior concentra mais inconsistências?"\n- "Qual UG apresenta maior risco contábil?"\n- "Quais são as 10 UGs mais críticas do COMAER?"\n- "20% das UGs concentram quantos % das inconsistências?"\n- "Quais inconsistências devem ser tratadas primeiro?"'
@@ -61,14 +61,14 @@ const FALLBACK_ANSWER =
 /** Avaliadas em ordem; a primeira que casa responde. */
 const CHAT_RULES: ChatRule[] = [
 	{
-		matches: (q) => q.includes("ods") && includesAny(q, ["mais inconsistências", "maior risco"]),
+		matches: (q) => q.includes("ods") && hasAny(q, ["mais inconsistências", "maior risco"]),
 		answer: ({ estrategicoData }) => {
 			const topOds = estrategicoData.topOds[0]
 			return `O ODS com maior risco contábil (mais inconsistências) é o **${topOds.name}**, com ${topOds.count} inconsistências (${topOds.percent.toFixed(1)}% do total).`
 		},
 	},
 	{
-		matches: (q) => q.includes("órgão superior") && includesAny(q, ["concentra mais", "mais inconsistências"]),
+		matches: (q) => q.includes("órgão superior") && hasAny(q, ["concentra mais", "mais inconsistências"]),
 		answer: ({ estrategicoData }) => {
 			const topOrgao = estrategicoData.topOrgaosSuperiores[0]
 			return `O Órgão Superior que concentra mais inconsistências é o **${topOrgao.name}**, com ${topOrgao.count} ocorrências (${topOrgao.percent.toFixed(1)}% do total).`
@@ -112,7 +112,7 @@ const CHAT_RULES: ChatRule[] = [
 		},
 	},
 	{
-		matches: (q) => includesAny(q, ["primeiro", "prioridade", "tratar"]),
+		matches: (q) => hasAny(q, ["primeiro", "prioridade", "tratar"]),
 		answer: ({ decisaoData }) => {
 			if (decisaoData) {
 				const top3 = decisaoData.priorities.slice(0, 3)
@@ -124,26 +124,26 @@ const CHAT_RULES: ChatRule[] = [
 		},
 	},
 	{
-		matches: (q) => includesAny(q, ["mapa de risco", "panorama"]),
+		matches: (q) => hasAny(q, ["mapa de risco", "panorama"]),
 		answer: ({ estrategicoData }) =>
 			`O Mapa de Risco Contábil mostra a distribuição das inconsistências por ODS:\n\n${estrategicoData.topOds
 				.map((o) => `${o.name} — ${o.count} inconsistências — ${formatCurrency(o.value)} — ${o.percent.toFixed(1)}%`)
 				.join("\n")}`,
 	},
 	{
-		matches: (q) => q.includes("questão rac") && includesAny(q, ["mais recorrente", "mais frequente"]),
+		matches: (q) => q.includes("questão rac") && hasAny(q, ["mais recorrente", "mais frequente"]),
 		answer: ({ managerialData }) => {
 			const topRac = managerialData.topRacs[0]
 			return `A questão RAC mais recorrente é a **${topRac.name}**, com ${topRac.value} ocorrências.`
 		},
 	},
 	{
-		matches: (q) => includesAny(q, ["120999", "stn", "diferenciado"]),
+		matches: (q) => hasAny(q, ["120999", "stn", "diferenciado"]),
 		answer: () =>
 			"A **UG 120999 (MAER - DIF. CAMBIAL)**, subordinada à **SEFA / SEFA**, é o Órgão Central de Contabilidade (STN). O tratamento é diferenciado por ser exclusivo para lançamentos da Secretaria do Tesouro Nacional.",
 	},
 	{
-		matches: (q) => includesAny(q, ["setorial", "autoridade"]),
+		matches: (q) => hasAny(q, ["setorial", "autoridade"]),
 		answer: () =>
 			"As Setoriais Contábeis do COMAER (SEFA) são a autoridade máxima em normas e fiscalização contábil. São elas:\n- UG 120002 (DIREF), subordinada ao SEFA / SEFA\n- UG 120701 (DIREF/SUCONT), subordinada ao SEFA / SEFA\n- UG 120702 (DIREF/SUCONV), subordinada ao SEFA / SEFA\n- UG 121002 (DIREF - FAer), subordinada ao SEFA / SEFA",
 	},

@@ -11,7 +11,7 @@ import { type DbErrorLike, publicDbMessage } from "@/lib/db-error-message"
 import { itemDescription } from "@/lib/item-description"
 
 /** `Number(...)` de coluna nulável, mantendo o nulo. */
-export function nullableNumber(value: number | string | null | undefined): number | null {
+export function toNullableNumber(value: number | string | null | undefined): number | null {
 	return value != null ? Number(value) : null
 }
 
@@ -23,7 +23,7 @@ export type Decision<T> = { ok: true; value: T } | { ok: false; problem: string 
  * A OF sustenta a entrega? Tem de ser desta cozinha e enviada, e o empenho pedido tem de ser o
  * dela. Devolve o empenho que vale (o da OF, quando ela tem).
  */
-export function empenhoFromOrder(
+export function resolveEmpenhoFromOrder(
 	order: { kitchen_id: number | string | null; empenho_id: string | null; status: string } | null,
 	kitchenId: number,
 	requestedEmpenhoId: string | null
@@ -48,7 +48,7 @@ export function empenhoFromOrder(
 }
 
 /** O empenho é da unidade compradora e não está anulado? */
-export function usableEmpenho<E extends { unit_id: number | string | null; status: string }>(row: E | null, unitId: number | null): Decision<E> {
+export function resolveUsableEmpenho<E extends { unit_id: number | string | null; status: string }>(row: E | null, unitId: number | null): Decision<E> {
 	if (!row || unitId == null || Number(row.unit_id) !== unitId) return { ok: false, problem: "Empenho não encontrado nesta unidade" }
 	if (row.status === "anulado") return { ok: false, problem: "Empenho anulado não sustenta entrega — registre sem empenho e vincule a NE vigente depois" }
 	return { ok: true, value: row }
@@ -57,7 +57,7 @@ export function usableEmpenho<E extends { unit_id: number | string | null; statu
 // ── Recebimento a partir da NF-e ───────────────────────────────────────────
 
 /** Nota que já fecha entregas recebidas sem ela não gera recebimento próprio. */
-export function linkedDeliveriesProblem(linkedDeliveries: number | null): string | null {
+export function describeLinkedDeliveriesProblem(linkedDeliveries: number | null): string | null {
 	const isLinked = (linkedDeliveries ?? 0) > 0
 	if (!isLinked) return null
 	return `Esta NF-e já está vinculada a ${linkedDeliveries} entrega(s) recebida(s) sem nota — não crie outro recebimento: confira os itens nas entregas vinculadas`
@@ -77,7 +77,7 @@ interface NfeItemForReceiving {
  * recebimento (goods_receipt_item exige ingrediente XOR preparação), o caminho honesto é recusar
  * apontando quais faltam.
  */
-export function nfeItemsReceivingProblem(items: readonly NfeItemForReceiving[]): string | null {
+export function describeNfeItemsReceivingProblem(items: readonly NfeItemForReceiving[]): string | null {
 	const resolvable = items.filter((item) => item.ingredient_id != null)
 	if (resolvable.length === 0) return "Nenhum item da NF-e está vinculado a um insumo — resolva o matching antes de receber"
 	const unresolved = items.filter((item) => item.ingredient_id == null)
@@ -92,7 +92,7 @@ export function nfeItemsReceivingProblem(items: readonly NfeItemForReceiving[]):
 }
 
 /** Falha ao inserir o recebimento da nota: a chave única tem frase própria. */
-export function nfeReceiptInsertMessage(error: DbErrorLike | null): string {
+export function formatNfeReceiptInsertMessage(error: DbErrorLike | null): string {
 	if (error?.code === "23505") return "Esta NF-e já tem um recebimento em andamento ou efetivado"
 	return `Erro ao criar recebimento: ${publicDbMessage(error)}`
 }
@@ -138,7 +138,7 @@ export function prepareNfeReceiptItems(items: readonly NfeItemRow[], receiptId: 
  * Valor da linha da nota, para o custo da linha sem conversão: o custo de aquisição, senão o
  * valor do produto, senão preço × quantidade comercial.
  */
-export function invoiceLineValue(
+export function computeInvoiceLineValue(
 	nfe: { acquisition_cost: number | null; product_value: number | null; unit_price: number | null; commercial_qty: number | null } | null
 ): number | null {
 	const lineValue =
@@ -168,7 +168,7 @@ export interface ReceiptWithoutInvoiceData {
 	lines: ReceiptLine[]
 }
 
-export function withoutInvoiceProblems(data: ReceiptWithoutInvoiceData): string[] {
+export function collectWithoutInvoiceProblems(data: ReceiptWithoutInvoiceData): string[] {
 	return receiptWithoutInvoiceProblems({
 		source: data.source,
 		deliveryNoteNumber: data.deliveryNoteNumber ?? null,
@@ -178,7 +178,9 @@ export function withoutInvoiceProblems(data: ReceiptWithoutInvoiceData): string[
 }
 
 /** Descrição de cada insumo vivo; o excluído fica fora, e a linha que o usa é recusada. */
-export function knownIngredientLabels(rows: ReadonlyArray<{ id: string; description: string | null; deleted_at: string | null }> | null): Map<string, string> {
+export function collectKnownIngredientLabels(
+	rows: ReadonlyArray<{ id: string; description: string | null; deleted_at: string | null }> | null
+): Map<string, string> {
 	const known = new Map<string, string>()
 	for (const row of rows ?? []) {
 		if (row.deleted_at == null) known.set(row.id, itemDescription(row.description))
@@ -194,7 +196,7 @@ export function defaultPurchaseItems(rows: ReadonlyArray<{ ingredient_id: string
 }
 
 /** O `goods_receipt` da entrega sem nota; fornecedor em branco cai no favorecido do empenho. */
-export function withoutInvoiceReceiptRow(
+export function buildWithoutInvoiceReceiptRow(
 	data: ReceiptWithoutInvoiceData,
 	resolved: { empenhoId: string | null; empenho: { favorecido_nome: string | null; favorecido_cnpj: string | null } | null },
 	userId: string
@@ -214,7 +216,7 @@ export function withoutInvoiceReceiptRow(
 	}
 }
 
-export function withoutInvoiceItemRows(lines: readonly ReceiptLine[], receiptId: string, purchaseItemBy: ReadonlyMap<string, string>) {
+export function buildWithoutInvoiceItemRows(lines: readonly ReceiptLine[], receiptId: string, purchaseItemBy: ReadonlyMap<string, string>) {
 	return lines.map((line) => ({
 		receipt_id: receiptId,
 		ingredient_id: line.ingredientId,
@@ -245,18 +247,18 @@ export function indexItemsByIngredient(
 	return itemByIngredient
 }
 
-function errorDetail(error: unknown): string {
+function getErrorDetail(error: unknown): string {
 	return error instanceof Error ? error.message : "erro"
 }
 
-export function quantityNotRecordedWarning(label: string, error: unknown): string {
-	return `${label}: quantidade não registrada (${errorDetail(error)}) — informe na conferência`
+export function formatQuantityNotRecordedWarning(label: string, error: unknown): string {
+	return `${label}: quantidade não registrada (${getErrorDetail(error)}) — informe na conferência`
 }
 
-export function shelfLifeNotCheckedWarning(label: string, error: unknown): string {
-	return `${label}: validade mínima não conferida (${errorDetail(error)}) — informe lote e validade na conferência`
+export function formatShelfLifeNotCheckedWarning(label: string, error: unknown): string {
+	return `${label}: validade mínima não conferida (${getErrorDetail(error)}) — informe lote e validade na conferência`
 }
 
-export function lotNotSavedWarning(label: string, error: DbErrorLike): string {
+export function formatLotNotSavedWarning(label: string, error: DbErrorLike): string {
 	return `${label}: lote e validade não gravados (${publicDbMessage(error)}) — informe na conferência`
 }

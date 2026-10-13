@@ -45,7 +45,7 @@ export function deriveCountState<L extends { ingredientId: unknown; ownRound: bo
 }
 
 /** Escopo com valor livre: o rótulo do campo. */
-export function scopeValueLabel(scope: string): string {
+export function getScopeValueLabel(scope: string): string {
 	return scope === "menu_cycle" ? "Dias do ciclo" : scope === "location" ? "Local" : "Classe"
 }
 

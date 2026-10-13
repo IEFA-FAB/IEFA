@@ -20,7 +20,7 @@ import { BulkFindReplaceDialog } from "./BulkFindReplaceDialog"
 import { FolderForm } from "./FolderForm"
 import { IngredientForm } from "./IngredientForm"
 import { IngredientsTreeNode } from "./IngredientsTreeNode"
-import { countVisibleNodes, folderToEdit, pickEmptyTreeHint } from "./ingredients-tree-manager-state"
+import { countVisibleNodes, pickEmptyTreeHint, pickFolderToEdit } from "./ingredients-tree-manager-state"
 
 /**
  * Gerenciador da árvore de insumos
@@ -404,7 +404,7 @@ export function IngredientsTreeManager({ ref, catalog = "exclude" }: { ref?: Ref
 
 			{/* Dialogs */}
 			{dialogState.type === "folder" && (
-				<FolderForm isOpen={dialogState.isOpen} onClose={handleCloseDialog} mode={dialogState.mode} folder={folderToEdit(dialogState)} catalog={catalog} />
+				<FolderForm isOpen={dialogState.isOpen} onClose={handleCloseDialog} mode={dialogState.mode} folder={pickFolderToEdit(dialogState)} catalog={catalog} />
 			)}
 
 			{dialogState.type === "ingredient" && dialogState.mode === "create" && (

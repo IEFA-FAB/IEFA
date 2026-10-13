@@ -63,7 +63,7 @@ export interface ArpItemsSummary {
 	arpSynced: boolean
 }
 
-export function emptyArpItemsSummary(): ArpItemsSummary {
+export function createEmptyArpItemsSummary(): ArpItemsSummary {
 	return { arpItems: new Map(), arpUnitByItem: new Map(), suppliers: new Set(), supplierName: null, arpSynced: true }
 }
 
@@ -79,7 +79,7 @@ export function summarizeArpItems<A extends EmpenhoArpHeaderRow>(
 	committed: ReadonlyMap<string, { quantidade: number }>,
 	unitId: number
 ): ArpItemsSummary {
-	const summary = emptyArpItemsSummary()
+	const summary = createEmptyArpItemsSummary()
 	for (const row of rows) {
 		const arp = arpById.get(row.arp_id)
 		// Mesmo motivo do import: o item de ARP tem que ser da unidade empenhada. Sem isto, a

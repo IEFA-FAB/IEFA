@@ -69,7 +69,7 @@ export function describeReceiptHeader(receipt: Pick<ReceiptHeaderLike, "status" 
 	}`
 }
 
-export function receiptPrintTitle(status: string): string {
+export function getReceiptPrintTitle(status: string): string {
 	return status === "rejected" ? "Termo de Recusa de Recebimento" : `Termo de Recebimento — ${status === "definitive" ? "Definitivo" : "Provisório"}`
 }
 
@@ -94,7 +94,7 @@ type LotLike = {
 }
 
 /** Valores iniciais dos campos do lote; o rascunho de inclusão começa vazio com a classe sugerida. */
-export function initialLotFields(lot: LotLike | null, suggested: ConservationClass | null) {
+export function buildInitialLotFields(lot: LotLike | null, suggested: ConservationClass | null) {
 	return {
 		code: lot?.lot_code ?? "",
 		expiry: lot?.expiry_date ?? "",
@@ -124,7 +124,7 @@ export function buildConservationItems(suggested: ConservationClass | null): { v
 	]
 }
 
-export function lotRowClassName(outOfRange: boolean, classDivergence: string | null): string | undefined {
+export function getLotRowClassName(outOfRange: boolean, classDivergence: string | null): string | undefined {
 	return outOfRange ? "bg-destructive/5" : classDivergence ? "bg-warning/5" : undefined
 }
 

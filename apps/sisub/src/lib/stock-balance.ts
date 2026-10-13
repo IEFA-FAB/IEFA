@@ -70,11 +70,11 @@ export function collectLotIds(rows: ReadonlyArray<{ lot_id: string | null }>): s
 }
 
 /** Chave do item: insumo (`i:`) ou preparação congelada (`f:`), a mesma de `describeItems`. */
-export function stockItemKey(row: Pick<StockBalanceViewRow, "ingredient_id" | "frozen_preparation_id">): string {
+export function buildStockItemKey(row: Pick<StockBalanceViewRow, "ingredient_id" | "frozen_preparation_id">): string {
 	return row.ingredient_id ? `i:${row.ingredient_id}` : `f:${row.frozen_preparation_id}`
 }
 
-function emptyStockItem(row: StockBalanceViewRow): StockBalanceItem {
+function createEmptyStockItem(row: StockBalanceViewRow): StockBalanceItem {
 	return {
 		ingredientId: row.ingredient_id,
 		frozenPreparationId: row.frozen_preparation_id,
@@ -132,8 +132,8 @@ export function aggregateStockBalance(
 ): Map<string, StockBalanceItem> {
 	const byItem = new Map<string, StockBalanceItem>()
 	for (const row of rows) {
-		const key = stockItemKey(row)
-		const item: StockBalanceItem = byItem.get(key) ?? emptyStockItem(row)
+		const key = buildStockItemKey(row)
+		const item: StockBalanceItem = byItem.get(key) ?? createEmptyStockItem(row)
 		const meta = row.lot_id ? lotMeta.get(row.lot_id) : undefined
 		accumulateStockRow(item, row, meta, getToday)
 		byItem.set(key, item)
