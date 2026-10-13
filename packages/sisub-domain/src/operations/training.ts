@@ -245,6 +245,21 @@ const RESET_STEPS: ResetStep[] = [
 	// `iefa.training_reset` aberta nesta transação e para os locais da cozinha `is_training`.
 	// Ordem: ajuste (aponta para movimento e lote) → movimento → requisição → contagem →
 	// custo → lote. A contagem e o ajuste apontam um para o outro; o vínculo sai antes.
+	// Endereçamento (inventory_multiclass, D18): log de movimentação, listas de separação e
+	// unidades de movimentação apontam para o lote, então saem antes dele. O log é append-only e
+	// só aceita DELETE sob a flag do reset, como o ledger.
+	{
+		table: "inventory.position_move",
+		run: (tx, scope) => deleteRaw(tx, sql`delete from inventory.position_move where location_id in ${trainingLocations(scope)} returning 1`),
+	},
+	{
+		table: "inventory.picking_list",
+		run: (tx, scope) => deleteRaw(tx, sql`delete from inventory.picking_list where location_id in ${trainingLocations(scope)} returning 1`),
+	},
+	{
+		table: "inventory.handling_unit",
+		run: (tx, scope) => deleteRaw(tx, sql`delete from inventory.handling_unit where location_id in ${trainingLocations(scope)} returning 1`),
+	},
 	{
 		table: "inventory.stock_adjustment",
 		run: async (tx, scope) => {

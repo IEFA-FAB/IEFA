@@ -26,6 +26,7 @@ import { Route as ProtectedAdminIndexRouteImport } from './routes/_protected/adm
 import { Route as ProtectedAdminPermissoesRouteImport } from './routes/_protected/admin/permissoes'
 import { Route as ProtectedPlanningIndexRouteImport } from './routes/_protected/planning/index'
 import { Route as ProtectedStockIndexRouteImport } from './routes/_protected/stock/index'
+import { Route as ProtectedStockLocationIdRouteImport } from './routes/_protected/stock/$locationId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -112,6 +113,12 @@ const ProtectedStockIndexRoute = ProtectedStockIndexRouteImport.update({
   path: '/',
   getParentRoute: () => ProtectedStockRouteRoute,
 } as any)
+const ProtectedStockLocationIdRoute =
+  ProtectedStockLocationIdRouteImport.update({
+    id: '/$locationId',
+    path: '/$locationId',
+    getParentRoute: () => ProtectedStockRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -126,6 +133,7 @@ export interface FileRoutesByFullPath {
   '/termos-de-uso': typeof PublicTermosDeUsoRoute
   '/auth/': typeof AuthIndexRoute
   '/admin/permissoes': typeof ProtectedAdminPermissoesRoute
+  '/stock/$locationId': typeof ProtectedStockLocationIdRoute
   '/admin/': typeof ProtectedAdminIndexRoute
   '/planning/': typeof ProtectedPlanningIndexRoute
   '/stock/': typeof ProtectedStockIndexRoute
@@ -139,6 +147,7 @@ export interface FileRoutesByTo {
   '/termos-de-uso': typeof PublicTermosDeUsoRoute
   '/auth': typeof AuthIndexRoute
   '/admin/permissoes': typeof ProtectedAdminPermissoesRoute
+  '/stock/$locationId': typeof ProtectedStockLocationIdRoute
   '/admin': typeof ProtectedAdminIndexRoute
   '/planning': typeof ProtectedPlanningIndexRoute
   '/stock': typeof ProtectedStockIndexRoute
@@ -159,6 +168,7 @@ export interface FileRoutesById {
   '/_public/termos-de-uso': typeof PublicTermosDeUsoRoute
   '/auth/': typeof AuthIndexRoute
   '/_protected/admin/permissoes': typeof ProtectedAdminPermissoesRoute
+  '/_protected/stock/$locationId': typeof ProtectedStockLocationIdRoute
   '/_protected/admin/': typeof ProtectedAdminIndexRoute
   '/_protected/planning/': typeof ProtectedPlanningIndexRoute
   '/_protected/stock/': typeof ProtectedStockIndexRoute
@@ -178,6 +188,7 @@ export interface FileRouteTypes {
     | '/termos-de-uso'
     | '/auth/'
     | '/admin/permissoes'
+    | '/stock/$locationId'
     | '/admin/'
     | '/planning/'
     | '/stock/'
@@ -191,6 +202,7 @@ export interface FileRouteTypes {
     | '/termos-de-uso'
     | '/auth'
     | '/admin/permissoes'
+    | '/stock/$locationId'
     | '/admin'
     | '/planning'
     | '/stock'
@@ -210,6 +222,7 @@ export interface FileRouteTypes {
     | '/_public/termos-de-uso'
     | '/auth/'
     | '/_protected/admin/permissoes'
+    | '/_protected/stock/$locationId'
     | '/_protected/admin/'
     | '/_protected/planning/'
     | '/_protected/stock/'
@@ -344,6 +357,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedStockIndexRouteImport
       parentRoute: typeof ProtectedStockRouteRoute
     }
+    '/_protected/stock/$locationId': {
+      id: '/_protected/stock/$locationId'
+      path: '/$locationId'
+      fullPath: '/stock/$locationId'
+      preLoaderRoute: typeof ProtectedStockLocationIdRouteImport
+      parentRoute: typeof ProtectedStockRouteRoute
+    }
   }
 }
 
@@ -375,10 +395,12 @@ const ProtectedPlanningRouteRouteWithChildren =
   )
 
 interface ProtectedStockRouteRouteChildren {
+  ProtectedStockLocationIdRoute: typeof ProtectedStockLocationIdRoute
   ProtectedStockIndexRoute: typeof ProtectedStockIndexRoute
 }
 
 const ProtectedStockRouteRouteChildren: ProtectedStockRouteRouteChildren = {
+  ProtectedStockLocationIdRoute: ProtectedStockLocationIdRoute,
   ProtectedStockIndexRoute: ProtectedStockIndexRoute,
 }
 

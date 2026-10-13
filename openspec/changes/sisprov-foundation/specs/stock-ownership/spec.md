@@ -8,11 +8,11 @@ Todo estoque do ERP, de qualquer classe de suprimento, SHALL viver no schema `in
 - **THEN** ele acrescenta o valor ao CHECK de `core.item.catalog_scope` e os perfis da classe no schema dela, e movimenta pelo `inventory`, sem tabela de saldo própria
 
 ### Requirement: Local de estoque explícito
-O sistema SHALL ter `inventory.stock_location` com OM dona (`unit_id`, obrigatório), cozinha opcional (`kitchen_id`, única), nível (`tier` ∈ `central_depot` · `unit_storeroom` · `kitchen`), nome e classes que guarda (`supply_classes`, não vazio). `tier = 'kitchen'` MUST valer se e somente se `kitchen_id` estiver preenchido. Toda cozinha com OM SHALL ter exatamente um local `kitchen`, criado por trigger no cadastro da cozinha e acompanhando a troca de OM dela; cozinha sem OM fica sem local (e sem estoque) até receber uma, sem que o cadastro dela seja recusado.
+O sistema SHALL ter `inventory.stock_location` com OM dona (`unit_id`, obrigatório), cozinha opcional (`kitchen_id`, única), nível e abastecedor (`stock-addressing`), nome e classes que guarda (`supply_classes`, não vazio). Toda cozinha com OM SHALL ter exatamente um local `kitchen`, criado por trigger no cadastro da cozinha e acompanhando a troca de OM dela; cozinha sem OM fica sem local (e sem estoque) até receber uma, sem que o cadastro dela seja recusado.
 
 #### Scenario: Cozinha nova
 - **WHEN** o sisub cadastra uma cozinha na OM 12
-- **THEN** existe um `stock_location` com `tier = 'kitchen'`, `kitchen_id` da cozinha, `unit_id = 12` e `supply_classes = {alimentacao, auxiliar}`, sem nenhuma chamada a mais do app
+- **THEN** existe um `stock_location` de nível 3 com `kitchen_id` da cozinha, `unit_id = 12` e `supply_classes = {alimentacao, auxiliar}`, sem nenhuma chamada a mais do app
 
 #### Scenario: Cozinha muda de OM
 - **WHEN** a cozinha passa da OM 12 para a OM 15

@@ -55,3 +55,24 @@ do projeto, registrados antes das telas.
 - **Realidade:** capacitação dos almoxarifes antes do piloto (F3.4).
 - **O sistema precisa:** tudo cai na OM sentinela; o reset de treino apaga; nada entra em relatório.
 - **Cobertura:** **LACUNA** (declarar as tabelas em `RESET_TARGET_TABLES` no change que as criar).
+
+### ALM-END-01 — "Recebi e ainda não guardei"
+- **Realidade:** a carga chegou no fim do expediente; os lotes ficam na doca até o dia seguinte.
+- **O sistema precisa:** o lote recebido num local endereçado fica "pendente de endereçamento", visível em lista própria, e o saldo já vale; guardar depois não mexe no saldo.
+- **Cobertura:** `stock_lot.position_id` nulo + filtro de pendentes na aba Lotes do SISPROV; teste de integração **LACUNA** até o apply.
+
+### ALM-END-02 — "A prateleira vai ser desmontada"
+- **Realidade:** a estante E05 vai para manutenção e precisa sair do cadastro.
+- **O sistema precisa:** recusar desativar posição com estoque ou com posição ativa dentro, dizendo o que mover antes.
+- **Cobertura:** `storage_position_guard` (`POSITION_HAS_STOCK`, `POSITION_HAS_CHILDREN`); teste de integração **LACUNA** até o apply.
+
+### ALM-END-03 — "Pediram 50 e só tem 35"
+- **Realidade:** a lista de separação pede mais do que há alocável (parte em quarentena, parte vencida).
+- **O sistema precisa:** a lista sai com o que há, em FEFO, e a falta como linha própria, sem esconder.
+- **Cobertura:** `create_picking_list` (linha `shortage`); teste de integração **LACUNA** até o apply.
+
+### ALM-END-04 — "Etiqueta SSCC digitada errado"
+- **Realidade:** o operador digita o SSCC da caixa à mão e erra um dígito.
+- **O sistema precisa:** recusar pelo dígito verificador antes de gravar, na tela e no banco.
+- **Cobertura:** `packages/sisprov-domain/src/inventory/addressing.test.ts › chaves GS1`; CHECK `handling_unit_code_format`.
+

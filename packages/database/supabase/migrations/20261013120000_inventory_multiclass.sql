@@ -93,15 +93,41 @@ alter table kitchen.frozen_preparation
   add constraint frozen_preparation_is_item foreign key (id) references core.item (id);
 
 -- ----------------------------------------------------------------------------
--- (3) Local de estoque
+-- (3) Local de estoque, com nível e abastecedor (design D11 e D17)
 -- ----------------------------------------------------------------------------
+-- Chave GS1 (GLN, SSCC…): só dígitos, com o dígito verificador de módulo 10 (pesos 3 e 1 da
+-- direita para a esquerda, sem contar o próprio verificador). Imutável: serve a CHECK.
+create function inventory.is_valid_gs1_key(p_code text)
+returns boolean
+language sql
+immutable
+set search_path = ''
+as $$
+  select p_code ~ '^[0-9]{8,18}$'
+    and (
+      10 - (
+        select sum(substr(p_code, length(p_code) - 1 - i, 1)::int * case when i % 2 = 0 then 3 else 1 end)
+        from generate_series(0, length(p_code) - 2) as i
+      ) % 10
+    ) % 10 = substr(p_code, length(p_code), 1)::int;
+$$;
+
 create table inventory.stock_location (
   id bigint generated always as identity primary key,
   -- OM dona do local: é o que o escopo `unit` do PBAC e o reset de treino leem
   unit_id bigint not null references core.units (id),
   -- só o local da cozinha; o sisub chega por aqui
   kitchen_id bigint unique references kitchen.kitchen (id),
-  tier text not null check (tier in ('central_depot', 'unit_storeroom', 'kitchen')),
+  -- 1 depósito central · 2 distribuidor regional · 3 consumo e distribuição final (D17)
+  level smallint not null check (level in (1, 2, 3)),
+  -- quem abastece este local (a "distribuidora" do legado); nível estritamente menor, por trigger
+  supplied_by_location_id bigint references inventory.stock_location (id),
+  -- recebe do fornecedor sem passar pelo nível de cima ("receber direto" do legado)
+  receives_direct boolean not null default false,
+  -- GS1 Global Location Number, para etiqueta e EDI
+  gln text unique check (gln is null or (length(gln) = 13 and inventory.is_valid_gs1_key(gln))),
+  -- local endereçado (D18): posições, unidades de movimentação, separação
+  uses_positions boolean not null default false,
   name text not null check (btrim(name) <> ''),
   -- classes (core.item.catalog_scope) que o local guarda
   supply_classes text[] not null check (
@@ -111,13 +137,56 @@ create table inventory.stock_location (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   deleted_at timestamptz,
-  constraint stock_location_kitchen_tier check ((tier = 'kitchen') = (kitchen_id is not null))
+  constraint stock_location_kitchen_level check (kitchen_id is null or level = 3),
+  constraint stock_location_level1_no_supplier check (level <> 1 or supplied_by_location_id is null),
+  constraint stock_location_not_self_supplied check (supplied_by_location_id is distinct from id)
 );
 
 comment on table inventory.stock_location is
-  'Local de estoque do SISPROV (depósito central, almoxarifado da OM, cozinha). Todo movimento, lote, contagem e OF é de um local. A cozinha tem exatamente um, criado e mantido por trigger em kitchen.kitchen.';
+  'Local de estoque do SISPROV (depósito central, almoxarifado da OM, cozinha). Todo movimento, lote, contagem e OF é de um local. Nível 1/2/3 e abastecedor formam a árvore de abastecimento. A cozinha tem exatamente um, de nível 3, criado e mantido por trigger em kitchen.kitchen.';
 
 create index stock_location_unit_idx on inventory.stock_location (unit_id);
+create index stock_location_supplied_by_idx on inventory.stock_location (supplied_by_location_id);
+
+-- Abastecedor: ativo e de nível ESTRITAMENTE menor. Nível decrescente na aresta já impede ciclo.
+-- O nível do próprio local também não pode subir acima do de quem ele abastece.
+create function inventory.stock_location_supply_guard()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+declare
+  v_supplier inventory.stock_location;
+  v_conflict text;
+begin
+  if new.supplied_by_location_id is not null then
+    select * into v_supplier from inventory.stock_location where id = new.supplied_by_location_id;
+    if v_supplier.id is null or v_supplier.deleted_at is not null then
+      raise exception 'STOCK_SUPPLIER_INVALID: o abastecedor % não existe ou está desativado', new.supplied_by_location_id
+        using errcode = '23503';
+    end if;
+    if v_supplier.level >= new.level then
+      raise exception 'STOCK_SUPPLIER_LEVEL: o local de nível % só pode ser abastecido por nível menor (o abastecedor é nível %)',
+        new.level, v_supplier.level
+        using errcode = '23514';
+    end if;
+  end if;
+  if tg_op = 'UPDATE' and new.level is distinct from old.level then
+    select string_agg(c.name, ', ') into v_conflict
+      from inventory.stock_location c
+     where c.supplied_by_location_id = new.id and c.deleted_at is null and c.level <= new.level;
+    if v_conflict is not null then
+      raise exception 'STOCK_SUPPLIER_LEVEL: o local passa a nível % e abastece locais de nível igual ou menor (%)', new.level, v_conflict
+        using errcode = '23514';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger stock_location_supply_guard
+  before insert or update of level, supplied_by_location_id on inventory.stock_location
+  for each row execute function inventory.stock_location_supply_guard();
 
 alter table inventory.stock_location enable row level security;
 revoke all on inventory.stock_location from anon, authenticated;
@@ -126,15 +195,18 @@ create trigger stock_location_set_updated_at
   before update on inventory.stock_location
   for each row execute function sisub.set_updated_at();
 
-insert into inventory.stock_location (unit_id, kitchen_id, tier, name, supply_classes, created_at)
+insert into inventory.stock_location (unit_id, kitchen_id, level, receives_direct, name, supply_classes, created_at)
 select
   k.unit_id,
   k.id,
-  'kitchen',
+  3,
+  -- a cozinha recebe a NF-e do fornecedor hoje
+  true,
   coalesce(nullif(btrim(k.display_name), ''), 'Cozinha ' || k.id),
   array['alimentacao', 'auxiliar'],
   k.created_at
 from kitchen.kitchen k
+where k.unit_id is not null
 order by k.id;
 
 -- Cozinha nova ganha o seu local; troca de OM ou de nome acompanha. Assim o cadastro de
@@ -152,11 +224,12 @@ begin
     return new;
   end if;
 
-  insert into inventory.stock_location (unit_id, kitchen_id, tier, name, supply_classes)
+  insert into inventory.stock_location (unit_id, kitchen_id, level, receives_direct, name, supply_classes)
   values (
     new.unit_id,
     new.id,
-    'kitchen',
+    3,
+    true,
     coalesce(nullif(btrim(new.display_name), ''), 'Cozinha ' || new.id),
     array['alimentacao', 'auxiliar']
   )
@@ -377,6 +450,533 @@ create trigger stock_movement_class_guard
 create trigger stock_lot_class_guard
   before insert or update of item_id, location_id on inventory.stock_lot
   for each row execute function inventory.stock_class_guard();
+
+-- ----------------------------------------------------------------------------
+-- (5b) Endereçamento (design D18): posições, lote endereçado, unidades de movimentação,
+--      movimentação entre posições e lista de separação. Opcional por local
+--      (`stock_location.uses_positions`): a cozinha continua com o texto de `stock_lot.location`.
+-- ----------------------------------------------------------------------------
+
+-- Profundidade do tipo de posição: a filha é sempre mais funda que a mãe.
+create function inventory.position_kind_rank(p_kind text)
+returns integer
+language sql
+immutable
+set search_path = ''
+as $$
+  select case p_kind when 'building' then 1 when 'sector' then 2 when 'rack' then 3 when 'shelf' then 4 when 'bin' then 5 end;
+$$;
+
+-- Saldo de um lote pelo ledger (o mesmo sinal da v_stock_balance).
+create function inventory.lot_balance(p_lot_id uuid)
+returns numeric
+language sql
+stable
+set search_path = ''
+as $$
+  select coalesce(sum(
+    case
+      when m.type in ('receipt', 'issue_return', 'leftover_return', 'transfer_in', 'lot_split_in', 'adjustment_in') then m.quantity
+      else - m.quantity
+    end
+  ), 0)
+  from inventory.stock_movement m
+  where m.lot_id = p_lot_id;
+$$;
+
+create table inventory.storage_position (
+  id bigint generated always as identity primary key,
+  location_id bigint not null references inventory.stock_location (id),
+  parent_id bigint references inventory.storage_position (id),
+  kind text not null check (kind in ('building', 'sector', 'rack', 'shelf', 'bin')),
+  -- segmento do endereço ("E05"); o endereço inteiro é derivado
+  code text not null check (code ~ '^[A-Za-z0-9]{1,12}$'),
+  -- caminho completo ("D1-S2-E05-P3"), mantido pelo trigger: é o que vai na etiqueta e na separação
+  address text not null,
+  -- corredor e tipo valem para a estante, como no legado
+  aisle integer check (aisle is null or aisle > 0),
+  rack_type text check (rack_type is null or btrim(rack_type) <> ''),
+  -- ordem de separação: a lista de separação percorre as posições nesta ordem
+  picking_sequence integer check (picking_sequence is null or picking_sequence >= 0),
+  holds_stock boolean generated always as (kind in ('shelf', 'bin')) stored,
+  -- última conferência física, gravada quando a contagem que a cobriu é aprovada
+  last_counted_at timestamptz,
+  created_by uuid references auth.users (id),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  deleted_at timestamptz,
+  constraint storage_position_not_self_parent check (parent_id is distinct from id),
+  constraint storage_position_rack_fields check ((aisle is null and rack_type is null) or kind = 'rack')
+);
+
+comment on table inventory.storage_position is
+  'Endereçamento do local de estoque (depósito > setor > estante > prateleira > escaninho). Só prateleira e escaninho guardam estoque. O endereço é derivado do caminho e único no local entre as posições ativas.';
+
+create unique index storage_position_address_key on inventory.storage_position (location_id, address) where deleted_at is null;
+create index storage_position_location_idx on inventory.storage_position (location_id);
+create index storage_position_parent_idx on inventory.storage_position (parent_id);
+
+alter table inventory.storage_position enable row level security;
+revoke all on inventory.storage_position from anon, authenticated;
+
+create trigger storage_position_set_updated_at
+  before update on inventory.storage_position
+  for each row execute function sisub.set_updated_at();
+
+alter table inventory.stock_lot add column position_id bigint references inventory.storage_position (id);
+comment on column inventory.stock_lot.position_id is
+  'Posição onde o lote está guardado, num local endereçado. Nulo num local endereçado = pendente de endereçamento. Num local sem endereçamento, vale o texto de `location`.';
+create index stock_lot_position_idx on inventory.stock_lot (position_id) where position_id is not null;
+
+create table inventory.handling_unit (
+  id uuid primary key default gen_random_uuid(),
+  location_id bigint not null references inventory.stock_location (id),
+  kind text not null check (kind in ('pallet', 'box')),
+  -- caixa: SSCC (18 dígitos GS1); pallet: GIAI (até 30 caracteres)
+  code text not null,
+  -- caixa num pallet: a posição é a do pallet
+  parent_id uuid references inventory.handling_unit (id),
+  -- a caixa é de um lote; o pallet não
+  lot_id uuid references inventory.stock_lot (id),
+  position_id bigint references inventory.storage_position (id),
+  quantity numeric(14, 4) check (quantity is null or quantity > 0),
+  weight_kg numeric(12, 3) check (weight_kg is null or weight_kg > 0),
+  box_category text check (box_category is null or btrim(box_category) <> ''),
+  created_by uuid references auth.users (id),
+  created_at timestamptz not null default now(),
+  closed_at timestamptz,
+  constraint handling_unit_code_format check (
+    (kind = 'box' and length(code) = 18 and inventory.is_valid_gs1_key(code))
+    or (kind = 'pallet' and code ~ '^[0-9A-Za-z./:-]{4,30}$')
+  ),
+  constraint handling_unit_box_lot check ((kind = 'box') = (lot_id is not null)),
+  constraint handling_unit_pallet_fields check (kind = 'box' or (parent_id is null and quantity is null and box_category is null)),
+  constraint handling_unit_on_pallet_no_position check (parent_id is null or position_id is null),
+  constraint handling_unit_not_self_parent check (parent_id is distinct from id)
+);
+
+comment on table inventory.handling_unit is
+  'Unidade de movimentação de um local endereçado: pallet (GIAI) ou caixa/volume (SSCC) de um lote. A caixa num pallet acompanha a posição do pallet.';
+
+create unique index handling_unit_code_open_key on inventory.handling_unit (kind, code) where closed_at is null;
+create index handling_unit_location_idx on inventory.handling_unit (location_id);
+create index handling_unit_lot_idx on inventory.handling_unit (lot_id);
+create index handling_unit_parent_idx on inventory.handling_unit (parent_id);
+create index handling_unit_position_idx on inventory.handling_unit (position_id);
+
+alter table inventory.handling_unit enable row level security;
+revoke all on inventory.handling_unit from anon, authenticated;
+
+create table inventory.position_move (
+  id uuid primary key default gen_random_uuid(),
+  location_id bigint not null references inventory.stock_location (id),
+  lot_id uuid references inventory.stock_lot (id),
+  handling_unit_id uuid references inventory.handling_unit (id),
+  from_position_id bigint references inventory.storage_position (id),
+  to_position_id bigint references inventory.storage_position (id),
+  -- caixa que entra ou sai de um pallet
+  from_pallet_id uuid references inventory.handling_unit (id),
+  to_pallet_id uuid references inventory.handling_unit (id),
+  reason text check (reason is null or btrim(reason) <> ''),
+  moved_by uuid references auth.users (id),
+  moved_at timestamptz not null default now(),
+  constraint position_move_target check (num_nonnulls(lot_id, handling_unit_id) = 1)
+);
+
+comment on table inventory.position_move is
+  'Log append-only de quem guardou ou moveu lote ou unidade de movimentação entre posições. Não é movimento de estoque: saldo, custo e fechamento não mudam.';
+
+create index position_move_location_idx on inventory.position_move (location_id, moved_at desc);
+create index position_move_lot_idx on inventory.position_move (lot_id);
+create index position_move_handling_unit_idx on inventory.position_move (handling_unit_id);
+
+alter table inventory.position_move enable row level security;
+revoke all on inventory.position_move from anon, authenticated;
+
+create table inventory.picking_list (
+  id uuid primary key default gen_random_uuid(),
+  location_id bigint not null references inventory.stock_location (id),
+  year integer not null,
+  number integer not null check (number > 0),
+  status text not null default 'open' check (status in ('open', 'picked', 'cancelled')),
+  -- documento que a separação atende (OF, requisição, guia de remessa)
+  reference text check (reference is null or btrim(reference) <> ''),
+  created_by uuid references auth.users (id),
+  created_at timestamptz not null default now(),
+  closed_by uuid references auth.users (id),
+  closed_at timestamptz,
+  constraint picking_list_number_key unique (location_id, year, number),
+  constraint picking_list_closed check ((status = 'open') = (closed_at is null))
+);
+
+create table inventory.picking_list_line (
+  id uuid primary key default gen_random_uuid(),
+  picking_list_id uuid not null references inventory.picking_list (id) on delete cascade,
+  line_number integer not null check (line_number > 0),
+  item_id uuid not null references core.item (id),
+  lot_id uuid references inventory.stock_lot (id),
+  position_id bigint references inventory.storage_position (id),
+  quantity numeric(14, 4) not null check (quantity > 0),
+  -- linha de falta: o que foi pedido e não havia alocável (sem lote nem posição)
+  shortage boolean not null default false,
+  constraint picking_list_line_number_key unique (picking_list_id, line_number),
+  constraint picking_list_line_shortage check (shortage = (lot_id is null))
+);
+
+comment on table inventory.picking_list is
+  'Lista de separação numerada por local e ano: o roteiro de quem separa, em FEFO e na ordem de separação das posições. Não move estoque; a saída ou a transferência que ela sustenta é que move.';
+
+create index picking_list_location_idx on inventory.picking_list (location_id, created_at desc);
+create index picking_list_line_list_idx on inventory.picking_list_line (picking_list_id);
+create index picking_list_line_item_idx on inventory.picking_list_line (item_id);
+create index picking_list_line_lot_idx on inventory.picking_list_line (lot_id);
+create index picking_list_line_position_idx on inventory.picking_list_line (position_id);
+
+alter table inventory.picking_list enable row level security;
+alter table inventory.picking_list_line enable row level security;
+revoke all on inventory.picking_list, inventory.picking_list_line from anon, authenticated;
+
+-- Posição: local endereçado e ativo, mãe do mesmo local e menos funda, endereço derivado.
+-- Desativar exige não ter filha ativa nem estoque guardado.
+create function inventory.storage_position_guard()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+declare
+  v_location inventory.stock_location;
+  v_parent inventory.storage_position;
+begin
+  if tg_op = 'UPDATE' and new.location_id <> old.location_id then
+    raise exception 'POSITION_LOCATION_IMMUTABLE: a posição não muda de local de estoque' using errcode = '23514';
+  end if;
+
+  select * into v_location from inventory.stock_location where id = new.location_id;
+  if v_location.id is null or v_location.deleted_at is not null or not v_location.uses_positions then
+    raise exception 'POSITION_LOCATION_NOT_ADDRESSED: o local % não é endereçado', new.location_id using errcode = '23514';
+  end if;
+
+  if new.parent_id is null then
+    new.address := new.code;
+  else
+    select * into v_parent from inventory.storage_position where id = new.parent_id;
+    if v_parent.id is null or v_parent.deleted_at is not null or v_parent.location_id <> new.location_id then
+      raise exception 'POSITION_PARENT_INVALID: a posição mãe não existe, está desativada ou é de outro local' using errcode = '23514';
+    end if;
+    if inventory.position_kind_rank(v_parent.kind) >= inventory.position_kind_rank(new.kind) then
+      raise exception 'POSITION_KIND_ORDER: % não pode ficar dentro de %', new.kind, v_parent.kind using errcode = '23514';
+    end if;
+    new.address := v_parent.address || '-' || new.code;
+  end if;
+
+  if tg_op = 'UPDATE' and new.deleted_at is not null and old.deleted_at is null then
+    if exists (select 1 from inventory.storage_position c where c.parent_id = new.id and c.deleted_at is null) then
+      raise exception 'POSITION_HAS_CHILDREN: desative antes as posições de dentro de %', new.address using errcode = '23514';
+    end if;
+    if exists (select 1 from inventory.stock_lot l where l.position_id = new.id and inventory.lot_balance(l.id) > 0)
+       or exists (select 1 from inventory.handling_unit u where u.position_id = new.id and u.closed_at is null) then
+      raise exception 'POSITION_HAS_STOCK: % guarda estoque; mova antes de desativar', new.address using errcode = '23514';
+    end if;
+  end if;
+
+  if tg_op = 'UPDATE' and old.holds_stock and new.kind not in ('shelf', 'bin')
+     and exists (select 1 from inventory.stock_lot l where l.position_id = new.id) then
+    raise exception 'POSITION_HAS_STOCK: % tem lote guardado e não pode deixar de guardar estoque', new.address using errcode = '23514';
+  end if;
+  return new;
+end;
+$$;
+
+create trigger storage_position_guard
+  before insert or update on inventory.storage_position
+  for each row execute function inventory.storage_position_guard();
+
+-- Endereço mudou (código ou mãe): as filhas recalculam o delas, em cascata.
+create function inventory.storage_position_cascade_address()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  -- `code = code` (e não só `updated_at`): é a coluna do gatilho, então a cascada desce até a folha
+  update inventory.storage_position
+     set code = code
+   where parent_id = new.id and deleted_at is null;
+  return null;
+end;
+$$;
+
+create trigger storage_position_cascade_address
+  after update of code, parent_id on inventory.storage_position
+  for each row when (old.address is distinct from new.address)
+  execute function inventory.storage_position_cascade_address();
+
+-- Lote guardado: posição ativa, que guarda estoque, do mesmo local.
+create function inventory.stock_lot_position_guard()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+declare
+  v_position inventory.storage_position;
+begin
+  if new.position_id is null then
+    return new;
+  end if;
+  select * into v_position from inventory.storage_position where id = new.position_id;
+  if v_position.id is null or v_position.deleted_at is not null or v_position.location_id <> new.location_id then
+    raise exception 'LOT_POSITION_INVALID: a posição % não existe, está desativada ou é de outro local', new.position_id
+      using errcode = '23514';
+  end if;
+  if not v_position.holds_stock then
+    raise exception 'LOT_POSITION_NOT_STORAGE: % é % e não guarda estoque (só prateleira e escaninho)', v_position.address, v_position.kind
+      using errcode = '23514';
+  end if;
+  return new;
+end;
+$$;
+
+create trigger stock_lot_position_guard
+  before insert or update of position_id, location_id on inventory.stock_lot
+  for each row execute function inventory.stock_lot_position_guard();
+
+-- Unidade de movimentação: local endereçado; lote, pallet e posição do mesmo local.
+create function inventory.handling_unit_guard()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+declare
+  v_location inventory.stock_location;
+  v_parent inventory.handling_unit;
+  v_position inventory.storage_position;
+  v_lot_location bigint;
+begin
+  if tg_op = 'UPDATE' and new.location_id <> old.location_id then
+    raise exception 'HANDLING_UNIT_LOCATION_IMMUTABLE: a unidade não muda de local; transfira o lote' using errcode = '23514';
+  end if;
+  select * into v_location from inventory.stock_location where id = new.location_id;
+  if v_location.id is null or not v_location.uses_positions then
+    raise exception 'HANDLING_UNIT_LOCATION_NOT_ADDRESSED: o local % não é endereçado', new.location_id using errcode = '23514';
+  end if;
+  if new.lot_id is not null then
+    select l.location_id into v_lot_location from inventory.stock_lot l where l.id = new.lot_id;
+    if v_lot_location is distinct from new.location_id then
+      raise exception 'HANDLING_UNIT_LOT_INVALID: o lote da caixa é de outro local' using errcode = '23514';
+    end if;
+  end if;
+  if new.parent_id is not null then
+    select * into v_parent from inventory.handling_unit where id = new.parent_id;
+    if v_parent.id is null or v_parent.kind <> 'pallet' or v_parent.closed_at is not null or v_parent.location_id <> new.location_id then
+      raise exception 'HANDLING_UNIT_PALLET_INVALID: a caixa só entra em pallet aberto do mesmo local' using errcode = '23514';
+    end if;
+  end if;
+  if new.position_id is not null then
+    select * into v_position from inventory.storage_position where id = new.position_id;
+    if v_position.id is null or v_position.deleted_at is not null or v_position.location_id <> new.location_id or not v_position.holds_stock then
+      raise exception 'HANDLING_UNIT_POSITION_INVALID: a posição não guarda estoque, está desativada ou é de outro local' using errcode = '23514';
+    end if;
+  end if;
+  if tg_op = 'UPDATE' and new.closed_at is not null and old.closed_at is null and new.kind = 'pallet'
+     and exists (select 1 from inventory.handling_unit c where c.parent_id = new.id and c.closed_at is null) then
+    raise exception 'HANDLING_UNIT_PALLET_NOT_EMPTY: tire as caixas antes de fechar o pallet %', new.code using errcode = '23514';
+  end if;
+  return new;
+end;
+$$;
+
+create trigger handling_unit_guard
+  before insert or update on inventory.handling_unit
+  for each row execute function inventory.handling_unit_guard();
+
+-- O log de movimentação é append-only, como o ledger; só o reset de treino apaga.
+create function inventory.position_move_immutable()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if tg_op = 'DELETE' and inventory.training_reset_allows(old.location_id) then
+    return old;
+  end if;
+  raise exception 'POSITION_MOVE_IMMUTABLE: a movimentação entre posições é registro; corrija com outra movimentação'
+    using errcode = '42501';
+end;
+$$;
+
+create trigger position_move_no_update_delete
+  before update or delete on inventory.position_move
+  for each row execute function inventory.position_move_immutable();
+
+-- Guardar ou mover lote ou unidade: confere, atualiza e registra na mesma transação.
+-- Lote e unidade solta vão para POSIÇÃO; caixa pode ir para um PALLET (e passa a seguir a posição dele).
+create function inventory.move_to_position(
+  p_lot_id uuid,
+  p_handling_unit_id uuid,
+  p_to_position_id bigint,
+  p_to_pallet_id uuid,
+  p_reason text,
+  p_user uuid
+)
+returns uuid
+language plpgsql
+set search_path = ''
+as $$
+declare
+  v_lot inventory.stock_lot;
+  v_unit inventory.handling_unit;
+  v_move_id uuid;
+begin
+  if num_nonnulls(p_lot_id, p_handling_unit_id) <> 1 then
+    raise exception 'MOVE_TARGET: informe o lote OU a unidade de movimentação' using errcode = '22023';
+  end if;
+  if num_nonnulls(p_to_position_id, p_to_pallet_id) <> 1 then
+    raise exception 'MOVE_DESTINATION: informe a posição OU o pallet de destino' using errcode = '22023';
+  end if;
+
+  if p_lot_id is not null then
+    if p_to_pallet_id is not null then
+      raise exception 'MOVE_DESTINATION: lote vai para posição; para pôr no pallet, use a caixa do lote' using errcode = '22023';
+    end if;
+    select * into v_lot from inventory.stock_lot where id = p_lot_id for update;
+    if v_lot.id is null then
+      raise exception 'Lote não encontrado' using errcode = 'P0002';
+    end if;
+    if v_lot.position_id is not distinct from p_to_position_id then
+      raise exception 'MOVE_SAME_POSITION: o lote já está nesta posição' using errcode = '22023';
+    end if;
+    update inventory.stock_lot set position_id = p_to_position_id where id = p_lot_id;
+    insert into inventory.position_move (location_id, lot_id, from_position_id, to_position_id, reason, moved_by)
+    values (v_lot.location_id, p_lot_id, v_lot.position_id, p_to_position_id, nullif(btrim(coalesce(p_reason, '')), ''), p_user)
+    returning id into v_move_id;
+    return v_move_id;
+  end if;
+
+  select * into v_unit from inventory.handling_unit where id = p_handling_unit_id for update;
+  if v_unit.id is null or v_unit.closed_at is not null then
+    raise exception 'Unidade de movimentação não encontrada ou fechada' using errcode = 'P0002';
+  end if;
+  if p_to_pallet_id is not null and v_unit.kind <> 'box' then
+    raise exception 'MOVE_DESTINATION: só caixa entra em pallet' using errcode = '22023';
+  end if;
+  if p_to_pallet_id is not null then
+    update inventory.handling_unit set parent_id = p_to_pallet_id, position_id = null where id = p_handling_unit_id;
+  else
+    update inventory.handling_unit set parent_id = null, position_id = p_to_position_id where id = p_handling_unit_id;
+  end if;
+  insert into inventory.position_move (
+    location_id, handling_unit_id, from_position_id, to_position_id, from_pallet_id, to_pallet_id, reason, moved_by
+  )
+  values (
+    v_unit.location_id, p_handling_unit_id, v_unit.position_id, p_to_position_id, v_unit.parent_id, p_to_pallet_id,
+    nullif(btrim(coalesce(p_reason, '')), ''), p_user
+  )
+  returning id into v_move_id;
+  return v_move_id;
+end;
+$$;
+
+-- Lista de separação: FEFO entre os lotes alocáveis (fora de quarentena, dentro da validade,
+-- com saldo), linhas na ordem de separação das posições; o que não há vira linha de falta.
+create function inventory.create_picking_list(p_location_id bigint, p_lines jsonb, p_reference text, p_user uuid)
+returns uuid
+language plpgsql
+set search_path = ''
+as $$
+declare
+  v_location inventory.stock_location;
+  v_year integer := extract(year from (now() at time zone 'America/Sao_Paulo'))::integer;
+  v_today date := (now() at time zone 'America/Sao_Paulo')::date;
+  v_number integer;
+  v_list_id uuid;
+  v_line jsonb;
+  v_item uuid;
+  v_wanted numeric;
+  v_take numeric;
+  v_lot record;
+  v_alloc jsonb := '[]'::jsonb;
+begin
+  select * into v_location from inventory.stock_location where id = p_location_id;
+  if v_location.id is null or v_location.deleted_at is not null then
+    raise exception 'Local de estoque não encontrado' using errcode = 'P0002';
+  end if;
+  if p_lines is null or jsonb_typeof(p_lines) <> 'array' or jsonb_array_length(p_lines) = 0 then
+    raise exception 'PICKING_EMPTY: informe ao menos um item' using errcode = '22023';
+  end if;
+
+  -- numeração por local e ano, sem buraco nem corrida
+  perform pg_advisory_xact_lock(hashtextextended('picking:' || p_location_id || ':' || v_year, 42));
+  select coalesce(max(number), 0) + 1 into v_number
+    from inventory.picking_list where location_id = p_location_id and year = v_year;
+
+  insert into inventory.picking_list (location_id, year, number, reference, created_by)
+  values (p_location_id, v_year, v_number, nullif(btrim(coalesce(p_reference, '')), ''), p_user)
+  returning id into v_list_id;
+
+  for v_line in select * from jsonb_array_elements(p_lines) loop
+    v_item := (v_line->>'item_id')::uuid;
+    v_wanted := (v_line->>'quantity')::numeric;
+    if v_item is null or v_wanted is null or v_wanted <= 0 then
+      raise exception 'PICKING_LINE_INVALID: cada linha precisa de item_id e quantidade positiva' using errcode = '22023';
+    end if;
+    for v_lot in
+      select l.id, l.position_id, inventory.lot_balance(l.id) as balance
+        from inventory.stock_lot l
+        left join inventory.storage_position p on p.id = l.position_id
+       where l.location_id = p_location_id
+         and l.item_id = v_item
+         and l.quarantined_at is null
+         and (l.expiry_date is null or l.expiry_date >= v_today)
+       order by l.expiry_date nulls last, l.use_first desc, l.received_at, p.picking_sequence nulls last, p.address nulls last, l.id
+    loop
+      exit when v_wanted <= 0;
+      continue when v_lot.balance <= 0;
+      v_take := least(v_wanted, v_lot.balance);
+      v_alloc := v_alloc || jsonb_build_object(
+        'item_id', v_item, 'lot_id', v_lot.id, 'position_id', v_lot.position_id, 'quantity', v_take, 'shortage', false
+      );
+      v_wanted := v_wanted - v_take;
+    end loop;
+    if v_wanted > 0 then
+      v_alloc := v_alloc || jsonb_build_object(
+        'item_id', v_item, 'lot_id', null, 'position_id', null, 'quantity', v_wanted, 'shortage', true
+      );
+    end if;
+  end loop;
+
+  insert into inventory.picking_list_line (picking_list_id, line_number, item_id, lot_id, position_id, quantity, shortage)
+  select v_list_id,
+         row_number() over (order by a.shortage, p.picking_sequence nulls last, p.address nulls last, a.item_id, a.lot_id),
+         a.item_id, a.lot_id, a.position_id, a.quantity, a.shortage
+    from jsonb_to_recordset(v_alloc) as a(item_id uuid, lot_id uuid, position_id bigint, quantity numeric, shortage boolean)
+    left join inventory.storage_position p on p.id = a.position_id;
+
+  return v_list_id;
+end;
+$$;
+
+create function inventory.close_picking_list(p_list_id uuid, p_status text, p_user uuid)
+returns void
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if p_status not in ('picked', 'cancelled') then
+    raise exception 'PICKING_STATUS: a lista fecha como separada ou cancelada' using errcode = '22023';
+  end if;
+  update inventory.picking_list
+     set status = p_status, closed_by = p_user, closed_at = now()
+   where id = p_list_id and status = 'open';
+  if not found then
+    raise exception 'PICKING_NOT_OPEN: a lista não existe ou já foi fechada' using errcode = 'P0002';
+  end if;
+end;
+$$;
+
+-- Contagem por posição: escopo novo.
+alter table inventory.inventory_count drop constraint inventory_count_scope_check;
+alter table inventory.inventory_count add constraint inventory_count_scope_check
+  check (scope in ('full', 'conservation_class', 'location', 'position', 'item_list', 'menu_cycle'));
 
 -- ----------------------------------------------------------------------------
 -- (6) Funções recriadas sobre (local, item), a partir das definições vigentes em 13/10/2026.
@@ -726,6 +1326,16 @@ begin
      set approval_exception_reason = p_exception_reason,
          pending_production_waiver = v_waiver_note
    where id = p_count_id;
+
+  -- última conferência das posições que guardam os itens contados (endereçamento, D18)
+  update inventory.storage_position p
+     set last_counted_at = now()
+   where p.id in (
+     select l.position_id
+       from inventory.stock_lot l
+       join inventory.count_scope_item s on s.item_id = l.item_id and s.count_id = any (v_chain)
+      where l.location_id = v_count.location_id and l.position_id is not null
+   );
 
   return query select v_adjustment_id, v_lines, v_value;
 end;
@@ -1161,11 +1771,12 @@ begin
                 and pi.deleted_at is null and pi.conservation_class is not null
               limit 1
            )) as conservation_class,
-           l.location
+           l.location,
+           l.position_id
       from inventory.stock_lot l
      where l.location_id = p_location_id
     union
-    select distinct m.item_id, null::text, null::text
+    select distinct m.item_id, null::text, null::text, null::bigint
       from inventory.stock_movement m
      where m.location_id = p_location_id
   ),
@@ -1175,6 +1786,20 @@ begin
      where case p_scope
              when 'full' then true
              when 'conservation_class' then c.conservation_class is not distinct from v_class
+             -- endereçamento (D18): os itens com lote na subárvore da posição
+             when 'position' then c.position_id in (
+               with recursive subtree as (
+                 select sp.id
+                   from inventory.storage_position sp
+                  where sp.id = (p_scope_params->>'position_id')::bigint and sp.location_id = p_location_id
+                 union all
+                 select child.id
+                   from inventory.storage_position child
+                   join subtree on child.parent_id = subtree.id
+                  where child.deleted_at is null
+               )
+               select id from subtree
+             )
              when 'location' then c.location is not distinct from v_location
              when 'item_list' then c.item_id::text = any (
                select jsonb_array_elements_text(coalesce(p_scope_params->'item_ids', '[]'::jsonb))
@@ -2948,13 +3573,14 @@ begin
     where location_id = v_lot.location_id
       and item_id = v_lot.item_id;
 
+  -- o lote derivado fica onde o de origem estava (endereçamento, D18)
   insert into inventory.stock_lot
     (location_id, item_id, lot_code, expiry_date, unit_cost,
-     location, parent_lot_id, derivation, opened_at, received_at, conservation_class)
+     location, parent_lot_id, derivation, opened_at, received_at, position_id, conservation_class)
   values
     (v_lot.location_id, v_lot.item_id,
      v_lot.lot_code || '-' || upper(substr(p_derivation, 1, 1)), v_expiry, coalesce(v_unit_cost, v_lot.unit_cost),
-     coalesce(p_location, v_lot.location), v_lot.id, p_derivation, now(), now(),
+     coalesce(p_location, v_lot.location), v_lot.id, p_derivation, now(), now(), v_lot.position_id,
      -- Descongelado é resfriado; aberto e porcionado seguem a classe do lote de origem.
      -- Antes o derivado nascia sem classe e a validade caía na especificação padrão:
      -- a carne descongelada aparecia como congelada.
@@ -3201,6 +3827,7 @@ with lot_balance as (
     l.short_code,
     l.expiry_date,
     l.location,
+    l.position_id,
     l.use_first,
     l.quarantined_at,
     l.received_at,
@@ -3235,6 +3862,7 @@ select
   b.lot_code,
   b.short_code,
   b.location,
+  b.position_id,
   b.use_first,
   b.quarantined_at,
   b.received_at,

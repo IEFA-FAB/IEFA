@@ -18,7 +18,7 @@ O legado (fab-provisao, 2013 a 2015) nunca entrou em produção e não está no 
 ## Estado
 
 <Callout type="warn">
-**Em fundação.** O estoque já é multiclasse (local de estoque, item pelo `core.item`, trava de classe por local). O app tem login, hub por permissão, a lista de locais de estoque alcançáveis, as cascas de Planejamento e Administração e a concessão de acessos. As telas que operam o fardamento chegam com o catálogo.
+**Em fundação.** O estoque já é multiclasse (local de estoque com nível e abastecedor, item pelo `core.item`, trava de classe por local) e endereçável. O app tem login, hub por permissão, os locais de estoque com endereços, lotes guardados e pendentes, pallets e caixas, listas de separação e configuração, as cascas de Planejamento e Administração e a concessão de acessos. As telas de recebimento e saída do fardamento chegam com o catálogo.
 </Callout>
 
 ## Papéis e acesso
@@ -38,7 +38,8 @@ O escopo por OM desce pela hierarquia de apoio (grant no GAP-SJ cobre IAE, DCTA 
 | Peça | Onde | Observação |
 |---|---|---|
 | Estoque | schema `inventory` | Um estoque para toda classe, chave (local, item) |
-| Local de estoque | `inventory.stock_location` | OM dona, nível (depósito central, almoxarifado, cozinha) e classes que guarda; um por cozinha, criado com ela |
+| Local de estoque | `inventory.stock_location` | OM dona, nível 1/2/3 e abastecedor (a árvore de abastecimento), recebe direto, GLN, classes que guarda e se é endereçado; um por cozinha, criado com ela |
+| Endereçamento | `inventory.storage_position`, `handling_unit`, `position_move`, `picking_list` | Depósito > setor > estante > prateleira > escaninho; pallet (GIAI) e caixa (SSCC); movimentação entre posições com log; lista de separação FEFO na ordem dos endereços. Opcional por local |
 | Item | `core.item` | A classe é `catalog_scope`; o perfil de cada classe fica no schema dela (alimentação em `kitchen`) |
 | App | `apps/sisprov` | TanStack Start + Nitro; design system do SISUB com contrato próprio (`STYLE_CONTRACT.md`) |
 | Domínio | `packages/sisprov-domain` | Módulos, guards (inclusive o do local de estoque) e a lógica do estoque |
@@ -51,7 +52,7 @@ Na ordem: `sisprov-catalog` (schema do fardamento, catálogo, grade, embalagem, 
 
 ## O que o SISPROV não faz nesta versão, de propósito
 
-- Não opera a logística física do depósito central (localização, SSCC, separação, portaria): o depósito segue no sistema atual da SDAB; a OF chega por documento acordado e o saldo por carga periódica, até o depósito operar como local de estoque.
+- Não faz portaria nem conferência por volume na doca, nem imprime etiqueta: o endereçamento, os volumes e a separação já existem; essas telas vêm com o recebimento do depósito.
 - Não recebe nota fiscal do SIA: a entrada de material continua no fluxo atual do depósito.
 - Não produz MOMAT, DEMOP nem balanço até a SDAB confirmar a exigência para o estoque da OM.
 - Não carrega efetivo por planilha: a fonte é o SIGPES, pela integração do núcleo.

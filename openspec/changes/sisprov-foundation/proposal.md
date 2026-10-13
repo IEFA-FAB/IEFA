@@ -11,7 +11,8 @@ O legado (fab-provisao, 2013 a 2015) nunca entrou em produção e não está no 
 ## What Changes
 
 - **O estoque passa a ser multiclasse**, numa migration (`inventory_multiclass`):
-  - local de estoque explícito (`inventory.stock_location`: OM, nível, cozinha opcional, classes que guarda), um por cozinha no backfill;
+  - local de estoque explícito (`inventory.stock_location`: OM, nível 1/2/3 com abastecedor, recebe direto, GLN, cozinha opcional, classes que guarda), um por cozinha no backfill;
+  - endereçamento opcional por local: posições em árvore (depósito, setor, estante, prateleira, escaninho), lote endereçado com pendência de endereçamento, pallet (GIAI) e caixa (SSCC), movimentação entre posições com log, contagem por posição e lista de separação FEFO;
   - item pelo núcleo: `item_id` → `core.item` no lugar de `ingredient_id`/`frozen_preparation_id`; a preparação congelada vira subtipo de `core.item`;
   - classe de suprimento = `core.item.catalog_scope`, com o valor novo `fardamento`, e trava de classe por local;
   - OF por local (`procurement.supply_order.location_id`);
@@ -30,6 +31,7 @@ O legado (fab-provisao, 2013 a 2015) nunca entrou em produção e não está no 
 
 ### New Capabilities
 - `stock-ownership`: o SISPROV como dono do estoque de toda classe; local de estoque; classe por item e trava por local; lentes por app.
+- `stock-addressing`: níveis e árvore de abastecimento; endereçamento, unidades de movimentação, movimentação entre posições, contagem por posição e lista de separação.
 - `sisprov-foundation`: o app, o package de domínio, o deploy e a cobertura legal do SISPROV.
 - `sisprov-access`: `storage` como módulo de estoque do SISPROV, `sisprov-planning` e `sisprov-admin`, escopados por OM com hierarquia de apoio; concessão auditada.
 - `sisprov-item-identity`: o item de fardamento como `core.item` de classe `fardamento`.
@@ -54,7 +56,8 @@ O legado (fab-provisao, 2013 a 2015) nunca entrou em produção e não está no 
 - Telas de operação do fardamento (receber, distribuir, contar), catálogo, grupos de demanda, ficha de tamanhos, curva, integração SIGPES: changes próprios, nesta ordem.
 - Mover as telas de estoque da cozinha para o app SISPROV: a cozinha continua no sisub (decisão de 13/10/2026).
 - Embalagem de item fora da alimentação: entra com o catálogo.
-- Operar o depósito central e a integração de NF do SIA: fora da v1, com gate à SDAB.
+- Portaria, conferência por volume na doca, impressão de etiqueta e otimização de rota de separação: o dado já existe; as telas vêm com o recebimento do depósito.
+- Integração de NF do SIA: fora da v1, com gate à SDAB.
 - Portar código do legado.
 - IA, chat de módulo e MCP: não há caso de uso escrito.
 - Ratificar a decisão de plataforma pela Direção: registrada aqui como decisão do responsável técnico e do mantenedor.

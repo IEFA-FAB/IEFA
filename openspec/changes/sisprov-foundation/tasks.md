@@ -8,6 +8,14 @@
 - [x] 1.4 [sisub] Guard de treino varre `location_id`; reset de treino apaga o estoque pelos locais do escopo de treino; `inventory.stock_location` em `RESET_EXCLUSIONS`
 - [ ] 1.5 [database] Depois do apply (mantenedor): `db:types`, `db:drizzle:pull`, `audit:rls`
 
+### 1b. Níveis e endereçamento (mesma migration)
+
+- [x] 1b.1 [database] `stock_location`: `level` 1/2/3, `supplied_by_location_id` com guarda de nível, `receives_direct`, `gln` (GS1), `uses_positions`
+- [x] 1b.2 [database] `storage_position` em árvore com endereço derivado, `stock_lot.position_id`, `handling_unit` (pallet GIAI, caixa SSCC), `position_move` append-only, `picking_list` (+ linhas), `move_to_position`, `create_picking_list`, `close_picking_list`, escopo de contagem `position` e `last_counted_at`
+- [x] 1b.3 [sisub-domain] Reset de treino: `position_move`, `picking_list`, `handling_unit`; `storage_position` em `RESET_EXCLUSIONS`
+- [x] 1b.4 [sisprov-domain] `inventory/addressing`: níveis, tipos de posição, endereço, chaves GS1, árvore e schemas, com testes
+- [x] 1b.5 [sisprov] Locais (criar, configurar com conferência de versão), endereços, lotes (guardar, mover, pendentes), pallets e caixas, separação
+
 ### 2. Código do estoque
 
 - [x] 2.1 [sisprov-domain] `requireStockLocation` (o gate do local de estoque, para as duas lentes)

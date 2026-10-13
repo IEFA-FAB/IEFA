@@ -58,6 +58,8 @@ const RESET_EXCLUSIONS: Record<string, string> = {
 	// do apply; `kitchen_stock_settings` acima sai quando a migration estiver aplicada.
 	"inventory.stock_location_settings":
 		"a mesma configuração de kitchen_stock_settings, agora por local de estoque — sem linha valem os defaults, apagar só descalibra o local sentinela",
+	"inventory.storage_position":
+		"endereçamento do local (depósito, setor, estante, prateleira) é estrutura, como o próprio local: apagar tiraria o endereço dos lotes do treino seguinte",
 	"inventory.stock_location":
 		"local de estoque é estrutura, como a cozinha e a OM sentinelas: o da cozinha nasce e acompanha a cozinha por trigger; apagar quebraria o ledger do próprio treino",
 	"inventory.scanner_profile":

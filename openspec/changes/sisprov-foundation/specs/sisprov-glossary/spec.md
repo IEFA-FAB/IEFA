@@ -53,8 +53,16 @@ Legenda de fonte: OS = Ordem de Serviço do legado fab-provisao (fonte de requis
 | Ordem de fornecimento ao depósito central | Lei 14.133, art. 6º, X; glossário do núcleo | `supply_order` (do núcleo, `procurement.supply_order`) | reutiliza | Ordem de fornecimento | `OrdemDeFornecimentoRS` |
 | Entrega da OF ao depósito em formato acordado | RF-05.6 | `supply_order_dispatch` | `<fardamento>.supply_order_dispatch` | Envio ao depósito | não existia |
 | Saldo do depósito central por carga periódica (provisório, até o depósito operar no ledger) | RF-05.7 | `depot_balance_snapshot` | schema do fardamento (`reference_date`) | Saldo do depósito | não existia |
-| Depósito central (N1) | OS 04 | `central_depot` | `inventory.stock_location.tier` | Depósito central | `LocalEstoque` N1 |
-| Almoxarifado da OM (N2, N3) | OS 04 | `unit_storeroom` | `inventory.stock_location.tier` | Almoxarifado | `LocalEstoque` N2/N3 |
+| Nível de estoque (N1 depósito central, N2 distribuidor regional, N3 consumo e distribuição final) | OS 04; `TipoNivelEstoque` | `level` ∈ 1 · 2 · 3 | `inventory.stock_location.level` | Nível | `TipoNivelEstoque` |
+| Abastecedor do local (quem o supre) | OS 04 | `supplied_by_location_id` | `inventory.stock_location` | Abastecido por | `distribuidora` |
+| Recebe direto do fornecedor | OS 04 | `receives_direct` | `inventory.stock_location` | Recebe direto | `receberDireto` |
+| Código de localização GS1 | GS1 | `gln` | `inventory.stock_location` | GLN | `codigoGln` |
+| Posição de armazenagem (depósito, setor, estante, prateleira, escaninho) | OS 08–12 | `storage_position`, `kind` ∈ `building` · `sector` · `rack` · `shelf` · `bin` | `inventory.storage_position` | Endereço | `Deposito`, `Setor`, `Estante`, `Prateleira` |
+| Endereço completo da posição | OS 08 | `address` | `inventory.storage_position.address` | Endereço | descrição composta |
+| Ordem de separação | OS 11 | `picking_sequence` | `inventory.storage_position` | Ordem de separação | `sequenciaSeparacao` |
+| Unidade de movimentação (pallet, caixa/volume) | OS 08; GS1 | `handling_unit`, `kind` ∈ `pallet` · `box` | `inventory.handling_unit` (`code`: GIAI ou SSCC) | Pallet, Volume | `Pallet`, `VolumeLote` |
+| Movimentação entre posições | OS 09 | `position_move` | `inventory.position_move` | Movimentação | `MovimentarPallet`, `AtribuirVolumeLocalizacao` |
+| Lista de separação | OS 11 | `picking_list` | `inventory.picking_list` | Lista de separação | `ListaSeparacaoNumero` |
 | Local de estoque (qualquer nível, inclusive a cozinha) | design D11 | `stock_location` | `inventory.stock_location` | Local de estoque | `LocalEstoque` |
 | Classe de suprimento do item | design D4 | `catalog_scope` ∈ `alimentacao` · `auxiliar` · `permanente` · `fardamento` | `core.item.catalog_scope` | Classe | não existia |
 | Distribuição ao militar | OS 19; DET RN-13 | movimento de saída do ledger (tipo novo no change de distribuição), com `saram` de quem recebe | `inventory.stock_movement` | Distribuição | não implementado |

@@ -83,7 +83,7 @@ Toda tabela nova de classe com `unit_id` ou `location_id` entra no guard no PR q
 
 O lote `sisprov-glossary` fixa identificador, nome no banco e rótulo de cada conceito antes da primeira migration de negócio. Mudanças em relação ao primeiro desenho, por causa de D1:
 
-- Depósito central e almoxarifado são `stock_location` (`tier`), não rótulo nem configuração.
+- Depósito central e almoxarifado são `stock_location` (`level` e a árvore de abastecimento, D17), não rótulo nem configuração.
 - A distribuição ao militar é movimento de saída do ledger (tipo novo no CHECK, com o SARAM de quem recebe), e não tabela `clothing_issue` própria: uma segunda tabela de saída seria um segundo saldo. Entra com o change de distribuição.
 - O saldo do depósito central é o do ledger quando o depósito operar no SISPROV. Até lá, a carga periódica (`depot_balance_snapshot`) é a única exceção, marcada como provisória.
 
@@ -120,12 +120,16 @@ Entre o apply e o deploy, o sisub em produção lê colunas que não existem mai
 | `id` | `bigint` identity | |
 | `unit_id` | `bigint not null` → `core.units` | OM dona do local; é ela que o escopo `unit` e o reset de treino leem |
 | `kitchen_id` | `bigint null unique` → `kitchen.kitchen` | preenchido só no local da cozinha |
-| `tier` | `text` ∈ `central_depot` · `unit_storeroom` · `kitchen` | `kitchen` ⇔ `kitchen_id` preenchido |
+| `level` | `smallint` ∈ 1 · 2 · 3 | nível de estoque (D17); local de cozinha é nível 3 |
+| `supplied_by_location_id` | `bigint null` → `inventory.stock_location` | quem abastece este local (a "distribuidora" do legado); nível estritamente menor |
+| `receives_direct` | `boolean` | o fornecedor entrega aqui sem passar pelo nível de cima |
+| `gln` | `text null unique`, 13 dígitos com dígito verificador GS1 | identificação do local para EDI e etiqueta |
+| `uses_positions` | `boolean` | o local é endereçado (D18); a cozinha não é |
 | `name` | `text not null` | |
 | `supply_classes` | `text[] not null`, não vazio | classes (`catalog_scope`) que o local guarda |
 | `created_at`, `updated_at`, `deleted_at` | | soft delete; local com saldo não se apaga |
 
-- Backfill: um local `kitchen` por cozinha, com a OM da cozinha e `supply_classes = {alimentacao, auxiliar}` (o que as cozinhas recebem hoje).
+- Backfill: um local de nível 3 por cozinha, com a OM da cozinha, `supply_classes = {alimentacao, auxiliar}` (o que as cozinhas recebem hoje), `receives_direct = true` (a cozinha recebe a NF-e do fornecedor hoje) e sem endereçamento.
 - Trigger em `kitchen.kitchen`: cozinha nova ganha o seu local, e troca de OM da cozinha atualiza o local. Assim o cadastro de cozinha do sisub não muda. Cozinha sem OM (`unit_id` é anulável) fica sem local até ganhar uma; o trigger não recusa o cadastro.
 - O id do local NÃO é o id da cozinha: os dois têm sequências próprias, e conflar identidade foi o erro que o ledger por `kitchen_id` cometeu. O sisub resolve cozinha → local por `stock_location.kitchen_id`.
 
@@ -167,6 +171,61 @@ A mudança de pacote vem no PR seguinte, sem mudança de comportamento: os arqui
 ### D16. Ordem de fornecimento por local
 
 `procurement.supply_order.kitchen_id` → `location_id` (local de destino). A OF de alimentação continua indo para o local da cozinha; a de fardamento vai para o almoxarifado da OM ou para o depósito central. `kitchen_demand_forecast` e as estimativas de quantidade (`quantity_estimate_*`) são planejamento da classe alimentação e ficam por cozinha.
+
+### D17. Níveis de estoque e a árvore de abastecimento
+
+O legado tinha três níveis (`TipoNivelEstoque`) e, em cada local, a sua "distribuidora". Esta versão traz os dois, porque a necessidade líquida e a OF precisam saber de onde sai o material:
+
+| Nível | O que é | Abastecido por |
+| --- | --- | --- |
+| 1 | Depósito central (SDAB) | fornecedor |
+| 2 | Distribuidor regional: abastece outros locais | nível 1, ou fornecedor se `receives_direct` |
+| 3 | Local de consumo e distribuição final: almoxarifado da OM, cozinha | nível 1 ou 2, ou fornecedor se `receives_direct` |
+
+- `supplied_by_location_id` aponta para um local de nível ESTRITAMENTE menor, ativo. Nível decrescente na aresta já impede ciclo; o nível 1 não tem abastecedor.
+- `receives_direct` é o "receber direto" do legado: o local recebe do fornecedor (a cozinha recebe a NF-e hoje). Não exclui ter abastecedor: um almoxarifado de OM pode receber direto e também por remanejamento do nível 2.
+- `gln` (GS1 Global Location Number) identifica o local na etiqueta e no EDI, com o dígito verificador conferido pelo banco.
+- A baixa de material (`NAO_PROV` do legado) não é nível: é tipo de movimento, e entra com o change que a usar.
+
+Descartado: nível como rótulo livre (o primeiro desenho tinha `tier` com três nomes) — misturava "o que o local é" com "de quem ele recebe", e não dizia o abastecedor.
+
+### D18. Endereçamento: posição, unidade de movimentação, separação
+
+Depósito de grande porte não acha nada por "prateleira do fundo". O legado endereçava Depósito → Setor → Estante (corredor, tipo, ordem de separação) → Prateleira (última conferência), com volume (SSCC) e pallet (GIAI) posicionados e lista de separação numerada. Esta versão traz isso, OPCIONAL por local (`uses_positions`): o depósito e o almoxarifado grande usam; a cozinha continua com o texto livre de `stock_lot.location`.
+
+**Posição** — `inventory.storage_position`, árvore por local:
+
+| Tipo (`kind`) | Rótulo | Pode conter |
+| --- | --- | --- |
+| `building` | Depósito (prédio, galpão) | setor |
+| `sector` | Setor | estante |
+| `rack` | Estante (com `aisle`, o corredor, e `rack_type`) | prateleira |
+| `shelf` | Prateleira | escaninho; guarda estoque |
+| `bin` | Escaninho | guarda estoque |
+
+- A posição filha é de tipo mais fundo que a mãe, no mesmo local; a raiz pode ser de qualquer tipo (almoxarifado pequeno começa na estante).
+- `code` é o segmento ("E05"); `address` é o caminho inteiro ("D1-S2-E05-P3"), mantido pelo banco e único no local. É o que vai na etiqueta e na lista de separação.
+- `picking_sequence` ordena a separação (o legado tinha `sequenciaSeparacao` na estante); `last_counted_at` é a última conferência da posição, gravada quando a contagem que a cobriu é aprovada.
+- Só prateleira e escaninho guardam estoque. Posição com estoque (dela ou de baixo) não se desativa.
+
+**Lote endereçado** — `stock_lot.position_id`: posição que guarda estoque, do mesmo local. Lote recebido num local endereçado nasce sem posição e fica **pendente de endereçamento** (o "guia pendente de localização" do legado) até alguém guardá-lo. O lote derivado (aberto, fracionado, descongelado) herda a posição do lote de origem; o lote transferido chega pendente no destino.
+
+**Unidade de movimentação** — `inventory.handling_unit`:
+- `pallet` com código GIAI; `box` (volume) com SSCC de 18 dígitos e dígito verificador GS1, ligada a um lote, com quantidade, peso e categoria da caixa;
+- a caixa pode estar num pallet (aí a posição é a do pallet) ou solta numa posição;
+- código único por tipo enquanto a unidade estiver aberta.
+
+**Movimentação entre posições** — `inventory.move_to_position` move lote ou unidade e grava `inventory.position_move` (append-only, como o ledger). Mover não muda saldo, custo nem lote: o ledger não registra, e o fechamento mensal não vê. Mover um pallet move as caixas dele.
+
+**Contagem por posição** — escopo `position` em `open_inventory_count`: os lotes da subárvore da posição. A aprovação da contagem grava `last_counted_at` nas posições dos lotes contados.
+
+**Separação** — `inventory.picking_list` (+ linhas), numerada por local e ano. `create_picking_list` recebe itens e quantidades, aloca FEFO entre os lotes alocáveis (fora de quarentena e de validade) e ordena as linhas pela ordem de separação da posição e pelo endereço. A lista é o roteiro de quem separa: não move estoque; a saída ou a transferência que ela sustenta é que move.
+
+**Permissão** — cadastro de posições e configuração do local: `storage` nível 3 no local (ou `sisprov-admin` 2 para criar local). Endereçar, mover, unidades e separação: `storage` nível 2. Leitura: nível 1.
+
+**Reset de treino** — `handling_unit`, `position_move` e `picking_list` entram no reset pelos locais do escopo de treino; `storage_position` é estrutura e fica em `RESET_EXCLUSIONS`, como o próprio local.
+
+Fora desta versão, de propósito: portaria e conferência física por volume na doca (o recebimento continua por linha), etiqueta impressa (o dado está aí; o layout vem com a tela de recebimento do depósito) e otimização de rota de separação além da ordem cadastrada.
 
 ## Risks / Trade-offs
 

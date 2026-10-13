@@ -10,7 +10,8 @@
     "./operations": "./src/operations/index.ts",
     "./guards": "./src/guards/index.ts",
     "./types": "./src/types/index.ts",
-    "./utils": "./src/utils/index.ts"
+    "./utils": "./src/utils/index.ts",
+    "./inventory": "./src/inventory/index.ts"
   },
   "scripts": {
     "lint": "biome check .",
