@@ -163,15 +163,22 @@ const numOrNull = (n: number | null | undefined): number | null => n ?? null
  */
 type PatchRule = "required" | "nullable" | "numeric"
 
+/**
+ * Tabela de regras de um input: cobre TODO campo do input menos os de `Skip`. O `satisfies` nas
+ * tabelas abaixo faz o typecheck recusar campo novo do schema sem regra (a edição o ignoraria
+ * calada) e chave que não existe no input.
+ */
+type PatchRules<I, Skip extends keyof I> = Record<Exclude<keyof I, Skip> & string, PatchRule>
+
 /** Patch na ordem das regras, a partir de `initial`. Campo ausente do input não entra. */
 function buildPatch<I extends object>(
 	input: I,
-	rules: ReadonlyArray<readonly [keyof I & string, PatchRule]>,
+	rules: Partial<Record<keyof I & string, PatchRule>>,
 	initial: Record<string, unknown> = {}
 ): Record<string, unknown> {
 	const patch: Record<string, unknown> = { ...initial }
 	const values = input as Record<string, unknown>
-	for (const [key, rule] of rules) {
+	for (const [key, rule] of Object.entries(rules) as Array<[string, PatchRule]>) {
 		const value = values[key]
 		if (rule === "required") {
 			if (value != null) patch[key] = value
@@ -182,48 +189,48 @@ function buildPatch<I extends object>(
 	return patch
 }
 
-const EQUIPMENT_MODEL_PATCH_RULES: ReadonlyArray<readonly [keyof UpdateEquipmentModel & string, PatchRule]> = [
-	["manufacturer", "nullable"],
-	["name", "required"],
-	["slotCapacityLiters", "numeric"],
-	["slotCapacityGn", "nullable"],
-	["capacityLabel", "nullable"],
-	["simultaneousSlots", "required"],
-	["powerKw", "numeric"],
-	["notes", "nullable"],
+const EQUIPMENT_MODEL_PATCH_RULES = {
+	manufacturer: "nullable",
+	name: "required",
+	slotCapacityLiters: "numeric",
+	slotCapacityGn: "nullable",
+	capacityLabel: "nullable",
+	simultaneousSlots: "required",
+	powerKw: "numeric",
+	notes: "nullable",
 	// Ficha técnica: `undefined` mantém, `null` limpa — o diálogo que não tem campo para uma
 	// coluna simplesmente não a envia, em vez de apagá-la.
-	["energySource", "nullable"],
-	["voltage", "nullable"],
-	["widthCm", "numeric"],
-	["depthCm", "numeric"],
-	["heightCm", "numeric"],
-	["weightKg", "numeric"],
-	["requiresHood", "nullable"],
-	["waterInlet", "nullable"],
-	["drainRequired", "nullable"],
-	["manualUrl", "nullable"],
-	["expectedLifespanYears", "nullable"],
-]
+	energySource: "nullable",
+	voltage: "nullable",
+	widthCm: "numeric",
+	depthCm: "numeric",
+	heightCm: "numeric",
+	weightKg: "numeric",
+	requiresHood: "nullable",
+	waterInlet: "nullable",
+	drainRequired: "nullable",
+	manualUrl: "nullable",
+	expectedLifespanYears: "nullable",
+} satisfies PatchRules<UpdateEquipmentModel, "modelId" | "roles">
 
 /** Colunas do modelo que a edição muda (o `modelId` e os papéis ficam de fora). */
 export function buildEquipmentModelPatch(input: UpdateEquipmentModel): Record<string, unknown> {
 	return buildPatch(input, EQUIPMENT_MODEL_PATCH_RULES)
 }
 
-const EQUIPMENT_UNIT_PATCH_RULES: ReadonlyArray<readonly [keyof UpdateEquipmentUnit & string, PatchRule]> = [
-	["label", "required"],
-	["modelId", "required"],
-	["assetTag", "nullable"],
-	["serialNumber", "nullable"],
-	["status", "required"],
-	["simultaneousSlots", "nullable"],
-	["acquiredOn", "nullable"],
-	["installedOn", "nullable"],
-	["warrantyUntil", "nullable"],
-	["supplier", "nullable"],
-	["notes", "nullable"],
-]
+const EQUIPMENT_UNIT_PATCH_RULES = {
+	label: "required",
+	modelId: "required",
+	assetTag: "nullable",
+	serialNumber: "nullable",
+	status: "required",
+	simultaneousSlots: "nullable",
+	acquiredOn: "nullable",
+	installedOn: "nullable",
+	warrantyUntil: "nullable",
+	supplier: "nullable",
+	notes: "nullable",
+} satisfies PatchRules<UpdateEquipmentUnit, "unitId" | "roleOverrides">
 
 /** Colunas da unidade que a edição muda, sempre com o `updatedAt` da edição. */
 export function buildEquipmentUnitPatch(input: UpdateEquipmentUnit, now: string): Record<string, unknown> {
