@@ -151,3 +151,128 @@ describe("validateSql", () => {
 		expect(validateSql("SELECT date(created_at), position('a' in display_name) FROM units")).toEqual({ valid: true })
 	})
 })
+
+/** Uma recusa por mensagem de erro, com o texto exato: o modelo lê a mensagem para corrigir a consulta. */
+describe("validateSql: cada mensagem de recusa", () => {
+	const refuse = (sql: string, error: string) => expect(validateSql(sql), sql).toEqual({ valid: false, error })
+
+	test("checagens de texto, antes de tokenizar", () => {
+		refuse("", "SQL vazio")
+		refuse(`SELECT ${"a".repeat(4000)}`, "SQL muito longa")
+		refuse("EXPLAIN SELECT 1", "Apenas SELECT permitido")
+		refuse("  values (1)  ", "Apenas SELECT permitido")
+		refuse("SELECT ';' FROM units", "Múltiplas instruções não são permitidas")
+		refuse("SELECT 1 FROM units;;", "Múltiplas instruções não são permitidas")
+	})
+
+	test("o ; final único é aparado e o espaço em volta também", () => {
+		expect(validateSql("  select 1 from units;  ")).toEqual({ valid: true })
+		expect(validateSql("with x as (select 1) select * from x")).toEqual({ valid: true })
+	})
+
+	test("o tamanho conta depois de aparar espaço e o ; final", () => {
+		const exact = `SELECT ${"a".repeat(4000 - "SELECT ".length)}`
+		expect(validateSql(`  ${exact};  `)).toEqual({ valid: true })
+	})
+
+	test("keyword proibida, na ordem da lista e em qualquer caixa", () => {
+		refuse("SELECT * FROM units WHERE x = 'insert'", "Keyword proibida: INSERT")
+		refuse("SELECT 1 FROM units WHERE 'drop' = 'delete'", "Keyword proibida: DELETE")
+		refuse("SELECT 'a$$b' FROM units", "Keyword proibida: $$")
+		refuse("SELECT * INTO t FROM units", "Keyword proibida: INTO")
+		refuse("SELECT * FROM units, LATERAL (SELECT 1) x", "Keyword proibida: LATERAL")
+		refuse("SELECT * FROM units FOR UPDATE", "Keyword proibida: UPDATE")
+		refuse("SELECT 1 FROM units WHERE set_x = 1 OR 1 = 1 AND 'SET' = 'x'", "Keyword proibida: SET")
+		refuse("SELECT * FROM (TABLE units) t", "Keyword proibida: TABLE")
+		refuse("SELECT count(*) OVER w FROM units WINDOW w AS ()", "Keyword proibida: WINDOW")
+		// Palavra inteira: `updated_at` e `settings` não casam com UPDATE/SET.
+		expect(validateSql("SELECT updated_at, settings FROM units")).toEqual({ valid: true })
+	})
+
+	test("tokenizador", () => {
+		refuse("SELECT 1 /* x */ FROM units", "Comentários não são permitidos")
+		refuse("SELECT $1 FROM units", "Caractere não permitido: $")
+		refuse("SELECT \\x FROM units", "Caractere não permitido: \\")
+		// Dentro de string o caractere é conteúdo, não token.
+		expect(validateSql("SELECT '\\' FROM units")).toEqual({ valid: true })
+		refuse("SELECT `a` FROM units", "Caractere não permitido: `")
+		refuse("SELECT e'x' FROM units", "Strings com prefixo não são permitidas")
+		// LACUNA (caracterização, não contrato): o `&` vira token próprio, então o prefixo
+		// `u&` nunca casa e `U&'…'` passa. A role restrita do banco é que segura.
+		expect(validateSql("SELECT U&'x' FROM units")).toEqual({ valid: true })
+		refuse("SELECT B'1', N'x' FROM units", "Strings com prefixo não são permitidas")
+		refuse("SELECT 'abc FROM units", "String não terminada")
+		refuse("SELECT 'it''s FROM units", "String não terminada")
+		refuse('SELECT "abc FROM units', "Identificador não terminado")
+		refuse('SELECT 1 AS "" FROM units', "Identificador entre aspas vazio")
+		expect(validateSql("SELECT 'it''s' AS x FROM units")).toEqual({ valid: true })
+	})
+
+	test("identificador de catálogo", () => {
+		refuse("SELECT * FROM units WHERE pg_backend_pid = 1", "Identificador não permitido: pg_backend_pid")
+		refuse("SELECT information_schema FROM units", "Identificador não permitido: information_schema")
+		// Logo depois de FROM, a relação é conferida antes de a varredura chegar ao token.
+		refuse("SELECT * FROM information_schema.tables", "Tabela não permitida: tables")
+		refuse('SELECT * FROM units u WHERE u."PG_X" = 1', "Identificador não permitido: pg_x")
+	})
+
+	test("referência de relação", () => {
+		refuse("SELECT 1 FROM", "Relação ausente")
+		refuse("SELECT 1 FROM units JOIN", "Relação ausente")
+		refuse("SELECT 1 FROM 'units'", "Relação inválida: units")
+		refuse("SELECT 1 FROM 5", "Relação inválida: 5")
+		refuse("SELECT * FROM generate_series(1, 3)", "Função como relação não permitida: generate_series")
+		refuse("SELECT * FROM core.units(1)", "Função como relação não permitida: units")
+		refuse("SELECT * FROM auth.units(1)", "Função como relação não permitida: units")
+		refuse("SELECT * FROM secrets", "Tabela não permitida: secrets")
+		refuse("SELECT * FROM public.units", "Tabela não permitida: units")
+		refuse("SELECT * FROM core.counts", "Tabela não permitida: counts")
+		// Nome de CTE vale sem schema; qualificado, não é a CTE.
+		refuse("WITH counts AS (SELECT 1) SELECT * FROM core.counts", "Tabela não permitida: counts")
+		refuse("SELECT * FROM (SELECT 1) x, secrets s", "Tabela não permitida: secrets")
+		refuse("SELECT * FROM ((secrets))", "Tabela não permitida: secrets")
+		expect(validateSql("SELECT * FROM ((VALUES (1))) v")).toEqual({ valid: true })
+	})
+
+	test("FROM de EXTRACT, SUBSTRING e TRIM não é relação", () => {
+		expect(validateSql("SELECT extract(year FROM date), substring(name FROM 1 FOR 3), trim(both 'x' FROM name) FROM units")).toEqual({
+			valid: true,
+		})
+		// O desvio é só para FROM: JOIN dentro do mesmo parêntese continua conferido.
+		refuse("SELECT extract(year JOIN secrets) FROM units", "Tabela não permitida: secrets")
+		// E só para essas três: FROM em outra função é relação.
+		refuse("SELECT lower(name FROM secrets) FROM units", "Tabela não permitida: secrets")
+	})
+
+	test("lista de relações termina nas palavras de fechamento do nível", () => {
+		expect(validateSql("SELECT * FROM units WHERE id IN (1, 2) GROUP BY a, b ORDER BY a, b LIMIT 5")).toEqual({ valid: true })
+		expect(validateSql("SELECT a, b FROM units u WHERE u.id = 1")).toEqual({ valid: true })
+		refuse("SELECT * FROM units u JOIN kitchen k ON (k.unit_id = u.id), secrets s", "Tabela não permitida: secrets")
+		// Caracterização: `)` sem par no nível zero encerra a lista do FROM (a profundidade
+		// não desce abaixo de zero). O Postgres recusa o parêntese sem par de todo jeito.
+		expect(validateSql("SELECT * FROM units) , secrets")).toEqual({ valid: true })
+	})
+
+	test("chamada de função", () => {
+		refuse("SELECT core.count(1) FROM units", "Função qualificada não permitida: count")
+		refuse("SELECT set_config('a', 'b', true) FROM units", "Função não permitida: set_config")
+		refuse("SELECT current_setting('x') FROM units", "Função não permitida: current_setting")
+		expect(validateSql("SELECT x::varchar(10), CAST(y AS numeric(10, 2)) FROM units")).toEqual({ valid: true })
+		expect(validateSql("SELECT 1 FROM units WHERE id IN (SELECT 1) AND exists (SELECT 1)")).toEqual({ valid: true })
+	})
+
+	test("LIMIT: confere toda ocorrência no texto, inclusive dentro de string", () => {
+		refuse("SELECT * FROM (SELECT * FROM units LIMIT 900) x LIMIT 10", "LIMIT máximo permitido: 500")
+		refuse("SELECT 'limit 501' FROM units", "LIMIT máximo permitido: 500")
+		expect(validateSql("SELECT * FROM units LIMIT 500")).toEqual({ valid: true })
+	})
+
+	test("o primeiro erro encontrado é o que volta", () => {
+		// Tabela antes do LIMIT; tokenizador antes da tabela; keyword antes do tokenizador.
+		refuse("SELECT * FROM secrets LIMIT 900", "Tabela não permitida: secrets")
+		refuse("SELECT * FROM secrets WHERE x = $1", "Caractere não permitido: $")
+		refuse("SELECT * FROM secrets WHERE x = $1 OR 'delete' = ''", "Keyword proibida: DELETE")
+		refuse("SELECT pg_sleep(1) FROM secrets", "Identificador não permitido: pg_sleep")
+		refuse("SELECT foo(1) FROM secrets", "Função não permitida: foo")
+	})
+})

@@ -155,6 +155,88 @@ const REQUIREMENT_NUMERIC_KEYS = new Set(["min_capacity_liters", "batch_portions
 
 const numOrNull = (n: number | null | undefined): number | null => n ?? null
 
+/**
+ * Como um campo da edição entra no patch:
+ *   - `required`: só quando veio não nulo — coluna obrigatória não se limpa;
+ *   - `nullable`: quando veio (`undefined` mantém, `null` limpa);
+ *   - `numeric`: idem, pela conversão numérica da coluna (`numOrNull`).
+ */
+type PatchRule = "required" | "nullable" | "numeric"
+
+/**
+ * Tabela de regras de um input: cobre TODO campo do input menos os de `Skip`. O `satisfies` nas
+ * tabelas abaixo faz o typecheck recusar campo novo do schema sem regra (a edição o ignoraria
+ * calada) e chave que não existe no input.
+ */
+type PatchRules<I, Skip extends keyof I> = Record<Exclude<keyof I, Skip> & string, PatchRule>
+
+/** Patch na ordem das regras, a partir de `initial`. Campo ausente do input não entra. */
+function buildPatch<I extends object>(
+	input: I,
+	rules: Partial<Record<keyof I & string, PatchRule>>,
+	initial: Record<string, unknown> = {}
+): Record<string, unknown> {
+	const patch: Record<string, unknown> = { ...initial }
+	const values = input as Record<string, unknown>
+	for (const [key, rule] of Object.entries(rules) as Array<[string, PatchRule]>) {
+		const value = values[key]
+		if (rule === "required") {
+			if (value != null) patch[key] = value
+		} else if (value !== undefined) {
+			patch[key] = rule === "numeric" ? numOrNull(value as number | null) : (value ?? null)
+		}
+	}
+	return patch
+}
+
+const EQUIPMENT_MODEL_PATCH_RULES = {
+	manufacturer: "nullable",
+	name: "required",
+	slotCapacityLiters: "numeric",
+	slotCapacityGn: "nullable",
+	capacityLabel: "nullable",
+	simultaneousSlots: "required",
+	powerKw: "numeric",
+	notes: "nullable",
+	// Ficha técnica: `undefined` mantém, `null` limpa — o diálogo que não tem campo para uma
+	// coluna simplesmente não a envia, em vez de apagá-la.
+	energySource: "nullable",
+	voltage: "nullable",
+	widthCm: "numeric",
+	depthCm: "numeric",
+	heightCm: "numeric",
+	weightKg: "numeric",
+	requiresHood: "nullable",
+	waterInlet: "nullable",
+	drainRequired: "nullable",
+	manualUrl: "nullable",
+	expectedLifespanYears: "nullable",
+} satisfies PatchRules<UpdateEquipmentModel, "modelId" | "roles">
+
+/** Colunas do modelo que a edição muda (o `modelId` e os papéis ficam de fora). */
+export function buildEquipmentModelPatch(input: UpdateEquipmentModel): Record<string, unknown> {
+	return buildPatch(input, EQUIPMENT_MODEL_PATCH_RULES)
+}
+
+const EQUIPMENT_UNIT_PATCH_RULES = {
+	label: "required",
+	modelId: "required",
+	assetTag: "nullable",
+	serialNumber: "nullable",
+	status: "required",
+	simultaneousSlots: "nullable",
+	acquiredOn: "nullable",
+	installedOn: "nullable",
+	warrantyUntil: "nullable",
+	supplier: "nullable",
+	notes: "nullable",
+} satisfies PatchRules<UpdateEquipmentUnit, "unitId" | "roleOverrides">
+
+/** Colunas da unidade que a edição muda, sempre com o `updatedAt` da edição. */
+export function buildEquipmentUnitPatch(input: UpdateEquipmentUnit, now: string): Record<string, unknown> {
+	return buildPatch(input, EQUIPMENT_UNIT_PATCH_RULES, { updatedAt: now })
+}
+
 // ── Catálogo: papéis ──────────────────────────────────────────────────────
 
 /** Leitura do catálogo: qualquer módulo que monta ou executa preparação. */
@@ -446,28 +528,7 @@ export async function updateEquipmentModel(db: SisubDb, ctx: UserContext, input:
 
 	const now = new Date().toISOString()
 	const model = await db.transaction(async (tx) => {
-		const patch: Record<string, unknown> = {}
-		if (input.manufacturer !== undefined) patch.manufacturer = input.manufacturer ?? null
-		if (input.name != null) patch.name = input.name
-		if (input.slotCapacityLiters !== undefined) patch.slotCapacityLiters = numOrNull(input.slotCapacityLiters)
-		if (input.slotCapacityGn !== undefined) patch.slotCapacityGn = input.slotCapacityGn ?? null
-		if (input.capacityLabel !== undefined) patch.capacityLabel = input.capacityLabel ?? null
-		if (input.simultaneousSlots != null) patch.simultaneousSlots = input.simultaneousSlots
-		if (input.powerKw !== undefined) patch.powerKw = numOrNull(input.powerKw)
-		if (input.notes !== undefined) patch.notes = input.notes ?? null
-		// Ficha técnica: `undefined` mantém, `null` limpa — o diálogo que não tem campo para uma
-		// coluna simplesmente não a envia, em vez de apagá-la.
-		if (input.energySource !== undefined) patch.energySource = input.energySource ?? null
-		if (input.voltage !== undefined) patch.voltage = input.voltage ?? null
-		if (input.widthCm !== undefined) patch.widthCm = numOrNull(input.widthCm)
-		if (input.depthCm !== undefined) patch.depthCm = numOrNull(input.depthCm)
-		if (input.heightCm !== undefined) patch.heightCm = numOrNull(input.heightCm)
-		if (input.weightKg !== undefined) patch.weightKg = numOrNull(input.weightKg)
-		if (input.requiresHood !== undefined) patch.requiresHood = input.requiresHood ?? null
-		if (input.waterInlet !== undefined) patch.waterInlet = input.waterInlet ?? null
-		if (input.drainRequired !== undefined) patch.drainRequired = input.drainRequired ?? null
-		if (input.manualUrl !== undefined) patch.manualUrl = input.manualUrl ?? null
-		if (input.expectedLifespanYears !== undefined) patch.expectedLifespanYears = input.expectedLifespanYears ?? null
+		const patch = buildEquipmentModelPatch(input)
 
 		const [row] =
 			Object.keys(patch).length > 0
@@ -783,18 +844,7 @@ export async function updateEquipmentUnit(db: SisubDb, ctx: UserContext, input: 
 
 	const now = new Date().toISOString()
 	const unit = await db.transaction(async (tx) => {
-		const patch: Record<string, unknown> = { updatedAt: now }
-		if (input.label != null) patch.label = input.label
-		if (input.modelId != null) patch.modelId = input.modelId
-		if (input.assetTag !== undefined) patch.assetTag = input.assetTag ?? null
-		if (input.serialNumber !== undefined) patch.serialNumber = input.serialNumber ?? null
-		if (input.status != null) patch.status = input.status
-		if (input.simultaneousSlots !== undefined) patch.simultaneousSlots = input.simultaneousSlots ?? null
-		if (input.acquiredOn !== undefined) patch.acquiredOn = input.acquiredOn ?? null
-		if (input.installedOn !== undefined) patch.installedOn = input.installedOn ?? null
-		if (input.warrantyUntil !== undefined) patch.warrantyUntil = input.warrantyUntil ?? null
-		if (input.supplier !== undefined) patch.supplier = input.supplier ?? null
-		if (input.notes !== undefined) patch.notes = input.notes ?? null
+		const patch = buildEquipmentUnitPatch(input, now)
 
 		const [row] = await mutateOrFail("UPDATE_FAILED", "equipamento não encontrado", () =>
 			tx
@@ -1382,6 +1432,52 @@ export interface MenuEquipmentFitnessWire {
 }
 
 /**
+ * Porções e bateladas de um item do cardápio: as porções planejadas do item, senão o efetivo do
+ * cardápio; uma batelada quando falta qualquer dos dois números (ou o rendimento não é positivo).
+ */
+export function planMenuItemBatches(
+	item: { portionYield: number | null; plannedPortions: number | null },
+	menuHeadcount: number | null
+): { recipeBatch: number | null; portions: number | null; batches: number } {
+	const recipeBatch = item.portionYield != null ? Number(item.portionYield) : null
+	const portions = item.plannedPortions != null ? Number(item.plannedPortions) : menuHeadcount
+	const batches = portions != null && recipeBatch != null && recipeBatch > 0 ? Math.ceil(portions / recipeBatch) : 1
+	return { recipeBatch, portions, batches }
+}
+
+/** De onde veio cada demanda do cardápio: o alvo agregado e o item que a pede. */
+export type MenuDemandMeta = { targetKey: string; label: string; itemId: string; recipeName: string; quantity: number }
+
+/**
+ * Agrega por ALVO: o usuário decide olhando "3 pedem forno, existe 1", não linha a linha. Ordem:
+ * o que mais falta primeiro, depois o rótulo.
+ */
+export function aggregateFitnessByTarget(
+	requirements: readonly { requirementId: string; required: number; satisfied: number; missing: number }[],
+	demandMeta: ReadonlyMap<string, MenuDemandMeta>
+): MenuEquipmentTargetWire[] {
+	const byTarget = new Map<string, MenuEquipmentTargetWire>()
+	for (const row of requirements) {
+		const meta = demandMeta.get(row.requirementId)
+		if (!meta) continue
+		const target = byTarget.get(meta.targetKey) ?? {
+			target_key: meta.targetKey,
+			target_label: meta.label,
+			required: 0,
+			satisfied: 0,
+			missing: 0,
+			competing_items: [],
+		}
+		target.required += row.required
+		target.satisfied += row.satisfied
+		target.missing += row.missing
+		target.competing_items.push({ menu_item_id: meta.itemId, recipe_name: meta.recipeName, quantity: meta.quantity })
+		byTarget.set(meta.targetKey, target)
+	}
+	return [...byTarget.values()].sort((a, b) => b.missing - a.missing || a.target_label.localeCompare(b.target_label))
+}
+
+/**
  * Confronta TODAS as preparações de uma refeição com o parque de quem cozinha.
  *
  * A pergunta que a tela da preparação não responde: cada ficha, isolada, "atende"; o almoço com
@@ -1428,15 +1524,13 @@ export async function evaluateMenuEquipmentFitness(db: SisubDb, ctx: UserContext
 	)
 
 	const demands: EquipmentDemandSpec[] = []
-	const demandMeta = new Map<string, { targetKey: string; label: string; itemId: string; recipeName: string; quantity: number }>()
+	const demandMeta = new Map<string, MenuDemandMeta>()
 	const itemsWire: MenuEquipmentItemWire[] = []
 
 	for (const item of items) {
 		if (item.recipeId == null) continue
 		const requirements = await loadRequirements(db, item.recipeId)
-		const recipeBatch = item.portionYield != null ? Number(item.portionYield) : null
-		const portions = item.plannedPortions != null ? Number(item.plannedPortions) : (menu?.headcount ?? null)
-		const batches = portions != null && recipeBatch != null && recipeBatch > 0 ? Math.ceil(portions / recipeBatch) : 1
+		const { recipeBatch, portions, batches } = planMenuItemBatches(item, menu?.headcount ?? null)
 
 		itemsWire.push({
 			menu_item_id: item.id,
@@ -1483,28 +1577,7 @@ export async function evaluateMenuEquipmentFitness(db: SisubDb, ctx: UserContext
 	}
 
 	const fitness = evaluateEquipmentFitness(demands, slots)
-
-	// Agrega por ALVO: o usuário decide olhando "3 pedem forno, existe 1", não linha a linha.
-	const byTarget = new Map<string, MenuEquipmentTargetWire>()
-	for (const row of fitness.requirements) {
-		const meta = demandMeta.get(row.requirementId)
-		if (!meta) continue
-		const target = byTarget.get(meta.targetKey) ?? {
-			target_key: meta.targetKey,
-			target_label: meta.label,
-			required: 0,
-			satisfied: 0,
-			missing: 0,
-			competing_items: [],
-		}
-		target.required += row.required
-		target.satisfied += row.satisfied
-		target.missing += row.missing
-		target.competing_items.push({ menu_item_id: meta.itemId, recipe_name: meta.recipeName, quantity: meta.quantity })
-		byTarget.set(meta.targetKey, target)
-	}
-
-	const targets = [...byTarget.values()].sort((a, b) => b.missing - a.missing || a.target_label.localeCompare(b.target_label))
+	const targets = aggregateFitnessByTarget(fitness.requirements, demandMeta)
 	return {
 		daily_menu_id: input.dailyMenuId,
 		kitchen_id: kitchenId,

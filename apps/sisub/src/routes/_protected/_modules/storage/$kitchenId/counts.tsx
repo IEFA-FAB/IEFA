@@ -1,17 +1,20 @@
-import { INVENTORY_COUNT_TYPE_LABELS, type InventoryCountType } from "@iefa/sisub-domain"
+import type { InventoryCountType } from "@iefa/sisub-domain"
 import { createFileRoute, useRouter } from "@tanstack/react-router"
-import { ClipboardCheck, Eye, EyeOff, Plus, Search } from "lucide-react"
 import { useState } from "react"
 import { requirePermission } from "@/auth/pbac"
+import {
+	CountActions,
+	CountSheetHeader,
+	CountSheetTable,
+	CountsHistoryCard,
+	NotCountedPanel,
+	OpenCountCard,
+	ScannedTargetPanel,
+} from "@/components/features/storage/counts/CountsSections"
+import { buildScopeParams, deriveCountState, type ScannedTarget } from "@/components/features/storage/counts/counts-page"
 import { ScanInput, scannerPropsFrom } from "@/components/features/storage/scan/ScanInput"
 import { PageHeader } from "@/components/layout/PageHeader"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Card, CardContent } from "@/components/ui/card"
 import { toast } from "@/components/ui/toast"
 import { formatPendingProductionDays } from "@/lib/count-waiver"
 import {
@@ -46,27 +49,6 @@ import { fetchScannerProfileFn, resolveScanToIngredientFn } from "@/server/scann
  * esconde: o servidor não manda o número.
  */
 
-const TYPE_LABELS: Record<string, string> = INVENTORY_COUNT_TYPE_LABELS
-
-const SCOPE_LABELS: Record<string, string> = {
-	full: "Estoque inteiro",
-	conservation_class: "Por classe de conservação",
-	location: "Por local",
-	item_list: "Lista de itens",
-	menu_cycle: "Ciclo do cardápio",
-}
-
-const STATUS_LABELS: Record<string, string> = {
-	draft: "Rascunho",
-	counting: "Em contagem",
-	review: "Em revisão",
-	recount: "Recontagem aberta",
-	approved: "Aprovada",
-	rejected: "Rejeitada",
-	expired: "Expirada",
-	confirmed: "Confirmada",
-}
-
 export const Route = createFileRoute("/_protected/_modules/storage/$kitchenId/counts")({
 	beforeLoad: (opts) => requirePermission(opts, "storage", 2),
 	loaderDeps: ({ search }) => ({ countId: (search as { countId?: string }).countId }),
@@ -85,8 +67,6 @@ export const Route = createFileRoute("/_protected/_modules/storage/$kitchenId/co
 	component: CountsPage,
 })
 
-const NUM = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 3 })
-
 function CountsPage() {
 	const { list, sheet, scannerProfile, kitchenId } = Route.useLoaderData()
 	const router = useRouter()
@@ -98,7 +78,7 @@ function CountsPage() {
 	// O que a última leitura apontou. A folha só lista lote que já foi contado, e
 	// o lote na mão do operador pode ainda não ter linha: a leitura abre o alvo
 	// aqui, com o campo de quantidade, em vez de procurar uma linha que não existe.
-	const [scanned, setScanned] = useState<{ ingredientId: string; lotId: string | null; description: string } | null>(null)
+	const [scanned, setScanned] = useState<ScannedTarget | null>(null)
 	const [scannedQty, setScannedQty] = useState("")
 
 	async function run(action: () => Promise<unknown>, success: string) {
@@ -145,11 +125,7 @@ function CountsPage() {
 		setQuantities((current) => ({ ...current, [line.key]: "" }))
 	}
 
-	const open = sheet?.count.status === "counting"
-	const scannedInScope = scanned != null && (sheet?.lines ?? []).some((line) => line.ingredientId === scanned.ingredientId)
-	const inReview = sheet?.count.status === "review"
-	// só as linhas DESTA rodada se recontam; as da rodada anterior já ficaram decididas
-	const divergent = (sheet?.lines ?? []).filter((line) => line.ownRound && line.needsRecount === true)
+	const { open, scannedInScope, inReview, divergent } = deriveCountState(sheet, scanned)
 
 	return (
 		<div className="space-y-4">
@@ -159,86 +135,24 @@ function CountsPage() {
 			/>
 
 			{!sheet && (
-				<Card>
-					<CardHeader className="pb-2">
-						<CardTitle className="flex items-center gap-2">
-							<Plus className="size-4" />
-							Abrir inventário
-						</CardTitle>
-						<p className="text-xs text-muted-foreground">Dois inventários abertos não podem disputar o mesmo item: o banco recusa e diz qual deles conflita.</p>
-					</CardHeader>
-					<CardContent className="flex flex-wrap items-end gap-2">
-						<div className="space-y-1">
-							<Label htmlFor="count-type">Tipo</Label>
-							<Select value={type} onValueChange={(value) => setType((value as InventoryCountType | null) ?? "rotativo")}>
-								<SelectTrigger id="count-type" className="w-64">
-									<SelectValue>{TYPE_LABELS[type]}</SelectValue>
-								</SelectTrigger>
-								<SelectContent>
-									{Object.entries(TYPE_LABELS).map(([value, label]) => (
-										<SelectItem key={value} value={value}>
-											{label}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
-						</div>
-						<div className="space-y-1">
-							<Label htmlFor="count-scope">Escopo</Label>
-							<Select value={scope} onValueChange={(value) => setScope(value ?? "full")}>
-								<SelectTrigger id="count-scope" className="w-60">
-									<SelectValue>{SCOPE_LABELS[scope]}</SelectValue>
-								</SelectTrigger>
-								<SelectContent>
-									{Object.entries(SCOPE_LABELS).map(([value, label]) => (
-										<SelectItem key={value} value={value}>
-											{label}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
-						</div>
-						{scope !== "full" && scope !== "item_list" && (
-							<div className="space-y-1">
-								<Label htmlFor="scope-value">{scope === "menu_cycle" ? "Dias do ciclo" : scope === "location" ? "Local" : "Classe"}</Label>
-								<Input id="scope-value" className="w-40" value={scopeValue} onChange={(event) => setScopeValue(event.target.value)} />
-							</div>
-						)}
-						<Button
-							type="button"
-							disabled={busy}
-							onClick={() => {
-								const params: Record<string, unknown> = {}
-								if (scope === "menu_cycle") params.days = Number(scopeValue) || 7
-								if (scope === "location") params.location = scopeValue
-								if (scope === "conservation_class") params.conservation_class = scopeValue
-								void run(() => openInventoryCountFn({ data: { kitchenId, type, scope: scope as "full", scopeParams: params } }), "Inventário aberto")
-							}}
-						>
-							Abrir
-						</Button>
-					</CardContent>
-				</Card>
+				<OpenCountCard
+					busy={busy}
+					type={type}
+					onTypeChange={setType}
+					scope={scope}
+					onScopeChange={setScope}
+					scopeValue={scopeValue}
+					onScopeValueChange={setScopeValue}
+					onOpen={() => {
+						const params = buildScopeParams(scope, scopeValue)
+						void run(() => openInventoryCountFn({ data: { kitchenId, type, scope: scope as "full", scopeParams: params } }), "Inventário aberto")
+					}}
+				/>
 			)}
 
 			{sheet && (
 				<Card>
-					<CardHeader className="pb-2">
-						<CardTitle className="flex flex-wrap items-center gap-2">
-							<ClipboardCheck className="size-4" />
-							{TYPE_LABELS[sheet.count.type] ?? sheet.count.type} · {SCOPE_LABELS[sheet.count.scope] ?? sheet.count.scope}
-							<Badge variant="secondary">{STATUS_LABELS[sheet.count.status] ?? sheet.count.status}</Badge>
-							{sheet.count.round > 1 && <Badge variant="outline">rodada {sheet.count.round}</Badge>}
-							<Badge variant="outline">
-								{sheet.reveal ? <Eye className="size-3" /> : <EyeOff className="size-3" />}
-								{sheet.reveal ? "Saldo visível" : "Cega"}
-							</Badge>
-						</CardTitle>
-						<p className="text-xs text-muted-foreground">
-							{sheet.scopeItems} item(ns) no escopo · {sheet.notCounted} ainda sem lançamento
-							{!sheet.reveal && " · o saldo esperado não é enviado para esta tela"}
-						</p>
-					</CardHeader>
+					<CountSheetHeader sheet={sheet} />
 					<CardContent className="space-y-3">
 						{open && (
 							<ScanInput
@@ -272,338 +186,126 @@ function CountsPage() {
 						)}
 
 						{open && scanned && (
-							<div className="flex flex-wrap items-center gap-2 rounded-md border p-2 text-sm">
-								<span>
-									Contando: <strong>{scanned.description}</strong>
-									{scanned.lotId ? " · lote lido na etiqueta" : " · sem lote (o monte na prateleira)"}
-								</span>
-								{scannedInScope ? (
-									<>
-										<Input
-											className="h-8 w-24"
-											inputMode="decimal"
-											placeholder="qtd"
-											data-count-qty="scanned"
-											value={scannedQty}
-											onChange={(event) => setScannedQty(event.target.value)}
-										/>
-										<Button
-											type="button"
-											size="sm"
-											disabled={busy}
-											onClick={async () => {
-												const quantity = Number(scannedQty.replace(",", "."))
-												if (!Number.isFinite(quantity) || quantity < 0) {
-													toast.error("Informe a quantidade")
-													return
-												}
-												await postLine(
-													{
-														key: `scan:${scanned.ingredientId}:${scanned.lotId ?? "item"}`,
-														lotId: scanned.lotId,
-														ingredientId: scanned.ingredientId,
-														frozenPreparationId: null,
-													},
-													quantity
-												)
-												setScanned(null)
-											}}
-										>
-											Lançar
-										</Button>
-									</>
-								) : (
-									<>
-										<span className="text-muted-foreground">fora do escopo deste inventário.</span>
-										<Button
-											type="button"
-											size="sm"
-											variant="outline"
-											disabled={busy}
-											onClick={() =>
-												run(() => addFoundItemFn({ data: { countId: sheet.count.id, ingredientId: scanned.ingredientId } }), "Achado incluído no inventário")
-											}
-										>
-											Incluir como achado
-										</Button>
-									</>
-								)}
-								<Button type="button" size="sm" variant="ghost" onClick={() => setScanned(null)}>
-									Cancelar
-								</Button>
-							</div>
+							<ScannedTargetPanel
+								scanned={scanned}
+								scannedInScope={scannedInScope}
+								scannedQty={scannedQty}
+								onQtyChange={setScannedQty}
+								busy={busy}
+								onPost={async () => {
+									const quantity = Number(scannedQty.replace(",", "."))
+									if (!Number.isFinite(quantity) || quantity < 0) {
+										toast.error("Informe a quantidade")
+										return
+									}
+									await postLine(
+										{
+											key: `scan:${scanned.ingredientId}:${scanned.lotId ?? "item"}`,
+											lotId: scanned.lotId,
+											ingredientId: scanned.ingredientId,
+											frozenPreparationId: null,
+										},
+										quantity
+									)
+									setScanned(null)
+								}}
+								onAddFound={() =>
+									run(() => addFoundItemFn({ data: { countId: sheet.count.id, ingredientId: scanned.ingredientId } }), "Achado incluído no inventário")
+								}
+								onCancel={() => setScanned(null)}
+							/>
 						)}
 
-						<Table>
-							<TableHeader>
-								<TableRow>
-									<TableHead>Item</TableHead>
-									<TableHead>Lote</TableHead>
-									<TableHead>Local</TableHead>
-									<TableHead>Validade</TableHead>
-									<TableHead className="text-right">Contado</TableHead>
-									{sheet.reveal && <TableHead className="text-right">Esperado</TableHead>}
-									{sheet.reveal && <TableHead className="text-right">Diferença</TableHead>}
-									{open && <TableHead>Lançar</TableHead>}
-								</TableRow>
-							</TableHeader>
-							<TableBody>
-								{sheet.lines.map((line) => (
-									<TableRow key={line.key} className={line.needsRecount ? "bg-warning/5" : undefined}>
-										<TableCell>
-											{line.description}
-											{line.found && (
-												<Badge variant="outline" className="ml-2">
-													achado
-												</Badge>
-											)}
-											{line.ownRound && line.entries === 0 && (
-												<Badge variant="outline" className="ml-2 text-muted-foreground">
-													{line.notCountedAccepted ? "aceito como não contado" : "não contado"}
-												</Badge>
-											)}
-											{!line.ownRound && (
-												<Badge variant="outline" className="ml-2 text-muted-foreground">
-													rodada anterior
-												</Badge>
-											)}
-										</TableCell>
-										<TableCell className="font-mono text-xs">{line.lotLabel ?? "sem lote"}</TableCell>
-										<TableCell className="text-xs">{line.location ?? "—"}</TableCell>
-										<TableCell className="text-xs">{line.expiryDate ?? "—"}</TableCell>
-										<TableCell className="text-right tabular-nums">
-											{NUM.format(line.counted)} {line.measureUnit ?? ""}
-											{line.entries > 1 && <span className="ml-1 text-xs text-muted-foreground">({line.entries} lanç.)</span>}
-										</TableCell>
-										{sheet.reveal && <TableCell className="text-right tabular-nums">{line.ledger == null ? "—" : NUM.format(line.ledger)}</TableCell>}
-										{sheet.reveal && (
-											<TableCell className={`text-right tabular-nums ${line.needsRecount ? "text-warning" : ""}`}>
-												{line.difference == null ? "—" : NUM.format(line.difference)}
-											</TableCell>
-										)}
-										{open && !line.ownRound && <TableCell />}
-										{open && line.ownRound && (
-											<TableCell>
-												<div className="flex items-center gap-1">
-													<Input
-														className="h-8 w-24"
-														inputMode="decimal"
-														placeholder="qtd"
-														data-count-qty={line.key}
-														value={quantities[line.key] ?? ""}
-														onChange={(event) => setQuantities((current) => ({ ...current, [line.key]: event.target.value }))}
-													/>
-													<Button
-														type="button"
-														size="sm"
-														variant="outline"
-														disabled={busy}
-														onClick={() => {
-															const quantity = Number((quantities[line.key] ?? "").replace(",", "."))
-															if (!Number.isFinite(quantity) || quantity < 0) {
-																toast.error("Informe a quantidade")
-																return
-															}
-															void postLine(line, quantity)
-														}}
-													>
-														Lançar
-													</Button>
-												</div>
-											</TableCell>
-										)}
-									</TableRow>
-								))}
-							</TableBody>
-						</Table>
+						<CountSheetTable
+							sheet={sheet}
+							open={open}
+							busy={busy}
+							quantities={quantities}
+							onQuantityChange={(key, value) => setQuantities((current) => ({ ...current, [key]: value }))}
+							onPost={(line) => {
+								const quantity = Number((quantities[line.key] ?? "").replace(",", "."))
+								if (!Number.isFinite(quantity) || quantity < 0) {
+									toast.error("Informe a quantidade")
+									return
+								}
+								void postLine(line, quantity)
+							}}
+						/>
 
-						<div className="flex flex-wrap gap-2">
-							{open && (
-								<Button
-									type="button"
-									disabled={busy}
-									onClick={() => run(() => reviewInventoryCountFn({ data: { countId: sheet.count.id } }), "Coleta encerrada")}
-								>
-									Encerrar a coleta
-								</Button>
-							)}
-							{inReview && divergent.length > 0 && (
-								<Button
-									type="button"
-									variant="secondary"
-									disabled={busy}
-									onClick={() =>
-										run(
-											() =>
-												openRecountFn({
-													data: {
-														countId: sheet.count.id,
-														ingredientIds: [...new Set(divergent.map((line) => line.ingredientId).filter(Boolean))] as string[],
-														frozenPreparationIds: [...new Set(divergent.map((line) => line.frozenPreparationId).filter(Boolean))] as string[],
-													},
-												}),
-											`Recontagem aberta com ${divergent.length} linha(s)`
-										)
-									}
-								>
-									<Search className="mr-2 size-4" />
-									Recontar as {divergent.length} divergentes
-								</Button>
-							)}
-							{inReview && (
-								<Button
-									type="button"
-									disabled={busy}
-									onClick={() => {
-										const exceptionReason =
-											sheet.count.created_by == null
-												? undefined
-												: (window.prompt("Se você abriu este inventário, registre a exceção (deixe vazio para tentar sem):") ?? undefined)
-										void run(async () => {
-											const countId = sheet.count.id
-											const reason = exceptionReason?.trim() || undefined
-											const first = await approveInventoryCountFn({ data: { countId, exceptionReason: reason } })
-											if (first.status === "approved") return first
-											// Produção concluída sem saída lançada: a aprovação não trava — oferece a
-											// ressalva, com TODOS os dias que o banco apontou (pelo código, não pelo texto).
-											const days = formatPendingProductionDays(first.pendingDays)
-											const waiver = window.prompt(
-												`Produção concluída sem saída lançada${days ? ` em ${days}` : ""}: a contagem acusaria falta do que já saiu. Feche a requisição ou lance a saída tardia; para aprovar mesmo assim, registre a ressalva (mínimo 5 letras):`
-											)
-											if (!waiver || waiver.trim().length < 5) throw new Error(first.message)
-											return approveInventoryCountFn({ data: { countId, exceptionReason: reason, pendingProductionWaiver: waiver.trim() } })
-										}, "Inventário aprovado")
-									}}
-								>
-									Aprovar e lançar o ajuste
-								</Button>
-							)}
-							{(open || inReview) && (
-								<Button
-									type="button"
-									variant="ghost"
-									disabled={busy}
-									onClick={() => {
-										const reason = window.prompt("Motivo da rejeição (mínimo 5 caracteres):")
-										if (!reason || reason.trim().length < 5) {
-											toast.error("Rejeitar exige motivo")
-											return
-										}
-										void run(() => rejectInventoryCountFn({ data: { countId: sheet.count.id, reason } }), "Inventário rejeitado")
-									}}
-								>
-									Rejeitar
-								</Button>
-							)}
-						</div>
+						<CountActions
+							open={open}
+							inReview={inReview}
+							divergentCount={divergent.length}
+							busy={busy}
+							onReview={() => run(() => reviewInventoryCountFn({ data: { countId: sheet.count.id } }), "Coleta encerrada")}
+							onRecount={() =>
+								run(
+									() =>
+										openRecountFn({
+											data: {
+												countId: sheet.count.id,
+												ingredientIds: [...new Set(divergent.map((line) => line.ingredientId).filter(Boolean))] as string[],
+												frozenPreparationIds: [...new Set(divergent.map((line) => line.frozenPreparationId).filter(Boolean))] as string[],
+											},
+										}),
+									`Recontagem aberta com ${divergent.length} linha(s)`
+								)
+							}
+							onApprove={() => {
+								const exceptionReason =
+									sheet.count.created_by == null
+										? undefined
+										: (window.prompt("Se você abriu este inventário, registre a exceção (deixe vazio para tentar sem):") ?? undefined)
+								void run(async () => {
+									const countId = sheet.count.id
+									const reason = exceptionReason?.trim() || undefined
+									const first = await approveInventoryCountFn({ data: { countId, exceptionReason: reason } })
+									if (first.status === "approved") return first
+									// Produção concluída sem saída lançada: a aprovação não trava — oferece a
+									// ressalva, com TODOS os dias que o banco apontou (pelo código, não pelo texto).
+									const days = formatPendingProductionDays(first.pendingDays)
+									const waiver = window.prompt(
+										`Produção concluída sem saída lançada${days ? ` em ${days}` : ""}: a contagem acusaria falta do que já saiu. Feche a requisição ou lance a saída tardia; para aprovar mesmo assim, registre a ressalva (mínimo 5 letras):`
+									)
+									if (!waiver || waiver.trim().length < 5) throw new Error(first.message)
+									return approveInventoryCountFn({ data: { countId, exceptionReason: reason, pendingProductionWaiver: waiver.trim() } })
+								}, "Inventário aprovado")
+							}}
+							onReject={() => {
+								const reason = window.prompt("Motivo da rejeição (mínimo 5 caracteres):")
+								if (!reason || reason.trim().length < 5) {
+									toast.error("Rejeitar exige motivo")
+									return
+								}
+								void run(() => rejectInventoryCountFn({ data: { countId: sheet.count.id, reason } }), "Inventário rejeitado")
+							}}
+						/>
 
 						{inReview && sheet.notCounted > 0 && (
-							<div className="rounded-xl border border-dashed p-3 text-sm">
-								<p className="mb-2">
-									{sheet.notCounted} item(ns) do escopo sem nenhum lançamento. Eles <strong>não</strong> viram zero sozinhos — tratar esquecimento como baixa de
-									estoque é como um inventário inventa perda.
-								</p>
-								<div className="flex flex-wrap gap-1">
-									{sheet.lines
-										.filter((line) => line.ownRound && line.entries === 0)
-										.map((line) => (
-											<Button
-												key={line.key}
-												type="button"
-												size="sm"
-												variant={line.notCountedAccepted ? "secondary" : "outline"}
-												disabled={busy}
-												onClick={() =>
-													run(
-														() =>
-															acceptNotCountedFn({
-																data: {
-																	countId: sheet.count.id,
-																	ingredientId: line.ingredientId ?? undefined,
-																	frozenPreparationId: line.ingredientId ? undefined : (line.frozenPreparationId ?? undefined),
-																	accepted: !line.notCountedAccepted,
-																},
-															}),
-														line.notCountedAccepted ? "Marcação removida" : "Item aceito como não contado"
-													)
-												}
-											>
-												{line.description}
-											</Button>
-										))}
-								</div>
-							</div>
+							<NotCountedPanel
+								sheet={sheet}
+								busy={busy}
+								onToggle={(line) =>
+									run(
+										() =>
+											acceptNotCountedFn({
+												data: {
+													countId: sheet.count.id,
+													ingredientId: line.ingredientId ?? undefined,
+													frozenPreparationId: line.ingredientId ? undefined : (line.frozenPreparationId ?? undefined),
+													accepted: !line.notCountedAccepted,
+												},
+											}),
+										line.notCountedAccepted ? "Marcação removida" : "Item aceito como não contado"
+									)
+								}
+							/>
 						)}
 					</CardContent>
 				</Card>
 			)}
 
-			<Card>
-				<CardHeader className="pb-2">
-					<CardTitle>Inventários da cozinha</CardTitle>
-				</CardHeader>
-				<CardContent>
-					<Table>
-						<TableHeader>
-							<TableRow>
-								<TableHead>Competência</TableHead>
-								<TableHead>Tipo</TableHead>
-								<TableHead>Escopo</TableHead>
-								<TableHead>Rodada</TableHead>
-								<TableHead>Estado</TableHead>
-								<TableHead>Segregação</TableHead>
-							</TableRow>
-						</TableHeader>
-						<TableBody>
-							{list.counts.map(
-								(count: {
-									id: string
-									competencia: string
-									type: string
-									scope: string
-									round: number
-									status: string
-									blind: boolean
-									approved_at: string | null
-									approved_by_own_entry: boolean
-								}) => (
-									<TableRow key={count.id}>
-										<TableCell className="text-xs">{count.competencia}</TableCell>
-										<TableCell className="text-xs">{TYPE_LABELS[count.type] ?? count.type}</TableCell>
-										<TableCell className="text-xs">{SCOPE_LABELS[count.scope] ?? count.scope}</TableCell>
-										<TableCell className="text-xs">{count.round}</TableCell>
-										<TableCell className="text-xs">
-											<Badge variant="secondary">{STATUS_LABELS[count.status] ?? count.status}</Badge>
-										</TableCell>
-										<TableCell className="text-xs">
-											{/*
-											 * Em `dual`, quem lançou pode aprovar — e isso fica gravado.
-											 * Sem esta coluna, a contagem aprovada pelo próprio lançador
-											 * seria indistinguível da que passou por duas pessoas, e a
-											 * auditoria não teria como separar as duas.
-											 */}
-											{count.approved_by_own_entry ? (
-												<Badge variant="outline" className="text-warning">
-													aprovada pelo próprio lançador
-												</Badge>
-											) : count.approved_at ? (
-												"segregada"
-											) : (
-												"—"
-											)}
-										</TableCell>
-									</TableRow>
-								)
-							)}
-						</TableBody>
-					</Table>
-					{list.total > list.counts.length && (
-						<p className="mt-2 text-xs text-muted-foreground">
-							Mostrando {list.counts.length} de {list.total}.
-						</p>
-					)}
-				</CardContent>
-			</Card>
+			<CountsHistoryCard list={list} />
 		</div>
 	)
 }

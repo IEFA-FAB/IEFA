@@ -150,34 +150,29 @@ function footerBlock(input: DocumentInput): Line[] {
 	return contato ? [{ text: contato }] : []
 }
 
-/**
- * Conferência do documento: o que falta preencher e o que contraria a norma.
- *
- * Duas regras de convívio, aprendidas na auditoria:
- *
- * 1. **Documento intocado não recebe achado nenhum.** Antes, um documento em branco já
- *    abria com alerta vermelho de NUP ausente — o aviso mais grave da ferramenta era
- *    também o primeiro, sempre, e virava paisagem.
- * 2. **Campo vazio é `pending`, norma contrariada é `nonCompliant`.** São duas conversas:
- *    "ainda falta" e "está errado". Misturá-las gasta o vermelho no que é rotina.
- */
-function checkCompliance(input: DocumentInput, kind: DocumentKind, rendered: Set<BlockId>): ComplianceFinding[] {
-	const findings: ComplianceFinding[] = []
-	const pending = (text: string, block?: BlockId) => findings.push({ text, severity: "pending", block })
-	const nonCompliant = (text: string, block?: BlockId) => findings.push({ text, severity: "nonCompliant", block })
+/** Os dois registros da conferência: "ainda falta" (`pending`) e "está errado" (`nonCompliant`). */
+interface FindingSink {
+	pending: (text: string, block?: BlockId) => void
+	nonCompliant: (text: string, block?: BlockId) => void
+}
 
-	// Documento em que ninguém escreveu nada ainda não tem o que conferir.
-	// O que conta como "começou" é o que SÓ o redator escreve: o assunto e o texto. A
-	// identidade (OM, signatário, localidade) nasce preenchida para quem tem perfil salvo —
-	// medir por ela devolvia a lista de pendências no documento em branco, justamente para
-	// quem configurou a ferramenta. `subject` é opcional: `undefined?.trim() !== ""` é
-	// verdadeiro e ligava a conferência sozinho.
-	const started = (input.subject ?? "").trim() !== "" || input.paragraphs.some((p) => p.text.trim() !== "")
-	if (!started) return findings
+/** Conferência de uma regra: recebe o documento, a espécie, os blocos impressos e onde registrar. */
+type ComplianceRule = (input: DocumentInput, kind: DocumentKind, rendered: Set<BlockId>, sink: FindingSink) => void
 
-	// ── O que falta preencher ────────────────────────────────────────────────
-	// A montagem NÃO renderiza bloco vazio: sem estes avisos, a OM some da epígrafe e o
-	// signatário some do fim, e a folha continua parecendo um documento plausível.
+// Documento em que ninguém escreveu nada ainda não tem o que conferir.
+// O que conta como "começou" é o que SÓ o redator escreve: o assunto e o texto. A
+// identidade (OM, signatário, localidade) nasce preenchida para quem tem perfil salvo —
+// medir por ela devolvia a lista de pendências no documento em branco, justamente para
+// quem configurou a ferramenta. `subject` é opcional: `undefined?.trim() !== ""` é
+// verdadeiro e ligava a conferência sozinho.
+function isStarted(input: DocumentInput): boolean {
+	return (input.subject ?? "").trim() !== "" || input.paragraphs.some((p) => p.text.trim() !== "")
+}
+
+// ── O que falta preencher ────────────────────────────────────────────────
+// A montagem NÃO renderiza bloco vazio: sem estes avisos, a OM some da epígrafe e o
+// signatário some do fim, e a folha continua parecendo um documento plausível.
+function checkMissingIdentity(input: DocumentInput, kind: DocumentKind, rendered: Set<BlockId>, { pending }: FindingSink): void {
 	if (input.om.name.trim() === "") pending("Falta o nome da OM expedidora: sem ele a epígrafe não é impressa.", "epigrafe")
 	if (input.signer.name.trim() === "") pending("Falta o nome do signatário: sem ele o documento sai sem assinatura.", "signatario")
 	// A âncora sai do que foi RENDERIZADO, não da espécie: a linha de localidade e data
@@ -196,6 +191,9 @@ function checkCompliance(input: DocumentInput, kind: DocumentKind, rendered: Set
 	if (kind.blocks.includes("ementa") && !input.subject?.trim()) {
 		pending("Falta o assunto: é o resumo que permite reconhecer o documento de imediato.", "ementa")
 	}
+}
+
+function checkMissingNumberingAndText(input: DocumentInput, kind: DocumentKind, _rendered: Set<BlockId>, { pending }: FindingSink): void {
 	if (kind.blocks.includes("nup") && !(input.nup && isValidNup(input.nup))) {
 		pending("Falta o NUP. Peça ao protocolo da OM ou copie o do processo no SIGADAER: são 17 dígitos.", "nup")
 	}
@@ -211,8 +209,10 @@ function checkCompliance(input: DocumentInput, kind: DocumentKind, rendered: Set
 		pending("Falta o indicativo do setor que elabora o documento: sem ele a numeração sai incompleta (art. 31 § 1º, III).", "numeracao")
 	}
 	if (input.paragraphs.every((p) => p.text.trim() === "")) pending("O documento está sem texto.", "texto")
+}
 
-	// ── O que contraria a norma ──────────────────────────────────────────────
+// ── O que contraria a norma ──────────────────────────────────────────────
+function checkNumberingAndSubject(input: DocumentInput, kind: DocumentKind, _rendered: Set<BlockId>, { nonCompliant }: FindingSink): void {
 	// A espécie se chama "s/nº" e a norma a define assim: numerar aqui é o inverso exato do
 	// aviso acima, e nada conferia esse lado. O sequencial digitado sai impresso e o
 	// expediente pessoal passa a ocupar número da série da OM.
@@ -230,6 +230,9 @@ function checkCompliance(input: DocumentInput, kind: DocumentKind, rendered: Set
 			"ementa"
 		)
 	}
+}
+
+function checkTextAndSigner(input: DocumentInput, kind: DocumentKind, _rendered: Set<BlockId>, { nonCompliant }: FindingSink): void {
 	// Tratamento proibido no texto: o remendo do modelo já é recusado por esta mesma regra
 	// (tools/patch); aqui ela alcança o que foi digitado à mão e o que veio de minuta importada.
 	for (const paragraph of input.paragraphs) {
@@ -251,15 +254,20 @@ function checkCompliance(input: DocumentInput, kind: DocumentKind, rendered: Set
 	if (kind.id === "oficio-externo" && ((input.references?.length ?? 0) > 0 || (input.annexes?.length ?? 0) > 0)) {
 		nonCompliant("No ofício externo, referências e anexos são citados no texto, não na ementa.", "ementa")
 	}
-	if (input.distribution) {
-		if (input.recipients.some((d) => /cmtaer|comandante da aeron[áa]utica/i.test(d.position))) {
-			nonCompliant("Ofício circular não pode ser endereçado ao CMTAER. Confeccione documento específico para essa autoridade.", "preambulo")
-		}
-		nonCompliant(
-			"Ofício a vários destinatários não pode ser a peça que abre o processo. Se o assunto exige processo novo, expeça um ofício individual ao destinatário principal e mande o circular depois.",
-			"preambulo"
-		)
+}
+
+function checkDistribution(input: DocumentInput, _kind: DocumentKind, _rendered: Set<BlockId>, { nonCompliant }: FindingSink): void {
+	if (!input.distribution) return
+	if (input.recipients.some((d) => /cmtaer|comandante da aeron[áa]utica/i.test(d.position))) {
+		nonCompliant("Ofício circular não pode ser endereçado ao CMTAER. Confeccione documento específico para essa autoridade.", "preambulo")
 	}
+	nonCompliant(
+		"Ofício a vários destinatários não pode ser a peça que abre o processo. Se o assunto exige processo novo, expeça um ofício individual ao destinatário principal e mande o circular depois.",
+		"preambulo"
+	)
+}
+
+function checkOpeningAndKindNotes(input: DocumentInput, kind: DocumentKind, _rendered: Set<BlockId>, { pending, nonCompliant }: FindingSink): void {
 	if (kind.suggestedOpening && input.paragraphs.length > 0 && !input.paragraphs[0].text.trimStart().startsWith(kind.suggestedOpening.trim())) {
 		nonCompliant(`${kind.label}: o texto deve começar por “${kind.suggestedOpening.trim()}…”.`, "texto")
 	}
@@ -282,6 +290,37 @@ function checkCompliance(input: DocumentInput, kind: DocumentKind, rendered: Set
 			"signatario"
 		)
 	}
+}
+
+/** Regras na ordem em que os achados aparecem na lista. */
+const COMPLIANCE_RULES: readonly ComplianceRule[] = [
+	checkMissingIdentity,
+	checkMissingNumberingAndText,
+	checkNumberingAndSubject,
+	checkTextAndSigner,
+	checkDistribution,
+	checkOpeningAndKindNotes,
+]
+
+/**
+ * Conferência do documento: o que falta preencher e o que contraria a norma.
+ *
+ * Duas regras de convívio, aprendidas na auditoria:
+ *
+ * 1. **Documento intocado não recebe achado nenhum.** Antes, um documento em branco já
+ *    abria com alerta vermelho de NUP ausente — o aviso mais grave da ferramenta era
+ *    também o primeiro, sempre, e virava paisagem.
+ * 2. **Campo vazio é `pending`, norma contrariada é `nonCompliant`.** São duas conversas:
+ *    "ainda falta" e "está errado". Misturá-las gasta o vermelho no que é rotina.
+ */
+function checkCompliance(input: DocumentInput, kind: DocumentKind, rendered: Set<BlockId>): ComplianceFinding[] {
+	const findings: ComplianceFinding[] = []
+	const sink: FindingSink = {
+		pending: (text, block) => findings.push({ text, severity: "pending", block }),
+		nonCompliant: (text, block) => findings.push({ text, severity: "nonCompliant", block }),
+	}
+	if (!isStarted(input)) return findings
+	for (const rule of COMPLIANCE_RULES) rule(input, kind, rendered, sink)
 	return findings
 }
 
@@ -301,90 +340,78 @@ export function continuationLabel(input: DocumentInput): string {
 	return parts.join(", ")
 }
 
+type PushBlock = (id: BlockId, lines: Line[]) => void
+/** Monta um bloco da espécie e o entrega a `push` (que pode receber outro id: a data cai em linha própria). */
+type BlockBuilder = (input: DocumentInput, kind: DocumentKind, push: PushBlock) => void
+
+function pushNumbering(input: DocumentInput, kind: DocumentKind, push: PushBlock): void {
+	const text = numberingLine(kind.numberingLabel, input.numbering, input.classification, kind.numbering)
+	if (text) push("numeracao", [{ text, rightOnSameLine: kind.dateOnLine === "numeracao" ? cityAndDate(input) : undefined }])
+	else if (kind.dateOnLine === "numeracao") push("localidade-data", [{ text: cityAndDate(input), alignment: "direita" }])
+}
+
+function pushNup(input: DocumentInput, kind: DocumentKind, push: PushBlock): void {
+	// A data viaja na linha do NUP no requerimento (art. 55 § 2º, III) e na da
+	// numeração nas demais. Quando essa linha não existe — requerimento ainda sem
+	// NUP —, a data tem de cair em linha própria: antes ela sumia junto, e o
+	// documento saía sem data nenhuma sem nada avisar.
+	if (!input.nup) {
+		if (kind.dateOnLine === "nup") push("localidade-data", [{ text: cityAndDate(input), alignment: "direita" }])
+		return
+	}
+	push("nup", [
+		{
+			text: `Protocolo COMAER nº ${formatNup(input.nup)}`,
+			rightOnSameLine: kind.dateOnLine === "nup" ? cityAndDate(input) : undefined,
+		},
+	])
+}
+
+function pushProcess(input: DocumentInput, _kind: DocumentKind, push: PushBlock): void {
+	const parts = [input.process?.nup ? `Proc nº ${formatNup(input.process.nup)}` : "", input.process?.reference ? `Ref ${input.process.reference}` : ""]
+		.filter(Boolean)
+		.join(" - ")
+	if (parts) push("processo", [{ text: `(${parts})`, alignment: "centro" }])
+}
+
+function pushClosing(input: DocumentInput, kind: DocumentKind, push: PushBlock): void {
+	const fecho = kind.allowsClosing ? courtesyClosing(input.scope, input.precedence) : null
+	if (fecho) push("fecho", [{ text: fecho, indentCm: 2.5 }])
+}
+
+/** Um construtor por bloco; a espécie diz quais entram e em que ordem. */
+const BLOCK_BUILDERS: Record<BlockId, BlockBuilder> = {
+	timbre: (_input, kind, push) => push("timbre", timbreBlock(kind)),
+	epigrafe: (input, kind, push) => push("epigrafe", epigrafeBlock(input, kind)),
+	titulo: (input, kind, push) => push("titulo", titleBlock(input, kind)),
+	numeracao: pushNumbering,
+	nup: pushNup,
+	"localidade-data": (input, _kind, push) => push("localidade-data", [{ text: cityAndDate(input), alignment: "direita" }]),
+	processo: pushProcess,
+	enderecamento: (input, _kind, push) => push("enderecamento", input.addressing ? addressingLines(input.addressing).map((text) => ({ text })) : []),
+	preambulo: (input, kind, push) => push("preambulo", preambuloBlock(input, kind)),
+	ementa: (input, kind, push) => push("ementa", ementaBlock(input, kind)),
+	vocativo: (input, _kind, push) => push("vocativo", [{ text: input.vocativo?.trim() || defaultVocativo(input.addressing) }]),
+	texto: (input, kind, push) => push("texto", bodyBlock(input, kind)),
+	fecho: pushClosing,
+	signatario: (input, kind, push) => push("signatario", signerBlock(input, kind)),
+	"rodape-om": (input, _kind, push) => push("rodape-om", footerBlock(input)),
+}
+
 export function assembleDocument(input: DocumentInput): AssembledDocument {
 	const kind = findKind(input.kind)
 	if (!kind) throw new Error(`Espécie desconhecida: ${input.kind}`)
 
 	const blocks: AssembledBlock[] = []
-	const push = (id: BlockId, lines: Line[]) => {
+	const push: PushBlock = (id, lines) => {
 		// Campo em branco não vira linha, e bloco sem linha não vira bloco: o painel de
 		// cópia lista um botão por bloco, e um botão que copia string vazia mente.
 		const filled = lines.filter((l) => l.text.trim() !== "" || (l.rightOnSameLine ?? "").trim() !== "")
 		if (filled.length > 0) blocks.push({ id, label: BLOCK_LABELS[id], lines: filled })
 	}
 
-	for (const id of kind.blocks) {
-		switch (id) {
-			case "timbre":
-				push(id, timbreBlock(kind))
-				break
-			case "epigrafe":
-				push(id, epigrafeBlock(input, kind))
-				break
-			case "titulo":
-				push(id, titleBlock(input, kind))
-				break
-			case "numeracao": {
-				const text = numberingLine(kind.numberingLabel, input.numbering, input.classification, kind.numbering)
-				if (text) push(id, [{ text, rightOnSameLine: kind.dateOnLine === "numeracao" ? cityAndDate(input) : undefined }])
-				else if (kind.dateOnLine === "numeracao") push("localidade-data", [{ text: cityAndDate(input), alignment: "direita" }])
-				break
-			}
-			case "nup": {
-				// A data viaja na linha do NUP no requerimento (art. 55 § 2º, III) e na da
-				// numeração nas demais. Quando essa linha não existe — requerimento ainda sem
-				// NUP —, a data tem de cair em linha própria: antes ela sumia junto, e o
-				// documento saía sem data nenhuma sem nada avisar.
-				if (!input.nup) {
-					if (kind.dateOnLine === "nup") push("localidade-data", [{ text: cityAndDate(input), alignment: "direita" }])
-					break
-				}
-				push(id, [
-					{
-						text: `Protocolo COMAER nº ${formatNup(input.nup)}`,
-						rightOnSameLine: kind.dateOnLine === "nup" ? cityAndDate(input) : undefined,
-					},
-				])
-				break
-			}
-			case "localidade-data":
-				push(id, [{ text: cityAndDate(input), alignment: "direita" }])
-				break
-			case "processo": {
-				const parts = [input.process?.nup ? `Proc nº ${formatNup(input.process.nup)}` : "", input.process?.reference ? `Ref ${input.process.reference}` : ""]
-					.filter(Boolean)
-					.join(" - ")
-				if (parts) push(id, [{ text: `(${parts})`, alignment: "centro" }])
-				break
-			}
-			case "enderecamento":
-				push(id, input.addressing ? addressingLines(input.addressing).map((text) => ({ text })) : [])
-				break
-			case "preambulo":
-				push(id, preambuloBlock(input, kind))
-				break
-			case "ementa":
-				push(id, ementaBlock(input, kind))
-				break
-			case "vocativo":
-				push(id, [{ text: input.vocativo?.trim() || defaultVocativo(input.addressing) }])
-				break
-			case "texto":
-				push(id, bodyBlock(input, kind))
-				break
-			case "fecho": {
-				const fecho = kind.allowsClosing ? courtesyClosing(input.scope, input.precedence) : null
-				if (fecho) push(id, [{ text: fecho, indentCm: 2.5 }])
-				break
-			}
-			case "signatario":
-				push(id, signerBlock(input, kind))
-				break
-			case "rodape-om":
-				push(id, footerBlock(input))
-				break
-		}
-	}
+	// `Object.hasOwn`: id fora do mapa não monta nada, como o `switch` sem `default` de antes.
+	for (const id of kind.blocks) if (Object.hasOwn(BLOCK_BUILDERS, id)) BLOCK_BUILDERS[id](input, kind, push)
 
 	// A conferência recebe os blocos que a montagem REALMENTE imprimiu: é o que permite
 	// ancorar o achado onde o realce da folha consegue prendê-lo. Achado sobre bloco ausente

@@ -1,9 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
 import { Link, type LinkOptions } from "@tanstack/react-router"
-import { format, parseISO } from "date-fns"
-import { ptBR } from "date-fns/locale"
 import { ArrowLeft, FileText, Loader2, Printer } from "lucide-react"
-import { useEffect, useMemo, useState } from "react"
+import { type Dispatch, type SetStateAction, useEffect, useMemo, useState } from "react"
 import { createPortal } from "react-dom"
 import {
 	DEFAULT_HEADER,
@@ -23,6 +21,13 @@ import {
 	useMenuPrintOrganization,
 	usePreparationDigests,
 } from "@/components/features/local/planning/MenuPrintParts"
+import { getScopeKitchenId } from "@/components/features/local/planning/menu-print-data"
+import {
+	collectOccasionPreparationSources,
+	formatOccasionDateLabel,
+	isOccasionOutOfContext,
+	isOccasionPrintBlocked,
+} from "@/components/features/local/planning/occasion-menu-print"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
@@ -31,10 +36,9 @@ import { mealTypesQueryOptions } from "@/hooks/data/useMealTypes"
 import { useRecipes } from "@/hooks/data/useRecipes"
 import { useSnackMealType } from "@/hooks/data/useSnackRequests"
 import { useTemplate } from "@/hooks/data/useTemplates"
-import { buildPreparationEntries, type CardapioPrintOptions, describeAllergens, type PreparationEntry, type PreparationSource } from "@/lib/cardapio-print"
+import { buildPreparationEntries, type CardapioPrintOptions, describeAllergens, type PreparationEntry } from "@/lib/cardapio-print"
 import { OCCASION_MENU_COPY, type OccasionMenuType, SNACK_MEAL_TYPE_NAME } from "@/lib/occasion-menu"
 import { buildOccasionPrintMeals, OCCASION_PRINT_TITLE, type OccasionPrintMeal, occasionPrintSubtitle } from "@/lib/occasion-print"
-import { describeRecipeVersion } from "@/lib/recipe-versions"
 
 /**
  * OccasionMenuPrint — visão imprimível / "baixar PDF" de um evento ou cardápio de apoio, irmã de
@@ -67,7 +71,7 @@ type OccasionPrintOptions = Pick<CardapioPrintOptions, "showMethod" | "ingredien
 export function OccasionMenuPrint({ templateId, templateType, scope, date, onDateChange, editorLink, listLink, canEdit }: OccasionMenuPrintProps) {
 	const copy = OCCASION_MENU_COPY[templateType]
 	const isSupportMenu = templateType === "apoio"
-	const kitchenId = scope.kind === "kitchen" ? scope.kitchenId : null
+	const kitchenId = getScopeKitchenId(scope)
 	const { data: template, isLoading, isFetching: templateFetching } = useTemplate(templateId)
 
 	// Versão das fichas na lista de preparações, como no semanal.
@@ -111,10 +115,9 @@ export function OccasionMenuPrint({ templateId, templateType, scope, date, onDat
 
 	// Sem os horários, a folha sairia sem eles — ou, no apoio, sem o de sistema dos lanches (padrão de
 	// lanche, ou apoio que deixou de ser). Só enquanto CARREGA: em erro, imprime com o que houver.
-	const slotsPending = mealTypesPending || (isSupportMenu && snackMealTypePending)
 	// "Salvar e imprimir" chega aqui com o cache de antes do salvamento ainda sendo refeito: imprimir
 	// nesse meio sairia a versão velha.
-	const printBlocked = ingredientsPending || slotsPending || templateFetching
+	const printBlocked = isOccasionPrintBlocked({ ingredientsPending, mealTypesPending, isSupportMenu, snackMealTypePending, templateFetching })
 
 	// A cópia de impressão só existe no cliente — createPortal exige `document`.
 	const [mounted, setMounted] = useState(false)
@@ -130,22 +133,9 @@ export function OccasionMenuPrint({ templateId, templateType, scope, date, onDat
 
 	// Outro tipo de cardápio, ou de outra cozinha, não se imprime por esta rota: a folha sairia
 	// com o cabeçalho de uma OM que não é a dele.
-	const outOfContext =
-		template != null &&
-		(template.template_type !== templateType ||
-			(scope.kind === "global" && template.kitchen_id != null) ||
-			(scope.kind === "kitchen" && template.kitchen_id != null && template.kitchen_id !== scope.kitchenId))
+	const outOfContext = isOccasionOutOfContext(template, templateType, scope)
 	if (!template || outOfContext) {
-		return (
-			<div className="p-8 text-center bg-destructive/10 text-destructive rounded-md">
-				<p className="text-subheading">
-					{copy.singular} não {copy.article === "o" ? "encontrado" : "encontrada"}.
-				</p>
-				<Link {...listLink} className="text-sm text-primary mt-2 flex items-center justify-center hover:underline">
-					← Voltar para {copy.plural.toLowerCase()}
-				</Link>
-			</div>
-		)
+		return <OccasionMenuNotFound copy={copy} listLink={listLink} />
 	}
 
 	const shownHeader: PrintHeader = { ...header, title }
@@ -163,23 +153,10 @@ export function OccasionMenuPrint({ templateId, templateType, scope, date, onDat
 	}
 
 	// Lista de preparações: fichas distintas da folha, com preparo e/ou ingredientes conforme as opções.
-	const prepMap = new Map<string, PreparationSource>()
-	for (const item of template.items) {
-		const r = item.recipe_origin
-		if (!r || !item.recipe_id || !printedRecipeIds.has(item.recipe_id) || prepMap.has(r.id)) continue
-		prepMap.set(r.id, {
-			id: r.id,
-			name: r.name?.trim() || "Preparação sem nome",
-			version: describeRecipeVersion(r.version ?? 1, outdatedById.get(r.id)),
-			prePreparation: r.pre_preparation_method?.trim() || null,
-			method: r.preparation_method?.trim() || null,
-		})
-	}
-	const preparations = buildPreparationEntries([...prepMap.values()], digestsById, options)
+	const preparations = buildPreparationEntries(collectOccasionPreparationSources(template.items, printedRecipeIds, outdatedById), digestsById, options)
 
 	const subtitle = occasionPrintSubtitle(template)
-	const parsedDate = date ? parseISO(date) : null
-	const dateLabel = parsedDate && !Number.isNaN(parsedDate.getTime()) ? format(parsedDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR }).toUpperCase() : ""
+	const dateLabel = formatOccasionDateLabel(date)
 
 	const handleDownloadDocx = () =>
 		exportDocx((docx) =>
@@ -210,47 +187,20 @@ export function OccasionMenuPrint({ templateId, templateType, scope, date, onDat
 			<style>{PRINT_CSS}</style>
 
 			{/* Barra de ações — oculta na impressão */}
-			<div className="cardapio-no-print flex flex-wrap items-center gap-2 mb-4">
-				<Button
-					variant="outline"
-					size="sm"
-					nativeButton={false}
-					render={
-						<Link {...(canEdit ? editorLink : listLink)}>
-							<ArrowLeft className="size-4 mr-2" />
-							{canEdit ? "Voltar ao editor" : `Voltar para ${copy.plural.toLowerCase()}`}
-						</Link>
-					}
-				/>
-				<div className="flex items-center gap-2 ml-auto">
-					<label htmlFor="occasion-date" className="text-xs text-muted-foreground">
-						Data:
-					</label>
-					<Input id="occasion-date" type="date" className="w-40" value={date ?? ""} onChange={(e) => onDateChange(e.target.value || undefined)} />
-					<Button variant="outline" size="sm" onClick={handleDownloadDocx} disabled={isExporting || printBlocked}>
-						{isExporting ? <Loader2 className="size-4 mr-2 animate-spin" /> : <FileText className="size-4 mr-2" />}
-						Baixar DOCX
-					</Button>
-					<Button size="sm" onClick={() => window.print()} disabled={printBlocked}>
-						{printBlocked ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Printer className="size-4 mr-2" />}
-						Imprimir / Baixar PDF
-					</Button>
-				</div>
-			</div>
+			<OccasionActionBar
+				canEdit={canEdit}
+				editorLink={editorLink}
+				listLink={listLink}
+				copy={copy}
+				date={date}
+				onDateChange={onDateChange}
+				onDownloadDocx={handleDownloadDocx}
+				isExporting={isExporting}
+				printBlocked={printBlocked}
+			/>
 
 			{/* Opções de impressão — ocultas na impressão; valem só nesta página */}
-			<div className="cardapio-no-print flex flex-wrap items-center gap-x-6 gap-y-2 mb-4 text-sm">
-				<label htmlFor="occasion-show-method" className="flex items-center gap-2">
-					<Checkbox
-						id="occasion-show-method"
-						checked={options.showMethod}
-						onCheckedChange={(checked) => setOptions((prev) => ({ ...prev, showMethod: checked === true }))}
-					/>
-					Mostrar modo de preparo
-				</label>
-				<IngredientsModeSelect value={options.ingredients} onChange={(ingredients) => setOptions((prev) => ({ ...prev, ingredients }))} />
-				{digestsError && <DigestsErrorNotice onRetry={retryDigests} />}
-			</div>
+			<OccasionPrintOptionsBar options={options} onOptionsChange={setOptions} digestsError={digestsError} onRetryDigests={retryDigests} />
 
 			{/* Documento — cópia editável, na tela */}
 			<OccasionDocument
@@ -272,6 +222,91 @@ export function OccasionMenuPrint({ templateId, templateType, scope, date, onDat
 					</div>,
 					document.body
 				)}
+		</div>
+	)
+}
+
+// ─── Tela (fora da impressão) ──────────────────────────────────────────────
+
+type OccasionMenuCopy = (typeof OCCASION_MENU_COPY)[OccasionMenuType]
+
+function OccasionMenuNotFound({ copy, listLink }: { copy: OccasionMenuCopy; listLink: LinkOptions }) {
+	return (
+		<div className="p-8 text-center bg-destructive/10 text-destructive rounded-md">
+			<p className="text-subheading">
+				{copy.singular} não {copy.article === "o" ? "encontrado" : "encontrada"}.
+			</p>
+			<Link {...listLink} className="text-sm text-primary mt-2 flex items-center justify-center hover:underline">
+				← Voltar para {copy.plural.toLowerCase()}
+			</Link>
+		</div>
+	)
+}
+
+interface OccasionActionBarProps {
+	canEdit: boolean
+	editorLink: LinkOptions
+	listLink: LinkOptions
+	copy: OccasionMenuCopy
+	date?: string
+	onDateChange: (date: string | undefined) => void
+	onDownloadDocx: () => void
+	isExporting: boolean
+	printBlocked: boolean
+}
+
+function OccasionActionBar({ canEdit, editorLink, listLink, copy, date, onDateChange, onDownloadDocx, isExporting, printBlocked }: OccasionActionBarProps) {
+	return (
+		<div className="cardapio-no-print flex flex-wrap items-center gap-2 mb-4">
+			<Button
+				variant="outline"
+				size="sm"
+				nativeButton={false}
+				render={
+					<Link {...(canEdit ? editorLink : listLink)}>
+						<ArrowLeft className="size-4 mr-2" />
+						{canEdit ? "Voltar ao editor" : `Voltar para ${copy.plural.toLowerCase()}`}
+					</Link>
+				}
+			/>
+			<div className="flex items-center gap-2 ml-auto">
+				<label htmlFor="occasion-date" className="text-xs text-muted-foreground">
+					Data:
+				</label>
+				<Input id="occasion-date" type="date" className="w-40" value={date ?? ""} onChange={(e) => onDateChange(e.target.value || undefined)} />
+				<Button variant="outline" size="sm" onClick={onDownloadDocx} disabled={isExporting || printBlocked}>
+					{isExporting ? <Loader2 className="size-4 mr-2 animate-spin" /> : <FileText className="size-4 mr-2" />}
+					Baixar DOCX
+				</Button>
+				<Button size="sm" onClick={() => window.print()} disabled={printBlocked}>
+					{printBlocked ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Printer className="size-4 mr-2" />}
+					Imprimir / Baixar PDF
+				</Button>
+			</div>
+		</div>
+	)
+}
+
+interface OccasionPrintOptionsBarProps {
+	options: OccasionPrintOptions
+	onOptionsChange: Dispatch<SetStateAction<OccasionPrintOptions>>
+	digestsError: boolean
+	onRetryDigests: () => void
+}
+
+function OccasionPrintOptionsBar({ options, onOptionsChange: setOptions, digestsError, onRetryDigests }: OccasionPrintOptionsBarProps) {
+	return (
+		<div className="cardapio-no-print flex flex-wrap items-center gap-x-6 gap-y-2 mb-4 text-sm">
+			<label htmlFor="occasion-show-method" className="flex items-center gap-2">
+				<Checkbox
+					id="occasion-show-method"
+					checked={options.showMethod}
+					onCheckedChange={(checked) => setOptions((prev) => ({ ...prev, showMethod: checked === true }))}
+				/>
+				Mostrar modo de preparo
+			</label>
+			<IngredientsModeSelect value={options.ingredients} onChange={(ingredients) => setOptions((prev) => ({ ...prev, ingredients }))} />
+			{digestsError && <DigestsErrorNotice onRetry={onRetryDigests} />}
 		</div>
 	)
 }

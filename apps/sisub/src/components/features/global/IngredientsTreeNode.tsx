@@ -28,6 +28,7 @@ import {
 	useRestoreIngredient,
 } from "@/services/IngredientsService"
 import type { Folder, Ingredient, IngredientTreeNode, TreeNodeType } from "@/types/domain/ingredients"
+import { describeFolderConference, describeFolderReview, formatReviewDate, isFolderFullyReviewed } from "./ingredients-tree-node-text"
 
 interface IngredientsTreeNodeProps {
 	node: IngredientTreeNode
@@ -120,15 +121,362 @@ function IngredientHoverContent({ ingredient }: { ingredient: Ingredient }) {
 	)
 }
 
+/** Ações da linha (escrita). Só montado para quem escreve. */
+function NodeRowActions({
+	node,
+	isDeleted,
+	isBusy,
+	isReviewing,
+	onRestore,
+	onOpenReview,
+	onEdit,
+	onNavigate,
+	onOpenDelete,
+}: {
+	node: IngredientTreeNode
+	isDeleted: boolean
+	isBusy: boolean
+	isReviewing: boolean
+	onRestore: () => void
+	onOpenReview: () => void
+	onEdit: (type: TreeNodeType, data: Folder | Ingredient) => void
+	onNavigate?: () => void
+	onOpenDelete: () => void
+}) {
+	if (isDeleted) {
+		return (
+			<Button
+				variant="outline"
+				size="sm"
+				onClick={(e) => {
+					e.stopPropagation()
+					onRestore()
+				}}
+				disabled={isBusy}
+				aria-label={`Restaurar ${node.label}`}
+			>
+				<RotateCcw className="size-4" />
+				Restaurar
+			</Button>
+		)
+	}
+	return (
+		<>
+			{/* Conferência da pasta: declara que a pasta foi olhada COMO pasta. */}
+			{node.type === "folder" && (
+				<Tooltip>
+					<TooltipTrigger
+						render={
+							<Button
+								variant="ghost"
+								size="icon"
+								onClick={(e) => {
+									e.stopPropagation()
+									onOpenReview()
+								}}
+								disabled={isBusy}
+								aria-label={`Marcar a pasta ${node.label} como conferida`}
+							>
+								{isReviewing ? <Loader2 className="animate-spin" /> : <ClipboardCheck />}
+							</Button>
+						}
+					/>
+					<TooltipContent>Marcar pasta como conferida</TooltipContent>
+				</Tooltip>
+			)}
+
+			<Button
+				variant="ghost"
+				size="icon"
+				onClick={(e) => {
+					e.stopPropagation()
+					if (node.type === "ingredient" && onNavigate) {
+						onNavigate()
+					} else {
+						onEdit(node.type, node.data as Folder | Ingredient)
+					}
+				}}
+				disabled={isBusy}
+				aria-label={`Editar ${node.label}`}
+			>
+				<Edit />
+			</Button>
+
+			<Button
+				variant="destructive"
+				size="icon"
+				onClick={(e) => {
+					e.stopPropagation()
+					onOpenDelete()
+				}}
+				disabled={isBusy}
+				aria-label={`Excluir ${node.label}`}
+			>
+				<Trash2 />
+			</Button>
+		</>
+	)
+}
+
+/** Label — insumos exibem hovercard com dados básicos ao passar o mouse */
+function NodeLabel({ node, isDeleted }: { node: IngredientTreeNode; isDeleted: boolean }) {
+	if (node.type === "ingredient") {
+		return (
+			<HoverCard>
+				<HoverCardTrigger
+					render={<span className={cn("text-sm truncate font-normal cursor-default", isDeleted && "line-through text-muted-foreground")}>{node.label}</span>}
+				/>
+				<HoverCardContent side="right" align="start">
+					<IngredientHoverContent ingredient={node.data as Ingredient} />
+				</HoverCardContent>
+			</HoverCard>
+		)
+	}
+	return (
+		<span
+			className={cn(
+				"text-sm truncate leading-normal",
+				// Hierarquia tipo documento de texto por nível (0-indexed → nível doc = level + 1)
+				node.level === 0 && "font-bold uppercase tracking-wide",
+				node.level === 1 && "font-medium uppercase",
+				node.level >= 2 && "font-bold",
+				isDeleted && "line-through text-muted-foreground"
+			)}
+		>
+			{node.label}
+		</span>
+	)
+}
+
+/** Status de revisão (conferência pelos nutricionistas) */
+function IngredientReviewBadge({ lastReviewedAt }: { lastReviewedAt: string | null }) {
+	if (lastReviewedAt) {
+		return (
+			<Tooltip>
+				<TooltipTrigger
+					render={
+						<Badge variant="outline" className="text-muted-foreground">
+							<CalendarCheck className="size-3" />
+							Revisado {formatReviewDate(lastReviewedAt)}
+						</Badge>
+					}
+				/>
+				<TooltipContent>Última revisão em {formatReviewDate(lastReviewedAt)}</TooltipContent>
+			</Tooltip>
+		)
+	}
+	return (
+		<Tooltip>
+			<TooltipTrigger render={<Badge variant="warning">Não revisado</Badge>} />
+			<TooltipContent>Insumo ainda não revisado</TooltipContent>
+		</Tooltip>
+	)
+}
+
+/** Badges que só existem na linha de insumo: unidade, itens de compra e revisão. */
+function IngredientBadges({
+	node,
+	isDeleted,
+	itemCount,
+	lastReviewedAt,
+}: {
+	node: IngredientTreeNode
+	isDeleted: boolean
+	itemCount?: number
+	lastReviewedAt?: string | null
+}) {
+	if (node.type !== "ingredient") return null
+	return (
+		<>
+			{/* Badge de unidade de medida */}
+			{"measure_unit" in node.data && <Badge variant="outline">{node.data.measure_unit}</Badge>}
+
+			{/* Badge de contagem de itens de compra */}
+			{itemCount !== undefined && itemCount > 0 && (
+				<Badge variant="success">
+					{itemCount} {itemCount === 1 ? "item" : "itens"}
+				</Badge>
+			)}
+
+			{/* Status de revisão (conferência pelos nutricionistas) */}
+			{!isDeleted && lastReviewedAt !== undefined && <IngredientReviewBadge lastReviewedAt={lastReviewedAt} />}
+		</>
+	)
+}
+
+/*
+ * Progresso da conferência da pasta — derivado dos insumos que ela contém.
+ * Neutro de propósito, nunca `warning`: pasta não é item pendente, é
+ * indicador de progresso. Pintar de amarelo toda pasta ainda incompleta
+ * deixaria a árvore inteira amarela no primeiro dia, e o aviso pararia de
+ * significar alguma coisa. Pasta sem insumo não afirma nada.
+ */
+function FolderReviewBadge({ folderReview }: { folderReview: FolderReviewStats }) {
+	return (
+		<Tooltip>
+			<TooltipTrigger
+				render={
+					// `tabIndex`/`role`: o Badge não é focável por natureza, e o significado do
+					// número mora no tooltip. Sem isso, teclado e leitor de tela não alcançam a
+					// única explicação que existe. O `role="button"` é só para esse alcance —
+					// não há clique — então `cursor-default` desfaz o ponteiro que a regra de
+					// `@layer base` dá a todo `[role="button"]`.
+					isFolderFullyReviewed(folderReview) ? (
+						<Badge variant="outline" className="cursor-default text-muted-foreground" tabIndex={0} role="button">
+							<CalendarCheck className="size-3" />
+							Revisada
+						</Badge>
+					) : (
+						<Badge variant="outline" className="cursor-default text-muted-foreground tabular-nums" tabIndex={0} role="button">
+							{folderReview.reviewed}/{folderReview.total} revisados
+						</Badge>
+					)
+				}
+			/>
+			<TooltipContent>{describeFolderReview(folderReview)}</TooltipContent>
+		</Tooltip>
+	)
+}
+
+/*
+ * Carimbo da pasta — fato SEPARADO do progresso acima, e por isso um badge
+ * próprio: um diz "o conteúdo está conferido", o outro diz "alguém olhou
+ * esta pasta". Colapsar os dois num rótulo só é o que deixaria a pasta se
+ * apresentar como revisada com os insumos dentro intocados.
+ *
+ * `addedSince > 0` ⇒ chegou coisa depois da conferência: o carimbo continua
+ * visível (não some, seria apagar o que aconteceu) mas passa a avisar. Aqui
+ * o `warning` é honesto — atinge só pasta conferida e depois mexida, não a
+ * árvore inteira.
+ */
+function FolderConferenceBadge({ folderConference, reviewedAt }: { folderConference: FolderConference; reviewedAt: string }) {
+	return (
+		<Tooltip>
+			<TooltipTrigger
+				render={
+					// Compacto de propósito: numa árvore profunda a linha da pasta já carrega
+					// contagem de itens + progresso + este carimbo. O rótulo por extenso mora no
+					// tooltip; aqui fica ícone + data, que é o que se lê de relance.
+					folderConference.addedSince > 0 ? (
+						<Badge variant="warning" className="cursor-default tabular-nums" tabIndex={0} role="button">
+							<CircleCheck className="size-3" />
+							{formatReviewDate(reviewedAt)} · {folderConference.addedSince} novo{folderConference.addedSince === 1 ? "" : "s"}
+						</Badge>
+					) : (
+						<Badge variant="outline" className="cursor-default text-muted-foreground tabular-nums" tabIndex={0} role="button">
+							<CircleCheck className="size-3" />
+							{formatReviewDate(reviewedAt)}
+						</Badge>
+					)
+				}
+			/>
+			<TooltipContent>{describeFolderConference(folderConference, reviewedAt)}</TooltipContent>
+		</Tooltip>
+	)
+}
+
+/** Badges que só existem na linha de pasta não excluída: progresso da conferência e carimbo. */
+function FolderBadges({
+	node,
+	isDeleted,
+	folderReview,
+	folderConference,
+}: {
+	node: IngredientTreeNode
+	isDeleted: boolean
+	folderReview?: FolderReviewStats
+	folderConference?: FolderConference
+}) {
+	if (node.type !== "folder" || isDeleted) return null
+	return (
+		<>
+			{folderReview && folderReview.total > 0 && <FolderReviewBadge folderReview={folderReview} />}
+			{folderConference?.reviewedAt && <FolderConferenceBadge folderConference={folderConference} reviewedAt={folderConference.reviewedAt} />}
+		</>
+	)
+}
+
+/*
+ * Conferência é evento de AUDITORIA, atribuído nominalmente e sem desfazer: o
+ * histórico é append-only por convenção do projeto (documento novo é linha nova,
+ * nunca UPDATE), então apagar um registro seria destruir a prova. Como não há volta,
+ * o clique errado tem que ser barrado ANTES — e ele não é inofensivo: além de
+ * afirmar em nome de alguém, zera o aviso de "N novos" que existia.
+ */
+function ReviewFolderDialog({
+	open,
+	onOpenChange,
+	label,
+	addedSince,
+	isReviewing,
+	onConfirm,
+}: {
+	open: boolean
+	onOpenChange: (open: boolean) => void
+	label: string
+	addedSince: number | undefined
+	isReviewing: boolean
+	onConfirm: () => void
+}) {
+	return (
+		<AlertDialog open={open} onOpenChange={onOpenChange}>
+			<AlertDialogContent size="sm">
+				<AlertDialogHeader>
+					<AlertDialogTitle>Marcar pasta como conferida</AlertDialogTitle>
+					<AlertDialogDescription>
+						Confirma que conferiu <strong>{label}</strong> — nome, organização e o que ela contém? Fica registrado com o seu nome e a data de hoje, e não pode
+						ser desfeito.
+						{addedSince ? " O aviso de itens novos desta pasta será zerado." : ""}
+					</AlertDialogDescription>
+				</AlertDialogHeader>
+				<AlertDialogFooter>
+					<AlertDialogCancel>Cancelar</AlertDialogCancel>
+					<AlertDialogAction onClick={onConfirm} disabled={isReviewing}>
+						{isReviewing ? "Registrando..." : "Confirmar conferência"}
+					</AlertDialogAction>
+				</AlertDialogFooter>
+			</AlertDialogContent>
+		</AlertDialog>
+	)
+}
+
+function DeleteNodeDialog({
+	open,
+	onOpenChange,
+	node,
+	isDeleting,
+	onConfirm,
+}: {
+	open: boolean
+	onOpenChange: (open: boolean) => void
+	node: IngredientTreeNode
+	isDeleting: boolean
+	onConfirm: () => void
+}) {
+	return (
+		<AlertDialog open={open} onOpenChange={onOpenChange}>
+			<AlertDialogContent size="sm">
+				<AlertDialogHeader>
+					<AlertDialogTitle>Excluir {node.type === "folder" ? "pasta" : "insumo"}</AlertDialogTitle>
+					<AlertDialogDescription>
+						Tem certeza que deseja excluir <strong>{node.label}</strong>? Esta ação não pode ser desfeita.
+					</AlertDialogDescription>
+				</AlertDialogHeader>
+				<AlertDialogFooter>
+					<AlertDialogCancel>Cancelar</AlertDialogCancel>
+					<AlertDialogAction variant="destructive" onClick={onConfirm} disabled={isDeleting}>
+						{isDeleting ? "Excluindo..." : "Excluir"}
+					</AlertDialogAction>
+				</AlertDialogFooter>
+			</AlertDialogContent>
+		</AlertDialog>
+	)
+}
+
 /**
  * Nó individual da árvore de produtos
  * Renderização otimizada para virtualização
  */
-/** Formata a data ISO da revisão como "09/06/2026" (curto, pt-BR). */
-function formatReviewDate(iso: string): string {
-	return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" })
-}
-
 export function IngredientsTreeNode({
 	node,
 	onEdit,
@@ -182,10 +530,6 @@ export function IngredientsTreeNode({
 		}
 	}
 
-	// Quem conferiu — o nome pode faltar em registro antigo, e aí a frase simplesmente
-	// não menciona autor em vez de dizer "por null".
-	const byWhom = folderConference?.reviewedByName ? ` por ${folderConference.reviewedByName}` : ""
-
 	const handleReviewFolderConfirm = async () => {
 		try {
 			await recordFolderReview(node.id)
@@ -228,262 +572,40 @@ export function IngredientsTreeNode({
 				actions={
 					// Leitor navega a árvore inteira, mas não vê ação que o domínio vai recusar.
 					canWrite ? (
-						isDeleted ? (
-							<Button
-								variant="outline"
-								size="sm"
-								onClick={(e) => {
-									e.stopPropagation()
-									handleRestore()
-								}}
-								disabled={isBusy}
-								aria-label={`Restaurar ${node.label}`}
-							>
-								<RotateCcw className="size-4" />
-								Restaurar
-							</Button>
-						) : (
-							<>
-								{/* Conferência da pasta: declara que a pasta foi olhada COMO pasta. */}
-								{node.type === "folder" && (
-									<Tooltip>
-										<TooltipTrigger
-											render={
-												<Button
-													variant="ghost"
-													size="icon"
-													onClick={(e) => {
-														e.stopPropagation()
-														setIsReviewDialogOpen(true)
-													}}
-													disabled={isBusy}
-													aria-label={`Marcar a pasta ${node.label} como conferida`}
-												>
-													{isReviewing ? <Loader2 className="animate-spin" /> : <ClipboardCheck />}
-												</Button>
-											}
-										/>
-										<TooltipContent>Marcar pasta como conferida</TooltipContent>
-									</Tooltip>
-								)}
-
-								<Button
-									variant="ghost"
-									size="icon"
-									onClick={(e) => {
-										e.stopPropagation()
-										if (node.type === "ingredient" && onNavigate) {
-											onNavigate()
-										} else {
-											onEdit(node.type, node.data as Folder | Ingredient)
-										}
-									}}
-									disabled={isBusy}
-									aria-label={`Editar ${node.label}`}
-								>
-									<Edit />
-								</Button>
-
-								<Button
-									variant="destructive"
-									size="icon"
-									onClick={(e) => {
-										e.stopPropagation()
-										setIsDeleteDialogOpen(true)
-									}}
-									disabled={isBusy}
-									aria-label={`Excluir ${node.label}`}
-								>
-									<Trash2 />
-								</Button>
-							</>
-						)
+						<NodeRowActions
+							node={node}
+							isDeleted={isDeleted}
+							isBusy={isBusy}
+							isReviewing={isReviewing}
+							onRestore={handleRestore}
+							onOpenReview={() => setIsReviewDialogOpen(true)}
+							onEdit={onEdit}
+							onNavigate={onNavigate}
+							onOpenDelete={() => setIsDeleteDialogOpen(true)}
+						/>
 					) : undefined
 				}
 			>
-				{/* Label — insumos exibem hovercard com dados básicos ao passar o mouse */}
-				{node.type === "ingredient" ? (
-					<HoverCard>
-						<HoverCardTrigger
-							render={
-								<span className={cn("text-sm truncate font-normal cursor-default", isDeleted && "line-through text-muted-foreground")}>{node.label}</span>
-							}
-						/>
-						<HoverCardContent side="right" align="start">
-							<IngredientHoverContent ingredient={node.data as Ingredient} />
-						</HoverCardContent>
-					</HoverCard>
-				) : (
-					<span
-						className={cn(
-							"text-sm truncate leading-normal",
-							// Hierarquia tipo documento de texto por nível (0-indexed → nível doc = level + 1)
-							node.level === 0 && "font-bold uppercase tracking-wide",
-							node.level === 1 && "font-medium uppercase",
-							node.level >= 2 && "font-bold",
-							isDeleted && "line-through text-muted-foreground"
-						)}
-					>
-						{node.label}
-					</span>
-				)}
+				<NodeLabel node={node} isDeleted={isDeleted} />
 
 				{/* Badge de item excluído */}
 				{isDeleted && <Badge variant="destructive">Excluído</Badge>}
 
-				{/* Badge de unidade de medida */}
-				{node.type === "ingredient" && "measure_unit" in node.data && <Badge variant="outline">{node.data.measure_unit}</Badge>}
+				<IngredientBadges node={node} isDeleted={isDeleted} itemCount={itemCount} lastReviewedAt={lastReviewedAt} />
 
-				{/* Badge de contagem de itens de compra */}
-				{node.type === "ingredient" && itemCount !== undefined && itemCount > 0 && (
-					<Badge variant="success">
-						{itemCount} {itemCount === 1 ? "item" : "itens"}
-					</Badge>
-				)}
-
-				{/* Status de revisão (conferência pelos nutricionistas) */}
-				{node.type === "ingredient" &&
-					!isDeleted &&
-					lastReviewedAt !== undefined &&
-					(lastReviewedAt ? (
-						<Tooltip>
-							<TooltipTrigger
-								render={
-									<Badge variant="outline" className="text-muted-foreground">
-										<CalendarCheck className="size-3" />
-										Revisado {formatReviewDate(lastReviewedAt)}
-									</Badge>
-								}
-							/>
-							<TooltipContent>Última revisão em {formatReviewDate(lastReviewedAt)}</TooltipContent>
-						</Tooltip>
-					) : (
-						<Tooltip>
-							<TooltipTrigger render={<Badge variant="warning">Não revisado</Badge>} />
-							<TooltipContent>Insumo ainda não revisado</TooltipContent>
-						</Tooltip>
-					))}
-
-				{/*
-				 * Progresso da conferência da pasta — derivado dos insumos que ela contém.
-				 * Neutro de propósito, nunca `warning`: pasta não é item pendente, é
-				 * indicador de progresso. Pintar de amarelo toda pasta ainda incompleta
-				 * deixaria a árvore inteira amarela no primeiro dia, e o aviso pararia de
-				 * significar alguma coisa. Pasta sem insumo não afirma nada.
-				 */}
-				{node.type === "folder" && !isDeleted && folderReview && folderReview.total > 0 && (
-					<Tooltip>
-						<TooltipTrigger
-							render={
-								// `tabIndex`/`role`: o Badge não é focável por natureza, e o significado do
-								// número mora no tooltip. Sem isso, teclado e leitor de tela não alcançam a
-								// única explicação que existe. O `role="button"` é só para esse alcance —
-								// não há clique — então `cursor-default` desfaz o ponteiro que a regra de
-								// `@layer base` dá a todo `[role="button"]`.
-								folderReview.reviewed === folderReview.total ? (
-									<Badge variant="outline" className="cursor-default text-muted-foreground" tabIndex={0} role="button">
-										<CalendarCheck className="size-3" />
-										Revisada
-									</Badge>
-								) : (
-									<Badge variant="outline" className="cursor-default text-muted-foreground tabular-nums" tabIndex={0} role="button">
-										{folderReview.reviewed}/{folderReview.total} revisados
-									</Badge>
-								)
-							}
-						/>
-						<TooltipContent>
-							{folderReview.oldestReviewedAt && folderReview.reviewed === folderReview.total
-								? `Todos os ${folderReview.total} insumos conferidos. O mais antigo em ${formatReviewDate(folderReview.oldestReviewedAt)}.`
-								: `${folderReview.total - folderReview.reviewed} de ${folderReview.total} insumos ainda não conferidos.`}
-						</TooltipContent>
-					</Tooltip>
-				)}
-
-				{/*
-				 * Carimbo da pasta — fato SEPARADO do progresso acima, e por isso um badge
-				 * próprio: um diz "o conteúdo está conferido", o outro diz "alguém olhou
-				 * esta pasta". Colapsar os dois num rótulo só é o que deixaria a pasta se
-				 * apresentar como revisada com os insumos dentro intocados.
-				 *
-				 * `addedSince > 0` ⇒ chegou coisa depois da conferência: o carimbo continua
-				 * visível (não some, seria apagar o que aconteceu) mas passa a avisar. Aqui
-				 * o `warning` é honesto — atinge só pasta conferida e depois mexida, não a
-				 * árvore inteira.
-				 */}
-				{node.type === "folder" && !isDeleted && folderConference?.reviewedAt && (
-					<Tooltip>
-						<TooltipTrigger
-							render={
-								// Compacto de propósito: numa árvore profunda a linha da pasta já carrega
-								// contagem de itens + progresso + este carimbo. O rótulo por extenso mora no
-								// tooltip; aqui fica ícone + data, que é o que se lê de relance.
-								folderConference.addedSince > 0 ? (
-									<Badge variant="warning" className="cursor-default tabular-nums" tabIndex={0} role="button">
-										<CircleCheck className="size-3" />
-										{formatReviewDate(folderConference.reviewedAt)} · {folderConference.addedSince} novo{folderConference.addedSince === 1 ? "" : "s"}
-									</Badge>
-								) : (
-									<Badge variant="outline" className="cursor-default text-muted-foreground tabular-nums" tabIndex={0} role="button">
-										<CircleCheck className="size-3" />
-										{formatReviewDate(folderConference.reviewedAt)}
-									</Badge>
-								)
-							}
-						/>
-						<TooltipContent>
-							{folderConference.addedSince > 0
-								? `Conferida em ${formatReviewDate(folderConference.reviewedAt)}${byWhom}; ${
-										folderConference.addedSince === 1 ? "1 item entrou" : `${folderConference.addedSince} itens entraram`
-									} depois.`
-								: `Conferida em ${formatReviewDate(folderConference.reviewedAt)}${byWhom}. Nada entrou desde então.`}
-						</TooltipContent>
-					</Tooltip>
-				)}
+				<FolderBadges node={node} isDeleted={isDeleted} folderReview={folderReview} folderConference={folderConference} />
 			</TreeRow>
 
-			{/*
-			 * Conferência é evento de AUDITORIA, atribuído nominalmente e sem desfazer: o
-			 * histórico é append-only por convenção do projeto (documento novo é linha nova,
-			 * nunca UPDATE), então apagar um registro seria destruir a prova. Como não há volta,
-			 * o clique errado tem que ser barrado ANTES — e ele não é inofensivo: além de
-			 * afirmar em nome de alguém, zera o aviso de "N novos" que existia.
-			 */}
-			<AlertDialog open={isReviewDialogOpen} onOpenChange={setIsReviewDialogOpen}>
-				<AlertDialogContent size="sm">
-					<AlertDialogHeader>
-						<AlertDialogTitle>Marcar pasta como conferida</AlertDialogTitle>
-						<AlertDialogDescription>
-							Confirma que conferiu <strong>{node.label}</strong> — nome, organização e o que ela contém? Fica registrado com o seu nome e a data de hoje, e não
-							pode ser desfeito.
-							{folderConference?.addedSince ? " O aviso de itens novos desta pasta será zerado." : ""}
-						</AlertDialogDescription>
-					</AlertDialogHeader>
-					<AlertDialogFooter>
-						<AlertDialogCancel>Cancelar</AlertDialogCancel>
-						<AlertDialogAction onClick={handleReviewFolderConfirm} disabled={isReviewing}>
-							{isReviewing ? "Registrando..." : "Confirmar conferência"}
-						</AlertDialogAction>
-					</AlertDialogFooter>
-				</AlertDialogContent>
-			</AlertDialog>
+			<ReviewFolderDialog
+				open={isReviewDialogOpen}
+				onOpenChange={setIsReviewDialogOpen}
+				label={node.label}
+				addedSince={folderConference?.addedSince}
+				isReviewing={isReviewing}
+				onConfirm={handleReviewFolderConfirm}
+			/>
 
-			<AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-				<AlertDialogContent size="sm">
-					<AlertDialogHeader>
-						<AlertDialogTitle>Excluir {node.type === "folder" ? "pasta" : "insumo"}</AlertDialogTitle>
-						<AlertDialogDescription>
-							Tem certeza que deseja excluir <strong>{node.label}</strong>? Esta ação não pode ser desfeita.
-						</AlertDialogDescription>
-					</AlertDialogHeader>
-					<AlertDialogFooter>
-						<AlertDialogCancel>Cancelar</AlertDialogCancel>
-						<AlertDialogAction variant="destructive" onClick={handleDeleteConfirm} disabled={isDeleting}>
-							{isDeleting ? "Excluindo..." : "Excluir"}
-						</AlertDialogAction>
-					</AlertDialogFooter>
-				</AlertDialogContent>
-			</AlertDialog>
+			<DeleteNodeDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen} node={node} isDeleting={isDeleting} onConfirm={handleDeleteConfirm} />
 		</>
 	)
 }

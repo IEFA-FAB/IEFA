@@ -1,32 +1,44 @@
-import { getBrasiliaToday, ISSUE_VARIANCE_REASON_LABELS, ISSUE_VARIANCE_REASONS, type IssueVarianceReason } from "@iefa/sisub-domain"
+import { getBrasiliaToday, type IssueVarianceReason } from "@iefa/sisub-domain"
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router"
-import { AlertTriangle, CalendarDays, CheckCircle2, PackageMinus, RefreshCw, Undo2 } from "lucide-react"
 import { useState } from "react"
 import { z } from "zod"
 import { requirePermission } from "@/auth/pbac"
-import { IngredientSearchCombobox, type IssuableIngredient } from "@/components/features/storage/issue/IngredientSearchCombobox"
+import {
+	AdHocSwitcher,
+	DayItemsTitle,
+	ExtraIngredientRow,
+	IssueGapsCard,
+	IssueLineRow,
+	IssueStatusAction,
+	NoIssueRequestView,
+	PendingReasonsCard,
+	type ScannedLot,
+	UnexplainedDaysBanner,
+	WithdrawScanCard,
+} from "@/components/features/storage/issue/DailyIssueSections"
+import {
+	buildStockByIngredient,
+	deriveIssueState,
+	describeIssueHeader,
+	isExtraWithoutStock,
+	NUM,
+	readUnexplainedDay,
+} from "@/components/features/storage/issue/daily-issue"
+import type { IssuableIngredient } from "@/components/features/storage/issue/IngredientSearchCombobox"
 import { LateIssueCard } from "@/components/features/storage/issue/LateIssueCard"
 import { UnexplainedDayCard } from "@/components/features/storage/issue/UnexplainedDayCard"
-import { ScanInput } from "@/components/features/storage/scan/ScanInput"
 import { PageHeader } from "@/components/layout/PageHeader"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { toast } from "@/components/ui/toast"
 import {
 	closeIssueRequestFn,
 	fetchIssueDayGapsFn,
 	fetchIssueRequestFn,
-	fetchReturnableLotsFn,
 	fetchTodayIssueRequestFn,
 	issueStockFn,
 	listUnexplainedIssueDaysFn,
 	openIssueRequestFn,
-	returnIssueFn,
 	setVarianceReasonFn,
 } from "@/server/issue.fn"
 import { fetchScannerProfileFn, resolveScanToIngredientFn } from "@/server/scanner.fn"
@@ -82,9 +94,6 @@ export const Route = createFileRoute("/_protected/_modules/storage/$kitchenId/is
 	component: DailyIssuePage,
 })
 
-const NUM = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 4 })
-const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
-
 function DailyIssuePage() {
 	const { request, balance, scannerProfile, origin, adHocToday } = Route.useLoaderData()
 	const { kitchenId } = Route.useParams()
@@ -103,22 +112,20 @@ function DailyIssuePage() {
 	const [scannedIngredientId, setScannedIngredientId] = useState<string | null>(null)
 	// Lote lido na etiqueta: a saída daquele insumo sai DESSE lote, o que está
 	// na mão do operador — e não do que a alocação automática escolheria.
-	const [scannedLot, setScannedLot] = useState<{ ingredientId: string; lotId: string; description: string } | null>(null)
+	const [scannedLot, setScannedLot] = useState<ScannedLot | null>(null)
 	const [extraQuantity, setExtraQuantity] = useState("")
 
-	const open = request?.request.status === "open"
-	const pending = request?.lines.filter((line) => line.requiresReason && !line.hasReason) ?? []
 	const today = getBrasiliaToday()
-	const issueDate = request?.request.issue_date ?? today
+	const { open, pending, issueDate, requestId, requestStatus } = deriveIssueState(request, today)
 
 	// Preparações do dia com ficha que não dá sugestão: o aviso que faltava na sugestão vazia.
 	const { data: gaps } = useQuery({
-		queryKey: ["issue-day-gaps", kitchenId, issueDate, request?.request.id ?? null],
+		queryKey: ["issue-day-gaps", kitchenId, issueDate, requestId],
 		queryFn: () => fetchIssueDayGapsFn({ data: { kitchenId: Number(kitchenId), issueDate } }),
 		enabled: origin === "production",
 	})
 	const { data: unexplainedDays } = useQuery({
-		queryKey: ["unexplained-issue-days", kitchenId, request?.request.status ?? null],
+		queryKey: ["unexplained-issue-days", kitchenId, requestStatus],
 		queryFn: () => listUnexplainedIssueDaysFn({ data: { kitchenId: Number(kitchenId) } }),
 	})
 
@@ -131,28 +138,13 @@ function DailyIssuePage() {
 	}
 
 	// ingredientes com saldo, para leitura e para a saída fora da sugestão
-	const stockByIngredient = new Map(
-		balance
-			.filter((item) => item.ingredientId != null)
-			.map((item) => [
-				item.ingredientId as string,
-				{
-					description: item.description,
-					measureUnit: item.measureUnit,
-					// Vencido sai da conta junto com a quarentena: a alocação pula os
-					// dois. Descontar só um oferecia saldo que `issue_stock` nunca
-					// tocaria, e a baixa saía inteira como movimento sem lote.
-					available: item.balance - item.quarantinedBalance - item.expiredBalance,
-					gtins: [] as string[],
-				},
-			])
-	)
+	const stockByIngredient = buildStockByIngredient(balance)
 
 	// Saída fora da sugestão: qualquer insumo do catálogo, buscado no servidor. A tela aceitava
 	// só saldo > 0, e o banco já aceitava a saída sem lote ("regularizar na contagem"): o saco
 	// na mão do almoxarife não saía porque o sistema estava atrasado.
 	const availableById = new Map([...stockByIngredient.entries()].map(([id, stock]) => [id, stock.available]))
-	const extraWithoutStock = extraIngredientId !== "" && (stockByIngredient.get(extraIngredientId)?.available ?? 0) <= 0
+	const extraWithoutStock = isExtraWithoutStock(stockByIngredient, extraIngredientId)
 
 	/**
 	 * Leva a leitura até a linha: resolve o insumo, põe o foco no campo de
@@ -285,231 +277,83 @@ function DailyIssuePage() {
 
 	if (!request) {
 		return (
-			<div className="space-y-4">
-				<PageHeader title="Saída do dia" description="Nenhuma requisição aberta hoje nesta cozinha." />
-				<Card>
-					<CardContent className="space-y-3 pt-4 text-sm">
-						<p>
-							A requisição do dia reúne o que sai do estoque hoje. Ela é criada quando você abre — nunca sozinha, para a cozinha não acordar com documentos que
-							ninguém pediu.
-						</p>
-						<div className="flex flex-wrap gap-2">
-							<Button
-								type="button"
-								disabled={busy}
-								onClick={() => {
-									if (origin === "ad_hoc") {
-										promptAdHoc()
-										return
-									}
-									run(() => openIssueRequestFn({ data: { kitchenId: Number(kitchenId), origin: "production" } }), "Requisição do dia aberta")
-								}}
-							>
-								{origin === "ad_hoc" ? "Abrir uma saída avulsa" : "Abrir a requisição de hoje"}
-							</Button>
-							<Button type="button" variant="ghost" onClick={() => navigate({ to: ".", search: { origin: origin === "ad_hoc" ? "production" : "ad_hoc" } })}>
-								{origin === "ad_hoc" ? "Ver a saída da produção" : "Saída avulsa (evento, apoio)"}
-							</Button>
-						</div>
-					</CardContent>
-				</Card>
-				<UnexplainedDaysBanner days={unexplainedDays ?? []} origin={origin} />
-				{origin === "production" && (
-					<LateIssueCard kitchenId={Number(kitchenId)} today={today} availableById={availableById} onDone={() => router.invalidate()} />
-				)}
-			</div>
+			<NoIssueRequestView
+				origin={origin}
+				busy={busy}
+				kitchenId={Number(kitchenId)}
+				today={today}
+				availableById={availableById}
+				unexplainedDays={unexplainedDays}
+				onOpen={() => {
+					if (origin === "ad_hoc") {
+						promptAdHoc()
+						return
+					}
+					run(() => openIssueRequestFn({ data: { kitchenId: Number(kitchenId), origin: "production" } }), "Requisição do dia aberta")
+				}}
+				onToggleOrigin={() => navigate({ to: ".", search: { origin: origin === "ad_hoc" ? "production" : "ad_hoc" } })}
+				onRefresh={() => router.invalidate()}
+			/>
 		)
 	}
 
+	const header = describeIssueHeader(origin, request.request)
+	const unexplainedDay = readUnexplainedDay(request.request)
+
 	return (
 		<div className="space-y-4">
-			<PageHeader
-				title={`${origin === "ad_hoc" ? "Saída avulsa" : "Saída do dia"} — ${request.request.issue_date}`}
-				description={
-					origin === "ad_hoc"
-						? `Saída sem cardápio atrás: ${request.request.purpose ?? "sem motivo registrado"}. Ela não entra na variância do dia.`
-						: "A produção sugere; você decide a quantidade. O motivo do desvio é pedido só no fechamento, e apenas onde ele é relevante."
-				}
-			>
-				{open ? (
-					<Button
-						type="button"
-						disabled={busy || pending.length > 0}
-						onClick={() => run(() => closeIssueRequestFn({ data: { requestId: request.request.id } }), "Dia fechado")}
-					>
-						<CheckCircle2 className="mr-2 size-4" />
-						Fechar o dia
-					</Button>
-				) : (
-					<Badge variant="secondary">{request.request.status === "closed" ? "Fechado" : "Fechado sem justificativa"}</Badge>
-				)}
+			<PageHeader title={header.title} description={header.description}>
+				<IssueStatusAction
+					open={open}
+					busy={busy}
+					pendingCount={pending.length}
+					status={request.request.status}
+					onClose={() => run(() => closeIssueRequestFn({ data: { requestId: request.request.id } }), "Dia fechado")}
+				/>
 			</PageHeader>
 
 			{origin === "production" && request.request.status === "closed_unexplained" && (
 				<UnexplainedDayCard
 					requestId={request.request.id}
-					autoClosedAt={(request.request as { auto_closed_at?: string | null }).auto_closed_at ?? null}
-					explainedAt={(request.request as { explained_at?: string | null }).explained_at ?? null}
-					explanation={(request.request as { explanation?: string | null }).explanation ?? null}
+					autoClosedAt={unexplainedDay.autoClosedAt}
+					explainedAt={unexplainedDay.explainedAt}
+					explanation={unexplainedDay.explanation}
 					onDone={() => router.invalidate()}
 				/>
 			)}
 
 			<UnexplainedDaysBanner days={(unexplainedDays ?? []).filter((day) => day.id !== request.request.id)} origin={origin} />
 
-			{origin === "production" && (gaps?.items.length ?? 0) > 0 && (
-				<Card>
-					<CardHeader className="pb-2">
-						<CardTitle>
-							<span className="flex items-center gap-2 text-subheading">
-								<AlertTriangle className="size-4 text-warning" aria-hidden="true" />
-								Ficha incompleta em {gaps?.items.length} preparação(ões) do dia
-							</span>
-						</CardTitle>
-					</CardHeader>
-					<CardContent className="space-y-1">
-						{gaps?.items.map((item) => (
-							<p key={item.menuItemId} className="text-body">
-								<strong>{item.recipeName}</strong>: {item.notice.replace(/^Ficha incompleta — /, "")}
-							</p>
-						))}
-						<p className="text-xs text-muted-foreground">
-							A saída não trava: retire pela quantidade real. A nutricionista vê a ficha incompleta como pendência em Gestão Cozinha → Fluxos.
-						</p>
-					</CardContent>
-				</Card>
-			)}
+			<IssueGapsCard show={origin === "production"} gaps={gaps} />
 
 			{origin === "ad_hoc" && (
-				<div className="flex flex-wrap items-center gap-2 text-xs">
-					{adHocToday.length > 1 && <span className="text-muted-foreground">Avulsas de hoje:</span>}
-					{adHocToday.length > 1 &&
-						adHocToday.map((row) => (
-							<Button
-								key={row.id}
-								type="button"
-								size="sm"
-								variant={row.id === request.request.id ? "secondary" : "ghost"}
-								className="h-7"
-								onClick={() => navigate({ to: ".", search: { origin: "ad_hoc", requestId: row.id } })}
-							>
-								{row.purpose ?? "sem motivo"}
-								{row.status === "open" ? "" : " (fechada)"}
-							</Button>
-						))}
-					<Button type="button" size="sm" variant="outline" className="h-7" disabled={busy} onClick={promptAdHoc}>
-						Nova saída avulsa
-					</Button>
-				</div>
+				<AdHocSwitcher
+					adHocToday={adHocToday}
+					currentRequestId={request.request.id}
+					busy={busy}
+					onSelect={(adHocRequestId) => navigate({ to: ".", search: { origin: "ad_hoc", requestId: adHocRequestId } })}
+					onNew={promptAdHoc}
+				/>
 			)}
 
-			{pending.length > 0 && (
-				<Card className="border-warning">
-					<CardContent className="pt-4 text-sm">
-						{pending.length} linha(s) com desvio relevante esperando motivo. Tolerância desta cozinha: {request.settings.tolerancePct}% e{" "}
-						{BRL.format(request.settings.toleranceFloorValue)} — abaixo dos dois, o desvio não é considerado.
-					</CardContent>
-				</Card>
-			)}
+			<PendingReasonsCard pendingCount={pending.length} settings={request.settings} />
 
 			{open && (
-				<Card>
-					<CardHeader className="pb-2">
-						<CardTitle className="flex items-center gap-2">
-							<PackageMinus className="size-4" />
-							Retirar
-						</CardTitle>
-					</CardHeader>
-					<CardContent className="space-y-2">
-						<ScanInput
-							label="Código do insumo"
-							placeholder="Leia o GTIN da embalagem ou a etiqueta do lote…"
-							disabled={busy}
-							config={{
-								prefix: scannerProfile.prefix ?? undefined,
-								suffix: scannerProfile.suffix ?? undefined,
-								gsSubstitute: scannerProfile.gsSubstitute ?? undefined,
-							}}
-							onReading={(reading) => {
-								// A leitura APONTA a linha; a quantidade continua sendo do
-								// almoxarife — a embalagem lida não decide quanto vai sair.
-								// Antes daqui a leitura só mandava "informe a quantidade na
-								// linha do insumo abaixo", e o operador lia o código e seguia
-								// procurando a linha na mão: o trabalho que a leitura existe
-								// para poupar.
-								const gtin = reading.kind === "gtin" ? reading.gtin : reading.kind === "gs1" ? reading.fields.gtin : null
-								if (gtin) {
-									void selectByScan({ gtin })
-									return
-								}
-								if (reading.kind === "lot_label") {
-									void selectByScan({ lotShortCode: reading.lotShortCode })
-									return
-								}
-								// A chave de NF-e É reconhecida — só não é deste lugar. Cair
-								// em "Código não reconhecido" mandava o operador procurar
-								// defeito no leitor que estava funcionando.
-								if (reading.kind === "nfe_access_key") {
-									toast.error("Isto é uma chave de NF-e. Entrada de material é na tela de Recebimento")
-									return
-								}
-								toast.error("Código não reconhecido")
-							}}
-						/>
-						{/*
-						 * O pino do lote tem de aparecer: sem isso a saída seguinte
-						 * saía de um lote que a tela não mostrava, e o erro "lote sem
-						 * saldo" mandava "deixar a alocação automática" sem dizer como.
-						 */}
-						{scannedLot && (
-							<div className="flex flex-wrap items-center gap-2 rounded-md border px-2 py-1 text-xs">
-								<span>
-									{scannedLot.description}: a próxima saída sai do <strong>lote lido na etiqueta</strong>.
-								</span>
-								<Button type="button" size="sm" variant="ghost" className="h-6" onClick={() => setScannedLot(null)}>
-									Usar a alocação automática
-								</Button>
-							</div>
-						)}
-						<p className="text-xs text-muted-foreground">
-							Os lotes são escolhidos automaticamente: o que vence primeiro, ignorando vencido e o que está em quarentena.
-						</p>
-					</CardContent>
-				</Card>
+				<WithdrawScanCard busy={busy} scannerProfile={scannerProfile} scannedLot={scannedLot} onScan={selectByScan} onClearLot={() => setScannedLot(null)} />
 			)}
 
 			<Card>
 				<CardHeader className="pb-2">
-					<CardTitle className="flex items-center gap-2">
-						<CalendarDays className="size-4" />
-						Itens do dia
-						{open && origin === "production" && (
-							/*
-							 * A sugestão é escrita quando a requisição é aberta. Quem abre o
-							 * documento ANTES de a produção lançar as tarefas do dia — o que
-							 * é o normal em cozinha que planeja de manhã — fica com zero
-							 * linhas sugeridas para sempre, e o portão de variância,
-							 * justificativa e fechamento nasce vazio sem nenhum sinal na
-							 * tela. Este botão é a única forma de recalcular.
-							 */
-							<Button
-								type="button"
-								size="sm"
-								variant="ghost"
-								className="ml-auto"
-								disabled={busy}
-								onClick={() =>
-									run(
-										() => openIssueRequestFn({ data: { kitchenId: Number(kitchenId), origin: "production" } }),
-										"Sugestão recalculada com o planejamento de agora"
-									)
-								}
-							>
-								<RefreshCw className="mr-1 size-3.5" />
-								Recalcular sugestão
-							</Button>
-						)}
-					</CardTitle>
+					<DayItemsTitle
+						canRecalculate={open && origin === "production"}
+						busy={busy}
+						onRecalculate={() =>
+							run(
+								() => openIssueRequestFn({ data: { kitchenId: Number(kitchenId), origin: "production" } }),
+								"Sugestão recalculada com o planejamento de agora"
+							)
+						}
+					/>
 				</CardHeader>
 				<CardContent className="space-y-2">
 					{request.lines.length === 0 && (
@@ -520,288 +364,62 @@ function DailyIssuePage() {
 					)}
 
 					{open && (
-						<div className="flex flex-wrap items-end gap-2 rounded-xl border border-dashed p-3">
-							<div className="min-w-72 flex-1 space-y-1">
-								<Label htmlFor="extra">Retirar insumo fora da sugestão</Label>
-								<IngredientSearchCombobox
-									id="extra"
-									kitchenId={Number(kitchenId)}
-									value={extraIngredient}
-									onChange={setExtraIngredient}
-									availableById={availableById}
-								/>
-								{extraWithoutStock && (
-									<p className="flex items-center gap-1 text-xs text-warning" role="status">
-										<AlertTriangle className="size-3.5" aria-hidden="true" />
-										Sem saldo registrado — entra como falta a regularizar na contagem.
-									</p>
-								)}
-							</div>
-							<Input
-								className="w-28"
-								inputMode="decimal"
-								placeholder="quantidade"
-								data-issue-qty="extra"
-								value={extraQuantity}
-								onChange={(event) => setExtraQuantity(event.target.value)}
-							/>
-							<Button
-								type="button"
-								disabled={busy || !extraIngredientId}
-								onClick={async () => {
-									const quantity = Number(extraQuantity.replace(",", "."))
-									if (!Number.isFinite(quantity) || quantity <= 0) {
-										toast.error("Informe a quantidade")
-										return
-									}
-									await emit(extraIngredientId, quantity)
-									setExtraQuantity("")
-								}}
-							>
-								Retirar
-							</Button>
-						</div>
+						<ExtraIngredientRow
+							kitchenId={Number(kitchenId)}
+							extraIngredient={extraIngredient}
+							onIngredientChange={setExtraIngredient}
+							availableById={availableById}
+							extraWithoutStock={extraWithoutStock}
+							extraQuantity={extraQuantity}
+							onQuantityChange={setExtraQuantity}
+							busy={busy}
+							extraIngredientId={extraIngredientId}
+							onWithdraw={async () => {
+								const quantity = Number(extraQuantity.replace(",", "."))
+								if (!Number.isFinite(quantity) || quantity <= 0) {
+									toast.error("Informe a quantidade")
+									return
+								}
+								await emit(extraIngredientId, quantity)
+								setExtraQuantity("")
+							}}
+						/>
 					)}
-					{request.lines.map((line) => {
-						const stock = stockByIngredient.get(line.ingredientId)
-						// A linha lida precisa se distinguir SEM faixa lateral colorida:
-						// borda inteira e um leve tint de fundo. Só o foco no campo não
-						// basta numa lista longa — o operador está olhando a prateleira,
-						// não a tela, quando o leitor apita.
-						const scanned = scannedIngredientId === line.ingredientId
-						return (
-							<div key={line.ingredientId} className={scanned ? "rounded-xl border border-primary bg-primary/5 p-3 text-sm" : "rounded-xl border p-3 text-sm"}>
-								<div className="flex flex-wrap items-center justify-between gap-2">
-									<div>
-										<strong>{line.description}</strong>
-										<span className="ml-2 text-xs text-muted-foreground">
-											sugerido {line.suggestedQty != null ? NUM.format(line.suggestedQty) : "—"} · saiu {NUM.format(line.issuedNetQty)} {line.measureUnit ?? ""}
-											{stock && ` · disponível ${NUM.format(stock.available)}`}
-										</span>
-									</div>
-									<div className="flex items-center gap-2">
-										{line.requiresReason && !line.hasReason && (
-											<Badge variant="outline" className="text-warning">
-												desvio {line.deltaPct}% · {BRL.format(line.deltaValue)}
-											</Badge>
-										)}
-										{open && (
-											<>
-												<Input
-													className="w-28"
-													inputMode="decimal"
-													placeholder="quantidade"
-													data-issue-qty={line.ingredientId}
-													value={quantities[line.ingredientId] ?? ""}
-													onChange={(event) => setQuantities((current) => ({ ...current, [line.ingredientId]: event.target.value }))}
-												/>
-												<Button
-													type="button"
-													size="sm"
-													disabled={busy}
-													onClick={() => {
-														const quantity = Number((quantities[line.ingredientId] ?? "").replace(",", "."))
-														if (!Number.isFinite(quantity) || quantity <= 0) {
-															toast.error("Informe a quantidade")
-															return
-														}
-														emit(line.ingredientId, quantity)
-													}}
-												>
-													Retirar
-												</Button>
-											</>
-										)}
-									</div>
-								</div>
-
-								{open && line.issuedNetQty > 0 && (
-									<ReturnRow
-										requestId={request.request.id}
-										ingredientId={line.ingredientId}
-										description={line.description}
-										busy={busy}
-										version={line.issuedNetQty}
-										onDone={() => router.invalidate()}
-									/>
-								)}
-
-								{line.requiresReason && line.itemId && (
-									<div className="mt-2 flex flex-wrap items-center gap-2">
-										<Label htmlFor={`reason-${line.itemId}`} className="text-xs">
-											Motivo do desvio
-										</Label>
-										<Select
-											value={(line.reason as IssueVarianceReason | null) ?? null}
-											onValueChange={(value) => {
-												if (!value || !line.itemId) return
-												run(
-													() => setVarianceReasonFn({ data: { itemId: line.itemId as string, reason: value as IssueVarianceReason, note: undefined } }),
-													"Motivo registrado"
-												)
-											}}
-										>
-											<SelectTrigger id={`reason-${line.itemId}`} className="w-72">
-												<SelectValue>{line.reason ? ISSUE_VARIANCE_REASON_LABELS[line.reason as IssueVarianceReason] : "Escolha o motivo"}</SelectValue>
-											</SelectTrigger>
-											<SelectContent>
-												{ISSUE_VARIANCE_REASONS.filter((reason) => reason !== "other").map((reason) => (
-													<SelectItem key={reason} value={reason}>
-														{ISSUE_VARIANCE_REASON_LABELS[reason]}
-													</SelectItem>
-												))}
-											</SelectContent>
-										</Select>
-									</div>
-								)}
-							</div>
-						)
-					})}
+					{request.lines.map((line) => (
+						<IssueLineRow
+							key={line.ingredientId}
+							line={line}
+							requestId={request.request.id}
+							stock={stockByIngredient.get(line.ingredientId)}
+							scanned={scannedIngredientId === line.ingredientId}
+							open={open}
+							busy={busy}
+							quantity={quantities[line.ingredientId] ?? ""}
+							onQuantityChange={(value) => setQuantities((current) => ({ ...current, [line.ingredientId]: value }))}
+							onWithdraw={() => {
+								const quantity = Number((quantities[line.ingredientId] ?? "").replace(",", "."))
+								if (!Number.isFinite(quantity) || quantity <= 0) {
+									toast.error("Informe a quantidade")
+									return
+								}
+								emit(line.ingredientId, quantity)
+							}}
+							onReasonChange={(value) => {
+								if (!value || !line.itemId) return
+								run(
+									() => setVarianceReasonFn({ data: { itemId: line.itemId as string, reason: value as IssueVarianceReason, note: undefined } }),
+									"Motivo registrado"
+								)
+							}}
+							onReturned={() => router.invalidate()}
+						/>
+					))}
 				</CardContent>
 			</Card>
 
 			{origin === "production" && (
 				<LateIssueCard kitchenId={Number(kitchenId)} today={today} availableById={availableById} onDone={() => router.invalidate()} />
 			)}
-		</div>
-	)
-}
-
-/**
- * Dias que fecharam sozinhos com desvio sem motivo: a pendência de quem opera o estoque.
- * Cada um leva à requisição daquele dia, onde se registra a justificativa.
- */
-function UnexplainedDaysBanner({ days, origin }: { days: Array<{ id: string; issue_date: string; origin: string }>; origin: string }) {
-	const navigate = useNavigate()
-	if (days.length === 0) return null
-	return (
-		<Card>
-			<CardContent className="flex flex-wrap items-center gap-2 pt-4">
-				<AlertTriangle className="size-4 text-warning" aria-hidden="true" />
-				<span className="text-body">
-					{days.length === 1 ? "1 dia fechou sozinho" : `${days.length} dias fecharam sozinhos`} com desvio sem motivo e espera{days.length === 1 ? "" : "m"}{" "}
-					justificativa:
-				</span>
-				{days.slice(0, 10).map((day) => (
-					<Button
-						key={day.id}
-						type="button"
-						size="sm"
-						variant="outline"
-						onClick={() =>
-							navigate({
-								to: ".",
-								search: day.origin === "production" ? { origin: "production", date: day.issue_date } : { origin: "ad_hoc", requestId: day.id },
-							})
-						}
-					>
-						{day.issue_date.split("-").reverse().join("/")}
-						{day.origin === "ad_hoc" || origin === "ad_hoc" ? " (avulsa)" : ""}
-					</Button>
-				))}
-			</CardContent>
-		</Card>
-	)
-}
-
-/**
- * Devolução do que saiu e não foi usado — volta ao lote de origem.
- *
- * O lote vem de uma LISTA dos que esta requisição emitiu deste insumo, e não
- * de um campo de texto. O campo aceitava um UUID digitado à mão, e a tela
- * nunca mostrou um: o operador colava um identificador de outro lugar e a
- * devolução caía em outro insumo enquanto o aviso nomeava a linha atual. O
- * banco impede devolver mais do que saiu, mas não impede devolver no item
- * errado — e esse erro só apareceria na contagem, semanas depois.
- */
-function ReturnRow({
-	requestId,
-	ingredientId,
-	description,
-	busy,
-	version,
-	onDone,
-}: {
-	requestId: string
-	ingredientId: string
-	description: string
-	busy: boolean
-	/** Muda a cada saída ou devolução da linha — refaz a lista de lotes devolvíveis. */
-	version: number
-	onDone: () => void
-}) {
-	const [quantity, setQuantity] = useState("")
-	const [lotId, setLotId] = useState("")
-	// mesmo raciocínio da emissão: o identificador sobrevive ao erro, para que a
-	// segunda tentativa depois de um 502 seja a MESMA devolução
-	// …e é do PEDIDO: trocar o lote ou a quantidade é outra devolução. Mantido
-	// com o mesmo identificador, o retry devolvia calado a devolução anterior
-	// (2 KG do lote A) enquanto a tela dizia "3 devolvido".
-	const [emission, setEmission] = useState<{ key: string; id: string } | null>(null)
-	// Trava o botão enquanto a devolução viaja: dois cliques eram duas chamadas
-	// com o mesmo identificador, e o operador via sucesso e erro juntos.
-	const [returning, setReturning] = useState(false)
-	const { data: returnable } = useQuery({
-		// A versão da requisição entra na chave. `router.invalidate()` não toca o
-		// cache do React Query: sem isto a lista não enxergava o lote de uma saída
-		// nova nem o saldo que uma devolução parcial já consumiu.
-		queryKey: ["returnable-lots", requestId, ingredientId, version],
-		queryFn: () => fetchReturnableLotsFn({ data: { requestId, ingredientId } }),
-	})
-	const lots = returnable?.lots ?? []
-
-	if (lots.length === 0) return null
-
-	return (
-		<div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-			<Undo2 className="size-3.5 text-muted-foreground" />
-			<span className="text-muted-foreground">Devolver ao estoque</span>
-			<Input className="h-7 w-24" inputMode="decimal" placeholder="qtd" value={quantity} onChange={(event) => setQuantity(event.target.value)} />
-			<Select value={lotId || null} onValueChange={(value) => setLotId(value ?? "")}>
-				<SelectTrigger className="h-7 w-72">
-					<SelectValue>{lots.find((lot) => lot.lotId === lotId)?.label ?? "Lote de origem"}</SelectValue>
-				</SelectTrigger>
-				<SelectContent>
-					{lots.map((lot) => (
-						<SelectItem key={lot.lotId} value={lot.lotId}>
-							{lot.label} · saiu {NUM.format(lot.returnable)}
-							{lot.expiryDate ? ` · vence ${lot.expiryDate}` : ""}
-						</SelectItem>
-					))}
-				</SelectContent>
-			</Select>
-			<Button
-				type="button"
-				size="sm"
-				variant="ghost"
-				className="h-7"
-				disabled={busy || returning || !quantity || !lotId}
-				onClick={async () => {
-					const amount = Number(quantity.replace(",", "."))
-					if (!Number.isFinite(amount) || amount <= 0) {
-						toast.error("Informe a quantidade")
-						return
-					}
-					setReturning(true)
-					try {
-						const key = `${requestId}:${lotId}:${amount}`
-						const emissionId = emission?.key === key ? emission.id : crypto.randomUUID()
-						if (emission?.key !== key) setEmission({ key, id: emissionId })
-						const result = await returnIssueFn({ data: { requestId, lotId, quantity: amount, emissionId } })
-						toast.success(`${description}: ${NUM.format(amount)} devolvido a ${BRL.format(result.unitCost)}/un`)
-						setQuantity("")
-						setLotId("")
-						setEmission(null)
-						onDone()
-					} catch (error) {
-						toast.error(error instanceof Error ? error.message : "Erro ao devolver")
-					} finally {
-						setReturning(false)
-					}
-				}}
-			>
-				Devolver
-			</Button>
 		</div>
 	)
 }

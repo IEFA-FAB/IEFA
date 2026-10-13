@@ -67,17 +67,25 @@ import type { UserContext } from "../types/context.ts"
 import { DomainError, PermissionDeniedError } from "../types/errors.ts"
 import type { ProcurementNeed } from "../types/procurement.ts"
 import { insertOneOrFail, mutateOrFail, runQuery, toWire } from "../utils/index.ts"
-import { demandRoundingFor, resolveItemDemand, scaleIngredientQuantity } from "./demand-math.ts"
 import { isSamePrice, toMeasureUnitCode } from "./price-units.ts"
 import {
 	computeMinQuoteQuantity,
 	computeQuantityEstimateItemLimits,
 	type QuantityLimits,
 	requiresMaxQuantityJustification,
-	resolveDeliveryCycle,
 } from "./quantity-estimate-limits.ts"
+import {
+	accumulateNeeds,
+	buildBaseByTemplateCell,
+	collectNeedSelections,
+	compareProcurementNeeds,
+	type NeedRecipe,
+	type NeedTemplate,
+	type PurchaseItemLink,
+	toProcurementNeed,
+} from "./quantity-estimate-needs.ts"
 import { findSegmentConflicts, lineKey, loadLiveSegment, resolveNeedsForSegment } from "./segments.ts"
-import { eventItemBase, fetchEventMealBases } from "./template-event-meals.ts"
+import { fetchEventMealBases } from "./template-event-meals.ts"
 import { fetchTemplateMealsSafe } from "./template-meals.ts"
 import { assertNoGlobalTemplates } from "./template-quantity-scope.ts"
 
@@ -208,22 +216,110 @@ export interface NeedContribution {
 	quantity: number
 }
 
+function fetchNeedTemplates(db: SisubDb, templateIds: string[]) {
+	return runQuery(
+		"QUERY_FAILED",
+		() =>
+			db.query.menuTemplateInKitchen.findMany({
+				columns: { id: true, templateType: true },
+				with: {
+					menuTemplateItemsInKitchens: {
+						columns: { id: true, recipeId: true, headcountOverride: true, dayOfWeek: true, mealTypeId: true, recommendedProportion: true, eventMealId: true },
+					},
+				},
+				where: inArray(menuTemplateInKitchen.id, templateIds),
+			}),
+		{ prefix: "Erro ao buscar templates" }
+	)
+}
+
+async function fetchNeedRecipes(db: SisubDb, templates: readonly NeedTemplate[]) {
+	const recipeIds = [...new Set(templates.flatMap((t) => t.menuTemplateItemsInKitchens.map((item) => item.recipeId).filter((id): id is string => id != null)))]
+	if (recipeIds.length === 0) return []
+	return runQuery(
+		"QUERY_FAILED",
+		() =>
+			db.query.recipesInKitchen.findMany({
+				columns: { id: true, portionYield: true },
+				with: {
+					recipeIngredientsInKitchens: {
+						columns: { ingredientId: true, netQuantity: true },
+						with: {
+							ingredientInKitchen: { columns: { id: true, description: true, measureUnit: true, folderId: true, defaultDeliveryCycle: true } },
+						},
+					},
+				},
+				where: inArray(recipesInKitchen.id, recipeIds),
+			}),
+		{ prefix: "Erro ao buscar receitas" }
+	)
+}
+
+async function fetchNeedFolders(db: SisubDb, recipes: readonly NeedRecipe[]) {
+	const folderIds = [
+		...new Set(recipes.flatMap((r) => r.recipeIngredientsInKitchens.map((ri) => ri.ingredientInKitchen?.folderId).filter((id): id is string => id != null))),
+	]
+	if (folderIds.length === 0) return []
+	return runQuery(
+		"QUERY_FAILED",
+		() => db.select({ id: folderInKitchen.id, description: folderInKitchen.description }).from(folderInKitchen).where(inArray(folderInKitchen.id, folderIds)),
+		{ prefix: "Erro ao buscar pastas" }
+	)
+}
+
+/** Passo de tradução: ingredient → purchase_item (via is_default link, purchase_item não soft-deleted). */
+async function fetchDefaultPurchaseItems(db: SisubDb, ingredientIds: string[]): Promise<Map<string, PurchaseItemLink>> {
+	const ingredientToPurchaseItem = new Map<string, PurchaseItemLink>()
+	if (ingredientIds.length === 0) return ingredientToPurchaseItem
+
+	const piLinks = await runQuery(
+		"QUERY_FAILED",
+		() =>
+			db.query.purchaseItemIngredientInProcurement.findMany({
+				columns: { ingredientId: true, conversionFactor: true },
+				with: {
+					purchaseItemInProcurement: {
+						columns: {
+							id: true,
+							description: true,
+							purchaseMeasureUnit: true,
+							catmatItemCodigo: true,
+							catmatItemDescricao: true,
+							unitPrice: true,
+							conservationClass: true,
+							deletedAt: true,
+						},
+					},
+				},
+				where: and(inArray(purchaseItemIngredientInProcurement.ingredientId, ingredientIds), eq(purchaseItemIngredientInProcurement.isDefault, true)),
+			}),
+		{ prefix: "Erro ao buscar itens de compra" }
+	)
+
+	for (const link of piLinks) {
+		const pi = link.purchaseItemInProcurement
+		if (!pi || pi.deletedAt) continue
+		ingredientToPurchaseItem.set(link.ingredientId, {
+			purchase_item_id: pi.id,
+			purchase_item_description: pi.description,
+			purchase_measure_unit: pi.purchaseMeasureUnit,
+			catmat_item_codigo: pi.catmatItemCodigo,
+			catmat_item_descricao: pi.catmatItemDescricao,
+			unit_price: pi.unitPrice === null ? null : Number(pi.unitPrice),
+			conversion_factor: Number(link.conversionFactor),
+			conservation_class: pi.conservationClass,
+		})
+	}
+	return ingredientToPurchaseItem
+}
+
 /**
  * O cálculo em si, sem autorização (quem chama já autorizou). Com `collect`, registra cada
  * parcela: é a memória de cálculo das quantidades (Lei 14.133/2021, art. 18, § 1º, IV), e sai da
  * MESMA travessia que produz o número — não de uma reconstrução à parte que pudesse divergir.
  */
 async function computeQuantityEstimateNeeds(db: SisubDb, input: CalculateQuantityEstimateNeeds, collect?: NeedContribution[]): Promise<ProcurementNeed[]> {
-	const { kitchenSelections } = input
-
-	// Coletar as seleções dos três regimes (weekly, event, exception). `repetitions`
-	// já chega normalizado como "vezes dentro da vigência do anexo" — a projeção
-	// mensal da exceção é resolvida antes, no wizard.
-	const allSelections = kitchenSelections.flatMap((ks) => [
-		...ks.templateSelections.map((s) => ({ ...s, kitchenId: ks.kitchenId })),
-		...ks.eventSelections.map((s) => ({ ...s, kitchenId: ks.kitchenId })),
-		...(ks.supportMenuSelections ?? []).map((s) => ({ ...s, kitchenId: ks.kitchenId })),
-	])
+	const allSelections = collectNeedSelections(input.kitchenSelections)
 
 	if (allSelections.length === 0) return []
 
@@ -235,61 +331,12 @@ async function computeQuantityEstimateNeeds(db: SisubDb, input: CalculateQuantit
 	// colidem no identificador truncado → 42703 ou resultado vazio silencioso.
 	// Receitas (3 níveis, dentro do limite) e folders são buscadas à parte e
 	// juntadas em JS.
-	const templates = await runQuery(
-		"QUERY_FAILED",
-		() =>
-			db.query.menuTemplateInKitchen.findMany({
-				columns: { id: true, templateType: true },
-				with: {
-					menuTemplateItemsInKitchens: {
-						columns: { id: true, recipeId: true, headcountOverride: true, dayOfWeek: true, mealTypeId: true, recommendedProportion: true, eventMealId: true },
-					},
-				},
-				where: inArray(menuTemplateInKitchen.id, uniqueTemplateIds),
-			}),
-		{ prefix: "Erro ao buscar templates" }
-	)
+	const templates = await fetchNeedTemplates(db, uniqueTemplateIds)
 
 	if (templates.length === 0) return []
 
-	const templateMap = new Map(templates.map((t) => [t.id, t]))
-
-	const recipeIds = [...new Set(templates.flatMap((t) => t.menuTemplateItemsInKitchens.map((item) => item.recipeId).filter((id): id is string => id != null)))]
-	const recipes =
-		recipeIds.length > 0
-			? await runQuery(
-					"QUERY_FAILED",
-					() =>
-						db.query.recipesInKitchen.findMany({
-							columns: { id: true, portionYield: true },
-							with: {
-								recipeIngredientsInKitchens: {
-									columns: { ingredientId: true, netQuantity: true },
-									with: {
-										ingredientInKitchen: { columns: { id: true, description: true, measureUnit: true, folderId: true, defaultDeliveryCycle: true } },
-									},
-								},
-							},
-							where: inArray(recipesInKitchen.id, recipeIds),
-						}),
-					{ prefix: "Erro ao buscar receitas" }
-				)
-			: []
-	const recipeById = new Map(recipes.map((r) => [r.id, r]))
-
-	const folderIds = [
-		...new Set(recipes.flatMap((r) => r.recipeIngredientsInKitchens.map((ri) => ri.ingredientInKitchen?.folderId).filter((id): id is string => id != null))),
-	]
-	const folders =
-		folderIds.length > 0
-			? await runQuery(
-					"QUERY_FAILED",
-					() =>
-						db.select({ id: folderInKitchen.id, description: folderInKitchen.description }).from(folderInKitchen).where(inArray(folderInKitchen.id, folderIds)),
-					{ prefix: "Erro ao buscar pastas" }
-				)
-			: []
-	const folderById = new Map(folders.map((f) => [f.id, f]))
+	const recipes = await fetchNeedRecipes(db, templates)
+	const folders = await fetchNeedFolders(db, recipes)
 
 	// Efetivo base por (template → dia:refeição). O headcount_override do item é exceção;
 	// a base cobre os itens sem override (que antes eram pulados e não entravam na compra).
@@ -298,180 +345,24 @@ async function computeQuantityEstimateNeeds(db: SisubDb, input: CalculateQuantit
 	// porcentagem dos itens.
 	const eventTemplateIds = templates.filter((t) => isOccasionTemplateType(t.templateType)).map((t) => t.id)
 	const [mealsByTemplate, eventMealBases] = await Promise.all([fetchTemplateMealsSafe(db, uniqueTemplateIds), fetchEventMealBases(db, eventTemplateIds)])
-	const baseByTemplateCell = new Map<string, Map<string, number>>()
-	for (const t of templates) {
-		const cells = new Map<string, number>()
-		for (const meal of mealsByTemplate.get(t.id) ?? []) {
-			if (meal.baseHeadcount != null) cells.set(`${meal.dayOfWeek}:${meal.mealTypeId}`, meal.baseHeadcount)
-		}
-		baseByTemplateCell.set(t.id, cells)
-	}
 
-	type NeedAccumulator = {
-		ingredient: {
-			id: string
-			description: string | null
-			measure_unit: string | null
-			default_delivery_cycle: string | null
-			folder_id: string | null
-			folder?: { id: string; description: string | null } | null
-		}
-		estimated_quantity: number
-	}
-	const needsMap = new Map<string, NeedAccumulator>()
+	const needsMap = accumulateNeeds(
+		allSelections,
+		{
+			templateMap: new Map(templates.map((t) => [t.id, t])),
+			recipeById: new Map(recipes.map((r) => [r.id, r])),
+			folderById: new Map(folders.map((f) => [f.id, f])),
+			baseByTemplateCell: buildBaseByTemplateCell(templates, mealsByTemplate),
+			eventMealBases,
+		},
+		collect
+	)
 
-	for (const selection of allSelections) {
-		const template = templateMap.get(selection.templateId)
-		if (!template) continue
-		const baseByCell = baseByTemplateCell.get(selection.templateId)
-
-		for (const item of template.menuTemplateItemsInKitchens) {
-			const recipeData = item.recipeId ? recipeById.get(item.recipeId) : undefined
-			if (!recipeData) continue
-
-			// Quantidade direta do item, senão a porcentagem sobre o efetivo base da refeição,
-			// senão o efetivo cheio. Sem nenhum dos três o item não tem efetivo dimensionável
-			// → não contribui para a compra.
-			const headcount = resolveItemDemand({
-				headcountOverride: item.headcountOverride,
-				baseHeadcount: eventItemBase(item.eventMealId, eventMealBases, baseByCell?.get(`${item.dayOfWeek}:${item.mealTypeId}`) ?? null),
-				recommendedProportion: item.recommendedProportion != null ? Number(item.recommendedProportion) : null,
-				rounding: demandRoundingFor(template.templateType),
-			})
-			// Sem efetivo a preparação não entra na conta. Não é silêncio: o fluxo "Prever demanda
-			// para compra" lista o cardápio em "sem efetivo" antes do envio (menusWithoutHeadcount).
-			if (!headcount) continue
-
-			const portionYield = Number(recipeData.portionYield ?? 0)
-
-			for (const ri of recipeData.recipeIngredientsInKitchens) {
-				const ingredientRaw = ri.ingredientInKitchen
-				if (!ingredientRaw || !ri.ingredientId) continue
-
-				const folder = ingredientRaw.folderId ? (folderById.get(ingredientRaw.folderId) ?? null) : null
-				const ingredient = {
-					id: ingredientRaw.id,
-					description: ingredientRaw.description,
-					measure_unit: ingredientRaw.measureUnit,
-					default_delivery_cycle: ingredientRaw.defaultDeliveryCycle,
-					folder_id: ingredientRaw.folderId,
-					folder: folder ? { id: folder.id, description: folder.description } : null,
-				}
-
-				// Aquisição: projeta o cardápio × repetições da seleção do anexo.
-				const quantityNeeded = scaleIngredientQuantity(Number(ri.netQuantity ?? 0), headcount, portionYield, selection.repetitions)
-				collect?.push({
-					ingredientId: ri.ingredientId,
-					kitchenId: selection.kitchenId,
-					templateId: selection.templateId,
-					templateType: template.templateType ?? null,
-					recipeId: item.recipeId as string,
-					headcount,
-					netQuantity: Number(ri.netQuantity ?? 0),
-					portionYield,
-					repetitions: selection.repetitions,
-					quantity: quantityNeeded,
-				})
-
-				const existing = needsMap.get(ri.ingredientId)
-				if (existing) {
-					existing.estimated_quantity += quantityNeeded
-				} else {
-					needsMap.set(ri.ingredientId, { ingredient, estimated_quantity: quantityNeeded })
-				}
-			}
-		}
-	}
-
-	// Passo de tradução: ingredient → purchase_item (via is_default link, purchase_item não soft-deleted).
-	const ingredientIds = Array.from(needsMap.keys())
-	type PurchaseItemLink = {
-		purchase_item_id: string
-		purchase_item_description: string
-		purchase_measure_unit: string | null
-		catmat_item_codigo: number | null
-		catmat_item_descricao: string | null
-		unit_price: number | null
-		conversion_factor: number
-		conservation_class: string | null
-	}
-	const ingredientToPurchaseItem = new Map<string, PurchaseItemLink>()
-
-	if (ingredientIds.length > 0) {
-		const piLinks = await runQuery(
-			"QUERY_FAILED",
-			() =>
-				db.query.purchaseItemIngredientInProcurement.findMany({
-					columns: { ingredientId: true, conversionFactor: true },
-					with: {
-						purchaseItemInProcurement: {
-							columns: {
-								id: true,
-								description: true,
-								purchaseMeasureUnit: true,
-								catmatItemCodigo: true,
-								catmatItemDescricao: true,
-								unitPrice: true,
-								conservationClass: true,
-								deletedAt: true,
-							},
-						},
-					},
-					where: and(inArray(purchaseItemIngredientInProcurement.ingredientId, ingredientIds), eq(purchaseItemIngredientInProcurement.isDefault, true)),
-				}),
-			{ prefix: "Erro ao buscar itens de compra" }
-		)
-
-		for (const link of piLinks) {
-			const pi = link.purchaseItemInProcurement
-			if (!pi || pi.deletedAt) continue
-			ingredientToPurchaseItem.set(link.ingredientId, {
-				purchase_item_id: pi.id,
-				purchase_item_description: pi.description,
-				purchase_measure_unit: pi.purchaseMeasureUnit,
-				catmat_item_codigo: pi.catmatItemCodigo,
-				catmat_item_descricao: pi.catmatItemDescricao,
-				unit_price: pi.unitPrice === null ? null : Number(pi.unitPrice),
-				conversion_factor: Number(link.conversionFactor),
-				conservation_class: pi.conservationClass,
-			})
-		}
-	}
-
-	const needs: ProcurementNeed[] = Array.from(needsMap.entries()).map(([ingredientId, d]) => {
-		const pi = ingredientToPurchaseItem.get(ingredientId)
-		const purchaseQuantity = pi ? Number((d.estimated_quantity / pi.conversion_factor).toFixed(4)) : null
-		return {
-			folder_id: d.ingredient.folder_id,
-			folder_description: d.ingredient.folder?.description || null,
-			ingredient_id: ingredientId,
-			ingredient_name: d.ingredient.description || "",
-			measure_unit: d.ingredient.measure_unit,
-			estimated_quantity: Number(d.estimated_quantity.toFixed(4)),
-			purchase_item_id: pi?.purchase_item_id ?? null,
-			purchase_item_description: pi?.purchase_item_description ?? null,
-			purchase_measure_unit: pi?.purchase_measure_unit ?? null,
-			purchase_quantity: purchaseQuantity,
-			conversion_factor: pi?.conversion_factor ?? null,
-			catmat_item_codigo: pi?.catmat_item_codigo ?? null,
-			catmat_item_descricao: pi?.catmat_item_descricao ?? null,
-			unit_price: pi?.unit_price ?? null,
-			item_description: null,
-			conservation_class: pi?.conservation_class ?? null,
-			ingredient_delivery_cycle: d.ingredient.default_delivery_cycle,
-			// O cálculo já decide o ciclo deste anexo a partir do insumo; daqui em diante ele é
-			// escolha GRAVADA no item, e mudar o insumo não mexe no anexo montado.
-			delivery_cycle: resolveDeliveryCycle({ ingredientCycle: d.ingredient.default_delivery_cycle, conservationClass: pi?.conservation_class }).cycle,
-		}
-	})
-
-	needs.sort((a, b) => {
-		const folderA = a.folder_description || "Sem categoria"
-		const folderB = b.folder_description || "Sem categoria"
-		if (folderA !== folderB) return folderA.localeCompare(folderB, "pt-BR")
-		return a.ingredient_name.localeCompare(b.ingredient_name, "pt-BR")
-	})
-
+	const ingredientToPurchaseItem = await fetchDefaultPurchaseItems(db, Array.from(needsMap.keys()))
+	const needs: ProcurementNeed[] = Array.from(needsMap.entries()).map(([ingredientId, d]) =>
+		toProcurementNeed(ingredientId, d, ingredientToPurchaseItem.get(ingredientId))
+	)
+	needs.sort(compareProcurementNeeds)
 	return needs
 }
 
@@ -856,26 +747,31 @@ export async function updateQuantityEstimateDraft(db: SisubDb, ctx: UserContext,
 
 // ─── Salvar itens calculados no rascunho (substitui todos) ───────────────────
 
+/** Texto vazio, nulo ou ausente vira `null` — o `x || null` dos campos de texto do item. */
+function toNullIfBlank(value: string | null | undefined): string | null {
+	return value || null
+}
+
 function buildItemPayload(item: DraftItem, draftId: string, computedAt: string): ItemInsert {
 	return {
 		quantityEstimateId: draftId,
-		ingredientId: item.ingredient_id || null,
+		ingredientId: toNullIfBlank(item.ingredient_id),
 		ingredientName: item.ingredient_name,
-		folderId: item.folder_id || null,
-		folderDescription: item.folder_description || null,
+		folderId: toNullIfBlank(item.folder_id),
+		folderDescription: toNullIfBlank(item.folder_description),
 		// Mesma forma do código do catálogo que o insumo grava: rascunho antigo no cliente ("kg") não
 		// vira linha fora do catálogo no anexo.
 		measureUnit: toMeasureUnitCode(item.measure_unit),
 		estimatedQuantity: item.estimated_quantity,
-		purchaseItemId: item.purchase_item_id || null,
-		purchaseItemDescription: item.purchase_item_description || null,
-		purchaseMeasureUnit: item.purchase_measure_unit || null,
+		purchaseItemId: toNullIfBlank(item.purchase_item_id),
+		purchaseItemDescription: toNullIfBlank(item.purchase_item_description),
+		purchaseMeasureUnit: toNullIfBlank(item.purchase_measure_unit),
 		purchaseQuantity: item.purchase_quantity ?? null,
 		conversionFactor: item.conversion_factor ?? null,
 		catmatItemCodigo: item.catmat_item_codigo ?? null,
-		catmatItemDescricao: item.catmat_item_descricao || null,
+		catmatItemDescricao: toNullIfBlank(item.catmat_item_descricao),
 		unitPrice: item.unit_price ?? null,
-		itemDescription: item.item_description || null,
+		itemDescription: toNullIfBlank(item.item_description),
 		computedAt,
 		// Ausente não entra no payload: o update preserva a escolha gravada. Recalcular a estimada
 		// não pode apagar o acréscimo ou o mínimo que alguém ajustou no item.
@@ -935,6 +831,135 @@ function itemBusinessKey(catmat: number | null | undefined, ingredientId: string
 	return null
 }
 
+/** Mapa chave de negócio → item sobrevivente (os existentes mantêm o id). */
+function buildSurvivorByKey(existing: readonly DraftItem[]): Map<string, string> {
+	const survivorByKey = new Map<string, string>()
+	for (const item of existing) {
+		const key = itemBusinessKey(item.catmat_item_codigo, item.ingredient_id)
+		if (key) survivorByKey.set(key, item.quantity_estimate_item_id as string)
+	}
+	return survivorByKey
+}
+
+/**
+ * Atualizar existentes (preserva IDs, logo preserva price_research_item.quantity_estimate_item_id).
+ * O predicado amarra o anexo (`quantity_estimate_id`): o `quantity_estimate_item_id` vem do corpo, e um `where id = ?`
+ * cru reescrevia — e, pelo `quantityEstimateId` do payload, SEQUESTRAVA — o item de outro anexo. Item que
+ * não é deste anexo derruba a transação inteira em vez de sumir calado.
+ */
+async function updateExistingDraftItems(tx: TxClient, draftId: string, existing: readonly DraftItem[], stamp: string): Promise<void> {
+	for (const item of existing) {
+		await mutateOrFail(
+			"UPDATE_FAILED",
+			`Erro ao salvar itens: item ${item.quantity_estimate_item_id} não pertence ao anexo ${draftId}`,
+			() =>
+				tx
+					.update(quantityEstimateItemInProcurement)
+					.set(buildItemPayload(item, draftId, stamp))
+					.where(
+						and(
+							eq(quantityEstimateItemInProcurement.id, item.quantity_estimate_item_id as string),
+							eq(quantityEstimateItemInProcurement.quantityEstimateId, draftId)
+						)
+					)
+					.returning({ id: quantityEstimateItemInProcurement.id }),
+			{ prefix: "Erro ao salvar itens" }
+		)
+	}
+}
+
+/** Inserir novos: registra o id por ingrediente e vira sobrevivente da chave que ainda não tem um. */
+async function insertNewDraftItems(
+	tx: TxClient,
+	draftId: string,
+	toInsert: readonly DraftItem[],
+	stamp: string,
+	insertedItemsById: Map<string, string>,
+	survivorByKey: Map<string, string>
+): Promise<void> {
+	if (toInsert.length === 0) return
+	const insertedItems = await runQuery(
+		"INSERT_FAILED",
+		() =>
+			tx
+				.insert(quantityEstimateItemInProcurement)
+				.values(toInsert.map((item) => buildItemPayload(item, draftId, stamp)))
+				.returning({
+					id: quantityEstimateItemInProcurement.id,
+					ingredientId: quantityEstimateItemInProcurement.ingredientId,
+					catmat: quantityEstimateItemInProcurement.catmatItemCodigo,
+				}),
+		{ prefix: "Erro ao salvar itens" }
+	)
+	for (const row of insertedItems) {
+		if (row.ingredientId) insertedItemsById.set(row.ingredientId, row.id)
+		const key = itemBusinessKey(row.catmat, row.ingredientId)
+		if (key && !survivorByKey.has(key)) survivorByKey.set(key, row.id)
+	}
+}
+
+/**
+ * Reconciliar pesquisas dos itens que vão sumir: mover o vínculo para um sobrevivente de mesma chave.
+ * A que não tem sobrevivente fica sem item (ON DELETE SET NULL) e CONTINUA gravada: é trilha
+ * de auditoria, e o cabeçalho segue ligado ao anexo. Apagá-la sumia com a memória de cálculo de
+ * uma pesquisa que de fato aconteceu. Devolve as desvinculadas NESTE salvamento.
+ */
+async function removeDraftItemsKeepingResearch(
+	tx: TxClient,
+	toDelete: string[],
+	keyByCurrentId: ReadonlyMap<string, string | null>,
+	survivorByKey: ReadonlyMap<string, string>
+): Promise<Set<string>> {
+	const unlinkedResearch = new Set<string>()
+	if (toDelete.length === 0) return unlinkedResearch
+	const deleteSet = new Set(toDelete)
+	const research = await tx
+		.select({ id: priceResearchItemInProcurement.id, quantityEstimateItemId: priceResearchItemInProcurement.quantityEstimateItemId })
+		.from(priceResearchItemInProcurement)
+		.where(inArray(priceResearchItemInProcurement.quantityEstimateItemId, toDelete))
+	for (const r of research) {
+		const key = r.quantityEstimateItemId ? keyByCurrentId.get(r.quantityEstimateItemId) : null
+		const target = key ? survivorByKey.get(key) : undefined
+		if (target && !deleteSet.has(target)) {
+			await tx.update(priceResearchItemInProcurement).set({ quantityEstimateItemId: target }).where(eq(priceResearchItemInProcurement.id, r.id))
+		} else {
+			unlinkedResearch.add(r.id)
+		}
+	}
+	// Deletar itens removidos (o que não foi remapeado vira quantity_estimate_item_id NULL via ON DELETE SET NULL).
+	await tx.delete(quantityEstimateItemInProcurement).where(inArray(quantityEstimateItemInProcurement.id, toDelete))
+	return unlinkedResearch
+}
+
+/**
+ * Linkar pesquisas de preço aos itens do anexo (cliente reconcilia estado local).
+ * Cobre item NOVO e item JÁ EXISTENTE: no wizard, a pesquisa acontece no step 4,
+ * quando todos os itens já foram inseridos pelo cálculo — restringir a inseridos
+ * deixaria a memória de cálculo órfã justamente no fluxo principal.
+ */
+async function linkResearchToDraftItems(
+	tx: TxClient,
+	draftId: string,
+	unitId: number,
+	researchLinks: ResearchLink[],
+	existing: readonly DraftItem[],
+	insertedItemsById: ReadonlyMap<string, string>,
+	unlinkedResearch: Set<string>
+): Promise<void> {
+	const itemIdByIngredient = new Map(insertedItemsById)
+	for (const item of existing) {
+		if (item.ingredient_id) itemIdByIngredient.set(item.ingredient_id, item.quantity_estimate_item_id as string)
+	}
+	for (const link of await filterOwnResearchLinks(tx, unitId, researchLinks)) {
+		const newItemId = itemIdByIngredient.get(link.ingredientId)
+		if (!newItemId) continue
+		await tx.update(priceResearchItemInProcurement).set({ quantityEstimateItemId: newItemId }).where(eq(priceResearchItemInProcurement.id, link.researchItemId))
+		await tx.update(priceResearchInProcurement).set({ quantityEstimateId: draftId }).where(eq(priceResearchInProcurement.id, link.researchId))
+		// Religada ao item reinserido no mesmo salvamento: não ficou desvinculada.
+		unlinkedResearch.delete(link.researchItemId)
+	}
+}
+
 /**
  * Núcleo compartilhado por saveQuantityEstimateDraftItems/finalizeQuantityEstimateDraft: replace-all dos itens + reconciliação de pesquisas.
  *
@@ -966,103 +991,11 @@ async function persistDraftItems(
 	const keyByCurrentId = new Map(currentItems.map((r) => [r.id, itemBusinessKey(r.catmat, r.ingredientId)]))
 	const toDelete = currentItems.filter((row) => !keepIds.has(row.id)).map((row) => row.id)
 
-	// Mapa chave → item sobrevivente (existentes mantêm id).
-	const survivorByKey = new Map<string, string>()
-	for (const item of existing) {
-		const key = itemBusinessKey(item.catmat_item_codigo, item.ingredient_id)
-		if (key) survivorByKey.set(key, item.quantity_estimate_item_id as string)
-	}
-
-	// Atualizar existentes (preserva IDs, logo preserva price_research_item.quantity_estimate_item_id).
-	// O predicado amarra o anexo (`quantity_estimate_id`): o `quantity_estimate_item_id` vem do corpo, e um `where id = ?`
-	// cru reescrevia — e, pelo `quantityEstimateId` do payload, SEQUESTRAVA — o item de outro anexo. Item que
-	// não é deste anexo derruba a transação inteira em vez de sumir calado.
-	for (const item of existing) {
-		await mutateOrFail(
-			"UPDATE_FAILED",
-			`Erro ao salvar itens: item ${item.quantity_estimate_item_id} não pertence ao anexo ${draftId}`,
-			() =>
-				tx
-					.update(quantityEstimateItemInProcurement)
-					.set(buildItemPayload(item, draftId, stamp))
-					.where(
-						and(
-							eq(quantityEstimateItemInProcurement.id, item.quantity_estimate_item_id as string),
-							eq(quantityEstimateItemInProcurement.quantityEstimateId, draftId)
-						)
-					)
-					.returning({ id: quantityEstimateItemInProcurement.id }),
-			{ prefix: "Erro ao salvar itens" }
-		)
-	}
-
-	// Inserir novos.
-	if (toInsert.length > 0) {
-		const insertedItems = await runQuery(
-			"INSERT_FAILED",
-			() =>
-				tx
-					.insert(quantityEstimateItemInProcurement)
-					.values(toInsert.map((item) => buildItemPayload(item, draftId, stamp)))
-					.returning({
-						id: quantityEstimateItemInProcurement.id,
-						ingredientId: quantityEstimateItemInProcurement.ingredientId,
-						catmat: quantityEstimateItemInProcurement.catmatItemCodigo,
-					}),
-			{ prefix: "Erro ao salvar itens" }
-		)
-		for (const row of insertedItems) {
-			if (row.ingredientId) insertedItemsById.set(row.ingredientId, row.id)
-			const key = itemBusinessKey(row.catmat, row.ingredientId)
-			if (key && !survivorByKey.has(key)) survivorByKey.set(key, row.id)
-		}
-	}
-
-	// Reconciliar pesquisas dos itens que vão sumir: mover o vínculo para um sobrevivente de mesma chave.
-	// A que não tem sobrevivente fica sem item (ON DELETE SET NULL) e CONTINUA gravada: é trilha
-	// de auditoria, e o cabeçalho segue ligado ao anexo. Apagá-la sumia com a memória de cálculo de
-	// uma pesquisa que de fato aconteceu. A contagem avisa só as desvinculadas NESTE salvamento.
-	const unlinkedResearch = new Set<string>()
-	if (toDelete.length > 0) {
-		const deleteSet = new Set(toDelete)
-		const research = await tx
-			.select({ id: priceResearchItemInProcurement.id, quantityEstimateItemId: priceResearchItemInProcurement.quantityEstimateItemId })
-			.from(priceResearchItemInProcurement)
-			.where(inArray(priceResearchItemInProcurement.quantityEstimateItemId, toDelete))
-		for (const r of research) {
-			const key = r.quantityEstimateItemId ? keyByCurrentId.get(r.quantityEstimateItemId) : null
-			const target = key ? survivorByKey.get(key) : undefined
-			if (target && !deleteSet.has(target)) {
-				await tx.update(priceResearchItemInProcurement).set({ quantityEstimateItemId: target }).where(eq(priceResearchItemInProcurement.id, r.id))
-			} else {
-				unlinkedResearch.add(r.id)
-			}
-		}
-		// Deletar itens removidos (o que não foi remapeado vira quantity_estimate_item_id NULL via ON DELETE SET NULL).
-		await tx.delete(quantityEstimateItemInProcurement).where(inArray(quantityEstimateItemInProcurement.id, toDelete))
-	}
-
-	// Linkar pesquisas de preço aos itens do anexo (cliente reconcilia estado local).
-	// Cobre item NOVO e item JÁ EXISTENTE: no wizard, a pesquisa acontece no step 4,
-	// quando todos os itens já foram inseridos pelo cálculo — restringir a inseridos
-	// deixaria a memória de cálculo órfã justamente no fluxo principal.
-	if (researchLinks?.length) {
-		const itemIdByIngredient = new Map(insertedItemsById)
-		for (const item of existing) {
-			if (item.ingredient_id) itemIdByIngredient.set(item.ingredient_id, item.quantity_estimate_item_id as string)
-		}
-		for (const link of await filterOwnResearchLinks(tx, unitId, researchLinks)) {
-			const newItemId = itemIdByIngredient.get(link.ingredientId)
-			if (!newItemId) continue
-			await tx
-				.update(priceResearchItemInProcurement)
-				.set({ quantityEstimateItemId: newItemId })
-				.where(eq(priceResearchItemInProcurement.id, link.researchItemId))
-			await tx.update(priceResearchInProcurement).set({ quantityEstimateId: draftId }).where(eq(priceResearchInProcurement.id, link.researchId))
-			// Religada ao item reinserido no mesmo salvamento: não ficou desvinculada.
-			unlinkedResearch.delete(link.researchItemId)
-		}
-	}
+	const survivorByKey = buildSurvivorByKey(existing)
+	await updateExistingDraftItems(tx, draftId, existing, stamp)
+	await insertNewDraftItems(tx, draftId, toInsert, stamp, insertedItemsById, survivorByKey)
+	const unlinkedResearch = await removeDraftItemsKeepingResearch(tx, toDelete, keyByCurrentId, survivorByKey)
+	if (researchLinks?.length) await linkResearchToDraftItems(tx, draftId, unitId, researchLinks, existing, insertedItemsById, unlinkedResearch)
 
 	return { unlinkedResearchCount: unlinkedResearch.size }
 }

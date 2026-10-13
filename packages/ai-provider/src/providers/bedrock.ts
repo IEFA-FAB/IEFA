@@ -3,9 +3,12 @@ import type {
 	BedrockRuntimeClient,
 	Tool as BedrockTool,
 	ContentBlock,
+	ContentBlockDelta,
 	ConverseStreamOutput,
 	StopReason,
+	TokenUsage,
 	ToolConfiguration,
+	ToolUseBlockStart,
 } from "@aws-sdk/client-bedrock-runtime"
 import type { AnyTextAdapter, StreamChunk, TextOptions } from "@tanstack/ai"
 
@@ -277,6 +280,134 @@ function mapFinishReason(stopReason: StopReason | undefined, hadToolCalls: boole
 	return "stop"
 }
 
+// ── Stream: um tratador por tipo de evento ────────────────────────────────────
+
+type Usage = { promptTokens: number; completionTokens: number; totalTokens: number }
+
+/** Estado de um `chatStream`, mutado pelos tratadores na ordem dos eventos. */
+type ChatStreamState = {
+	model: string
+	timestamp: number
+	messageId: string
+	textStarted: boolean
+	accumulatedText: string
+	hadToolCalls: boolean
+	stopReason: StopReason | undefined
+	usage: Usage | undefined
+	// Blocos de tool em aberto, indexados por contentBlockIndex.
+	toolBlocks: Map<number, { toolCallId: string; name: string; args: string }>
+}
+
+/** Início de um bloco toolUse. */
+function* handleToolUseStart(state: ChatStreamState, index: number, startTool: ToolUseBlockStart): Generator<StreamChunk> {
+	const { model, timestamp } = state
+	const toolCallId = startTool.toolUseId ?? generateId("tool")
+	state.toolBlocks.set(index, { toolCallId, name: startTool.name ?? "", args: "" })
+	state.hadToolCalls = true
+	yield asChunk({
+		type: "TOOL_CALL_START",
+		toolCallId,
+		toolCallName: startTool.name ?? "",
+		toolName: startTool.name ?? "",
+		model,
+		timestamp,
+		index,
+	})
+}
+
+function* handleTextDelta(state: ChatStreamState, text: string): Generator<StreamChunk> {
+	const { model, timestamp, messageId } = state
+	if (!state.textStarted) {
+		state.textStarted = true
+		yield asChunk({ type: "TEXT_MESSAGE_START", messageId, model, timestamp, role: "assistant" })
+	}
+	state.accumulatedText += text
+	yield asChunk({
+		type: "TEXT_MESSAGE_CONTENT",
+		messageId,
+		model,
+		timestamp,
+		delta: text,
+		content: state.accumulatedText,
+	})
+}
+
+function* handleToolInputDelta(state: ChatStreamState, index: number, input: string): Generator<StreamChunk> {
+	const block = state.toolBlocks.get(index)
+	if (!block) return
+	block.args += input
+	yield asChunk({
+		type: "TOOL_CALL_ARGS",
+		toolCallId: block.toolCallId,
+		model: state.model,
+		timestamp: state.timestamp,
+		delta: input,
+		args: block.args,
+	})
+}
+
+/** Deltas de conteúdo (texto ou input incremental de tool). */
+function* handleContentDelta(state: ChatStreamState, index: number, delta: ContentBlockDelta): Generator<StreamChunk> {
+	if (typeof delta.text === "string" && delta.text) yield* handleTextDelta(state, delta.text)
+	else if (delta.toolUse?.input != null) yield* handleToolInputDelta(state, index, delta.toolUse.input)
+}
+
+/** Fim de um bloco: se for tool, fecha com o input acumulado. */
+function* handleContentBlockStop(state: ChatStreamState, index: number): Generator<StreamChunk> {
+	const block = state.toolBlocks.get(index)
+	if (!block) return
+	let parsedInput: unknown = {}
+	try {
+		parsedInput = block.args ? JSON.parse(block.args) : {}
+	} catch {
+		parsedInput = {}
+	}
+	yield asChunk({
+		type: "TOOL_CALL_END",
+		toolCallId: block.toolCallId,
+		toolCallName: block.name,
+		toolName: block.name,
+		model: state.model,
+		timestamp: state.timestamp,
+		input: parsedInput,
+	})
+	state.toolBlocks.delete(index)
+}
+
+function toStreamUsage(u: TokenUsage): Usage {
+	return {
+		promptTokens: u.inputTokens ?? 0,
+		completionTokens: u.outputTokens ?? 0,
+		totalTokens: u.totalTokens ?? (u.inputTokens ?? 0) + (u.outputTokens ?? 0),
+	}
+}
+
+/**
+ * Um evento do ConverseStream. Início de tool, delta e fim de bloco são exclusivos (o primeiro
+ * que casar encerra o evento); `messageStop` e `metadata` valem os dois no mesmo evento.
+ */
+function* handleStreamEvent(state: ChatStreamState, ev: ConverseStreamOutput): Generator<StreamChunk> {
+	const startTool = ev.contentBlockStart?.start?.toolUse
+	if (startTool && ev.contentBlockStart) {
+		yield* handleToolUseStart(state, ev.contentBlockStart.contentBlockIndex ?? 0, startTool)
+		return
+	}
+
+	const delta = ev.contentBlockDelta?.delta
+	if (delta) {
+		yield* handleContentDelta(state, ev.contentBlockDelta?.contentBlockIndex ?? 0, delta)
+		return
+	}
+
+	if (ev.contentBlockStop) {
+		yield* handleContentBlockStop(state, ev.contentBlockStop.contentBlockIndex ?? 0)
+		return
+	}
+
+	if (ev.messageStop) state.stopReason = ev.messageStop.stopReason
+	if (ev.metadata?.usage) state.usage = toStreamUsage(ev.metadata.usage)
+}
+
 // ── Adapter ───────────────────────────────────────────────────────────────────
 
 export function createBedrockChat(model: string, region?: string, client?: BedrockRuntimeClient): AnyTextAdapter {
@@ -297,15 +428,17 @@ export function createBedrockChat(model: string, region?: string, client?: Bedro
 		const timestamp = Date.now()
 		const runId = options.runId ?? generateId("run")
 		const threadId = options.threadId ?? generateId("thread")
-		const messageId = generateId("msg")
-
-		let textStarted = false
-		let accumulatedText = ""
-		let hadToolCalls = false
-		let stopReason: StopReason | undefined
-		let usage: { promptTokens: number; completionTokens: number; totalTokens: number } | undefined
-		// Blocos de tool em aberto, indexados por contentBlockIndex.
-		const toolBlocks = new Map<number, { toolCallId: string; name: string; args: string }>()
+		const state: ChatStreamState = {
+			model,
+			timestamp,
+			messageId: generateId("msg"),
+			textStarted: false,
+			accumulatedText: "",
+			hadToolCalls: false,
+			stopReason: undefined,
+			usage: undefined,
+			toolBlocks: new Map(),
+		}
 
 		try {
 			logger?.request?.(`activity=chat provider=bedrock model=${model} messages=${options.messages.length} tools=${options.tools?.length ?? 0} stream=true`, {
@@ -325,102 +458,11 @@ export function createBedrockChat(model: string, region?: string, client?: Bedro
 
 			for await (const ev of (response.stream ?? []) as AsyncIterable<ConverseStreamOutput>) {
 				logger?.provider?.("provider=bedrock", { chunk: ev })
-
-				// Início de um bloco toolUse.
-				const startTool = ev.contentBlockStart?.start?.toolUse
-				if (startTool && ev.contentBlockStart) {
-					const index = ev.contentBlockStart.contentBlockIndex ?? 0
-					const toolCallId = startTool.toolUseId ?? generateId("tool")
-					toolBlocks.set(index, { toolCallId, name: startTool.name ?? "", args: "" })
-					hadToolCalls = true
-					yield asChunk({
-						type: "TOOL_CALL_START",
-						toolCallId,
-						toolCallName: startTool.name ?? "",
-						toolName: startTool.name ?? "",
-						model,
-						timestamp,
-						index,
-					})
-					continue
-				}
-
-				// Deltas de conteúdo (texto ou input incremental de tool).
-				const delta = ev.contentBlockDelta?.delta
-				if (delta) {
-					const index = ev.contentBlockDelta?.contentBlockIndex ?? 0
-					if (typeof delta.text === "string" && delta.text) {
-						if (!textStarted) {
-							textStarted = true
-							yield asChunk({ type: "TEXT_MESSAGE_START", messageId, model, timestamp, role: "assistant" })
-						}
-						accumulatedText += delta.text
-						yield asChunk({
-							type: "TEXT_MESSAGE_CONTENT",
-							messageId,
-							model,
-							timestamp,
-							delta: delta.text,
-							content: accumulatedText,
-						})
-					} else if (delta.toolUse?.input != null) {
-						const block = toolBlocks.get(index)
-						if (block) {
-							block.args += delta.toolUse.input
-							yield asChunk({
-								type: "TOOL_CALL_ARGS",
-								toolCallId: block.toolCallId,
-								model,
-								timestamp,
-								delta: delta.toolUse.input,
-								args: block.args,
-							})
-						}
-					}
-					continue
-				}
-
-				// Fim de um bloco: se for tool, fecha com o input acumulado.
-				if (ev.contentBlockStop) {
-					const index = ev.contentBlockStop.contentBlockIndex ?? 0
-					const block = toolBlocks.get(index)
-					if (block) {
-						let parsedInput: unknown = {}
-						try {
-							parsedInput = block.args ? JSON.parse(block.args) : {}
-						} catch {
-							parsedInput = {}
-						}
-						yield asChunk({
-							type: "TOOL_CALL_END",
-							toolCallId: block.toolCallId,
-							toolCallName: block.name,
-							toolName: block.name,
-							model,
-							timestamp,
-							input: parsedInput,
-						})
-						toolBlocks.delete(index)
-					}
-					continue
-				}
-
-				if (ev.messageStop) {
-					stopReason = ev.messageStop.stopReason
-				}
-
-				if (ev.metadata?.usage) {
-					const u = ev.metadata.usage
-					usage = {
-						promptTokens: u.inputTokens ?? 0,
-						completionTokens: u.outputTokens ?? 0,
-						totalTokens: u.totalTokens ?? (u.inputTokens ?? 0) + (u.outputTokens ?? 0),
-					}
-				}
+				yield* handleStreamEvent(state, ev)
 			}
 
-			if (textStarted) {
-				yield asChunk({ type: "TEXT_MESSAGE_END", messageId, model, timestamp })
+			if (state.textStarted) {
+				yield asChunk({ type: "TEXT_MESSAGE_END", messageId: state.messageId, model, timestamp })
 			}
 
 			yield asChunk({
@@ -429,8 +471,8 @@ export function createBedrockChat(model: string, region?: string, client?: Bedro
 				threadId,
 				model,
 				timestamp,
-				finishReason: mapFinishReason(stopReason, hadToolCalls),
-				usage: usage ?? { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+				finishReason: mapFinishReason(state.stopReason, state.hadToolCalls),
+				usage: state.usage ?? { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
 			})
 		} catch (error) {
 			logger?.errors?.("bedrock.chatStream fatal", { error, source: "bedrock.chatStream" })

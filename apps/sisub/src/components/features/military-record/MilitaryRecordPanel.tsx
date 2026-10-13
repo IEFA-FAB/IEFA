@@ -1,6 +1,7 @@
 import {
 	describeAttemptsLeft,
 	describeSaramOutcome,
+	describeSaramPanel,
 	describeSaramStatus,
 	formatLocalDate,
 	formatMilitaryIdentity,
@@ -8,12 +9,13 @@ import {
 	hasSaramAction,
 	maskCpf,
 	onlyDigits,
-	SARAM_FALLBACK_ERROR_MESSAGE,
 	SARAM_REQUEST_EXAMPLE,
 	type SaramCandidate,
 	type SaramLinkOutcome,
 	type SaramOutcomeView,
+	type SaramPanelLayout,
 	type SaramStatus,
+	type SaramStatusView,
 	type SaramTone,
 } from "@iefa/database/saram-link"
 import { useMutation } from "@tanstack/react-query"
@@ -39,6 +41,15 @@ import { Item, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } f
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Textarea } from "@/components/ui/textarea"
 import type { SaramLinkApi } from "@/hooks/business/useUserSaram"
+import {
+	type Feedback,
+	type FeedbackSource,
+	getAlternativesTitle,
+	getErrorMessage,
+	getFeedbackSource,
+	hasSaramAlternatives,
+	selectFeedback,
+} from "./military-record-panel"
 
 /**
  * "Meu cadastro militar": o estado do vínculo de SARAM da própria conta e só as ações que o
@@ -50,7 +61,6 @@ import type { SaramLinkApi } from "@/hooks/business/useUserSaram"
  * vem de `describeSaramStatus` (`@iefa/database/saram-link`), a mesma do sucont.
  */
 
-type Feedback = SaramOutcomeView & { source: "top" | "cpf" | "suffix" | "request" }
 type Alternative = "cpf" | "request"
 
 const TONE_BADGE: Record<SaramTone, "success" | "outline" | "warning" | "destructive"> = {
@@ -67,12 +77,9 @@ const TONE_ICON: Record<SaramTone, typeof BadgeCheck> = {
 	blocked: ShieldAlert,
 }
 
-function errorMessage(error: unknown): string {
-	return error instanceof Error && error.message ? error.message : SARAM_FALLBACK_ERROR_MESSAGE
-}
-
 export function MilitaryRecordPanel({ status, api, now }: { status: SaramStatus; api: SaramLinkApi; now?: Date }) {
 	const view = describeSaramStatus(status, now)
+	const panel = describeSaramPanel(status)
 	const Icon = status.status === "institutional" ? Building2 : TONE_ICON[view.tone]
 
 	const [feedback, setFeedback] = useState<Feedback | null>(null)
@@ -90,159 +97,78 @@ export function MilitaryRecordPanel({ status, api, now }: { status: SaramStatus;
 	}
 
 	const action = useMutation({
-		mutationFn: ({ run }: { run: () => Promise<SaramLinkOutcome>; source: Feedback["source"]; from: SaramStatus["status"] }) => run(),
+		mutationFn: ({ run }: { run: () => Promise<SaramLinkOutcome>; source: FeedbackSource; from: SaramStatus["status"] }) => run(),
 		onSuccess: (result, { source, from }) => {
 			const outcome = describeSaramOutcome(result, now)
 			// Erro de conferência fica junto do formulário (a pessoa vai redigitar); o resto, no topo.
 			// Se o estado mudou (a última tentativa bloqueou), o formulário da origem some: vai para o topo.
-			const stays = outcome.kind === "error" && result.status.status === from
-			setFeedback({ ...outcome, source: stays ? source : "top" })
+			setFeedback({ ...outcome, source: getFeedbackSource(outcome.kind, result.status.status, from, source) })
 			if (outcome.kind !== "error") requestAnimationFrame(() => feedbackRef.current?.focus())
 		},
 		onError: (error, { source }) => {
-			setFeedback({ kind: "error", title: "Não foi possível concluir", description: errorMessage(error), source })
+			setFeedback({ kind: "error", title: "Não foi possível concluir", description: getErrorMessage(error), source })
 			// O pedido pode ter sido decidido, a carga do cadastro pode ter mudado: o estado é relido.
 			void api.refresh()
 		},
 	})
 
-	const run = (source: Feedback["source"], fn: () => Promise<SaramLinkOutcome>) => {
+	const run = (source: FeedbackSource, fn: () => Promise<SaramLinkOutcome>) => {
 		setFeedback(null)
 		action.mutate({ run: fn, source, from: status.status })
 	}
 	const busy = action.isPending
-	const formFeedback = (source: Feedback["source"]) => (feedback && feedback.source === source ? feedback : null)
 
 	// Vínculo antigo cujo e-mail localiza o dono: o banco oferece confirmar pelo e-mail (troca o legacy
 	// por um verificado). Um candidato sem dígito de homônimo é um clique; o resto pede os 4 dígitos.
-	const legacyCanConfirm =
-		status.status === "legacy" && hasSaramAction(status, "confirm_candidate") && status.candidates.length > 0
-			? status.requiresCpfSuffix
-				? "several"
-				: "one"
-			: null
-
-	const offersAlternatives = hasSaramAction(status, "verify_cpf") || hasSaramAction(status, "request_link") || hasSaramAction(status, "set_institutional")
+	// Essa regra vive em `describeSaramPanel` (`panel.confirmStep`), a mesma do sucont.
+	const offersAlternatives = hasSaramAlternatives(status)
 	// Sem sugestão nem candidato, as alternativas SÃO a tela; com sugestão, ficam atrás do "Não sou eu".
-	const alternativesVisible =
-		status.status === "no_match" || status.status === "locked_out" || status.status === "legacy" || (showAlternatives && offersAlternatives)
+	const alternativesVisible = panel.alternativesAlwaysOpen || (showAlternatives && offersAlternatives)
 
 	return (
 		<div className="flex flex-col gap-6">
-			<Card>
-				<CardHeader>
-					<div className="flex flex-wrap items-center gap-2">
-						<Icon className="size-5 text-muted-foreground" aria-hidden />
-						<Badge variant={TONE_BADGE[view.tone]}>{view.badge}</Badge>
-					</div>
-					<CardTitle className="text-foreground">
-						<h2>{view.title}</h2>
-					</CardTitle>
-					<CardDescription className="max-w-prose text-body">{view.description}</CardDescription>
-				</CardHeader>
-				{(status.status === "verified" || status.status === "legacy") && status.visible && status.identity && (
-					<CardContent>
-						<IdentityList identity={status.identity} saram={status.saram} />
-					</CardContent>
-				)}
-				{(status.status === "suggestion" || legacyCanConfirm === "one") && status.candidates[0] && !showAlternatives && (
-					<CardContent>
-						<SuggestionStep
-							lead={
-								status.status === "legacy"
-									? "Seu e-mail institucional corresponde a este cadastro. Confirmando, ele substitui o vínculo antigo, já verificado."
-									: undefined
-							}
-							candidate={status.candidates[0]}
-							busy={busy}
-							onConfirm={(candidate) => run("top", () => api.confirmCandidate({ candidateRef: candidate.ref }))}
-							onNotMe={() => setShowAlternatives(true)}
-						/>
-					</CardContent>
-				)}
-				{status.status === "institutional" && hasSaramAction(status, "set_personal") && (
-					<CardContent>
-						<InstitutionalAction busy={busy} onSetPersonal={() => run("top", () => api.setAccountKind({ kind: "pessoal" }))} />
-					</CardContent>
-				)}
-				{status.hasUnverifiedSaram && status.status !== "verified" && (
-					<CardContent>
-						<p className="max-w-prose text-caption text-muted-foreground">
-							Há um SARAM informado antes nesta conta que ainda não foi conferido. Ele não vale até a verificação abaixo.
-						</p>
-					</CardContent>
-				)}
-			</Card>
+			<StatusCard
+				status={status}
+				view={view}
+				icon={Icon}
+				panel={panel}
+				showAlternatives={showAlternatives}
+				busy={busy}
+				onConfirmCandidate={(candidate) => run("top", () => api.confirmCandidate({ candidateRef: candidate.ref }))}
+				onNotMe={() => setShowAlternatives(true)}
+				onSetPersonal={() => run("top", () => api.setAccountKind({ kind: "pessoal" }))}
+			/>
 
 			{feedback && feedback.source === "top" && <FeedbackAlert feedback={feedback} focusRef={feedbackRef} />}
 
-			{(status.status === "homonyms" || legacyCanConfirm === "several") && !showAlternatives && (
+			{panel.confirmStep === "several" && !showAlternatives && (
 				<HomonymsStep
 					status={status}
 					busy={busy}
-					feedback={formFeedback("suffix")}
+					feedback={selectFeedback(feedback, "suffix")}
 					onConfirm={(candidateRef, cpfSuffix) => run("suffix", () => api.confirmCandidate({ candidateRef, cpfSuffix }))}
 					onNoneIsMe={() => setShowAlternatives(true)}
 				/>
 			)}
 
-			{(status.status === "pending_request" || status.status === "contested") && status.request && (
+			{panel.pendingRequest && (
 				<PendingRequestCard status={status} busy={busy} onWithdraw={(requestId) => run("top", () => api.withdrawRequest({ requestId }))} />
 			)}
 
 			{alternativesVisible && offersAlternatives && (
-				<section aria-labelledby="alternatives-title" className="flex flex-col gap-3">
-					<div className="flex flex-col gap-1">
-						<h2 id="alternatives-title" className="text-subheading text-foreground">
-							{status.status === "legacy"
-								? "Se quiser, confirme o vínculo agora"
-								: showAlternatives
-									? "Então vamos por outro caminho"
-									: "Como vincular seu SARAM"}
-						</h2>
-						{(status.status === "suggestion" || status.status === "homonyms" || legacyCanConfirm) && showAlternatives ? (
-							<Button variant="link" size="sm" className="self-start" onClick={() => setShowAlternatives(false)}>
-								Voltar à sugestão
-							</Button>
-						) : null}
-					</div>
-					<ItemGroup>
-						{hasSaramAction(status, "verify_cpf") && (
-							<AlternativeItem
-								icon={KeyRound}
-								title="Conferir pelo SARAM e o CPF"
-								description="Conferimos no cadastro de pessoal na hora. Vale para quem mudou de nome ou tem e-mail fora do padrão."
-								open={alternative === "cpf"}
-								onToggle={() => setAlternative(alternative === "cpf" ? null : "cpf")}
-							>
-								<CpfVerifyForm
-									attemptsLeft={status.attemptsLeft}
-									busy={busy}
-									feedback={formFeedback("cpf")}
-									onSubmit={(saram, cpf) => run("cpf", () => api.verifyByCpf({ saram, cpf }))}
-								/>
-							</AlternativeItem>
-						)}
-						{hasSaramAction(status, "request_link") && (
-							<AlternativeItem
-								icon={MessageSquareText}
-								title="Pedir o vínculo à administração"
-								description="Para quem não está no cadastro de pessoal, não tem o CPF à mão ou não consegue conferir. Você continua arranchando enquanto isso."
-								open={alternative === "request"}
-								onToggle={() => setAlternative(alternative === "request" ? null : "request")}
-							>
-								<RequestLinkForm
-									busy={busy}
-									feedback={formFeedback("request")}
-									onSubmit={(saram, justification) => run("request", () => api.requestLink({ saram, justification }))}
-								/>
-							</AlternativeItem>
-						)}
-						{hasSaramAction(status, "set_institutional") && (
-							<InstitutionalAlternative busy={busy} onConfirm={() => run("top", () => api.setAccountKind({ kind: "institucional" }))} />
-						)}
-					</ItemGroup>
-				</section>
+				<AlternativesSection
+					status={status}
+					busy={busy}
+					showAlternatives={showAlternatives}
+					canReturnToSuggestion={panel.confirmStep !== null}
+					alternative={alternative}
+					feedback={feedback}
+					onAlternativeChange={setAlternative}
+					onReturnToSuggestion={() => setShowAlternatives(false)}
+					onVerifyCpf={(saram, cpf) => run("cpf", () => api.verifyByCpf({ saram, cpf }))}
+					onRequestLink={(saram, justification) => run("request", () => api.requestLink({ saram, justification }))}
+					onSetInstitutional={() => run("top", () => api.setAccountKind({ kind: "institucional" }))}
+				/>
 			)}
 
 			{status.status === "verified" && (
@@ -255,6 +181,141 @@ export function MilitaryRecordPanel({ status, api, now }: { status: SaramStatus;
 }
 
 // ── Peças ───────────────────────────────────────────────────────────────────
+
+function StatusCard({
+	status,
+	view,
+	icon: Icon,
+	panel,
+	showAlternatives,
+	busy,
+	onConfirmCandidate,
+	onNotMe,
+	onSetPersonal,
+}: {
+	status: SaramStatus
+	view: SaramStatusView
+	icon: typeof BadgeCheck
+	panel: SaramPanelLayout
+	showAlternatives: boolean
+	busy: boolean
+	onConfirmCandidate: (candidate: SaramCandidate) => void
+	onNotMe: () => void
+	onSetPersonal: () => void
+}) {
+	return (
+		<Card>
+			<CardHeader>
+				<div className="flex flex-wrap items-center gap-2">
+					<Icon className="size-5 text-muted-foreground" aria-hidden />
+					<Badge variant={TONE_BADGE[view.tone]}>{view.badge}</Badge>
+				</div>
+				<CardTitle className="text-foreground">
+					<h2>{view.title}</h2>
+				</CardTitle>
+				<CardDescription className="max-w-prose text-body">{view.description}</CardDescription>
+			</CardHeader>
+			{panel.identity && (
+				<CardContent>
+					<IdentityList identity={panel.identity} saram={status.saram} />
+				</CardContent>
+			)}
+			{panel.confirmStep === "one" && status.candidates[0] && !showAlternatives && (
+				<CardContent>
+					<SuggestionStep
+						lead={
+							status.status === "legacy"
+								? "Seu e-mail institucional corresponde a este cadastro. Confirmando, ele substitui o vínculo antigo, já verificado."
+								: undefined
+						}
+						candidate={status.candidates[0]}
+						busy={busy}
+						onConfirm={onConfirmCandidate}
+						onNotMe={onNotMe}
+					/>
+				</CardContent>
+			)}
+			{status.status === "institutional" && hasSaramAction(status, "set_personal") && (
+				<CardContent>
+					<InstitutionalAction busy={busy} onSetPersonal={onSetPersonal} />
+				</CardContent>
+			)}
+			{status.hasUnverifiedSaram && status.status !== "verified" && (
+				<CardContent>
+					<p className="max-w-prose text-caption text-muted-foreground">
+						Há um SARAM informado antes nesta conta que ainda não foi conferido. Ele não vale até a verificação abaixo.
+					</p>
+				</CardContent>
+			)}
+		</Card>
+	)
+}
+
+function AlternativesSection({
+	status,
+	busy,
+	showAlternatives,
+	canReturnToSuggestion,
+	alternative,
+	feedback,
+	onAlternativeChange,
+	onReturnToSuggestion,
+	onVerifyCpf,
+	onRequestLink,
+	onSetInstitutional,
+}: {
+	status: SaramStatus
+	busy: boolean
+	showAlternatives: boolean
+	canReturnToSuggestion: boolean
+	alternative: Alternative | null
+	feedback: Feedback | null
+	onAlternativeChange: (alternative: Alternative | null) => void
+	onReturnToSuggestion: () => void
+	onVerifyCpf: (saram: string, cpf: string) => void
+	onRequestLink: (saram: string, justification: string) => void
+	onSetInstitutional: () => void
+}) {
+	return (
+		<section aria-labelledby="alternatives-title" className="flex flex-col gap-3">
+			<div className="flex flex-col gap-1">
+				<h2 id="alternatives-title" className="text-subheading text-foreground">
+					{getAlternativesTitle(status.status, showAlternatives)}
+				</h2>
+				{canReturnToSuggestion && showAlternatives ? (
+					<Button variant="link" size="sm" className="self-start" onClick={onReturnToSuggestion}>
+						Voltar à sugestão
+					</Button>
+				) : null}
+			</div>
+			<ItemGroup>
+				{hasSaramAction(status, "verify_cpf") && (
+					<AlternativeItem
+						icon={KeyRound}
+						title="Conferir pelo SARAM e o CPF"
+						description="Conferimos no cadastro de pessoal na hora. Vale para quem mudou de nome ou tem e-mail fora do padrão."
+						open={alternative === "cpf"}
+						onToggle={() => onAlternativeChange(alternative === "cpf" ? null : "cpf")}
+					>
+						<CpfVerifyForm attemptsLeft={status.attemptsLeft} busy={busy} feedback={selectFeedback(feedback, "cpf")} onSubmit={onVerifyCpf} />
+					</AlternativeItem>
+				)}
+				{hasSaramAction(status, "request_link") && (
+					<AlternativeItem
+						icon={MessageSquareText}
+						title="Pedir o vínculo à administração"
+						description="Para quem não está no cadastro de pessoal, não tem o CPF à mão ou não consegue conferir. Você continua arranchando enquanto isso."
+						open={alternative === "request"}
+						onToggle={() => onAlternativeChange(alternative === "request" ? null : "request")}
+					>
+						<RequestLinkForm busy={busy} feedback={selectFeedback(feedback, "request")} onSubmit={onRequestLink} />
+					</AlternativeItem>
+				)}
+				{hasSaramAction(status, "set_institutional") && <InstitutionalAlternative busy={busy} onConfirm={onSetInstitutional} />}
+			</ItemGroup>
+		</section>
+	)
+}
 
 function FeedbackAlert({ feedback, focusRef }: { feedback: SaramOutcomeView; focusRef?: React.Ref<HTMLDivElement> }) {
 	const variant = feedback.kind === "error" ? "destructive" : feedback.kind === "success" ? "success" : "info"

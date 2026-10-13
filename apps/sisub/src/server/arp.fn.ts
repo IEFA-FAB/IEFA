@@ -16,16 +16,24 @@ import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { type LocalCommitment, resolveSaldoOficial } from "@/lib/arp-balance"
 import { loadLocalCommitments } from "@/lib/arp-commitments.server"
+import { type ArpSaldo, assertVigenciaWindow, formatNumeroAta, parseBrDate, pickArpHeader, resolveArpSaldos } from "@/lib/arp-compras"
 import {
-	type ArpSaldo,
-	anoFromNumeroAta,
-	assertVigenciaWindow,
-	formatNumeroAta,
-	parseBrDate,
-	parseNumeroItem,
-	pickArpHeader,
-	resolveArpSaldos,
-} from "@/lib/arp-compras"
+	buildImportedArpItemRow,
+	buildImportedArpRow,
+	buildManualArpItemRow,
+	buildManualArpRow,
+	type CatmatIndex,
+	computeArpExecutionByItem,
+	describeKeptStaleItems,
+	formatNumeroAtaFromInput,
+	hasDuplicateItemNumbers,
+	indexArpItemsByNumero,
+	indexQuantityEstimateItemsByCatmat,
+	listStaleArpItemIds,
+	planArpItemReconciliation,
+	resolveArpLinks,
+	splitDeletableArpItems,
+} from "@/lib/arp-import"
 import { withSensitiveAudit } from "@/lib/audit.server"
 import { requireAuth, requireAuthWithPermission } from "@/lib/auth.server"
 import { comprasApi, unwrapCompras } from "@/lib/compras.server"
@@ -294,6 +302,82 @@ const ArpDataSchema = z.object({
 	statusAta: z.string().nullable().optional(),
 })
 
+type ProcurementClient = ReturnType<typeof getProcurementClient>
+
+/** Anexo e contratação apontados no payload, conferidos pela unidade da LINHA, nesta ordem. */
+async function assertArpLinksBelongToUnit(
+	supabase: ProcurementClient,
+	data: { unitId: number; quantityEstimateId?: string | null; acquisitionId?: string | null }
+): Promise<void> {
+	if (data.quantityEstimateId && (await resolveQuantityEstimateUnit(supabase, data.quantityEstimateId)) !== data.unitId)
+		throw new Error("O anexo quantitativo informado não pertence a esta unidade")
+	if (data.acquisitionId && (await resolveAcquisitionUnit(data.acquisitionId)) !== data.unitId) {
+		throw new Error("A contratação de origem informada não pertence a esta unidade")
+	}
+}
+
+/** Itens do anexo quantitativo indexados pelo CATMAT, para casar com os itens da ata. */
+async function loadQuantityEstimateCatmatIndex(supabase: ProcurementClient, quantityEstimateId: string | null): Promise<CatmatIndex> {
+	// Falha aqui não é "anexo sem itens": o update abaixo desligaria todo item da ARP do anexo e
+	// apagaria a medida deles.
+	const { data: quantityEstimateItems, error: quantityEstimateItemsError } = quantityEstimateId
+		? await supabase.from("quantity_estimate_item").select("id, catmat_item_codigo, measure_unit").eq("quantity_estimate_id", quantityEstimateId)
+		: { data: [] as Array<{ id: string; catmat_item_codigo: number | null; measure_unit: string | null }>, error: null }
+	if (quantityEstimateItemsError) throw new Error(`Erro ao ler os itens do anexo quantitativo: ${publicDbMessage(quantityEstimateItemsError)}`)
+	return indexQuantityEstimateItemsByCatmat(quantityEstimateItems ?? [])
+}
+
+/**
+ * Reconcilia os itens SEM apagar empenhos locais.
+ * Antes: delete + reinsert, e o CASCADE de então apagava os empenhos
+ * registrados. Agora: match por numero_item → update; novos → insert;
+ * ausentes na API → delete só se nenhum item de NE apontar para eles.
+ *
+ * @returns o aviso dos itens que saíram da API e ficaram por ter empenho, ou null.
+ */
+async function reconcileArpItems(
+	supabase: ProcurementClient,
+	params: { arpId: string; apiItems: ComprasArpItemResult[]; saldos: Map<number, ArpSaldo>; catmat: CatmatIndex }
+): Promise<string | null> {
+	const now = new Date().toISOString()
+	// Sem os itens que já existem, todo item da ata seria inserido de novo: erro lança.
+	const { data: existingItems, error: existingItemsError } = await supabase.from("arp_item").select("id, numero_item").eq("arp_id", params.arpId)
+	if (existingItemsError) throw new Error(`Erro ao ler os itens já cadastrados da ARP: ${publicDbMessage(existingItemsError)}`)
+
+	const byNumeroItem = indexArpItemsByNumero(existingItems ?? [])
+	const toRow = (item: ComprasArpItemResult) =>
+		buildImportedArpItemRow(item, { arpId: params.arpId, saldos: params.saldos, catmat: params.catmat, syncedAt: now })
+
+	const { updates, newItems, matchedIds } = planArpItemReconciliation(params.apiItems, byNumeroItem)
+	for (const { id, item } of updates) {
+		const { error } = await supabase.from("arp_item").update(toRow(item)).eq("id", id)
+		if (error) throw new Error(`Erro ao atualizar item ${item.numeroItem} da ARP: ${publicDbMessage(error)}`)
+	}
+
+	const newRows = newItems.map(toRow)
+	if (newRows.length > 0) {
+		const { error } = await supabase.from("arp_item").insert(newRows)
+		if (error) throw new Error(`Erro ao salvar itens da ARP: ${publicDbMessage(error)}`)
+	}
+
+	// Itens locais que a API não retornou: remover apenas os sem empenho local.
+	return removeStaleArpItems(supabase, listStaleArpItemIds(existingItems ?? [], matchedIds))
+}
+
+async function removeStaleArpItems(supabase: ProcurementClient, staleIds: string[]): Promise<string | null> {
+	if (staleIds.length === 0) return null
+	// Item com empenho fica (o FK é RESTRICT desde 20260926214000): a NE aponta para o item
+	// da ARP pelos itens dela (`finance.empenho_item`).
+	const { data: itemRefs, error: itemError } = await supabase.schema("finance").from("empenho_item").select("arp_item_id").in("arp_item_id", staleIds)
+	if (itemError) throw new Error(`Erro ao conferir empenhos dos itens retirados: ${publicDbMessage(itemError)}`)
+	const { deletableIds, kept } = splitDeletableArpItems(staleIds, new Set((itemRefs ?? []).map((row) => row.arp_item_id)))
+	if (deletableIds.length > 0) {
+		const { error } = await supabase.from("arp_item").delete().in("id", deletableIds)
+		if (error) throw new Error(`Erro ao retirar itens que saíram da ARP: ${publicDbMessage(error)}`)
+	}
+	return describeKeptStaleItems(kept)
+}
+
 export const importArpItemsFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
@@ -317,13 +401,8 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
 		const supabase = getProcurementClient()
 		// O anexo apontado TEM que ser da unidade alegada: sem isto, quem tem nível 2 na
 		// unidade A importa ARP para dentro do anexo da unidade B.
-		if (data.quantityEstimateId && (await resolveQuantityEstimateUnit(supabase, data.quantityEstimateId)) !== data.unitId)
-			throw new Error("O anexo quantitativo informado não pertence a esta unidade")
-		if (data.acquisitionId && (await resolveAcquisitionUnit(data.acquisitionId)) !== data.unitId) {
-			throw new Error("A contratação de origem informada não pertence a esta unidade")
-		}
+		await assertArpLinksBelongToUnit(supabase, data)
 		const { unitId } = data
-		const warnings: string[] = []
 
 		// O cabeçalho vai gravado como `source: "compras_gov"`: ele é RELIDO na API pelo número, pela
 		// UASG e pelo início de vigência, e o payload só serve de chave da consulta. Antes objeto,
@@ -343,16 +422,12 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
 				.maybeSingle(),
 		])
 		if (existingError) throw new Error(`Erro ao procurar a ARP: ${publicDbMessage(existingError)}`)
-		let quantityEstimateId: string | null = data.quantityEstimateId ?? existingArp?.quantity_estimate_id ?? null
-		if (existingArp?.quantity_estimate_id && data.quantityEstimateId && existingArp.quantity_estimate_id !== data.quantityEstimateId) {
-			quantityEstimateId = existingArp.quantity_estimate_id
-			warnings.push(`A ARP ${arpData.numeroAtaRegistroPreco} já está vinculada a outro anexo quantitativo; o vínculo existente foi mantido`)
-		}
-		let acquisitionId: string | null = data.acquisitionId ?? existingArp?.acquisition_id ?? null
-		if (existingArp?.acquisition_id && data.acquisitionId && existingArp.acquisition_id !== data.acquisitionId) {
-			acquisitionId = existingArp.acquisition_id
-			warnings.push(`A ARP ${arpData.numeroAtaRegistroPreco} já está vinculada a outra contratação de origem; o vínculo existente foi mantido`)
-		}
+		const { quantityEstimateId, acquisitionId, warnings } = resolveArpLinks({
+			numeroAta: arpData.numeroAtaRegistroPreco,
+			requestedQuantityEstimateId: data.quantityEstimateId,
+			requestedAcquisitionId: data.acquisitionId,
+			existing: existingArp,
+		})
 
 		// ── 1. Buscar itens e saldos da ARP na API do Compras.gov.br ─────────────
 
@@ -380,131 +455,24 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
 
 		// ── 2. Buscar os itens do anexo quantitativo para fazer o match por catmat ──
 
-		// Falha aqui não é "anexo sem itens": o update abaixo desligaria todo item da ARP do anexo e
-		// apagaria a medida deles.
-		const { data: quantityEstimateItems, error: quantityEstimateItemsError } = quantityEstimateId
-			? await supabase.from("quantity_estimate_item").select("id, catmat_item_codigo, measure_unit").eq("quantity_estimate_id", quantityEstimateId)
-			: { data: [] as Array<{ id: string; catmat_item_codigo: number | null; measure_unit: string | null }>, error: null }
-		if (quantityEstimateItemsError) throw new Error(`Erro ao ler os itens do anexo quantitativo: ${publicDbMessage(quantityEstimateItemsError)}`)
-
-		const catmatToQuantityEstimateItemId = new Map<number, string>()
-		// `2_consultarARPItem` não traz unidade de fornecimento; a medida vem do
-		// item do anexo quantitativo, casado pelo mesmo catmat.
-		const catmatToMeasureUnit = new Map<number, string>()
-		for (const item of quantityEstimateItems ?? []) {
-			if (item.catmat_item_codigo != null) {
-				catmatToQuantityEstimateItemId.set(item.catmat_item_codigo, item.id)
-				if (item.measure_unit) catmatToMeasureUnit.set(item.catmat_item_codigo, item.measure_unit)
-			}
-		}
+		const catmat = await loadQuantityEstimateCatmatIndex(supabase, quantityEstimateId)
 
 		// ── 3. Upsert arp ─────────────────────────────────────────────
 
 		const { data: arp, error: arpError } = await supabase
 			.from("arp")
-			.upsert(
-				{
-					unit_id: unitId,
-					quantity_estimate_id: quantityEstimateId,
-					acquisition_id: acquisitionId,
-					// Cadastrada à mão antes (API fora do ar): a primeira importação bem-sucedida a
-					// torna sincronizada, e os itens são atualizados pelo número, sem duplicar.
-					source: "compras_gov",
-					numero_ata: arpData.numeroAtaRegistroPreco,
-					ano_ata: anoFromNumeroAta(arpData.numeroAtaRegistroPreco),
-					uasg_gerenciadora: arpData.codigoUnidadeGerenciadora,
-					nome_uasg_gerenciadora: arpData.nomeUnidadeGerenciadora ?? null,
-					objeto: arpData.objeto ?? null,
-					data_vigencia_inicio: dataVigenciaInicial,
-					data_vigencia_fim: parseBrDate(arpData.dataVigenciaFinal),
-					status_ata: arpData.statusAta ?? null,
-					last_synced_at: new Date().toISOString(),
-				},
-				{ onConflict: "unit_id,numero_ata,uasg_gerenciadora" }
-			)
+			.upsert(buildImportedArpRow(arpData, { unitId, quantityEstimateId, acquisitionId, dataVigenciaInicial, lastSyncedAt: new Date().toISOString() }), {
+				onConflict: "unit_id,numero_ata,uasg_gerenciadora",
+			})
 			.select()
 			.single()
 
 		if (arpError || !arp) throw new Error(`Erro ao salvar ARP: ${publicDbMessage(arpError)}`)
 
 		// ── 4. Reconciliar itens SEM apagar empenhos locais ──────────────────────
-		// Antes: delete + reinsert, e o CASCADE de então apagava os empenhos
-		// registrados. Agora: match por numero_item → update; novos → insert;
-		// ausentes na API → delete só se nenhum item de NE apontar para eles.
 
-		const now = new Date().toISOString()
-		// Sem os itens que já existem, todo item da ata seria inserido de novo: erro lança.
-		const { data: existingItems, error: existingItemsError } = await supabase.from("arp_item").select("id, numero_item").eq("arp_id", arp.id)
-		if (existingItemsError) throw new Error(`Erro ao ler os itens já cadastrados da ARP: ${publicDbMessage(existingItemsError)}`)
-
-		const byNumeroItem = new Map<number, string>()
-		for (const item of existingItems ?? []) {
-			if (item.numero_item != null) byNumeroItem.set(item.numero_item, item.id)
-		}
-
-		const toRow = (item: ComprasArpItemResult) => {
-			const numero = parseNumeroItem(item.numeroItem)
-			const saldo = numero != null ? saldos.get(numero) : undefined
-			return {
-				arp_id: arp.id,
-				quantity_estimate_item_id: item.codigoItem != null ? (catmatToQuantityEstimateItemId.get(item.codigoItem) ?? null) : null,
-				numero_item: numero,
-				catmat_item_codigo: item.codigoItem ?? null,
-				descricao_item: item.descricaoItem ?? null,
-				ni_fornecedor: item.niFornecedor ?? null,
-				nome_fornecedor: item.nomeRazaoSocialFornecedor ?? null,
-				valor_unitario: item.valorUnitario ?? null,
-				quantidade_homologada: item.quantidadeHomologadaItem ?? null,
-				medida_catmat: item.codigoItem != null ? (catmatToMeasureUnit.get(item.codigoItem) ?? null) : null,
-				// Linha AUSENTE em `4_consultarEmpenhosSaldoItem` = item sem empenho:
-				// saldo cheio, e não null (que apareceria na tela como "—"). Linha
-				// PRESENTE manda no valor, inclusive quando o saldo dela é zero — o
-				// `??` sobre o saldo resolvido conflataria os dois casos.
-				quantidade_empenhada: saldo ? saldo.quantidadeEmpenhada : 0,
-				saldo_empenho: saldo ? saldo.saldoEmpenho : (item.quantidadeHomologadaItem ?? null),
-				source: "compras_gov",
-				synced_at: now,
-			}
-		}
-
-		const matchedIds = new Set<string>()
-		for (const item of apiItems) {
-			const numero = parseNumeroItem(item.numeroItem)
-			const existingId = numero != null ? byNumeroItem.get(numero) : undefined
-			if (existingId) {
-				matchedIds.add(existingId)
-				const { error } = await supabase.from("arp_item").update(toRow(item)).eq("id", existingId)
-				if (error) throw new Error(`Erro ao atualizar item ${item.numeroItem} da ARP: ${publicDbMessage(error)}`)
-			}
-		}
-
-		const newRows = apiItems
-			.filter((item) => {
-				const numero = parseNumeroItem(item.numeroItem)
-				return numero == null || !byNumeroItem.has(numero)
-			})
-			.map(toRow)
-		if (newRows.length > 0) {
-			const { error } = await supabase.from("arp_item").insert(newRows)
-			if (error) throw new Error(`Erro ao salvar itens da ARP: ${publicDbMessage(error)}`)
-		}
-
-		// Itens locais que a API não retornou: remover apenas os sem empenho local.
-		const staleIds = (existingItems ?? []).map((item) => item.id).filter((id) => !matchedIds.has(id))
-		if (staleIds.length > 0) {
-			// Item com empenho fica (o FK é RESTRICT desde 20260926214000): a NE aponta para o item
-			// da ARP pelos itens dela (`finance.empenho_item`).
-			const { data: itemRefs, error: itemError } = await supabase.schema("finance").from("empenho_item").select("arp_item_id").in("arp_item_id", staleIds)
-			if (itemError) throw new Error(`Erro ao conferir empenhos dos itens retirados: ${publicDbMessage(itemError)}`)
-			const referenced = new Set((itemRefs ?? []).map((row) => row.arp_item_id))
-			const deletableIds = staleIds.filter((id) => !referenced.has(id))
-			if (deletableIds.length > 0) {
-				const { error } = await supabase.from("arp_item").delete().in("id", deletableIds)
-				if (error) throw new Error(`Erro ao retirar itens que saíram da ARP: ${publicDbMessage(error)}`)
-			}
-			const kept = staleIds.length - deletableIds.length
-			if (kept > 0) warnings.push(`${kept} item(ns) que saíram da ARP no Compras.gov.br continuam aqui porque têm empenho`)
-		}
+		const keptWarning = await reconcileArpItems(supabase, { arpId: arp.id, apiItems, saldos, catmat })
+		if (keptWarning) warnings.push(keptWarning)
 
 		const { data: finalItems, error: finalError } = await supabase.from("arp_item").select("*").eq("arp_id", arp.id).order("numero_item", { ascending: true })
 
@@ -708,54 +676,17 @@ export const createManualArpFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }): Promise<{ arpId: string; numeroAta: string }> => {
 		await requireUnitScope(2, data.unitId)
 		const supabase = getProcurementClient()
-		if (data.quantityEstimateId && (await resolveQuantityEstimateUnit(supabase, data.quantityEstimateId)) !== data.unitId)
-			throw new Error("O anexo quantitativo informado não pertence a esta unidade")
-		if (data.acquisitionId && (await resolveAcquisitionUnit(data.acquisitionId)) !== data.unitId) {
-			throw new Error("A contratação de origem informada não pertence a esta unidade")
-		}
-		const numeros = data.items.map((item) => item.numeroItem)
-		if (new Set(numeros).size !== numeros.length) throw new Error("Dois itens com o mesmo número: cada item da ata tem um número")
+		await assertArpLinksBelongToUnit(supabase, data)
+		if (hasDuplicateItemNumbers(data.items)) throw new Error("Dois itens com o mesmo número: cada item da ata tem um número")
 
-		const numeroAta = formatNumeroAta(data.numeroAta.split("/")[0] ?? data.numeroAta, data.anoAta)
-		const { data: arp, error } = await supabase
-			.from("arp")
-			.insert({
-				unit_id: data.unitId,
-				quantity_estimate_id: data.quantityEstimateId ?? null,
-				acquisition_id: data.acquisitionId ?? null,
-				numero_ata: numeroAta,
-				ano_ata: data.anoAta,
-				uasg_gerenciadora: data.uasgGerenciadora,
-				nome_uasg_gerenciadora: data.nomeUasgGerenciadora?.trim() || null,
-				objeto: data.objeto?.trim() || null,
-				data_vigencia_inicio: data.vigenciaInicio ?? null,
-				data_vigencia_fim: data.vigenciaFim ?? null,
-				source: "manual",
-				last_synced_at: null,
-			})
-			.select("id")
-			.single()
+		const numeroAta = formatNumeroAtaFromInput(data.numeroAta, data.anoAta)
+		const { data: arp, error } = await supabase.from("arp").insert(buildManualArpRow(data, numeroAta)).select("id").single()
 		if (error) {
 			if (error.code === "23505") throw new Error(`A ARP ${numeroAta} da UASG ${data.uasgGerenciadora} já está cadastrada nesta unidade`)
 			throw new Error(`Erro ao cadastrar a ARP: ${publicDbMessage(error)}`)
 		}
 
-		const { error: itemsError } = await supabase.from("arp_item").insert(
-			data.items.map((item) => ({
-				arp_id: arp.id,
-				numero_item: item.numeroItem,
-				descricao_item: item.descricaoItem,
-				catmat_item_codigo: item.catmatItemCodigo ?? null,
-				ni_fornecedor: item.niFornecedor ?? null,
-				nome_fornecedor: item.nomeFornecedor?.trim() || null,
-				valor_unitario: item.valorUnitario,
-				quantidade_homologada: item.quantidadeHomologada,
-				quantidade_empenhada: 0,
-				saldo_empenho: item.quantidadeHomologada,
-				medida_catmat: item.medida?.trim() || null,
-				source: "manual",
-			}))
-		)
+		const { error: itemsError } = await supabase.from("arp_item").insert(data.items.map((item) => buildManualArpItemRow(arp.id, item)))
 		if (itemsError) {
 			// Sem os itens a ARP não serve para empenhar: desfaz o cabeçalho em vez de deixar uma
 			// ata vazia dizendo "cadastrada".
@@ -1014,28 +945,12 @@ export const fetchArpExecutionFn = createServerFn({ method: "GET" })
 		])
 		const executionError = activeError ?? allItemsError ?? saldoError
 		if (executionError) throw new Error(`Erro ao ler a execução dos empenhos: ${publicDbMessage(executionError)}`)
-		const activeIds = new Set((active ?? []).map((row) => row.id))
-		const totalByEmpenho = new Map<string, number>()
-		for (const row of allItems ?? []) {
-			totalByEmpenho.set(row.empenho_id, (totalByEmpenho.get(row.empenho_id) ?? 0) + Number(row.value))
-		}
-		const saldoByEmpenho = new Map((saldos ?? []).map((saldo) => [saldo.empenho_id, saldo]))
-
-		const byItem: Record<string, { liquidado: number; pago: number; aLiquidar: number }> = {}
-		for (const row of arpNeItems ?? []) {
-			// `arp_item_id` nunca vem nulo: a consulta filtra por ele.
-			if (row.arp_item_id == null || !activeIds.has(row.empenho_id)) continue
-			const saldo = saldoByEmpenho.get(row.empenho_id)
-			if (!saldo) continue
-			const total = totalByEmpenho.get(row.empenho_id) ?? 0
-			const share = total > 0 ? Number(row.value) / total : 1
-			const acc = byItem[row.arp_item_id] ?? { liquidado: 0, pago: 0, aLiquidar: 0 }
-			acc.liquidado += Number(saldo.valor_liquidado ?? 0) * share
-			acc.pago += Number(saldo.valor_pago ?? 0) * share
-			acc.aLiquidar += Number(saldo.saldo_a_liquidar ?? 0) * share
-			byItem[row.arp_item_id] = acc
-		}
-		return byItem
+		return computeArpExecutionByItem({
+			arpNeItems: arpNeItems ?? [],
+			activeIds: new Set((active ?? []).map((row) => row.id)),
+			allItems: allItems ?? [],
+			saldos: saldos ?? [],
+		})
 	})
 
 // ─── 7. Anular empenho ────────────────────────────────────────────────────────

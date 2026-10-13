@@ -30,6 +30,7 @@
       "route": "/analista-compatibilidade",
       "targets": [
         "apps/sucont/src/lib/compatibilidade/",
+        "apps/sucont/src/components/compatibilidade/",
         "apps/sucont/src/routes/analista-compatibilidade.tsx"
       ],
       "checkpoint": null,
@@ -69,6 +70,8 @@
       "tool": "Analista de conta genérica",
       "route": "/conta-generica",
       "targets": [
+        "apps/sucont/src/components/conta-generica/",
+        "apps/sucont/src/lib/conta-generica/",
         "apps/sucont/src/routes/conta-generica.tsx",
         "apps/sucont/src/server/conta-generica.fn.ts"
       ],

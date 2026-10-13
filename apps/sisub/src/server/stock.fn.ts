@@ -19,6 +19,17 @@ import { hiddenByBlindCount } from "@/lib/blind-count.server"
 import { publicDbMessage } from "@/lib/db-error-message"
 import { itemDescription } from "@/lib/item-description"
 import { readAllPages, readAllPagesIn } from "@/lib/read-all-pages"
+import {
+	aggregateStockBalance,
+	applyStockItemNames,
+	collectLotIds,
+	listDescribableIds,
+	type StockBalanceItem,
+	type StockBalanceViewRow,
+	type StockLotBalanceRow,
+	type StockLotMeta,
+	selectVisibleStockItems,
+} from "@/lib/stock-balance"
 import { classifyFoodItems, foodRefOf } from "@/lib/stock-item.server"
 import { requireStockForKitchen, requireStockForLocation, resolveKitchenLocation } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
@@ -27,42 +38,7 @@ import { transferDestinationProblem } from "@/lib/transfer-destination"
 const inventory = () => getServerClient("inventory")
 const kitchen = () => getServerClient("kitchen")
 
-export interface StockLotBalanceRow {
-	lot_id: string | null
-	lot_code: string | null
-	expiry_date: string | null
-	balance: number
-	balance_value: number
-	/** Código da etiqueta interna — null no saldo sem lote (falta de alocação). */
-	short_code: string | null
-	location: string | null
-	use_first: boolean
-	quarantined: boolean
-	derivation: string | null
-}
-
-export interface StockBalanceItem {
-	ingredientId: string | null
-	frozenPreparationId: string | null
-	description: string
-	measureUnit: string | null
-	balance: number
-	balanceValue: number
-	lots: StockLotBalanceRow[]
-	nextExpiry: string | null
-	/** Parte do saldo que está em quarentena — existe, mas não é alocável. */
-	quarantinedBalance: number
-	/**
-	 * Saldo preso em lote VENCIDO.
-	 *
-	 * A alocação de saída pula lote vencido, exatamente como pula quarentena.
-	 * Uma tela que desconta só a quarentena oferece saldo que o banco nunca vai
-	 * tocar: o operador pede 20 KG, existem 20 KG "disponíveis" todos vencidos,
-	 * e a baixa sai inteira como movimento sem lote — estoque negativo, sem
-	 * nenhum aviso.
-	 */
-	expiredBalance: number
-}
+export type { StockBalanceItem, StockLotBalanceRow }
 
 /** Nomes de itens (insumos + preparações congeladas) para exibição. */
 async function describeItems(ingredientIds: string[], frozenIds: string[]) {
@@ -130,77 +106,28 @@ export const fetchStockBalanceFn = createServerFn({ method: "GET" })
 		// A view é a soma do ledger e não conhece o lote além do código: quarentena,
 		// etiqueta, local e "usar primeiro" vêm da tabela. Sem isso a tela mostra
 		// saldo de lote em quarentena como disponível — e ele não é alocável.
-		const lotIds = [...new Set((rows ?? []).map((row: { lot_id: string | null }) => row.lot_id).filter(Boolean))] as string[]
-		const lotMeta = new Map<
-			string,
-			{ short_code: string; location: string | null; use_first: boolean; quarantined_at: string | null; derivation: string | null }
-		>()
-		for (const lot of await readAllPagesIn<{
-			id: string
-			short_code: string
-			location: string | null
-			use_first: boolean
-			quarantined_at: string | null
-			derivation: string | null
-		}>("os lotes", lotIds, (chunk, from, to) =>
+		const lotIds = collectLotIds(rows ?? [])
+		const lotMeta = new Map<string, StockLotMeta>()
+		for (const lot of await readAllPagesIn<StockLotMeta & { id: string }>("os lotes", lotIds, (chunk, from, to) =>
 			inv.from("stock_lot").select("id, short_code, location, use_first, quarantined_at, derivation").in("id", chunk).order("id").range(from, to)
 		)) {
 			lotMeta.set(lot.id, lot)
 		}
 
+		// A view é por `item_id`; a agregação fala a língua da tela (insumo ou preparação congelada).
 		const refs = await classifyFoodItems((rows ?? []).map((row: { item_id: string }) => row.item_id))
-		const byItem = new Map<string, StockBalanceItem>()
-		for (const row of rows ?? []) {
-			const ref = foodRefOf(refs, row.item_id)
-			const key = ref.ingredientId ? `i:${ref.ingredientId}` : `f:${ref.frozenPreparationId}`
-			const item: StockBalanceItem = byItem.get(key) ?? {
-				ingredientId: ref.ingredientId,
-				frozenPreparationId: ref.frozenPreparationId,
-				description: "",
-				measureUnit: null,
-				balance: 0,
-				balanceValue: 0,
-				lots: [],
-				nextExpiry: null,
-				quarantinedBalance: 0,
-				expiredBalance: 0,
+		const viewRows: StockBalanceViewRow[] = (rows ?? []).map(
+			({ item_id, ...row }: { item_id: string } & Omit<StockBalanceViewRow, "ingredient_id" | "frozen_preparation_id">) => {
+				const ref = foodRefOf(refs, item_id)
+				return { ...row, ingredient_id: ref.ingredientId, frozen_preparation_id: ref.frozenPreparationId }
 			}
-			item.balance += Number(row.balance ?? 0)
-			item.balanceValue += Number(row.balance_value ?? 0)
-			const meta = row.lot_id ? lotMeta.get(row.lot_id) : undefined
-			item.lots.push({
-				lot_id: row.lot_id,
-				lot_code: row.lot_code,
-				expiry_date: row.expiry_date,
-				balance: Number(row.balance ?? 0),
-				balance_value: Number(row.balance_value ?? 0),
-				short_code: meta?.short_code ?? null,
-				location: meta?.location ?? null,
-				use_first: meta?.use_first ?? false,
-				quarantined: meta?.quarantined_at != null,
-				derivation: meta?.derivation ?? null,
-			})
-			if (meta?.quarantined_at != null) item.quarantinedBalance += Number(row.balance ?? 0)
-			// vencido na data civil de Brasília, como a alocação mede
-			else if (row.expiry_date != null && row.expiry_date < getBrasiliaToday()) item.expiredBalance += Number(row.balance ?? 0)
-			if (row.expiry_date && Number(row.balance ?? 0) > 0 && meta?.quarantined_at == null && (item.nextExpiry == null || row.expiry_date < item.nextExpiry)) {
-				item.nextExpiry = row.expiry_date
-			}
-			byItem.set(key, item)
-		}
-
-		const names = await describeItems(
-			[...byItem.values()].map((i) => i.ingredientId).filter((id): id is string => id != null),
-			[...byItem.values()].map((i) => i.frozenPreparationId).filter((id): id is string => id != null)
 		)
-		for (const [key, item] of byItem) {
-			const meta = names.get(key)
-			item.description = meta?.description ?? key
-			item.measureUnit = meta?.measureUnit ?? null
-			item.lots.sort((a, b) => ((a.expiry_date ?? "9999") < (b.expiry_date ?? "9999") ? -1 : 1))
-		}
-		const visible = [...byItem.values()].filter((item) => !hidden.has(item.ingredientId ?? item.frozenPreparationId ?? ""))
-		return visible.sort((a, b) => a.description.localeCompare(b.description, "pt-BR"))
+		const byItem = aggregateStockBalance(viewRows, lotMeta, getBrasiliaToday)
+
+		const { ingredientIds, frozenIds } = listDescribableIds(byItem)
+		const names = await describeItems(ingredientIds, frozenIds)
+		applyStockItemNames(byItem, names)
+		return selectVisibleStockItems(byItem, hidden)
 	})
 
 /** Movimentos recentes do local de estoque da cozinha (com descrição do item). */
