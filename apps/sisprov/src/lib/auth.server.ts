@@ -4,9 +4,11 @@
  * tabela compartilhada `access_control.user_permissions`.
  *
  * O acesso é POR PAPEL, escopado por OM (`unit_id`; nulo = global):
- *   sisprov-planning  1 consulta / 2 informa e ajusta a previsão da OM   (requirePlanning)
- *   sisprov-supply    1 consulta / 2 recebe OF, distribui                 (requireSupply)
- *   sisprov-admin     2 gestão sistêmica (SDAB) / 3 gerencia grants       (requireSisprovAdmin)
+ *   storage           estoque de toda classe: 1 consulta / 2 opera / 3 gestão do local   (requireStock)
+ *   sisprov-planning  1 consulta / 2 informa e ajusta a previsão da OM                   (requirePlanning)
+ *   sisprov-admin     2 gestão sistêmica (SDAB) / 3 gerencia grants                       (requireSisprovAdmin)
+ *
+ * O `storage` também vale por cozinha (o local da cozinha; é o grant que o sisub concede).
  *
  * O cache request-scoped do `getUser()`, a resolução PBAC e a tradução para 401/403 vêm de
  * `@iefa/pbac/start`, compartilhados com os demais apps do ERP. Aqui só amarramos os clients do
@@ -14,13 +16,13 @@
  *
  * Gate de OM: `requireLevel` com `scope` aceita o grant global ou o escopado NA OM. A cobertura
  * pela hierarquia de apoio (grant na apoiadora vale para as apoiadas) mora no domínio
- * (`@iefa/sisprov-domain`, `requireSupply(ctx, 2, { unitId, supportGraph })`): a server function
- * que opera numa OM delega à operation, que recebe o `ctx` daqui e o grafo de apoio.
+ * (`@iefa/sisprov-domain`, `requireStockLocation(ctx, 2, location, supportGraph)`): a server
+ * function que opera num local delega ao domínio, que recebe o `ctx` daqui e o grafo de apoio.
  */
 
 import type { AppModule, UserContext } from "@iefa/pbac"
 import { createRequestAuth } from "@iefa/pbac/start"
-import { SISPROV_ADMIN_MODULE, SISPROV_MODULES, SISPROV_PLANNING_MODULE, SISPROV_SUPPLY_MODULE } from "@iefa/sisprov-domain/modules"
+import { SISPROV_ADMIN_MODULE, SISPROV_MODULES, SISPROV_PLANNING_MODULE, SISPROV_STOCK_MODULE } from "@iefa/sisprov-domain/modules"
 import { getAccessControlClient, getSisprovAuthClient } from "@/lib/supabase.server"
 
 const auth = createRequestAuth({
@@ -39,9 +41,12 @@ export function requirePlanning(minLevel: 1 | 2 = 1, unitId?: number): Promise<U
 	return auth.requireLevel(SISPROV_PLANNING_MODULE, minLevel, unitScope(unitId))
 }
 
-/** Almoxarifado da OM. */
-export function requireSupply(minLevel: 1 | 2 = 1, unitId?: number): Promise<UserContext> {
-	return auth.requireLevel(SISPROV_SUPPLY_MODULE, minLevel, unitScope(unitId))
+/**
+ * Estoque. Sem `unitId`, basta o `storage` em algum escopo (gate de "pode entrar"); o gate de um
+ * local específico é `requireStockLocation` do domínio, que também aceita o grant da cozinha.
+ */
+export function requireStock(minLevel: 1 | 2 | 3 = 1, unitId?: number): Promise<UserContext> {
+	return auth.requireLevel(SISPROV_STOCK_MODULE, minLevel, unitScope(unitId))
 }
 
 /**

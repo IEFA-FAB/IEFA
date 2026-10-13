@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import type { UnitSupportEdge, UserContext, UserPermission } from "@iefa/pbac"
 import { PermissionDeniedError } from "../types/errors.ts"
-import { requirePlanning, requireSisprovAdmin, requireSisprovApp, requireSupply } from "./require-permission.ts"
+import { requirePlanning, requireSisprovAdmin, requireSisprovApp, requireStock, requireStockLocation } from "./require-permission.ts"
 
 const GAP_SJ = 26
 const IAE = 31
@@ -20,30 +20,34 @@ function grant(module: UserPermission["module"], level: number, unitId: number |
 	return { module, level, unit_id: unitId, kitchen_id: null, mess_hall_id: null }
 }
 
+function kitchenGrant(level: number, kitchenId: number): UserPermission {
+	return { module: "storage", level, unit_id: null, kitchen_id: kitchenId, mess_hall_id: null }
+}
+
 function ctx(...permissions: UserPermission[]): UserContext {
 	return { userId: "u", email: "u@fab.mil.br", permissions, aal: 1, lastFactorAt: null, credentialOrigin: "session" } as unknown as UserContext
 }
 
 describe("guards por OM com hierarquia de apoio", () => {
 	test("grant na apoiadora cobre a apoiada; o inverso não", () => {
-		const supplyAtGapSj = ctx(grant("sisprov-supply", 2, GAP_SJ))
-		expect(() => requireSupply(supplyAtGapSj, 2, { unitId: IAE, supportGraph: GRAPH })).not.toThrow()
-		expect(() => requireSupply(supplyAtGapSj, 2, { unitId: GAP_SP, supportGraph: GRAPH })).toThrow(PermissionDeniedError)
+		const stockAtGapSj = ctx(grant("storage", 2, GAP_SJ))
+		expect(() => requireStock(stockAtGapSj, 2, { unitId: IAE, supportGraph: GRAPH })).not.toThrow()
+		expect(() => requireStock(stockAtGapSj, 2, { unitId: GAP_SP, supportGraph: GRAPH })).toThrow(PermissionDeniedError)
 
-		const supplyAtIae = ctx(grant("sisprov-supply", 2, IAE))
-		expect(() => requireSupply(supplyAtIae, 2, { unitId: GAP_SJ, supportGraph: GRAPH })).toThrow(PermissionDeniedError)
+		const stockAtIae = ctx(grant("storage", 2, IAE))
+		expect(() => requireStock(stockAtIae, 2, { unitId: GAP_SJ, supportGraph: GRAPH })).toThrow(PermissionDeniedError)
 	})
 
 	test("sem grafo, só o escopo direto ou o global valem", () => {
-		const supplyAtGapSj = ctx(grant("sisprov-supply", 2, GAP_SJ))
-		expect(() => requireSupply(supplyAtGapSj, 2, { unitId: IAE })).toThrow(PermissionDeniedError)
-		expect(() => requireSupply(ctx(grant("sisprov-supply", 2)), 2, { unitId: IAE })).not.toThrow()
+		const stockAtGapSj = ctx(grant("storage", 2, GAP_SJ))
+		expect(() => requireStock(stockAtGapSj, 2, { unitId: IAE })).toThrow(PermissionDeniedError)
+		expect(() => requireStock(ctx(grant("storage", 2)), 2, { unitId: IAE })).not.toThrow()
 	})
 
 	test("papéis são independentes na mesma OM", () => {
-		const onlySupply = ctx(grant("sisprov-supply", 2, IAE))
-		expect(() => requireSupply(onlySupply, 2, { unitId: IAE })).not.toThrow()
-		expect(() => requirePlanning(onlySupply, 1, { unitId: IAE })).toThrow(PermissionDeniedError)
+		const onlyStock = ctx(grant("storage", 2, IAE))
+		expect(() => requireStock(onlyStock, 2, { unitId: IAE })).not.toThrow()
+		expect(() => requirePlanning(onlyStock, 1, { unitId: IAE })).toThrow(PermissionDeniedError)
 	})
 
 	test("nível insuficiente é recusado mesmo no escopo certo", () => {
@@ -51,9 +55,9 @@ describe("guards por OM com hierarquia de apoio", () => {
 	})
 
 	test("deny na OM alvo vence o allow da apoiadora", () => {
-		const blocked = ctx(grant("sisprov-supply", 2, GAP_SJ), grant("sisprov-supply", 0, IAE))
-		expect(() => requireSupply(blocked, 2, { unitId: IAE, supportGraph: GRAPH })).toThrow(PermissionDeniedError)
-		expect(() => requireSupply(blocked, 2, { unitId: DCTA, supportGraph: GRAPH })).not.toThrow()
+		const blocked = ctx(grant("storage", 2, GAP_SJ), grant("storage", 0, IAE))
+		expect(() => requireStock(blocked, 2, { unitId: IAE, supportGraph: GRAPH })).toThrow(PermissionDeniedError)
+		expect(() => requireStock(blocked, 2, { unitId: DCTA, supportGraph: GRAPH })).not.toThrow()
 	})
 
 	test("deny escopado recorta um allow global", () => {
@@ -74,9 +78,37 @@ describe("requireSisprovAdmin", () => {
 	})
 })
 
+describe("requireStockLocation: o storage num local de estoque", () => {
+	const RANCHO_IAE = { id: 7, unitId: IAE, kitchenId: 920 }
+	const ALMOX_IAE = { id: 8, unitId: IAE, kitchenId: null }
+
+	test("o grant da cozinha abre só o local da cozinha", () => {
+		const rancheiro = ctx(kitchenGrant(3, 920))
+		expect(() => requireStockLocation(rancheiro, 3, RANCHO_IAE, GRAPH)).not.toThrow()
+		expect(() => requireStockLocation(rancheiro, 1, ALMOX_IAE, GRAPH)).toThrow(PermissionDeniedError)
+	})
+
+	test("o grant da OM apoiadora abre o almoxarifado e o rancho da apoiada", () => {
+		const almoxarife = ctx(grant("storage", 2, GAP_SJ))
+		expect(() => requireStockLocation(almoxarife, 2, ALMOX_IAE, GRAPH)).not.toThrow()
+		expect(() => requireStockLocation(almoxarife, 2, RANCHO_IAE, GRAPH)).not.toThrow()
+		expect(() => requireStockLocation(almoxarife, 3, ALMOX_IAE, GRAPH)).toThrow(PermissionDeniedError)
+	})
+
+	test("deny na cozinha ou na OM vence o allow", () => {
+		expect(() => requireStockLocation(ctx(grant("storage", 2), kitchenGrant(0, 920)), 1, RANCHO_IAE, GRAPH)).toThrow(PermissionDeniedError)
+		expect(() => requireStockLocation(ctx(grant("storage", 2, GAP_SJ), grant("storage", 0, IAE)), 1, ALMOX_IAE, GRAPH)).toThrow(PermissionDeniedError)
+	})
+
+	test("o global abre qualquer local", () => {
+		expect(() => requireStockLocation(ctx(grant("storage", 1)), 1, ALMOX_IAE)).not.toThrow()
+	})
+})
+
 describe("requireSisprovApp", () => {
 	test("qualquer módulo do app no nível 1 basta; módulo de outro app não", () => {
 		expect(() => requireSisprovApp(ctx(grant("sisprov-planning", 1, IAE)))).not.toThrow()
-		expect(() => requireSisprovApp(ctx(grant("storage", 3), grant("global", 3)))).toThrow(PermissionDeniedError)
+		expect(() => requireSisprovApp(ctx(kitchenGrant(1, 920)))).not.toThrow()
+		expect(() => requireSisprovApp(ctx(grant("kitchen", 3), grant("global", 3)))).toThrow(PermissionDeniedError)
 	})
 })

@@ -1,7 +1,7 @@
 {
   "short_name": "SISPROV",
   "name": "SISPROV — Sistema de Provisões",
-  "description": "Previsão de demanda e distribuição de fardamento gratuito",
+  "description": "Sistema de Provisões: estoque de toda classe e fardamento gratuito",
   "icons": [
     {
       "src": "favicon.svg",

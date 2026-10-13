@@ -228,19 +228,30 @@ async function deleteCounting(tx: TrainingTx, table: Parameters<TrainingTx["dele
 	return result.length
 }
 
+/**
+ * Locais de estoque do escopo de treino: o da cozinha sentinela e os da OM sentinela. O estoque
+ * é por local desde `inventory_multiclass` (o SISPROV é dono do estoque de toda classe); a cozinha
+ * chega ao local por `stock_location.kitchen_id`.
+ */
+function trainingLocations(scope: TrainingScope): SQL {
+	return sql`(select l.id from inventory.stock_location l where l.kitchen_id = ${scope.kitchen_id} or l.unit_id = ${scope.unit_id})`
+}
+
 const RESET_STEPS: ResetStep[] = [
-	// ── Estoque da cozinha sentinela: ledger e saldos (20260921191000) ──
+	// ── Estoque dos locais sentinela (cozinha e OM de treino): ledger e saldos (20260921191000) ──
 	// PRIMEIRO de tudo: `stock_movement.production_task_id` aponta para as tarefas com ON
 	// DELETE SET NULL, e o ledger é append-only — apagar as tarefas com movimento vivo fazia o
 	// reset inteiro falhar. Os guards de imutabilidade só liberam DELETE com a flag
-	// `iefa.training_reset` aberta nesta transação e para a cozinha `is_training`.
+	// `iefa.training_reset` aberta nesta transação e para os locais da cozinha `is_training`.
 	// Ordem: ajuste (aponta para movimento e lote) → movimento → requisição → contagem →
 	// custo → lote. A contagem e o ajuste apontam um para o outro; o vínculo sai antes.
 	{
 		table: "inventory.stock_adjustment",
 		run: async (tx, scope) => {
-			await tx.execute(sql`update inventory.inventory_count set adjustment_id = null where kitchen_id = ${scope.kitchen_id} and adjustment_id is not null`)
-			return deleteRaw(tx, sql`delete from inventory.stock_adjustment where kitchen_id = ${scope.kitchen_id} returning 1`)
+			await tx.execute(
+				sql`update inventory.inventory_count set adjustment_id = null where location_id in ${trainingLocations(scope)} and adjustment_id is not null`
+			)
+			return deleteRaw(tx, sql`delete from inventory.stock_adjustment where location_id in ${trainingLocations(scope)} returning 1`)
 		},
 	},
 	// A carga de abertura vem ANTES do movimento e do lote: cada linha dela aponta para o lote
@@ -249,37 +260,40 @@ const RESET_STEPS: ResetStep[] = [
 	// documento, e o guard de imutabilidade libera o DELETE sob a flag do reset.
 	{
 		table: "inventory.opening_balance",
-		run: (tx, scope) => deleteRaw(tx, sql`delete from inventory.opening_balance where kitchen_id = ${scope.kitchen_id} returning 1`),
+		run: (tx, scope) => deleteRaw(tx, sql`delete from inventory.opening_balance where location_id in ${trainingLocations(scope)} returning 1`),
 	},
 	{
 		table: "inventory.stock_movement",
-		run: (tx, scope) => deleteRaw(tx, sql`delete from inventory.stock_movement where kitchen_id = ${scope.kitchen_id} returning 1`),
+		run: (tx, scope) => deleteRaw(tx, sql`delete from inventory.stock_movement where location_id in ${trainingLocations(scope)} returning 1`),
 	},
 	{
 		table: "inventory.stock_issue_request",
-		run: (tx, scope) => deleteRaw(tx, sql`delete from inventory.stock_issue_request where kitchen_id = ${scope.kitchen_id} returning 1`),
+		run: (tx, scope) => deleteRaw(tx, sql`delete from inventory.stock_issue_request where location_id in ${trainingLocations(scope)} returning 1`),
 	},
 	{
 		table: "inventory.count_scope_item",
-		run: (tx, scope) => deleteRaw(tx, sql`delete from inventory.count_scope_item where kitchen_id = ${scope.kitchen_id} returning 1`),
+		run: (tx, scope) => deleteRaw(tx, sql`delete from inventory.count_scope_item where location_id in ${trainingLocations(scope)} returning 1`),
 	},
 	{
 		table: "inventory.inventory_count",
-		run: (tx, scope) => deleteRaw(tx, sql`delete from inventory.inventory_count where kitchen_id = ${scope.kitchen_id} returning 1`),
+		run: (tx, scope) => deleteRaw(tx, sql`delete from inventory.inventory_count where location_id in ${trainingLocations(scope)} returning 1`),
 	},
 	{
 		table: "inventory.stock_cost",
-		run: (tx, scope) => deleteRaw(tx, sql`delete from inventory.stock_cost where kitchen_id = ${scope.kitchen_id} returning 1`),
+		run: (tx, scope) => deleteRaw(tx, sql`delete from inventory.stock_cost where location_id in ${trainingLocations(scope)} returning 1`),
 	},
-	{ table: "inventory.stock_lot", run: (tx, scope) => deleteRaw(tx, sql`delete from inventory.stock_lot where kitchen_id = ${scope.kitchen_id} returning 1`) },
+	{
+		table: "inventory.stock_lot",
+		run: (tx, scope) => deleteRaw(tx, sql`delete from inventory.stock_lot where location_id in ${trainingLocations(scope)} returning 1`),
+	},
 	{
 		table: "inventory.monthly_closing",
-		run: (tx, scope) => deleteRaw(tx, sql`delete from inventory.monthly_closing where kitchen_id = ${scope.kitchen_id} returning 1`),
+		run: (tx, scope) => deleteRaw(tx, sql`delete from inventory.monthly_closing where location_id in ${trainingLocations(scope)} returning 1`),
 	},
 	// OF antes do empenho (FK NO ACTION), que sai no bloco de execução orçamentária.
 	{
 		table: "procurement.supply_order",
-		run: (tx, scope) => deleteRaw(tx, sql`delete from procurement.supply_order where kitchen_id = ${scope.kitchen_id} returning 1`),
+		run: (tx, scope) => deleteRaw(tx, sql`delete from procurement.supply_order where location_id in ${trainingLocations(scope)} returning 1`),
 	},
 	// ── Exigência de equipamento das receitas locais ──
 	// Antes das etapas e das receitas: a linha referencia as duas, e os FKs são NO ACTION.
@@ -526,16 +540,17 @@ const RESET_STEPS: ResetStep[] = [
 		run: (tx, scope) =>
 			deleteRaw(
 				tx,
-				sql`delete from inventory.receipt_scan_event where receipt_id in (select id from inventory.goods_receipt where kitchen_id = ${scope.kitchen_id}) returning 1`
+				sql`delete from inventory.receipt_scan_event where receipt_id in (select id from inventory.goods_receipt where location_id in ${trainingLocations(scope)}) returning 1`
 			),
 	},
 	{
 		table: "inventory.goods_receipt",
-		run: (tx, scope) => deleteRaw(tx, sql`delete from inventory.goods_receipt where kitchen_id = ${scope.kitchen_id} returning 1`),
+		run: (tx, scope) => deleteRaw(tx, sql`delete from inventory.goods_receipt where location_id in ${trainingLocations(scope)} returning 1`),
 	},
 	{
 		table: "inventory.nfe_document",
-		run: (tx, scope) => deleteRaw(tx, sql`delete from inventory.nfe_document where kitchen_id = ${scope.kitchen_id} or unit_id = ${scope.unit_id} returning 1`),
+		run: (tx, scope) =>
+			deleteRaw(tx, sql`delete from inventory.nfe_document where location_id in ${trainingLocations(scope)} or unit_id = ${scope.unit_id} returning 1`),
 	},
 	{
 		table: "procurement.contract_designation",

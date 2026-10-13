@@ -31,7 +31,7 @@ function AuthLayout() {
 				<div className="w-full max-w-[380px] space-y-8">
 					<div className="space-y-1">
 						<p className="font-mono text-base font-bold tracking-widest uppercase text-foreground">SISPROV</p>
-						<p className="text-caption text-muted-foreground">Sistema de Provisões. Fardamento gratuito, Projeto SIA.</p>
+						<p className="text-caption text-muted-foreground">Sistema de Provisões. Estoque e fardamento gratuito.</p>
 					</div>
 					<Outlet />
 				</div>

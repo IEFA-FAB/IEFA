@@ -2,12 +2,12 @@
  * PBAC do SISPROV no cliente: leitura das permissões do próprio usuário para guards de rota e
  * renderização condicional. Wrapper fino: a engine (`hasPermission`, `hasAnyPermission`) e a
  * config das query options (`myModulePermissionsQueryConfig`) vêm de @iefa/pbac; aqui só
- * amarramos os TRÊS módulos do app ao React Query. O servidor resolve as permissões pela sessão.
+ * amarramos os três módulos do app (`storage`, `sisprov-planning`, `sisprov-admin`) ao React Query. O servidor resolve as permissões pela sessão.
  */
 
 import type { AppModule, UserPermission } from "@iefa/pbac"
 import { hasAnyPermission, hasPermission, myModulePermissionsQueryConfig } from "@iefa/pbac"
-import { SISPROV_ADMIN_MODULE, SISPROV_GRANT_ADMIN_LEVEL, SISPROV_MODULES, SISPROV_PLANNING_MODULE, SISPROV_SUPPLY_MODULE } from "@iefa/sisprov-domain/modules"
+import { SISPROV_ADMIN_MODULE, SISPROV_GRANT_ADMIN_LEVEL, SISPROV_MODULES, SISPROV_PLANNING_MODULE, SISPROV_STOCK_MODULE } from "@iefa/sisprov-domain/modules"
 import type { QueryClient } from "@tanstack/react-query"
 import { queryOptions, useQuery } from "@tanstack/react-query"
 import { redirect } from "@tanstack/react-router"
@@ -30,8 +30,8 @@ export function useSisprovAccess() {
 		isError,
 		canPlan: hasPermission(permissions, SISPROV_PLANNING_MODULE, 1),
 		canPlanWrite: hasPermission(permissions, SISPROV_PLANNING_MODULE, 2),
-		canSupply: hasPermission(permissions, SISPROV_SUPPLY_MODULE, 1),
-		canSupplyWrite: hasPermission(permissions, SISPROV_SUPPLY_MODULE, 2),
+		canStock: hasPermission(permissions, SISPROV_STOCK_MODULE, 1),
+		canStockWrite: hasPermission(permissions, SISPROV_STOCK_MODULE, 2),
 		/** Gestão sistêmica da SDAB. */
 		canAdmin: hasPermission(permissions, SISPROV_ADMIN_MODULE, 2),
 		/** Pode gerenciar os acessos do SISPROV. */

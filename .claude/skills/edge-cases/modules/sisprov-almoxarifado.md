@@ -1,14 +1,20 @@
 # SISPROV — Almoxarifado (OF recebida, estoque da OM, distribuição, troca e devolução)
 
-Hipóteses a verificar. O módulo está em fundação (`openspec/changes/sisprov-foundation`); o
-estoque de fardamento só opera depois que o ledger do núcleo aceitar itens de fardamento
-(change `sisprov-core-inventory`). Os casos abaixo vêm do legado (OS 11, 12, 19) e da análise do
-projeto, registrados antes das telas.
+Hipóteses a verificar. O estoque é um só, de toda classe (`inventory`, dono SISPROV); este arquivo
+cobre os locais que não são rancho (almoxarifado da OM, depósito). O rancho continua em
+`modules/estoque.md`. As telas do fardamento estão em fundação
+(`openspec/changes/sisprov-foundation`). Os casos abaixo vêm do legado (OS 11, 12, 19) e da análise
+do projeto, registrados antes das telas.
 
 ### ALM-ACE-01 — "Sou almoxarife e também elo da minha OM"
 - **Realidade:** OM pequena; a mesma pessoa recebe a OF e informa a previsão.
-- **O sistema precisa:** dois grants (`sisprov-supply` e `sisprov-planning`) na mesma OM; um não implica o outro.
+- **O sistema precisa:** dois grants (`storage` e `sisprov-planning`) na mesma OM; um não implica o outro.
 - **Cobertura:** `packages/sisprov-domain/src/guards/require-permission.test.ts › papéis são independentes na mesma OM`.
+
+### ALM-ACE-02 — "Sou do rancho e não quero ver fardamento"
+- **Realidade:** o encarregado do rancho tem `storage` na cozinha e abre o estoque no sisub.
+- **O sistema precisa:** o local da cozinha só guarda alimentação e auxiliar; item de outra classe é recusado pelo banco, e a tela do sisub não oferece nada além do que o local guarda.
+- **Cobertura:** trava `inventory.stock_class_guard` (migration `inventory_multiclass`); teste de integração **LACUNA** até o apply.
 
 ### ALM-OF-01 — "A OF chegou com menos do que o emitido"
 - **Realidade:** o depósito separou 180 das 200 camisas.
@@ -27,7 +33,7 @@ projeto, registrados antes das telas.
 
 ### ALM-DST-02 — "O tamanho da ficha não serviu na hora"
 - **Realidade:** ficha dizia M; o militar provou e precisa de G.
-- **O sistema precisa:** troca imediata com motivo (`issue_return` + nova `issue`), e a ficha de tamanhos é atualizada com a origem "almoxarifado".
+- **O sistema precisa:** troca imediata com motivo (devolução + nova saída no ledger), e a ficha de tamanhos é atualizada com a origem "almoxarifado".
 - **Cobertura:** **LACUNA** (change `sisprov-distribution`).
 
 ### ALM-DST-03 — "Militar pede item fora do planejamento"

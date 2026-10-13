@@ -17,7 +17,7 @@ import { Route as HealthRouteImport } from './routes/health'
 import { Route as ProtectedAdminRouteRouteImport } from './routes/_protected/admin/route'
 import { Route as ProtectedHubRouteImport } from './routes/_protected/hub'
 import { Route as ProtectedPlanningRouteRouteImport } from './routes/_protected/planning/route'
-import { Route as ProtectedSupplyRouteRouteImport } from './routes/_protected/supply/route'
+import { Route as ProtectedStockRouteRouteImport } from './routes/_protected/stock/route'
 import { Route as PublicPoliticaDeCookiesRouteImport } from './routes/_public/politica-de-cookies'
 import { Route as PublicPoliticaDePrivacidadeRouteImport } from './routes/_public/politica-de-privacidade'
 import { Route as PublicTermosDeUsoRouteImport } from './routes/_public/termos-de-uso'
@@ -25,7 +25,7 @@ import { Route as AuthIndexRouteImport } from './routes/auth/index'
 import { Route as ProtectedAdminIndexRouteImport } from './routes/_protected/admin/index'
 import { Route as ProtectedAdminPermissoesRouteImport } from './routes/_protected/admin/permissoes'
 import { Route as ProtectedPlanningIndexRouteImport } from './routes/_protected/planning/index'
-import { Route as ProtectedSupplyIndexRouteImport } from './routes/_protected/supply/index'
+import { Route as ProtectedStockIndexRouteImport } from './routes/_protected/stock/index'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -65,9 +65,9 @@ const ProtectedPlanningRouteRoute = ProtectedPlanningRouteRouteImport.update({
   path: '/planning',
   getParentRoute: () => ProtectedRouteRoute,
 } as any)
-const ProtectedSupplyRouteRoute = ProtectedSupplyRouteRouteImport.update({
-  id: '/supply',
-  path: '/supply',
+const ProtectedStockRouteRoute = ProtectedStockRouteRouteImport.update({
+  id: '/stock',
+  path: '/stock',
   getParentRoute: () => ProtectedRouteRoute,
 } as any)
 const PublicPoliticaDeCookiesRoute = PublicPoliticaDeCookiesRouteImport.update({
@@ -107,10 +107,10 @@ const ProtectedPlanningIndexRoute = ProtectedPlanningIndexRouteImport.update({
   path: '/',
   getParentRoute: () => ProtectedPlanningRouteRoute,
 } as any)
-const ProtectedSupplyIndexRoute = ProtectedSupplyIndexRouteImport.update({
+const ProtectedStockIndexRoute = ProtectedStockIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => ProtectedSupplyRouteRoute,
+  getParentRoute: () => ProtectedStockRouteRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -119,7 +119,7 @@ export interface FileRoutesByFullPath {
   '/health': typeof HealthRoute
   '/admin': typeof ProtectedAdminRouteRouteWithChildren
   '/planning': typeof ProtectedPlanningRouteRouteWithChildren
-  '/supply': typeof ProtectedSupplyRouteRouteWithChildren
+  '/stock': typeof ProtectedStockRouteRouteWithChildren
   '/hub': typeof ProtectedHubRoute
   '/politica-de-cookies': typeof PublicPoliticaDeCookiesRoute
   '/politica-de-privacidade': typeof PublicPoliticaDePrivacidadeRoute
@@ -128,7 +128,7 @@ export interface FileRoutesByFullPath {
   '/admin/permissoes': typeof ProtectedAdminPermissoesRoute
   '/admin/': typeof ProtectedAdminIndexRoute
   '/planning/': typeof ProtectedPlanningIndexRoute
-  '/supply/': typeof ProtectedSupplyIndexRoute
+  '/stock/': typeof ProtectedStockIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -141,7 +141,7 @@ export interface FileRoutesByTo {
   '/admin/permissoes': typeof ProtectedAdminPermissoesRoute
   '/admin': typeof ProtectedAdminIndexRoute
   '/planning': typeof ProtectedPlanningIndexRoute
-  '/supply': typeof ProtectedSupplyIndexRoute
+  '/stock': typeof ProtectedStockIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -152,7 +152,7 @@ export interface FileRoutesById {
   '/health': typeof HealthRoute
   '/_protected/admin': typeof ProtectedAdminRouteRouteWithChildren
   '/_protected/planning': typeof ProtectedPlanningRouteRouteWithChildren
-  '/_protected/supply': typeof ProtectedSupplyRouteRouteWithChildren
+  '/_protected/stock': typeof ProtectedStockRouteRouteWithChildren
   '/_protected/hub': typeof ProtectedHubRoute
   '/_public/politica-de-cookies': typeof PublicPoliticaDeCookiesRoute
   '/_public/politica-de-privacidade': typeof PublicPoliticaDePrivacidadeRoute
@@ -161,7 +161,7 @@ export interface FileRoutesById {
   '/_protected/admin/permissoes': typeof ProtectedAdminPermissoesRoute
   '/_protected/admin/': typeof ProtectedAdminIndexRoute
   '/_protected/planning/': typeof ProtectedPlanningIndexRoute
-  '/_protected/supply/': typeof ProtectedSupplyIndexRoute
+  '/_protected/stock/': typeof ProtectedStockIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -171,7 +171,7 @@ export interface FileRouteTypes {
     | '/health'
     | '/admin'
     | '/planning'
-    | '/supply'
+    | '/stock'
     | '/hub'
     | '/politica-de-cookies'
     | '/politica-de-privacidade'
@@ -180,7 +180,7 @@ export interface FileRouteTypes {
     | '/admin/permissoes'
     | '/admin/'
     | '/planning/'
-    | '/supply/'
+    | '/stock/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -193,7 +193,7 @@ export interface FileRouteTypes {
     | '/admin/permissoes'
     | '/admin'
     | '/planning'
-    | '/supply'
+    | '/stock'
   id:
     | '__root__'
     | '/'
@@ -203,7 +203,7 @@ export interface FileRouteTypes {
     | '/health'
     | '/_protected/admin'
     | '/_protected/planning'
-    | '/_protected/supply'
+    | '/_protected/stock'
     | '/_protected/hub'
     | '/_public/politica-de-cookies'
     | '/_public/politica-de-privacidade'
@@ -212,7 +212,7 @@ export interface FileRouteTypes {
     | '/_protected/admin/permissoes'
     | '/_protected/admin/'
     | '/_protected/planning/'
-    | '/_protected/supply/'
+    | '/_protected/stock/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -281,11 +281,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedPlanningRouteRouteImport
       parentRoute: typeof ProtectedRouteRoute
     }
-    '/_protected/supply': {
-      id: '/_protected/supply'
-      path: '/supply'
-      fullPath: '/supply'
-      preLoaderRoute: typeof ProtectedSupplyRouteRouteImport
+    '/_protected/stock': {
+      id: '/_protected/stock'
+      path: '/stock'
+      fullPath: '/stock'
+      preLoaderRoute: typeof ProtectedStockRouteRouteImport
       parentRoute: typeof ProtectedRouteRoute
     }
     '/_public/politica-de-cookies': {
@@ -337,12 +337,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedPlanningIndexRouteImport
       parentRoute: typeof ProtectedPlanningRouteRoute
     }
-    '/_protected/supply/': {
-      id: '/_protected/supply/'
+    '/_protected/stock/': {
+      id: '/_protected/stock/'
       path: '/'
-      fullPath: '/supply/'
-      preLoaderRoute: typeof ProtectedSupplyIndexRouteImport
-      parentRoute: typeof ProtectedSupplyRouteRoute
+      fullPath: '/stock/'
+      preLoaderRoute: typeof ProtectedStockIndexRouteImport
+      parentRoute: typeof ProtectedStockRouteRoute
     }
   }
 }
@@ -374,28 +374,28 @@ const ProtectedPlanningRouteRouteWithChildren =
     ProtectedPlanningRouteRouteChildren,
   )
 
-interface ProtectedSupplyRouteRouteChildren {
-  ProtectedSupplyIndexRoute: typeof ProtectedSupplyIndexRoute
+interface ProtectedStockRouteRouteChildren {
+  ProtectedStockIndexRoute: typeof ProtectedStockIndexRoute
 }
 
-const ProtectedSupplyRouteRouteChildren: ProtectedSupplyRouteRouteChildren = {
-  ProtectedSupplyIndexRoute: ProtectedSupplyIndexRoute,
+const ProtectedStockRouteRouteChildren: ProtectedStockRouteRouteChildren = {
+  ProtectedStockIndexRoute: ProtectedStockIndexRoute,
 }
 
-const ProtectedSupplyRouteRouteWithChildren =
-  ProtectedSupplyRouteRoute._addFileChildren(ProtectedSupplyRouteRouteChildren)
+const ProtectedStockRouteRouteWithChildren =
+  ProtectedStockRouteRoute._addFileChildren(ProtectedStockRouteRouteChildren)
 
 interface ProtectedRouteRouteChildren {
   ProtectedAdminRouteRoute: typeof ProtectedAdminRouteRouteWithChildren
   ProtectedPlanningRouteRoute: typeof ProtectedPlanningRouteRouteWithChildren
-  ProtectedSupplyRouteRoute: typeof ProtectedSupplyRouteRouteWithChildren
+  ProtectedStockRouteRoute: typeof ProtectedStockRouteRouteWithChildren
   ProtectedHubRoute: typeof ProtectedHubRoute
 }
 
 const ProtectedRouteRouteChildren: ProtectedRouteRouteChildren = {
   ProtectedAdminRouteRoute: ProtectedAdminRouteRouteWithChildren,
   ProtectedPlanningRouteRoute: ProtectedPlanningRouteRouteWithChildren,
-  ProtectedSupplyRouteRoute: ProtectedSupplyRouteRouteWithChildren,
+  ProtectedStockRouteRoute: ProtectedStockRouteRouteWithChildren,
   ProtectedHubRoute: ProtectedHubRoute,
 }
 

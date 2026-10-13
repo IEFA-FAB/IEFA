@@ -28,7 +28,9 @@ import {
 const GLOBAL_SCOPE = "global"
 
 /**
- * Concessão e revogação dos acessos `sisprov-*`. Só módulos deste app; par (módulo, nível)
+ * Concessão e revogação dos acessos do SISPROV (`storage`, `sisprov-planning`, `sisprov-admin`).
+ * O `storage` daqui é por OM ou global; o grant por cozinha é do sisub e aparece só para leitura.
+ * Par (módulo, nível)
  * validado no servidor pelo mesmo schema que tipa o seletor aqui, para uma combinação que o
  * servidor recusa não chegar a existir no menu.
  */
@@ -36,7 +38,7 @@ export function SisprovPermissionsManager() {
 	const qc = useQueryClient()
 	const [email, setEmail] = useState("")
 	const [selected, setSelected] = useState<SisprovUserSearchResult | null>(null)
-	const [module, setModule] = useState<SisprovModule>("sisprov-supply")
+	const [module, setModule] = useState<SisprovModule>("storage")
 	const [level, setLevel] = useState<number>(1)
 	const [scope, setScope] = useState<string | null>(null)
 
@@ -88,6 +90,8 @@ export function SisprovPermissionsManager() {
 	const levelsFor = SISPROV_MODULE_LEVELS[module]
 	const effectiveLevel = levelsFor.includes(level) ? level : (levelsFor[0] as number)
 	const unitName = (unitId: number | null) => (unitId === null ? "Toda a rede" : (units.data?.units.find((u) => u.id === unitId)?.code ?? `OM ${unitId}`))
+	const scopeName = (row: { unit_id: number | null; kitchen_id: number | null }) =>
+		row.kitchen_id !== null ? `Cozinha ${row.kitchen_id} (gerido no SISUB)` : unitName(row.unit_id)
 	// Escopo padrão dentro da cobertura: global só para o administrador global; o escopado começa
 	// na primeira OM que alcança. Sem isso a concessão sairia com `unitId: null` e o servidor recusaria.
 	const canGrantGlobal = units.data?.coverage === "all"
@@ -99,7 +103,7 @@ export function SisprovPermissionsManager() {
 		<div className="space-y-6">
 			<PageHeader
 				title="Permissões"
-				description="Conceda e revogue os papéis do SISPROV: Planejamento (elo na OM), Almoxarifado (OM) e Administração (SDAB). Grant e registro de auditoria entram na mesma transação."
+				description="Conceda e revogue os papéis do SISPROV: Estoque (OM ou rede), Planejamento (elo na OM) e Administração (SDAB). Grant e registro de auditoria entram na mesma transação."
 			/>
 
 			<Card>
@@ -170,14 +174,16 @@ export function SisprovPermissionsManager() {
 													{row.level === 0 ? "Bloqueado" : sisprovLevelLabel(row.module as SisprovModule, row.level)}
 												</Badge>
 											</ItemTitle>
-											<ItemDescription>{unitName(row.unit_id)}</ItemDescription>
+											<ItemDescription>{scopeName(row)}</ItemDescription>
 										</ItemContent>
-										<ItemActions>
-											<Button variant="ghost" size="sm" onClick={() => revoke.mutate(row.id)} disabled={revoke.isPending} aria-label="Revogar este acesso">
-												<Trash2 className="size-4" />
-												Revogar
-											</Button>
-										</ItemActions>
+										{row.kitchen_id === null && (
+											<ItemActions>
+												<Button variant="ghost" size="sm" onClick={() => revoke.mutate(row.id)} disabled={revoke.isPending} aria-label="Revogar este acesso">
+													<Trash2 className="size-4" />
+													Revogar
+												</Button>
+											</ItemActions>
+										)}
 									</Item>
 								))}
 							</ItemGroup>

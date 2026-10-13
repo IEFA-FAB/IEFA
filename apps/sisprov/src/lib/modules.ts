@@ -9,7 +9,7 @@
 
 import type { UserPermission } from "@iefa/pbac"
 import { hasPermission } from "@iefa/pbac"
-import { SISPROV_ADMIN_MODULE, SISPROV_MODULE_LABELS, SISPROV_PLANNING_MODULE, SISPROV_SUPPLY_MODULE, type SisprovModule } from "@iefa/sisprov-domain/modules"
+import { SISPROV_ADMIN_MODULE, SISPROV_MODULE_LABELS, SISPROV_PLANNING_MODULE, SISPROV_STOCK_MODULE, type SisprovModule } from "@iefa/sisprov-domain/modules"
 import { CalendarRange, KeyRound, type LucideIcon, PackageOpen, ShieldUser } from "lucide-react"
 
 export type NavModule = {
@@ -21,7 +21,7 @@ export type NavModule = {
 	description: string
 	icon: LucideIcon
 	/** Rota de entrada e prefixo exclusivo. */
-	basePath: "/planning" | "/supply" | "/admin"
+	basePath: "/stock" | "/planning" | "/admin"
 	/** Nível mínimo do módulo PBAC para entrar. */
 	minLevel: 1 | 2
 	/** Cor do grupo, no vocabulário de tokens do hub do sisub. */
@@ -29,6 +29,16 @@ export type NavModule = {
 }
 
 export const NAV_MODULES: readonly NavModule[] = [
+	{
+		id: SISPROV_STOCK_MODULE,
+		label: SISPROV_MODULE_LABELS[SISPROV_STOCK_MODULE],
+		caption: "Estoque de toda classe",
+		description: "Locais de estoque que o seu acesso alcança (depósito, almoxarifado, rancho), com as classes que cada um guarda.",
+		icon: PackageOpen,
+		basePath: "/stock",
+		minLevel: 1,
+		color: "warning",
+	},
 	{
 		id: SISPROV_PLANNING_MODULE,
 		label: SISPROV_MODULE_LABELS[SISPROV_PLANNING_MODULE],
@@ -38,16 +48,6 @@ export const NAV_MODULES: readonly NavModule[] = [
 		basePath: "/planning",
 		minLevel: 1,
 		color: "primary",
-	},
-	{
-		id: SISPROV_SUPPLY_MODULE,
-		label: SISPROV_MODULE_LABELS[SISPROV_SUPPLY_MODULE],
-		caption: "Almoxarifado da OM",
-		description: "Ordens de fornecimento recebidas, estoque de fardamento da OM, distribuição ao militar, troca e devolução.",
-		icon: PackageOpen,
-		basePath: "/supply",
-		minLevel: 1,
-		color: "warning",
 	},
 	{
 		id: SISPROV_ADMIN_MODULE,

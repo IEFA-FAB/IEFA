@@ -27,6 +27,14 @@ export function getCoreReadClient() {
 }
 
 /**
+ * Cliente service role apontando para o schema `inventory`: o estoque de toda classe, de que o
+ * SISPROV é dono (design D1). Escrita no ledger só pelas funções `inventory.*`, que o banco exige.
+ */
+export function getInventoryClient() {
+	return createServiceRoleClient({ url: url(), secretKey: secretKey(), schema: "inventory" })
+}
+
+/**
  * Cliente Supabase SSR para autenticação: lê e escreve cookies de sessão, necessário para
  * `auth.getUser()` no servidor. Use APENAS em `auth.fn.ts` e nos gates.
  */

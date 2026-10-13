@@ -7,9 +7,8 @@
     "build": "bunx --bun vite build",
     "serve": "bunx --bun vite preview",
     "format": "biome format",
-    "lint": "biome lint && bun ../../scripts/lint-tailwind.ts sisprov",
-    "check": "biome check",
-    "typecheck": "tsc --noEmit",
+    "lint": "biome check && bun ../../scripts/lint-tailwind.ts sisprov",
+    "typecheck": "bun check",
     "test": "bun test --no-env-file",
     "validate-env": "bun run src/env.ts"
   },

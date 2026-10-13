@@ -10,7 +10,7 @@
 
 ### 2. Código do estoque
 
-- [ ] 2.1 [sisprov-domain] Subpath `inventory` com a lógica pura que sai do `sisub-domain` (`stock-math`, `count-math`, `issue-variance`, `receipt-lots`, `receiving-*`, `nfe-*`, `inventory-vocabulary`, `replenishment`) e `requireStockLocation`
+- [ ] 2.1 [sisprov-domain] `requireStockLocation` (o gate do local de estoque, para as duas lentes)
 - [ ] 2.2 [sisub-domain] Importa do `sisprov-domain`; `production-issue` e o reset de treino passam a item e local
 - [ ] 2.3 [sisub] Server functions de estoque e rotas `/storage/$kitchenId` resolvem cozinha → local e leem/escrevem `location_id`/`item_id`; gate por local
 - [ ] 2.4 [sisub] Testes unitários e de integração de estoque no eixo novo
@@ -45,5 +45,7 @@
 - [ ] 6.3 [root] `/code-review` com os achados publicados no PR
 
 ## Changes seguintes
+
+`sisprov-inventory-package`: a lógica pura do estoque (`stock-math`, `count-math`, `issue-variance`, `receipt-lots`, `receiving-*`, `nfe-*`, `inventory-vocabulary`, `replenishment`) muda de `@iefa/sisub-domain` para `@iefa/sisprov-domain/inventory`, com os utilitários comuns antes, sem mudança de comportamento (design D15).
 
 `sisprov-catalog` (schema da classe fardamento, perfil, grade, embalagem, primeiros locais `unit_storeroom`/`central_depot`), `sisprov-demand-groups`, `sisprov-size-records`, `sisprov-size-curve`, `core-sigpes-sync`, `sisprov-engine` (necessidade líquida → OF), `sisprov-distribution` (saída ao militar).

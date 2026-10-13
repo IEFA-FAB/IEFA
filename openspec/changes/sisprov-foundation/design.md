@@ -162,6 +162,8 @@ A lógica pura do estoque (`stock-math`, `count-math`, `issue-variance`, `receip
 
 As server functions do sisub em `apps/sisub/src/server/*` continuam lá (são a lente do rancho), lendo e escrevendo pelas funções do `inventory`.
 
+A mudança de pacote vem no PR seguinte, sem mudança de comportamento: os arquivos dependem de utilitários que o sisub usa em toda parte (`civil-date`, `conditioning`), que precisam ir antes para um lugar comum. Este PR muda o eixo (local, item) e cria no `sisprov-domain` o guard do local (`requireStockLocation`); a mudança de pacote, sozinha, fica revisável.
+
 ### D16. Ordem de fornecimento por local
 
 `procurement.supply_order.kitchen_id` → `location_id` (local de destino). A OF de alimentação continua indo para o local da cozinha; a de fardamento vai para o almoxarifado da OM ou para o depósito central. `kitchen_demand_forecast` e as estimativas de quantidade (`quantity_estimate_*`) são planejamento da classe alimentação e ficam por cozinha.

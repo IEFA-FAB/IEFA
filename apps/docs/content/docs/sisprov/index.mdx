@@ -1,55 +1,57 @@
 ---
 title: SISPROV
-description: O Sistema de Provisões (fardamento gratuito) do Projeto SIA — o que é, como está organizado no monorepo e o que ainda não faz.
+description: O Sistema de Provisões — dono do estoque de toda classe no ERP. O que é, como está organizado no monorepo e o que ainda não faz.
 ---
 
-O **SISPROV** é a frente de **fardamento gratuito** do Projeto SIA (Convênio 001/IEFA/2025, IEFA × FCMF). Ele inverte a lógica de provisão da FAB: em vez de o estoque perseguir o consumo passado, o sistema parte do **efetivo previsto** (incorporação e renovação), aplica o **enxoval** do grupo de demanda e a **curva de tamanhos por gênero**, desconta o estoque da rede e gera a **ordem de fornecimento** ao depósito central, com aprovação humana.
+O **SISPROV** é o Sistema de Provisões: o dono do estoque do ERP, de **toda classe de suprimento**. A alimentação do SISUB é uma classe desse estoque; o fardamento gratuito do Projeto SIA (Convênio 001/IEFA/2025, IEFA × FCMF) é a primeira classe nova. No fundo é um sistema só; para o usuário, cada um vê o recorte do seu domínio: quem é do rancho continua vendo só alimentação, na tela do SISUB.
+
+O estoque vive no schema `inventory`: local de estoque, lote, movimento (ledger imutável), custo médio, contagem, ajuste, fechamento mensal e ordem de fornecimento. O que muda de uma classe para outra é de onde vem a necessidade:
 
 ```
-Efetivo previsto (SIGPES + previsão de incorporação, por OM, posto, quadro, especialidade e gênero)
-  × Enxoval do grupo de demanda (itens, quantidade, frequência de renovação)
-  × Curva de tamanhos (individual → OM → região → global)
-  − Estoque disponível na rede
-  = Necessidade líquida → Ordem de fornecimento (aprovação humana) → Recebimento na OM → Distribuição ao militar
+Alimentação: cardápio da cozinha → necessidade bruta (MRP do SISUB)
+Fardamento:  efetivo previsto × enxoval do grupo de demanda × curva de tamanhos → necessidade bruta
+Toda classe: necessidade bruta − estoque da rede = necessidade líquida → OF → recebimento no local → saída
 ```
 
-O legado (fab-provisao, 2013 a 2015) foi entregue e nunca implantado; serve de **especificação executável**, nunca de dependência. A decisão de plataforma e o desenho da fundação estão em `openspec/changes/sisprov-foundation`.
+O legado (fab-provisao, 2013 a 2015) nunca entrou em produção e não está no ar. É fonte de requisitos, não de decisão. A decisão de plataforma e o desenho estão em `openspec/changes/sisprov-foundation`.
 
 ## Estado
 
 <Callout type="warn">
-**Em fundação.** Nesta versão existem o app, o login, o hub por permissão, os três módulos como casca, a concessão de acessos e o schema `sisprov` vazio. Nenhuma tela de negócio. Cada módulo diz, na própria tela, o que vem a seguir e em que change.
+**Em fundação.** O estoque já é multiclasse (local de estoque, item pelo `core.item`, trava de classe por local). O app tem login, hub por permissão, a lista de locais de estoque alcançáveis, as cascas de Planejamento e Administração e a concessão de acessos. As telas que operam o fardamento chegam com o catálogo.
 </Callout>
 
 ## Papéis e acesso
 
-Três módulos do PBAC, escopados por OM (`unit_id`), com cobertura pela hierarquia de apoio (grant no GAP-SJ cobre IAE, DCTA e IEFA-SJ). Detalhe em [PBAC › Módulos](/docs/pbac/modulos).
+Detalhe em [PBAC › Módulos](/docs/pbac/modulos).
 
-| Módulo | Quem | Nível 1 | Nível 2 | Nível 3 |
-|---|---|---|---|---|
-| `sisprov-planning` | Elo SISPROV na OM | consulta a previsão e a adesão | informa e ajusta a previsão de incorporação da OM | — |
-| `sisprov-supply` | Almoxarifado da OM | consulta OF e estoque | recebe OF, distribui, troca, devolve | — |
-| `sisprov-admin` | SDAB | — | gestão sistêmica (grupos, enxovais, curvas, períodos, aprovação de OF) | gerencia os grants |
+| Módulo | Quem | Escopo | Nível 1 | Nível 2 | Nível 3 |
+|---|---|---|---|---|---|
+| `storage` | Operador de estoque (depósito, almoxarifado, rancho) | cozinha, OM ou rede | consulta | opera: recebe, transfere, conta, distribui | gestão do local: aprova ajuste e contagem |
+| `sisprov-planning` | Elo SISPROV na OM | OM | consulta a previsão e a adesão | informa e ajusta a previsão de incorporação | — |
+| `sisprov-admin` | SDAB | rede (ou OM, se delegada) | — | gestão sistêmica (enxovais, curvas, períodos, aprovação de OF, locais) | gerencia os grants |
 
-O militar que preenche a própria ficha de tamanhos ou confirma o próprio recebimento não tem módulo: é a sessão autenticada, identificada pelo SARAM verificado.
+O escopo por OM desce pela hierarquia de apoio (grant no GAP-SJ cobre IAE, DCTA e IEFA-SJ). O `storage` por cozinha é concedido no SISUB; por OM ou rede, no SISPROV. O militar que preenche a própria ficha de tamanhos ou confirma o próprio recebimento não tem módulo: é a sessão autenticada, identificada pelo SARAM verificado.
 
 ## Como está organizado
 
 | Peça | Onde | Observação |
 |---|---|---|
-| App | `apps/sisprov` | TanStack Start + Nitro; design system do sisub com contrato próprio (`STYLE_CONTRACT.md`) |
-| Domínio | `packages/sisprov-domain` | Mesma estrutura do `sisub-domain`; módulos, guards por papel; operations chegam com o catálogo |
-| Schema | `sisprov` | Criado vazio; tabela só nasce depois de declarada no guard de reset de treino do sisub |
-| Item de fardamento | `core.item` (`kind = material`) + perfil em `sisprov` | Uma identidade, três camadas: núcleo, regulamento (`rumaer.piece`), grade de tamanhos |
+| Estoque | schema `inventory` | Um estoque para toda classe, chave (local, item) |
+| Local de estoque | `inventory.stock_location` | OM dona, nível (depósito central, almoxarifado, cozinha) e classes que guarda; um por cozinha, criado com ela |
+| Item | `core.item` | A classe é `catalog_scope`; o perfil de cada classe fica no schema dela (alimentação em `kitchen`) |
+| App | `apps/sisprov` | TanStack Start + Nitro; design system do SISUB com contrato próprio (`STYLE_CONTRACT.md`) |
+| Domínio | `packages/sisprov-domain` | Módulos, guards (inclusive o do local de estoque) e a lógica do estoque |
+| Lente da alimentação | `apps/sisub`, rotas `/storage/$kitchenId` | Opera o local da cozinha |
 | Glossário | `openspec/changes/sisprov-foundation/specs/sisprov-glossary` | Um nome por conceito, antes da primeira tabela |
 
 ## O que vem a seguir
 
-Na ordem: `sisprov-catalog` (catálogo e grade), `sisprov-demand-groups` (grupos de demanda e enxovais), `sisprov-size-records` (ficha de tamanhos e coleta, com RIPD), `sisprov-size-curve` (curva versionada), `core-sigpes-sync` (efetivo do SIGPES, no núcleo), `sisprov-core-inventory` (o ledger aceita itens de fardamento), `sisprov-engine` (previsão, necessidade líquida, OF), `sisprov-distribution` (distribuição ao militar e aderência).
+Na ordem: `sisprov-catalog` (schema do fardamento, catálogo, grade, embalagem, almoxarifados), `sisprov-demand-groups` (grupos de demanda e enxovais), `sisprov-size-records` (ficha de tamanhos e coleta, com RIPD), `sisprov-size-curve` (curva versionada), `core-sigpes-sync` (efetivo do SIGPES, no núcleo), `sisprov-engine` (necessidade líquida e OF), `sisprov-distribution` (saída ao militar e aderência).
 
 ## O que o SISPROV não faz nesta versão, de propósito
 
-- Não opera a logística física do depósito central (localização, SSCC, separação, portaria): o depósito segue no sistema atual da SDAB; a OF chega por documento acordado e o saldo por carga periódica.
+- Não opera a logística física do depósito central (localização, SSCC, separação, portaria): o depósito segue no sistema atual da SDAB; a OF chega por documento acordado e o saldo por carga periódica, até o depósito operar como local de estoque.
 - Não recebe nota fiscal do SIA: a entrada de material continua no fluxo atual do depósito.
 - Não produz MOMAT, DEMOP nem balanço até a SDAB confirmar a exigência para o estoque da OM.
 - Não carrega efetivo por planilha: a fonte é o SIGPES, pela integração do núcleo.

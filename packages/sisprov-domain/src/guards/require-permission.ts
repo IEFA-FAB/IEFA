@@ -13,7 +13,7 @@
  */
 
 import { hasAnyPermission, hasPermission, type UnitSupportEdge } from "@iefa/pbac"
-import { SISPROV_ADMIN_MODULE, SISPROV_MODULES, SISPROV_PLANNING_MODULE, SISPROV_SUPPLY_MODULE, type SisprovModule } from "../modules.ts"
+import { SISPROV_ADMIN_MODULE, SISPROV_MODULES, SISPROV_PLANNING_MODULE, SISPROV_STOCK_MODULE, type SisprovModule } from "../modules.ts"
 import type { AppModule, PermissionScope, UserContext } from "../types/context.ts"
 import { PermissionDeniedError } from "../types/errors.ts"
 
@@ -67,6 +67,16 @@ function coveringUnits(unitId: number, graph: readonly UnitSupportEdge[] | undef
 	return covering
 }
 
+/** Deny explícito (nível 0) do módulo em alguma OM da cadeia de cobertura. */
+function isDeniedOnChain(ctx: UserContext, module: SisprovModule, covering: readonly number[]): boolean {
+	return ctx.permissions.some((p) => p.module === module && p.level <= 0 && p.unit_id !== null && covering.includes(p.unit_id))
+}
+
+/** Global, escopo direto, ou escopo numa apoiadora que cubra a OM alvo. */
+function isGrantedOnChain(ctx: UserContext, module: SisprovModule, minLevel: 1 | 2 | 3, covering: readonly number[]): boolean {
+	return covering.some((id) => hasPermission(ctx.permissions, module, minLevel, { type: "unit", id }))
+}
+
 function requireSisprovModule(ctx: UserContext, module: SisprovModule, minLevel: 1 | 2 | 3, options: UnitGuardOptions = {}): void {
 	if (options.unitId === undefined) {
 		requirePermission(ctx, module, minLevel)
@@ -76,11 +86,8 @@ function requireSisprovModule(ctx: UserContext, module: SisprovModule, minLevel:
 	const covering = coveringUnits(options.unitId, options.supportGraph)
 	// Deny explícito na OM alvo ou em qualquer apoiadora da cadeia vence: um allow na apoiadora
 	// não pode reabrir o que foi bloqueado embaixo (mesma regra de `resolveModuleUnitCoverage`).
-	const denied = ctx.permissions.some((p) => p.module === module && p.level <= 0 && p.unit_id !== null && covering.includes(p.unit_id))
-	if (denied) throw new PermissionDeniedError(module, minLevel, scope)
-	// Global, escopo direto, ou escopo numa apoiadora que cubra a OM alvo.
-	const granted = covering.some((id) => hasPermission(ctx.permissions, module, minLevel, { type: "unit", id }))
-	if (!granted) throw new PermissionDeniedError(module, minLevel, scope)
+	if (isDeniedOnChain(ctx, module, covering)) throw new PermissionDeniedError(module, minLevel, scope)
+	if (!isGrantedOnChain(ctx, module, minLevel, covering)) throw new PermissionDeniedError(module, minLevel, scope)
 }
 
 /** Elo SISPROV na OM: 1 consulta a previsão, 2 informa e ajusta. */
@@ -88,9 +95,34 @@ export function requirePlanning(ctx: UserContext, minLevel: 1 | 2, options?: Uni
 	requireSisprovModule(ctx, SISPROV_PLANNING_MODULE, minLevel, options)
 }
 
-/** Almoxarifado da OM: 1 consulta OF e estoque, 2 recebe, distribui, troca, devolve. */
-export function requireSupply(ctx: UserContext, minLevel: 1 | 2, options?: UnitGuardOptions): void {
-	requireSisprovModule(ctx, SISPROV_SUPPLY_MODULE, minLevel, options)
+/**
+ * Estoque numa OM (todos os locais dela e das apoiadas): 1 consulta, 2 opera, 3 gestão. Para
+ * operar UM local, use `requireStockLocation`, que também aceita o grant da cozinha do local.
+ */
+export function requireStock(ctx: UserContext, minLevel: 1 | 2 | 3, options?: UnitGuardOptions): void {
+	requireSisprovModule(ctx, SISPROV_STOCK_MODULE, minLevel, options)
+}
+
+/** O local de estoque alvo, como o banco o descreve (`inventory.stock_location`). */
+export type StockLocationTarget = { id: number; unitId: number; kitchenId: number | null }
+
+/**
+ * Estoque num LOCAL (design D3, `stock-ownership`). Passa se o grant `storage` for global, da
+ * cozinha do local, ou de uma OM que cubra a OM do local pela hierarquia de apoio. Deny (nível 0)
+ * na cozinha do local, na OM dele ou em qualquer apoiadora da cadeia vence o allow.
+ *
+ * É o gate das duas lentes: o sisub chega pela cozinha (`/storage/$kitchenId`) com o grant por
+ * cozinha de sempre; o SISPROV chega pelo local com o grant por OM.
+ */
+export function requireStockLocation(ctx: UserContext, minLevel: 1 | 2 | 3, location: StockLocationTarget, supportGraph?: readonly UnitSupportEdge[]): void {
+	const module = SISPROV_STOCK_MODULE
+	const scope: PermissionScope = location.kitchenId === null ? { type: "unit", id: location.unitId } : { type: "kitchen", id: location.kitchenId }
+	const covering = coveringUnits(location.unitId, supportGraph)
+	const kitchenDenied = location.kitchenId !== null && ctx.permissions.some((p) => p.module === module && p.level <= 0 && p.kitchen_id === location.kitchenId)
+	if (kitchenDenied || isDeniedOnChain(ctx, module, covering)) throw new PermissionDeniedError(module, minLevel, scope)
+	const kitchenGranted = location.kitchenId !== null && hasPermission(ctx.permissions, module, minLevel, { type: "kitchen", id: location.kitchenId })
+	if (kitchenGranted || isGrantedOnChain(ctx, module, minLevel, covering)) return
+	throw new PermissionDeniedError(module, minLevel, scope)
 }
 
 /** SDAB: 2 gestão sistêmica, 3 gerenciar grants. Sem `unitId`, exige o grant GLOBAL. */

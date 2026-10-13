@@ -5,8 +5,10 @@ export {
 	requirePlanning,
 	requireSisprovAdmin,
 	requireSisprovApp,
-	requireSupply,
+	requireStock,
+	requireStockLocation,
 	requireUnscopedPermission,
+	type StockLocationTarget,
 	type UnitGuardOptions,
 } from "./guards/index.ts"
 // Módulos
@@ -20,7 +22,7 @@ export {
 	SISPROV_MODULES,
 	SISPROV_OPERATION_MODULES,
 	SISPROV_PLANNING_MODULE,
-	SISPROV_SUPPLY_MODULE,
+	SISPROV_STOCK_MODULE,
 	type SisprovGrantTarget,
 	SisprovGrantTargetSchema,
 	type SisprovModule,

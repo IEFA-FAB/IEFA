@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { GrantNotAllowedError } from "@iefa/pbac"
-import { buildSisprovGrant, buildSisprovRevoke, isSelfAdminRevoke, type SisprovPermissionRow } from "./permission-change"
+import { buildSisprovGrant, buildSisprovRevoke, GrantManagedElsewhereError, isSelfAdminRevoke, type SisprovPermissionRow } from "./permission-change"
 
 const ADMIN = "00000000-0000-4000-8000-00000000000a"
 const OTHER = "00000000-0000-4000-8000-00000000000b"
@@ -24,7 +24,7 @@ function refusal(fn: () => unknown): string | null {
 const row = (over: Partial<SisprovPermissionRow> = {}): SisprovPermissionRow => ({
 	id: "p1",
 	user_id: OTHER,
-	module: "sisprov-supply",
+	module: "storage",
 	level: 2,
 	unit_id: IAE,
 	kitchen_id: null,
@@ -34,12 +34,12 @@ const row = (over: Partial<SisprovPermissionRow> = {}): SisprovPermissionRow => 
 
 describe("buildSisprovGrant", () => {
 	test("o ator é o da sessão; módulo, nível e OM saem do pedido validado", () => {
-		expect(buildSisprovGrant(GLOBAL, { userId: OTHER, module: "sisprov-supply", level: 2, unitId: IAE })).toEqual({
+		expect(buildSisprovGrant(GLOBAL, { userId: OTHER, module: "storage", level: 2, unitId: IAE })).toEqual({
 			actorId: ADMIN,
 			app: "sisprov",
 			action: "grant",
 			targetUserId: OTHER,
-			module: "sisprov-supply",
+			module: "storage",
 			level: 2,
 			unitId: IAE,
 			expiresAt: null,
@@ -53,10 +53,10 @@ describe("buildSisprovGrant", () => {
 	})
 
 	test("administrador escopado concede só na cobertura dele, nunca global nem a si mesmo", () => {
-		expect(refusal(() => buildSisprovGrant(SCOPED, { userId: OTHER, module: "sisprov-supply", level: 2, unitId: IAE }))).toBeNull()
-		expect(refusal(() => buildSisprovGrant(SCOPED, { userId: OTHER, module: "sisprov-supply", level: 2, unitId: GAP_SP }))).toBe("OUTSIDE_COVERAGE")
-		expect(refusal(() => buildSisprovGrant(SCOPED, { userId: OTHER, module: "sisprov-supply", level: 2, unitId: null }))).toBe("GLOBAL_REQUIRES_GLOBAL_ADMIN")
-		expect(refusal(() => buildSisprovGrant(SCOPED, { userId: ADMIN, module: "sisprov-supply", level: 1, unitId: IAE }))).toBe("SELF_REQUIRES_GLOBAL_ADMIN")
+		expect(refusal(() => buildSisprovGrant(SCOPED, { userId: OTHER, module: "storage", level: 2, unitId: IAE }))).toBeNull()
+		expect(refusal(() => buildSisprovGrant(SCOPED, { userId: OTHER, module: "storage", level: 2, unitId: GAP_SP }))).toBe("OUTSIDE_COVERAGE")
+		expect(refusal(() => buildSisprovGrant(SCOPED, { userId: OTHER, module: "storage", level: 2, unitId: null }))).toBe("GLOBAL_REQUIRES_GLOBAL_ADMIN")
+		expect(refusal(() => buildSisprovGrant(SCOPED, { userId: ADMIN, module: "storage", level: 1, unitId: IAE }))).toBe("SELF_REQUIRES_GLOBAL_ADMIN")
 	})
 })
 
@@ -65,7 +65,7 @@ describe("buildSisprovRevoke", () => {
 		expect(buildSisprovRevoke(GLOBAL, row())).toMatchObject({
 			action: "revoke",
 			targetUserId: OTHER,
-			module: "sisprov-supply",
+			module: "storage",
 			unitId: IAE,
 			partition: "allow",
 		})
@@ -79,7 +79,12 @@ describe("buildSisprovRevoke", () => {
 	})
 
 	test("linha de outro app do ERP não é revogável por aqui", () => {
-		expect(() => buildSisprovRevoke(GLOBAL, row({ module: "storage" }))).toThrow("não é um acesso do SISPROV")
+		expect(() => buildSisprovRevoke(GLOBAL, row({ module: "kitchen" }))).toThrow("não é um acesso do SISPROV")
+	})
+
+	test("o storage por cozinha é do SISUB: aparece aqui, mas não sai por aqui", () => {
+		expect(() => buildSisprovRevoke(GLOBAL, row({ unit_id: null, kitchen_id: 920 }))).toThrow(GrantManagedElsewhereError)
+		expect(refusal(() => buildSisprovRevoke(GLOBAL, row({ unit_id: IAE })))).toBeNull()
 	})
 
 	test("isSelfAdminRevoke só reconhece o próprio allow de administração", () => {

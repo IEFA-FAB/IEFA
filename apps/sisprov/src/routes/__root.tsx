@@ -24,7 +24,7 @@ export interface MyRouterContext {
 }
 
 const TITLE = "SISPROV — Sistema de Provisões"
-const DESCRIPTION = "Previsão de demanda e distribuição de fardamento gratuito da FAB. Sistema de uso interno do COMAER."
+const DESCRIPTION = "Sistema de Provisões da FAB: estoque de toda classe de suprimento e fardamento gratuito. Sistema de uso interno do COMAER."
 
 export const Route = createRootRouteWithContext<MyRouterContext>()({
 	beforeLoad: async ({ context }) => {

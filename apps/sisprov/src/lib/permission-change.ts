@@ -59,11 +59,26 @@ export function buildSisprovGrant(actor: { actorId: string; coverage: UnitCovera
 }
 
 /**
+ * O grant existe e é do SISPROV, mas é gerido por outra tela: o `storage` escopado por cozinha (ou
+ * refeitório) é concedido e revogado no sisub, que é a lente do rancho (design D3).
+ */
+export class GrantManagedElsewhereError extends Error {
+	readonly code = "GRANT_MANAGED_ELSEWHERE" as const
+
+	constructor() {
+		super("Este acesso é da cozinha e é gerido na tela de permissões do SISUB.")
+		this.name = "GrantManagedElsewhereError"
+		Object.setPrototypeOf(this, new.target.prototype)
+	}
+}
+
+/**
  * Revogação da LINHA que a tela mostrou: a chave inteira (usuário, módulo, escopo) e o lado dela
  * (allow ou deny). O alvo sai da linha lida no servidor, não do cliente.
  */
 export function buildSisprovRevoke(actor: { actorId: string; coverage: UnitCoverage }, row: SisprovPermissionRow): ChangeModulePermissionInput {
 	if (!isSisprovModule(row.module)) throw new Error("A linha não é um acesso do SISPROV.")
+	if (row.kitchen_id !== null || row.mess_hall_id !== null) throw new GrantManagedElsewhereError()
 	const partition = partitionOfLevel(row.level)
 	assertGrantable(actor, {
 		userId: row.user_id,

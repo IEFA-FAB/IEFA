@@ -28,7 +28,7 @@ Mesma ordem de prioridade do sisub:
 | --- | --- | --- |
 | Escopo na URL | cozinha, refeitório, unidade (`/storage/$kitchenId`) | OM pelo grant; a URL não carrega escopo nesta fundação. Quando as telas de OM chegarem, o padrão é `/<modulo>/$unitId/...`, decidido no change que o criar |
 | Casca | `AppShell` com troca de módulo, paleta de comandos, rascunhos abertos, breadcrumbs derivados | `AppShell` menor: sidebar com um item por módulo acessível, navegação interna do módulo ativo, trilha de dois níveis, usuário e tema. Cresce quando o conteúdo pedir, nunca antes |
-| Hub | grupos de módulos por cor (Usuário, Operacional, Gestão, Governança, Sistema) | três cards, um por papel, nas cores `primary` (Planejamento), `warning` (Almoxarifado), `governance` (Administração); sem grupo |
+| Hub | grupos de módulos por cor (Usuário, Operacional, Gestão, Governança, Sistema) | três cards, um por papel, nas cores `warning` (Estoque), `primary` (Planejamento), `governance` (Administração); sem grupo |
 | Estado vazio de módulo | não existe (módulos cheios) | `ModuleFoundation`: diz o que ainda não existe e em que change chega. Não é "nenhum resultado" |
 | Salvamento | `SAVE_BEHAVIOR.md` (rascunho por conta, autosave, ação nomeada) | adota o mesmo documento quando a primeira tela de edição chegar (`sisprov-catalog`); até lá não há formulário de entidade |
 | Fontes | Manrope + JetBrains Mono (woff2) | iguais, em `public/fonts/` |

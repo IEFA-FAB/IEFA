@@ -105,6 +105,10 @@
       "entry": ["src/index.ts", "src/**/*.test.{ts,tsx}"],
       "project": ["src/**/*.ts"]
     },
+    "packages/sisprov-domain": {
+      "entry": ["src/index.ts", "src/**/*.test.{ts,tsx}"],
+      "project": ["src/**/*.ts"]
+    },
     "packages/sisub-domain": {
       "entry": ["src/index.ts", "src/**/*.test.{ts,tsx}"],
       "project": ["src/**/*.ts"]
