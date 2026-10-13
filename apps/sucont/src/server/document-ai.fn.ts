@@ -48,6 +48,20 @@ export interface DataAnalysisData {
 }
 
 // ── Server Function ──────────────────────────────────────────
+
+/**
+ * Prazo da geração, ABAIXO do `idle_timeout` de 60 s do ALB compartilhado
+ * (`infra/foundation/alb.tf`). Esta server function não manda byte nenhum até terminar:
+ * com o prazo igual ao do ALB (era 60 s), o balanceador cortava primeiro e o usuário via
+ * um 504 em vez da mensagem abaixo. Os 10 s de folga cobrem a gravação do histórico e a
+ * volta da resposta. O caminho de documento mediu 16–22 s com o opus-4-6
+ * (`AI-PROVIDERS.md`, bench de 2026-08-21). Se a geração passar a encostar neste prazo, o
+ * caminho é SSE com keep-alive, como `routes/api/sacdgc/analyze.post.ts`, não subir o número.
+ */
+const GENERATION_DEADLINE_MS = 50_000
+
+const TIMEOUT_MESSAGE = "O processamento demorou mais que o esperado (timeout). Tente com um rascunho mais curto."
+
 export const adaptDraftFn = createServerFn({ method: "POST" })
 	.validator(adaptDraftInputSchema)
 	.handler(async ({ data }) => {
@@ -60,15 +74,37 @@ export const adaptDraftFn = createServerFn({ method: "POST" })
 		// Persona, regras e formato no `system`; o rascunho vai delimitado no `user`.
 		const { system, user } = buildDocumentPrompt({ type, draft, nonce: createPromptNonce() })
 
-		const timeoutPromise = new Promise<never>((_, reject) =>
-			setTimeout(() => reject(new Error("O processamento demorou mais que o esperado (timeout). Tente com um rascunho mais curto.")), 60000)
-		)
+		// O prazo ABORTA a chamada no provider. Um `Promise.race` só com o timer parava de
+		// esperar e deixava o modelo gerando até o fim, contando no teto do usuário por uma
+		// resposta que ninguém ia ler.
+		const generation = new AbortController()
+		const deadline = setTimeout(() => generation.abort(), GENERATION_DEADLINE_MS)
+		// O race com o abort garante o prazo mesmo se um adapter de reserva ignorar o signal.
+		const timedOut = new Promise<never>((_, reject) => {
+			generation.signal.addEventListener("abort", () => reject(new Error(TIMEOUT_MESSAGE)), { once: true })
+		})
 
-		const generated = await Promise.race([
-			// Dono da chamada vem da sessão, nunca do input — é a chave dos tetos por usuário.
-			generateJson<FabDocumentData | DataAnalysisData>({ userId: ctx.userId, system, user, schema: isFab ? fabSchema : analysisSchema }),
-			timeoutPromise,
-		])
+		let generated: FabDocumentData | DataAnalysisData
+		try {
+			generated = await Promise.race([
+				// Dono da chamada vem da sessão, nunca do input — é a chave dos tetos por usuário.
+				generateJson<FabDocumentData | DataAnalysisData>({
+					userId: ctx.userId,
+					system,
+					user,
+					schema: isFab ? fabSchema : analysisSchema,
+					abortController: generation,
+				}),
+				timedOut,
+			])
+		} catch (error) {
+			// O abort também rejeita a chamada do adapter ("Request aborted"): a mensagem que
+			// chega à tela é a do prazo, não a do SDK.
+			if (generation.signal.aborted) throw new Error(TIMEOUT_MESSAGE)
+			throw error
+		} finally {
+			clearTimeout(deadline)
+		}
 
 		// Persiste no histórico de documentos da seção (não bloqueia o retorno em caso de falha).
 		try {

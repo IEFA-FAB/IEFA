@@ -82,12 +82,28 @@ export async function generateText({ userId, user, system }: { userId: string; u
 	return text
 }
 
-/** Geração de saída estruturada (JSON): instrui o modelo com o JSON Schema e parseia. */
-export async function generateJson<T>({ userId, user, system, schema }: { userId: string; user: string; system?: string; schema: unknown }): Promise<T> {
+/**
+ * Geração de saída estruturada (JSON): instrui o modelo com o JSON Schema e parseia.
+ * @param abortController abortá-lo cancela a chamada no provider (o adapter repassa o signal
+ *   ao SDK), em vez de só parar de esperar por ela enquanto o modelo segue gerando.
+ */
+export async function generateJson<T>({
+	userId,
+	user,
+	system,
+	schema,
+	abortController,
+}: {
+	userId: string
+	user: string
+	system?: string
+	schema: unknown
+	abortController?: AbortController
+}): Promise<T> {
 	const adapter = getSucontAdapter(userId)
 	type StructuredArgs = Parameters<ReturnType<typeof getSucontAdapter>["structuredOutput"]>[0]
 	const result = await adapter.structuredOutput({
-		chatOptions: buildOptions(user, system) as unknown as StructuredArgs["chatOptions"],
+		chatOptions: { ...buildOptions(user, system), abortController } as unknown as StructuredArgs["chatOptions"],
 		outputSchema: schema as StructuredArgs["outputSchema"],
 	})
 	return result.data as T

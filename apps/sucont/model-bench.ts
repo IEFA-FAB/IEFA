@@ -23,7 +23,7 @@ import { analysisSchema, fabSchema } from "#/server/document-schemas"
 
 const REGION = "sa-east-1"
 
-/** Teto por chamada. O app tem 60 s no `generateJson`; sem isto uma chamada travada perde o run inteiro. */
+/** Teto por chamada. O app tem 50 s no `document-ai.fn.ts`; sem isto uma chamada travada perde o run inteiro. */
 const DEADLINE_MS = 90_000
 
 const CANDIDATES = [
