@@ -304,6 +304,47 @@ export function hasSaramAction(status: Pick<SaramStatus, "actions"> | null | und
 	return !!status && status.actions.includes(action)
 }
 
+/**
+ * O que a tela "Meu cadastro militar" mostra em cada estado — a mesma regra na página do sisub e no
+ * diálogo do sucont. Só o que deriva do estado: o passo em que a pessoa está (abriu as alternativas,
+ * escolheu o CPF) e de onde vêm as ações são de cada tela.
+ */
+export type SaramPanelLayout = {
+	/**
+	 * Como confirmar o candidato oferecido: `one` é um clique ("Sou eu"); `several` pede a escolha e
+	 * os 4 últimos dígitos do CPF. Vínculo antigo cujo e-mail localiza o dono também confirma (troca o
+	 * legacy por um verificado): um candidato sem dígito de homônimo é um clique, o resto pede os dígitos.
+	 */
+	confirmStep: "one" | "several" | null
+	/** Dados militares a mostrar: só do vínculo (verificado ou antigo) que a conta pode ver. */
+	identity: MilitaryIdentitySummary | null
+	/** Pedido ou contestação em análise. */
+	pendingRequest: SaramLinkRequestSummary | null
+	/** Sem sugestão nem candidato, as alternativas SÃO a tela (não ficam atrás do "Não sou eu"). */
+	alternativesAlwaysOpen: boolean
+}
+
+const ALTERNATIVES_ALWAYS_OPEN: ReadonlySet<SaramLinkStatusName> = new Set(["no_match", "locked_out", "legacy"])
+
+function getConfirmStep(status: SaramStatus): SaramPanelLayout["confirmStep"] {
+	if (status.status === "suggestion") return "one"
+	if (status.status === "homonyms") return "several"
+	const canConfirmLegacy = status.status === "legacy" && hasSaramAction(status, "confirm_candidate") && status.candidates.length > 0
+	if (!canConfirmLegacy) return null
+	return status.requiresCpfSuffix ? "several" : "one"
+}
+
+export function describeSaramPanel(status: SaramStatus): SaramPanelLayout {
+	const showsIdentity = (status.status === "verified" || status.status === "legacy") && status.visible
+	const hasRequest = status.status === "pending_request" || status.status === "contested"
+	return {
+		confirmStep: getConfirmStep(status),
+		identity: showsIdentity ? status.identity : null,
+		pendingRequest: hasRequest ? status.request : null,
+		alternativesAlwaysOpen: ALTERNATIVES_ALWAYS_OPEN.has(status.status),
+	}
+}
+
 /** "NANNI" → "Nanni"; "DA SILVA" → "da Silva". Siglas (posto, OM) não passam por aqui. */
 export function toNameCase(value: string | null | undefined): string {
 	if (!value) return ""

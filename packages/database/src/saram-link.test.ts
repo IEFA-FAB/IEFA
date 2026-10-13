@@ -3,6 +3,7 @@ import {
 	describeAttemptsLeft,
 	describeEmailEligibility,
 	describeSaramOutcome,
+	describeSaramPanel,
 	describeSaramStatus,
 	formatLocalTime,
 	formatMilitaryIdentity,
@@ -268,5 +269,61 @@ describe("visibleSaramOf (espelho de core.visible_saram)", () => {
 		const row = { saram: "1000001", saram_verified_by: "legacy", account_kind: "pessoal" }
 		expect(visibleSaramOf(row, none)).toBe("1000001")
 		expect(visibleSaramOf(row, (s) => s === "1000001")).toBeNull()
+	})
+})
+
+describe("describeSaramPanel", () => {
+	const candidate = { ref: 1, posto: "3S", nomeGuerra: "SILVA", sgOrg: "1º GAP", heldByOther: false, holderVerified: false }
+	const identity = { posto: "3S", nomeGuerra: "SILVA", sgOrg: "1º GAP" }
+	const request = { id: "r1", kind: "link" as const, saram: "1234567", justification: "x", createdAt: "2026-10-01T00:00:00Z", claimVerifiedBy: null }
+
+	test("sugestão confirma com um clique", () => {
+		expect(describeSaramPanel(status({ status: "suggestion" })).confirmStep).toBe("one")
+	})
+	test("homônimos pedem escolha e dígitos", () => {
+		expect(describeSaramPanel(status({ status: "homonyms" })).confirmStep).toBe("several")
+	})
+	test("vínculo antigo com candidato e ação: um clique sem dígito de homônimo", () => {
+		const s = status({ status: "legacy", actions: ["confirm_candidate"], candidates: [candidate], requiresCpfSuffix: false })
+		expect(describeSaramPanel(s).confirmStep).toBe("one")
+	})
+	test("vínculo antigo com candidato e ação: dígitos quando há homônimo", () => {
+		const s = status({ status: "legacy", actions: ["confirm_candidate"], candidates: [candidate], requiresCpfSuffix: true })
+		expect(describeSaramPanel(s).confirmStep).toBe("several")
+	})
+	test("vínculo antigo sem a ação não confirma", () => {
+		expect(describeSaramPanel(status({ status: "legacy", candidates: [candidate] })).confirmStep).toBeNull()
+	})
+	test("vínculo antigo sem candidato não confirma", () => {
+		expect(describeSaramPanel(status({ status: "legacy", actions: ["confirm_candidate"] })).confirmStep).toBeNull()
+	})
+	test("outros estados não confirmam", () => {
+		expect(describeSaramPanel(status({ status: "verified", actions: ["confirm_candidate"], candidates: [candidate] })).confirmStep).toBeNull()
+	})
+	test("dados militares só de vínculo verificado ou antigo visível", () => {
+		expect(describeSaramPanel(status({ status: "verified", visible: true, identity })).identity).toEqual(identity)
+		expect(describeSaramPanel(status({ status: "legacy", visible: true, identity })).identity).toEqual(identity)
+		expect(describeSaramPanel(status({ status: "legacy", visible: false, identity })).identity).toBeNull()
+		expect(describeSaramPanel(status({ status: "suggestion", visible: true, identity })).identity).toBeNull()
+		expect(describeSaramPanel(status({ status: "verified", visible: true, identity: null })).identity).toBeNull()
+	})
+	test("pedido só em análise ou contestação", () => {
+		expect(describeSaramPanel(status({ status: "pending_request", request })).pendingRequest).toEqual(request)
+		expect(describeSaramPanel(status({ status: "contested", request })).pendingRequest).toEqual(request)
+		expect(describeSaramPanel(status({ status: "pending_request", request: null })).pendingRequest).toBeNull()
+		expect(describeSaramPanel(status({ status: "no_match", request })).pendingRequest).toBeNull()
+	})
+	test.each([
+		["no_match", true],
+		["locked_out", true],
+		["legacy", true],
+		["suggestion", false],
+		["homonyms", false],
+		["verified", false],
+		["institutional", false],
+		["pending_request", false],
+		["contested", false],
+	] as const)("alternativas sempre abertas em %s → %p", (name, expected) => {
+		expect(describeSaramPanel(status({ status: name })).alternativesAlwaysOpen).toBe(expected)
 	})
 })
