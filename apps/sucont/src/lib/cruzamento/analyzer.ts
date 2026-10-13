@@ -154,18 +154,18 @@ function ehContaDoPar(contaContabil: string): boolean {
 	return contaContabil === CONTA_EXECUCAO_RESPONSABILIDADE || contaContabil === CONTA_RESPONSABILIDADE
 }
 
-export function analyzeData(records: RawRecord[]): ReportData {
-	const map = new Map<
-		string,
-		{
-			ug8972: Set<string>
-			saldo8972: number
-			has8972: boolean
-			ug8971: Set<string>
-			saldo8971: number
-			has8971: boolean
-		}
-	>()
+/** Acumulado de um conta corrente nas duas contas do par. */
+interface ContaCorrenteEntry {
+	ug8972: Set<string>
+	saldo8972: number
+	has8972: boolean
+	ug8971: Set<string>
+	saldo8971: number
+	has8971: boolean
+}
+
+function aggregateByContaCorrente(records: RawRecord[]): Map<string, ContaCorrenteEntry> {
+	const map = new Map<string, ContaCorrenteEntry>()
 
 	// Conta corrente com alguma linha fora do acompanhamento (a STN) sai INTEIRO da
 	// análise. Descartar só a linha dela desmancharia o par: o lado que sobra vira
@@ -201,23 +201,156 @@ export function analyzeData(records: RawRecord[]): ReportData {
 		}
 	}
 
+	return map
+}
+
+function createUGAnalysis(ug: string): UGAnalysis {
+	const info = UG_DATA[ug]
+	return {
+		ug,
+		ugName: info?.nome || "Desconhecida",
+		orgaoSuperior: info?.orgaoSuperior || "-",
+		ods: info?.ods || "-",
+		conferente: getConferente(ug),
+		status: "REGULAR",
+		inconsistenciesCount: 0,
+		financialImpact: 0,
+		details: [],
+		diagnosis: [],
+	}
+}
+
+/** UG que responde pelo apontamento: a indevida na 8972, senão quem registrou a 8971, senão a da 8972. */
+function pickTargetUG(invalidUGs8972: string[], ugs8971: string[], ugs8972: string[]): string {
+	let targetUG = "NÃO IDENTIFICADA"
+
+	if (invalidUGs8972.length > 0) {
+		targetUG = invalidUGs8972[0]
+	} else if (ugs8971.length > 0) {
+		targetUG = ugs8971[0]
+	} else if (ugs8972.length > 0) {
+		targetUG = ugs8972[0]
+	}
+
+	return targetUG
+}
+
+function classifyContaCorrente(data: ContaCorrenteEntry, hasInvalidUG8972: boolean, val8972: number, val8971: number): AnalysisResult["status"] {
+	if (saldoZerado(val8972) && saldoZerado(val8971)) {
+		return "REGULAR"
+	} else if (hasInvalidUG8972 && !saldoZerado(val8972)) {
+		return "UG INDEVIDA NA 897210300"
+	} else if (!saldosDivergem(val8972, val8971)) {
+		return "REGULAR"
+	} else if (data.has8972 && !data.has8971) {
+		return "AUSÊNCIA NA 897110300"
+	} else if (!data.has8972 && data.has8971) {
+		return "AUSÊNCIA NA 897210300"
+	}
+	return "DIVERGÊNCIA DE SALDO"
+}
+
+/** Compara as duas pernas de um conta corrente e diz qual UG responde pelo resultado. */
+function analyzeContaCorrente(contaCorrente: string, data: ContaCorrenteEntry): { result: AnalysisResult; targetUGs: string[] } {
+	const saldo8972 = data.has8972 ? arredondarCentavos(data.saldo8972) : null
+	const saldo8971 = data.has8971 ? arredondarCentavos(data.saldo8971) : null
+
+	// Ordenar antes de escolher: `Set` preserva ordem de inserção, ou seja, a ordem
+	// das linhas na planilha. Sem isto, com mais de uma UG no mesmo conta corrente a
+	// responsabilidade pelo apontamento mudava conforme o arquivo fosse ordenado.
+	const ugs8972 = Array.from(data.ug8972).sort()
+	const ugs8971 = Array.from(data.ug8971).sort()
+	const invalidUGs8972 = ugs8972.filter((ug) => ug !== UG_AUTORIZADA_EXECUCAO_RESPONSABILIDADE)
+	const hasInvalidUG8972 = invalidUGs8972.length > 0
+
+	const targetUG = pickTargetUG(invalidUGs8972, ugs8971, ugs8972)
+
+	const targetUGs = [targetUG]
+
+	const diferenca = arredondarCentavos(Math.abs((saldo8972 || 0) - (saldo8971 || 0)))
+
+	const val8972 = saldo8972 || 0
+	const val8971 = saldo8971 || 0
+
+	const status = classifyContaCorrente(data, hasInvalidUG8972, val8972, val8971)
+
+	const result: AnalysisResult = {
+		contaCorrente,
+		status,
+		ug8972: Array.from(data.ug8972).join(", ") || "-",
+		saldo8972,
+		ug8971: Array.from(data.ug8971).join(", ") || "-",
+		saldo8971,
+		diferenca,
+	}
+
+	return { result, targetUGs }
+}
+
+function registerInconsistency(ugAnalysis: UGAnalysis, result: AnalysisResult): void {
+	const { status } = result
+	if (status === "REGULAR") return
+
+	ugAnalysis.details.push(result)
+	ugAnalysis.inconsistenciesCount++
+	ugAnalysis.financialImpact += result.diferenca
+
+	if (status.includes("AUSÊNCIA") || status === "UG INDEVIDA NA 897210300") {
+		ugAnalysis.status = "CRÍTICA"
+	} else if (status === "DIVERGÊNCIA DE SALDO" && ugAnalysis.status !== "CRÍTICA") {
+		ugAnalysis.status = "ATENÇÃO"
+	}
+}
+
+/** Causas prováveis por tipo de apontamento, na ordem em que entram no diagnóstico. */
+const CAUSES_BY_STATUS: Record<AnalysisResult["status"], string[]> = {
+	REGULAR: [],
+	"AUSÊNCIA NA 897110300": ["Falta de apropriação da responsabilidade de terceiros (A Receber)", "Baixa indevida na conta 897110300"],
+	"AUSÊNCIA NA 897210300": ["Falta de apropriação da responsabilidade da UG", "Baixa indevida na conta 897210300"],
+	"DIVERGÊNCIA DE SALDO": [
+		"Divergência entre o direito a receber (8971) e a responsabilidade registrada (8972)",
+		"Estorno parcial ou baixa não refletida em ambas as contas",
+	],
+	"UG INDEVIDA NA 897210300": [
+		`Registro na conta ${CONTA_EXECUCAO_RESPONSABILIDADE} por UG diferente da ${UG_AUTORIZADA_EXECUCAO_RESPONSABILIDADE}, única autorizada por definição desta Setorial`,
+	],
+}
+
+function diagnoseUG(details: AnalysisResult[]): string[] {
+	const causes = new Set<string>()
+	for (const detail of details) {
+		for (const cause of CAUSES_BY_STATUS[detail.status]) causes.add(cause)
+	}
+	return Array.from(causes)
+}
+
+function compareByImpact(a: UGAnalysis, b: UGAnalysis): number {
+	if (b.financialImpact !== a.financialImpact) {
+		return b.financialImpact - a.financialImpact
+	}
+	return b.inconsistenciesCount - a.inconsistenciesCount
+}
+
+function buildSynthesis(ranking: UGAnalysis[]): string {
+	const criticalUgs = ranking.filter((u) => u.status === "CRÍTICA").map((u) => u.ug)
+	const topUg = ranking.length > 0 && ranking[0].financialImpact > 0 ? ranking[0].ug : null
+
+	if (criticalUgs.length > 0 && topUg) {
+		return `Verifica-se concentração de inconsistências nas UGs ${criticalUgs.join(", ")}, com maior impacto financeiro na UG ${topUg}, demandando atuação prioritária.`
+	} else if (topUg) {
+		return `Verifica-se inconsistências com maior impacto financeiro na UG ${topUg}, demandando atuação prioritária.`
+	}
+	return "Não foram encontradas inconsistências significativas nas UGs analisadas."
+}
+
+export function analyzeData(records: RawRecord[]): ReportData {
+	const map = aggregateByContaCorrente(records)
+
 	const ugMap = new Map<string, UGAnalysis>()
 
 	const getOrCreateUG = (ug: string) => {
 		if (!ugMap.has(ug)) {
-			const info = UG_DATA[ug]
-			ugMap.set(ug, {
-				ug,
-				ugName: info?.nome || "Desconhecida",
-				orgaoSuperior: info?.orgaoSuperior || "-",
-				ods: info?.ods || "-",
-				conferente: getConferente(ug),
-				status: "REGULAR",
-				inconsistenciesCount: 0,
-				financialImpact: 0,
-				details: [],
-				diagnosis: [],
-			})
+			ugMap.set(ug, createUGAnalysis(ug))
 		}
 		const ugEntry = ugMap.get(ug)
 		if (!ugEntry) throw new Error(`UG ${ug} not found in map after creation`)
@@ -227,125 +360,27 @@ export function analyzeData(records: RawRecord[]): ReportData {
 	for (const [contaCorrente, data] of map.entries()) {
 		if (!data.has8971 && !data.has8972) continue
 
-		let status: AnalysisResult["status"]
-		let diferenca = 0
-
-		const saldo8972 = data.has8972 ? arredondarCentavos(data.saldo8972) : null
-		const saldo8971 = data.has8971 ? arredondarCentavos(data.saldo8971) : null
-
-		// Ordenar antes de escolher: `Set` preserva ordem de inserção, ou seja, a ordem
-		// das linhas na planilha. Sem isto, com mais de uma UG no mesmo conta corrente a
-		// responsabilidade pelo apontamento mudava conforme o arquivo fosse ordenado.
-		const ugs8972 = Array.from(data.ug8972).sort()
-		const ugs8971 = Array.from(data.ug8971).sort()
-		const invalidUGs8972 = ugs8972.filter((ug) => ug !== UG_AUTORIZADA_EXECUCAO_RESPONSABILIDADE)
-		const hasInvalidUG8972 = invalidUGs8972.length > 0
-
-		let targetUG = "NÃO IDENTIFICADA"
-
-		if (invalidUGs8972.length > 0) {
-			targetUG = invalidUGs8972[0]
-		} else if (ugs8971.length > 0) {
-			targetUG = ugs8971[0]
-		} else if (ugs8972.length > 0) {
-			targetUG = ugs8972[0]
-		}
-
-		const targetUGs = [targetUG]
-
-		diferenca = arredondarCentavos(Math.abs((saldo8972 || 0) - (saldo8971 || 0)))
-
-		const val8972 = saldo8972 || 0
-		const val8971 = saldo8971 || 0
-
-		if (saldoZerado(val8972) && saldoZerado(val8971)) {
-			status = "REGULAR"
-		} else if (hasInvalidUG8972 && !saldoZerado(val8972)) {
-			status = "UG INDEVIDA NA 897210300"
-		} else if (!saldosDivergem(val8972, val8971)) {
-			status = "REGULAR"
-		} else if (data.has8972 && !data.has8971) {
-			status = "AUSÊNCIA NA 897110300"
-		} else if (!data.has8972 && data.has8971) {
-			status = "AUSÊNCIA NA 897210300"
-		} else {
-			status = "DIVERGÊNCIA DE SALDO"
-		}
-
-		const result: AnalysisResult = {
-			contaCorrente,
-			status,
-			ug8972: Array.from(data.ug8972).join(", ") || "-",
-			saldo8972,
-			ug8971: Array.from(data.ug8971).join(", ") || "-",
-			saldo8971,
-			diferenca,
-		}
+		const { result, targetUGs } = analyzeContaCorrente(contaCorrente, data)
 
 		for (const ug of targetUGs) {
-			const ugAnalysis = getOrCreateUG(ug)
-
-			if (status !== "REGULAR") {
-				ugAnalysis.details.push(result)
-				ugAnalysis.inconsistenciesCount++
-				ugAnalysis.financialImpact += diferenca
-
-				if (status.includes("AUSÊNCIA") || status === "UG INDEVIDA NA 897210300") {
-					ugAnalysis.status = "CRÍTICA"
-				} else if (status === "DIVERGÊNCIA DE SALDO" && ugAnalysis.status !== "CRÍTICA") {
-					ugAnalysis.status = "ATENÇÃO"
-				}
-			}
+			registerInconsistency(getOrCreateUG(ug), result)
 		}
 	}
 
 	for (const ugAnalysis of ugMap.values()) {
-		const causes = new Set<string>()
-		for (const detail of ugAnalysis.details) {
-			if (detail.status === "AUSÊNCIA NA 897110300") {
-				causes.add("Falta de apropriação da responsabilidade de terceiros (A Receber)")
-				causes.add("Baixa indevida na conta 897110300")
-			} else if (detail.status === "AUSÊNCIA NA 897210300") {
-				causes.add("Falta de apropriação da responsabilidade da UG")
-				causes.add("Baixa indevida na conta 897210300")
-			} else if (detail.status === "DIVERGÊNCIA DE SALDO") {
-				causes.add("Divergência entre o direito a receber (8971) e a responsabilidade registrada (8972)")
-				causes.add("Estorno parcial ou baixa não refletida em ambas as contas")
-			} else if (detail.status === "UG INDEVIDA NA 897210300") {
-				causes.add(
-					`Registro na conta ${CONTA_EXECUCAO_RESPONSABILIDADE} por UG diferente da ${UG_AUTORIZADA_EXECUCAO_RESPONSABILIDADE}, única autorizada por definição desta Setorial`
-				)
-			}
-		}
-		ugAnalysis.diagnosis = Array.from(causes)
+		ugAnalysis.diagnosis = diagnoseUG(ugAnalysis.details)
 	}
 
 	const ugList = Array.from(ugMap.values())
 
-	const ranking = [...ugList].sort((a, b) => {
-		if (b.financialImpact !== a.financialImpact) {
-			return b.financialImpact - a.financialImpact
-		}
-		return b.inconsistenciesCount - a.inconsistenciesCount
-	})
+	const ranking = [...ugList].sort(compareByImpact)
 
 	const stats: DashboardStats = {
 		totalUgs: ugList.length,
 		ugsRegulares: ugList.filter((u) => u.status === "REGULAR").length,
 		ugsAtencao: ugList.filter((u) => u.status === "ATENÇÃO").length,
 		ugsCriticas: ugList.filter((u) => u.status === "CRÍTICA").length,
-		synthesis: "",
-	}
-
-	const criticalUgs = ranking.filter((u) => u.status === "CRÍTICA").map((u) => u.ug)
-	const topUg = ranking.length > 0 && ranking[0].financialImpact > 0 ? ranking[0].ug : null
-
-	if (criticalUgs.length > 0 && topUg) {
-		stats.synthesis = `Verifica-se concentração de inconsistências nas UGs ${criticalUgs.join(", ")}, com maior impacto financeiro na UG ${topUg}, demandando atuação prioritária.`
-	} else if (topUg) {
-		stats.synthesis = `Verifica-se inconsistências com maior impacto financeiro na UG ${topUg}, demandando atuação prioritária.`
-	} else {
-		stats.synthesis = "Não foram encontradas inconsistências significativas nas UGs analisadas."
+		synthesis: buildSynthesis(ranking),
 	}
 
 	return {
