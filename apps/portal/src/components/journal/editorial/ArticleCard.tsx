@@ -6,6 +6,7 @@ import { ptBR } from "date-fns/locale"
 import { Calendar, User, WarningCircle } from "iconoir-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { displaySubmitterName } from "@/lib/journal/profile"
+import { daysSeverityClass } from "@/lib/journal/submission-age"
 import type { EditorialDashboardArticle } from "@/lib/journal/types"
 
 interface ArticleCardProps {
@@ -33,12 +34,6 @@ export function ArticleCard({ article, isDragging = false }: ArticleCardProps) {
 
 	const daysSinceSubmission = article.submitted_at ? Math.floor((Date.now() - new Date(article.submitted_at).getTime()) / (1000 * 60 * 60 * 24)) : 0
 
-	const getAgeColor = (days: number) => {
-		if (days < 7) return "bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-300"
-		if (days < 14) return "bg-yellow-100 dark:bg-yellow-950 text-yellow-700 dark:text-yellow-300"
-		return "bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300"
-	}
-
 	return (
 		<div ref={setNodeRef} style={style} {...attributes} {...listeners}>
 			<Link to="/journal/editorial/articles/$articleId" params={{ articleId: article.id }} className="block">
@@ -48,7 +43,9 @@ export function ArticleCard({ article, isDragging = false }: ArticleCardProps) {
 						<div className="flex items-center justify-between">
 							<span className="text-xs font-mono text-muted-foreground">#{article.submission_number}</span>
 							{daysSinceSubmission > 0 && (
-								<span className={`text-xs px-2 py-0.5 rounded-full font-medium ${getAgeColor(daysSinceSubmission)}`}>{daysSinceSubmission}d</span>
+								<span className={`text-xs px-2 py-0.5 rounded-full font-medium ${daysSeverityClass(daysSinceSubmission, "badge")}`}>
+									{daysSinceSubmission}d
+								</span>
 							)}
 						</div>
 

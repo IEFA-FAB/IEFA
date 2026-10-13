@@ -17,11 +17,12 @@
  */
 
 /**
- * Códigos que as funções SQL do sisub usam no `RAISE … USING ERRCODE` (P0001 é o default do
- * `RAISE` sem código; P0W01 é o da contagem com produção pendente). Guarda: o teste deste
- * módulo varre as migrations e falha com código novo fora daqui.
+ * Códigos que as funções SQL usam no `RAISE … USING ERRCODE` (P0001 é o default do
+ * `RAISE` sem código; P0W01 é o da contagem com produção pendente; 40001 é o da tela
+ * desatualizada no controle do telão). Guarda: o teste deste módulo varre as migrations e
+ * falha com código novo fora daqui.
  */
-export const RAISE_CODES: ReadonlySet<string> = new Set(["P0001", "P0002", "P0W01", "22023", "23502", "23503", "23505", "23514", "42501", "55000"])
+export const RAISE_CODES: ReadonlySet<string> = new Set(["P0001", "P0002", "P0W01", "22023", "23502", "23503", "23505", "23514", "40001", "42501", "55000"])
 
 /**
  * Texto que só o Postgres, o PostgREST ou o fetch escrevem. Confere também sob um código de
@@ -38,6 +39,7 @@ export const SYSTEM_FRAGMENTS: readonly string[] = [
 	"is not yet defined",
 	"query returned no rows",
 	"query returned more than one row",
+	"could not serialize access",
 	"invalid input",
 	"out of range",
 	"must appear in the GROUP BY",

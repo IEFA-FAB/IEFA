@@ -128,23 +128,11 @@ function EmpenhoDetail({ empenhoId, onChanged }: { empenhoId: string; onChanged:
 					<div className="space-y-1">
 						<Label className="text-xs">Tipo</Label>
 						<div className="flex gap-1">
-							<Button
-								type="button"
-								size="sm"
-								variant={tipo === "reforco" ? "default" : "outline"}
-								className="h-7 text-xs gap-1"
-								onClick={() => setTipo("reforco")}
-							>
+							<Button type="button" size="sm" variant={tipo === "reforco" ? "default" : "outline"} className="h-7 text-xs" onClick={() => setTipo("reforco")}>
 								<Plus className="size-3" />
 								Reforço
 							</Button>
-							<Button
-								type="button"
-								size="sm"
-								variant={tipo === "anulacao" ? "default" : "outline"}
-								className="h-7 text-xs gap-1"
-								onClick={() => setTipo("anulacao")}
-							>
+							<Button type="button" size="sm" variant={tipo === "anulacao" ? "default" : "outline"} className="h-7 text-xs" onClick={() => setTipo("anulacao")}>
 								<Minus className="size-3" />
 								Anulação
 							</Button>
@@ -256,7 +244,7 @@ function EmpenhosPage() {
 
 			<Card>
 				<CardHeader className="pb-2">
-					<CardTitle className="text-subheading">Documentos</CardTitle>
+					<CardTitle>Documentos</CardTitle>
 				</CardHeader>
 				<CardContent className="px-0 pb-0">
 					{empenhos.length === 0 ? (

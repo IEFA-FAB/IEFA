@@ -74,7 +74,7 @@ export function AdminMfaResetCard({ user }: AdminMfaResetCardProps) {
 					</p>
 				)}
 
-				<Button variant="destructive" disabled={status.isLoading || totalFactors === 0} onClick={() => setOpen(true)} className="gap-1.5 shrink-0">
+				<Button variant="destructive" disabled={status.isLoading || totalFactors === 0} onClick={() => setOpen(true)} className="shrink-0">
 					<ShieldOff className="size-4" aria-hidden />
 					Remover segundo fator
 				</Button>

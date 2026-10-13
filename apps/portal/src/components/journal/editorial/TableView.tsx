@@ -5,6 +5,7 @@ import { ArrowDown, ArrowSeparateVertical, ArrowUp } from "iconoir-react"
 import { useState } from "react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { displaySubmitterName } from "@/lib/journal/profile"
+import { daysSeverityClass } from "@/lib/journal/submission-age"
 import type { EditorialDashboardArticle } from "@/lib/journal/types"
 
 interface TableViewProps {
@@ -98,7 +99,7 @@ export function TableView({ articles }: TableViewProps) {
 						const daysSinceSubmission = article.submitted_at ? Math.floor((Date.now() - new Date(article.submitted_at).getTime()) / (1000 * 60 * 60 * 24)) : 0
 
 						return (
-							<TableRow key={article.id} className="hover:bg-muted/50">
+							<TableRow key={article.id}>
 								<TableCell className="font-mono text-sm">{article.submission_number}</TableCell>
 								<TableCell>
 									<Link to="/journal/editorial/articles/$articleId" params={{ articleId: article.id }} className="hover:underline font-medium line-clamp-2">
@@ -118,21 +119,7 @@ export function TableView({ articles }: TableViewProps) {
 										: "-"}
 								</TableCell>
 								<TableCell className="text-right text-sm font-mono">
-									{daysSinceSubmission > 0 ? (
-										<span
-											className={
-												daysSinceSubmission > 14
-													? "text-red-600 dark:text-red-400 font-semibold"
-													: daysSinceSubmission > 7
-														? "text-yellow-600 dark:text-yellow-400"
-														: "text-green-600 dark:text-green-400"
-											}
-										>
-											{daysSinceSubmission}d
-										</span>
-									) : (
-										"-"
-									)}
+									{daysSinceSubmission > 0 ? <span className={daysSeverityClass(daysSinceSubmission)}>{daysSinceSubmission}d</span> : "-"}
 								</TableCell>
 							</TableRow>
 						)

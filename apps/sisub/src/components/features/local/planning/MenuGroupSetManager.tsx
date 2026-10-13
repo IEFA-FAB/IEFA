@@ -106,8 +106,8 @@ function GroupSetEditor({
 							<Button
 								type="button"
 								size="icon"
-								variant="ghost"
-								className="size-8 text-muted-foreground hover:text-destructive"
+								variant="subtle-destructive"
+								className="size-8"
 								onClick={() => setGroups(groups.filter((_, i) => i !== index))}
 								aria-label="Remover grupo"
 							>
@@ -116,7 +116,7 @@ function GroupSetEditor({
 						</div>
 					))}
 				</div>
-				<Button type="button" size="sm" variant="outline" className="gap-1.5" onClick={() => setGroups([...groups, { key: "", label: "" }])}>
+				<Button type="button" size="sm" variant="outline" onClick={() => setGroups([...groups, { key: "", label: "" }])}>
 					<Plus className="size-3.5" />
 					Adicionar grupo
 				</Button>
@@ -197,21 +197,19 @@ export function MenuGroupSetManager({ open, onClose, kitchenId }: { open: boolea
 											<div className="flex items-center gap-2">
 												<p className="text-subheading">{set.name}</p>
 												{set.kitchen_id == null ? (
-													<Badge variant="outline" className="text-xs gap-1">
+													<Badge variant="outline">
 														<Lock className="size-3" />
 														Global
 													</Badge>
 												) : (
-													<Badge variant="outline" className="text-xs">
-														Desta cozinha
-													</Badge>
+													<Badge variant="outline">Desta cozinha</Badge>
 												)}
 											</div>
 											{set.description && <p className="text-xs text-muted-foreground">{set.description}</p>}
 										</div>
 										<div className="flex items-center gap-1 shrink-0">
 											{canCreate && (
-												<Button type="button" size="sm" variant="ghost" className="gap-1.5" onClick={() => setEditing({ set, mode: "duplicate" })}>
+												<Button type="button" size="sm" variant="ghost" onClick={() => setEditing({ set, mode: "duplicate" })}>
 													<Copy className="size-3.5" />
 													Duplicar
 												</Button>
@@ -225,8 +223,8 @@ export function MenuGroupSetManager({ open, onClose, kitchenId }: { open: boolea
 												<Button
 													type="button"
 													size="icon"
-													variant="ghost"
-													className="size-8 text-muted-foreground hover:text-destructive"
+													variant="subtle-destructive"
+													className="size-8"
 													aria-label={`Remover ${set.name}`}
 													onClick={() => {
 														// O domínio recusa conjunto em uso; o aviso aqui evita a ida e volta.
@@ -242,7 +240,7 @@ export function MenuGroupSetManager({ open, onClose, kitchenId }: { open: boolea
 									</div>
 									<div className="flex flex-wrap gap-1.5">
 										{set.groups.map((g) => (
-											<Badge key={g.id} variant="secondary" className="text-xs font-normal">
+											<Badge key={g.id} variant="secondary" className="font-normal">
 												{g.label}
 											</Badge>
 										))}
@@ -260,7 +258,7 @@ export function MenuGroupSetManager({ open, onClose, kitchenId }: { open: boolea
 							Fechar
 						</Button>
 						{canCreate && (
-							<Button type="button" className="gap-1.5" onClick={() => setCreating(true)}>
+							<Button type="button" onClick={() => setCreating(true)}>
 								<Plus className="size-4" />
 								Novo conjunto
 							</Button>

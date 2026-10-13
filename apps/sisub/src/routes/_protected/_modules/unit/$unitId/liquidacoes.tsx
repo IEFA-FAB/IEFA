@@ -124,7 +124,7 @@ function LiquidacoesPage() {
 
 			<Card>
 				<CardHeader className="pb-2">
-					<CardTitle className="text-subheading">Registrar liquidação</CardTitle>
+					<CardTitle>Registrar liquidação</CardTitle>
 				</CardHeader>
 				<CardContent>
 					<form onSubmit={submit} className="grid gap-3 sm:grid-cols-5 items-end">
@@ -200,7 +200,7 @@ function LiquidacoesPage() {
 
 			<Card>
 				<CardHeader className="pb-2">
-					<CardTitle className="text-subheading">Liquidações registradas</CardTitle>
+					<CardTitle>Liquidações registradas</CardTitle>
 				</CardHeader>
 				<CardContent className="px-0 pb-0">
 					{liquidacoes.length === 0 ? (

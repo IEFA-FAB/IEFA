@@ -38,12 +38,12 @@ funcionariam. O build falha se o CSP gerado ainda citar `cdn.jsdelivr.net`.
 ## Deploy
 
 Mesmo caminho dos outros apps: `apps.manifest.json` (kind `dockerfile`) →
-`docker-bake.hcl` / `.github/paths-filter.yml` gerados → `build-pdf` publica no ECR →
-`deploy-pdf` força o rollout no ECS. Push na `main` que toque `apps/pdf/**` dispara;
-manualmente, `CI/CD` → `force_pdf`.
+`docker-bake.hcl` / `.github/paths-filter.yml` gerados → `release pdf / build` publica no
+ECR → `release pdf / deploy` força o rollout no ECS. Push na `main` que toque `apps/pdf/**`
+dispara; manualmente, `CI/CD` com o input `apps` = `pdf`.
 
 O build leva bem mais que os apps do monorepo (npm ci + vite + páginas i18n + docs),
-por isso o job tem timeout de 40 min. A camada de build fica no cache do bake e só é
+por isso o job tem timeout de 40 min (`buildTimeoutMinutes` no manifesto). A camada de build fica no cache do bake e só é
 refeita quando o `Dockerfile` muda.
 
 ### Primeira subida (uma vez)
@@ -55,9 +55,9 @@ refeita quando o `Dockerfile` muda.
 2. **Merge.** Dois workflows rodam juntos: o `terraform-apply` cria ECR, target
    group, regra do listener (`pdf.iefa.com.br`, prioridade 210) e o serviço ECS em
    poucos minutos; o `CI/CD` leva mais que isso no build, então o repositório ECR já
-   existe quando a imagem é publicada, e o `deploy-pdf` faz o primeiro rollout. Se
-   a ordem inverter (apply lento, push sem repositório), rode de novo
-   `gh workflow run deploy.yml -f force_pdf=true`.
+   existe quando a imagem é publicada, e o `release pdf / deploy` faz o primeiro rollout.
+   Se a ordem inverter (apply lento, push sem repositório), rode de novo
+   `gh workflow run deploy.yml -f apps=pdf`.
 3. **DNS** — CNAME `pdf` → DNS do ALB, à mão no Registro.br (a zona não está no
    Route53). O certificado `*.iefa.com.br` do ALB já cobre o host.
 4. **Variável** — só depois do DNS resolver:

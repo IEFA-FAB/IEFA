@@ -67,11 +67,7 @@ function KitchenProductionPage() {
 									onClick={goToToday}
 								>
 									<span className="capitalize">{format(selectedDateObj, "EEEE, d 'de' MMMM", { locale: ptBR })}</span>
-									{isTodaySelected && (
-										<Badge variant="secondary" className="text-xs">
-											hoje
-										</Badge>
-									)}
+									{isTodaySelected && <Badge variant="secondary">hoje</Badge>}
 								</button>
 							}
 						/>

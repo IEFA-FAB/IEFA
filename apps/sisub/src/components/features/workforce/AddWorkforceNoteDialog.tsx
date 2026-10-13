@@ -64,7 +64,7 @@ export function AddWorkforceNoteDialog({ surveyId, messHallWorkforceId, displayN
 
 	return (
 		<>
-			<Button size="sm" variant="outline" className="gap-1.5" onClick={() => setOpen(true)}>
+			<Button size="sm" variant="outline" onClick={() => setOpen(true)}>
 				<Plus className="size-3.5" aria-hidden="true" />
 				Observação
 			</Button>

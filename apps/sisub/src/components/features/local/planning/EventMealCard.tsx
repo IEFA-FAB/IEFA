@@ -78,7 +78,7 @@ export function EventMealCard({
 	return (
 		<Card size="sm">
 			<CardHeader>
-				<CardTitle className="min-w-0 text-subheading">
+				<CardTitle className="min-w-0">
 					<div className="flex min-w-0 flex-wrap items-center gap-2">
 						<span className="truncate">{meal.name}</span>
 						<Badge variant="outline">

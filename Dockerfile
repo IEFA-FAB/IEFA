@@ -3,8 +3,8 @@
 # GERADO por scripts/generate-deploy-artifacts.ts a partir de apps.manifest.json — não editar à mão.
 # Digest centralizado: bump de versão do Bun altera só o manifesto.
 # =============================================================================
-ARG BUN_IMAGE=oven/bun:1.4.0-alpine@sha256:07235578f79ef8c6f97d94aee7938e76f5cdba5f21ae5dbfdd3d3d38058437eb
-ARG BUN_RUNTIME_IMAGE=oven/bun:1.4.0-distroless@sha256:a8919d4a092a234f7184ac6d3960a2d860fea73e034709e1752a7d0de09913f8
+ARG BUN_IMAGE=oven/bun:1.4.3-alpine@sha256:629e17411f1f129dbec3af78d5af9c9f2a937435c80349437206c6b0b7422373
+ARG BUN_RUNTIME_IMAGE=oven/bun:1.4.3-distroless@sha256:1aaa515018b0b37d95dbdebd55d1b7f37ad258a6289ba63e4bc3b9c9e3038697
 FROM ${BUN_IMAGE} AS base
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
@@ -153,7 +153,7 @@ EXPOSE 3000
 CMD ["bun", "--no-install", "--preload", "./docker/bun-serve-idle-timeout.ts", ".output/server/index.mjs"]
 
 # =============================================================================
-# SISPROV (fardamento gratuito — Projeto SIA)
+# SISPROV (Sistema de Provisões — estoque de todas as classes)
 # =============================================================================
 FROM deps AS sisprov-build
 ARG VITE_SISPROV_SUPABASE_URL

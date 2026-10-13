@@ -126,7 +126,7 @@ export const TemporalHeatmap: React.FC<TemporalHeatmapProps> = ({ data, availabl
 					size="sm"
 					onClick={() => setSortBy(sortBy === "value" ? "name" : "value")}
 					className={cn(
-						"hidden sm:flex items-center gap-1",
+						"hidden sm:flex items-center",
 						sortBy === "value" ? "bg-action text-action-foreground border-action hover:bg-action/90" : "bg-muted border-border text-muted-foreground"
 					)}
 				>

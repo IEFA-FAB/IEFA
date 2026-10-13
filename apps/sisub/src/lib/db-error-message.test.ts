@@ -5,7 +5,12 @@ import { DB_FAILURE_TEXT, NO_ROW_TEXT, publicDbMessage, RAISE_CODES, SYSTEM_FRAG
 
 const MIGRATIONS_DIR = join(__dirname, "../../../../packages/database/supabase/migrations")
 /** Nomes de condição que as migrations usam no lugar do SQLSTATE. */
-const CONDITION_NAMES: Record<string, string> = { check_violation: "23514", invalid_parameter_value: "22023", no_data_found: "P0002" }
+const CONDITION_NAMES: Record<string, string> = {
+	check_violation: "23514",
+	invalid_parameter_value: "22023",
+	no_data_found: "P0002",
+	serialization_failure: "40001",
+}
 
 describe("publicDbMessage", () => {
 	const consoleError = vi.spyOn(console, "error").mockImplementation(() => {})

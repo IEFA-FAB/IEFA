@@ -100,7 +100,7 @@ function DemandForecastsPage() {
 							<CardHeader className="pb-2">
 								<div className="flex items-start justify-between gap-2">
 									<div className="flex-1 min-w-0">
-										<CardTitle className="text-base flex items-center gap-2">
+										<CardTitle className="flex items-center gap-2">
 											<FileText className="size-4 text-muted-foreground shrink-0" aria-hidden="true" />
 											{forecast.title}
 										</CardTitle>
@@ -139,12 +139,7 @@ function DemandForecastsPage() {
 														</Link>
 													}
 												/>
-												<Button
-													size="sm"
-													onClick={() => handleSend(forecast.id, forecast.title)}
-													disabled={isSending || forecast.selections.length === 0}
-													className="gap-1.5"
-												>
+												<Button size="sm" onClick={() => handleSend(forecast.id, forecast.title)} disabled={isSending || forecast.selections.length === 0}>
 													<Send className="size-3.5" aria-hidden="true" />
 													Enviar
 												</Button>

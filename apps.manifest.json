@@ -1,17 +1,24 @@
 {
   "$comment": [
     "Fonte única dos artefatos de deploy. Editar aqui e rodar `bun run generate:deploy`,",
-    "que reescreve Dockerfile, docker-bake.hcl, .github/paths-filter.yml e as regiões",
-    "`# >>> gerado:` do .github/workflows/deploy.yml. O CI roda",
+    "que reescreve Dockerfile, docker-bake.hcl e .github/paths-filter.yml. O CI roda",
     "`bun run check:deploy` e falha se algum deles estiver fora de sincronia.",
+    "",
+    "O deploy.yml lê este arquivo em tempo de execução (scripts/release-plan.ts e",
+    "scripts/release-verify.ts): `healthUrlVar` é a GitHub Variable com a URL do smoke test,",
+    "`check` troca as tarefas de turbo que liberam o app (padrão: lint, typecheck e test do",
+    "workspace), `release: static-site` tira o app da matriz do ECS e",
+    "`buildTimeoutMinutes`/`bakeAttemptTimeoutMinutes` sobem os timeouts do build. Cada",
+    "build arg vem da GitHub Variable de mesmo nome, ou da indicada em `buildArgFrom`; vazia",
+    "falha o build, a não ser que esteja em `optionalBuildArgs` (scripts/release-build-env.ts).",
     "",
     "As dependências de workspace NÃO ficam aqui: o gerador as resolve do package.json",
     "de cada app, transitivamente. Era essa lista, mantida à mão em três arquivos, que",
     "vivia desatualizada — um package novo não entrava no COPY do Dockerfile (build",
     "quebrado) nem no paths-filter (app não redeployava quando o package mudava)."
   ],
-  "bunImage": "oven/bun:1.4.0-alpine@sha256:07235578f79ef8c6f97d94aee7938e76f5cdba5f21ae5dbfdd3d3d38058437eb",
-  "bunRuntimeImage": "oven/bun:1.4.0-distroless@sha256:a8919d4a092a234f7184ac6d3960a2d860fea73e034709e1752a7d0de09913f8",
+  "bunImage": "oven/bun:1.4.3-alpine@sha256:629e17411f1f129dbec3af78d5af9c9f2a937435c80349437206c6b0b7422373",
+  "bunRuntimeImage": "oven/bun:1.4.3-distroless@sha256:1aaa515018b0b37d95dbdebd55d1b7f37ad258a6289ba63e4bc3b9c9e3038697",
   "registryDefaults": {
     "registry": "replace-me.dkr.ecr.sa-east-1.amazonaws.com",
     "repositoryPrefix": "iefa/prod"
@@ -27,7 +34,8 @@
       "entry": "apps/api/dist/index.js",
       "copyPublic": true,
       "buildArgs": [],
-      "notes": "o bundle da api importa @iefa/sisub-domain/gtin (utils puros de GTIN) — sem o source do package o bun build não resolve o subpath do workspace"
+      "notes": "o bundle da api importa @iefa/sisub-domain/gtin (utils puros de GTIN) — sem o source do package o bun build não resolve o subpath do workspace",
+      "healthUrlVar": "API_HEALTH_URL"
     },
     {
       "key": "portal",
@@ -36,7 +44,8 @@
       "path": "apps/portal",
       "kind": "nitro",
       "port": 3000,
-      "buildArgs": ["VITE_IEFA_SUPABASE_URL", "VITE_IEFA_SUPABASE_PUBLISHABLE_KEY"]
+      "buildArgs": ["VITE_IEFA_SUPABASE_URL", "VITE_IEFA_SUPABASE_PUBLISHABLE_KEY"],
+      "healthUrlVar": "IEFA_HEALTH_URL"
     },
     {
       "key": "rumaer",
@@ -45,16 +54,26 @@
       "path": "apps/rumaer",
       "kind": "nitro",
       "port": 3000,
-      "buildArgs": ["VITE_RUMAER_SUPABASE_URL", "VITE_RUMAER_SUPABASE_PUBLISHABLE_KEY"]
+      "buildArgs": ["VITE_RUMAER_SUPABASE_URL", "VITE_RUMAER_SUPABASE_PUBLISHABLE_KEY"],
+      "healthUrlVar": "RUMAER_HEALTH_URL",
+      "buildArgFrom": {
+        "VITE_RUMAER_SUPABASE_URL": "VITE_SISUB_SUPABASE_URL",
+        "VITE_RUMAER_SUPABASE_PUBLISHABLE_KEY": "VITE_SISUB_SUPABASE_PUBLISHABLE_KEY"
+      }
     },
     {
       "key": "sisprov",
-      "title": "SISPROV (fardamento gratuito — Projeto SIA)",
+      "title": "SISPROV (Sistema de Provisões — estoque de todas as classes)",
       "workspace": "@iefa/sisprov",
       "path": "apps/sisprov",
       "kind": "nitro",
       "port": 3000,
-      "buildArgs": ["VITE_SISPROV_SUPABASE_URL", "VITE_SISPROV_SUPABASE_PUBLISHABLE_KEY"]
+      "buildArgs": ["VITE_SISPROV_SUPABASE_URL", "VITE_SISPROV_SUPABASE_PUBLISHABLE_KEY"],
+      "healthUrlVar": "SISPROV_HEALTH_URL",
+      "buildArgFrom": {
+        "VITE_SISPROV_SUPABASE_URL": "VITE_SISUB_SUPABASE_URL",
+        "VITE_SISPROV_SUPABASE_PUBLISHABLE_KEY": "VITE_SISUB_SUPABASE_PUBLISHABLE_KEY"
+      }
     },
     {
       "key": "sucont",
@@ -63,7 +82,12 @@
       "path": "apps/sucont",
       "kind": "nitro",
       "port": 3000,
-      "buildArgs": ["VITE_SUCONT_SUPABASE_URL", "VITE_SUCONT_SUPABASE_PUBLISHABLE_KEY"]
+      "buildArgs": ["VITE_SUCONT_SUPABASE_URL", "VITE_SUCONT_SUPABASE_PUBLISHABLE_KEY"],
+      "healthUrlVar": "SUCONT_HEALTH_URL",
+      "buildArgFrom": {
+        "VITE_SUCONT_SUPABASE_URL": "VITE_SISUB_SUPABASE_URL",
+        "VITE_SUCONT_SUPABASE_PUBLISHABLE_KEY": "VITE_SISUB_SUPABASE_PUBLISHABLE_KEY"
+      }
     },
     {
       "key": "assignment-selection",
@@ -72,7 +96,12 @@
       "path": "apps/assignment-selection",
       "kind": "nitro",
       "port": 3000,
-      "buildArgs": ["VITE_ASSIGNMENT_SELECTION_SUPABASE_URL", "VITE_ASSIGNMENT_SELECTION_SUPABASE_PUBLISHABLE_KEY"]
+      "buildArgs": ["VITE_ASSIGNMENT_SELECTION_SUPABASE_URL", "VITE_ASSIGNMENT_SELECTION_SUPABASE_PUBLISHABLE_KEY"],
+      "healthUrlVar": "ASSIGNMENT_SELECTION_HEALTH_URL",
+      "buildArgFrom": {
+        "VITE_ASSIGNMENT_SELECTION_SUPABASE_URL": "VITE_SISUB_SUPABASE_URL",
+        "VITE_ASSIGNMENT_SELECTION_SUPABASE_PUBLISHABLE_KEY": "VITE_SISUB_SUPABASE_PUBLISHABLE_KEY"
+      }
     },
     {
       "key": "sisub",
@@ -88,7 +117,10 @@
       },
       "buildSecretComments": {
         "FARO_SOURCEMAP_API_KEY": "Faro sourcemap upload — secret do BuildKit, montado como env SÓ neste RUN e lido pelo\nvite.config.ts (loadEnv). Ausente → build não gera/envia maps. Não fica em ARG,\ncamada, cache nem na imagem runtime."
-      }
+      },
+      "healthUrlVar": "SISUB_HEALTH_URL",
+      "check": ["@iefa/sisub#lint", "@iefa/sisub#typecheck", "@iefa/sisub#test:unit", "@iefa/pbac#test", "@iefa/sisub-domain#test"],
+      "optionalBuildArgs": ["VITE_FARO_COLLECTOR_URL", "VITE_FARO_APP_NAME", "VITE_FARO_ENVIRONMENT"]
     },
     {
       "key": "forms",
@@ -100,7 +132,8 @@
       "buildArgs": ["VITE_IEFA_SUPABASE_URL", "VITE_IEFA_SUPABASE_PUBLISHABLE_KEY"],
       "buildArgDefaults": {
         "VITE_APP_TENANT": "forms"
-      }
+      },
+      "healthUrlVar": "FORMS_HEALTH_URL"
     },
     {
       "key": "contrate",
@@ -109,7 +142,8 @@
       "path": "apps/contrate",
       "kind": "nitro",
       "port": 3000,
-      "buildArgs": ["VITE_IEFA_SUPABASE_URL", "VITE_IEFA_SUPABASE_PUBLISHABLE_KEY"]
+      "buildArgs": ["VITE_IEFA_SUPABASE_URL", "VITE_IEFA_SUPABASE_PUBLISHABLE_KEY"],
+      "healthUrlVar": "CONTRATE_HEALTH_URL"
     },
     {
       "key": "alpha",
@@ -122,7 +156,8 @@
       "buildArgs": [],
       "runtimeEnv": {
         "PORT": "8000"
-      }
+      },
+      "healthUrlVar": "ALPHA_HEALTH_URL"
     },
     {
       "key": "docs",
@@ -136,7 +171,9 @@
         "PORT": "3003"
       },
       "outputAt": "apps/docs/.output",
-      "buildArgs": []
+      "buildArgs": [],
+      "check": ["@iefa/docs#lint", "@iefa/docs#typecheck"],
+      "release": "static-site"
     },
     {
       "key": "sisub-mcp",
@@ -151,7 +188,8 @@
       "runtimeEnv": {
         "MCP_TRANSPORT": "http",
         "MCP_PORT": "3000"
-      }
+      },
+      "healthUrlVar": "MCP_HEALTH_URL"
     },
     {
       "key": "5s",
@@ -161,7 +199,8 @@
       "buildArgs": ["VITE_IEFA_SUPABASE_URL", "VITE_IEFA_SUPABASE_PUBLISHABLE_KEY"],
       "buildArgDefaults": {
         "VITE_APP_TENANT": "cinco-s"
-      }
+      },
+      "healthUrlVar": "FORMS_5S_HEALTH_URL"
     },
     {
       "key": "pdf",
@@ -170,7 +209,10 @@
       "kind": "dockerfile",
       "port": 8080,
       "buildArgs": [],
-      "notes": "Upstream do BentoPDF (AGPL-3.0) sem modificação, em versão fixada, montado por apps/pdf/Dockerfile. Não é workspace Bun."
+      "notes": "Upstream do BentoPDF (AGPL-3.0) sem modificação, em versão fixada, montado por apps/pdf/Dockerfile. Não é workspace Bun.",
+      "healthUrlVar": "PDF_HEALTH_URL",
+      "buildTimeoutMinutes": 40,
+      "bakeAttemptTimeoutMinutes": 25
     }
   ]
 }

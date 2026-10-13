@@ -167,7 +167,7 @@ export function AppLayout({ children }: AppLayoutProps) {
 
 					{/* Direita: Ações */}
 					<div className="flex items-center gap-2">
-						<Button variant="outline" size="sm" className="hidden md:inline-flex items-center gap-2" onClick={openPalette} aria-label="Abrir busca rápida">
+						<Button variant="outline" size="sm" className="hidden md:inline-flex items-center" onClick={openPalette} aria-label="Abrir busca rápida">
 							<Search className="size-4" aria-hidden="true" />
 							<span>Buscar</span>
 							<Kbd className="ml-1">{shortcutLabel}</Kbd>

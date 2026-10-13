@@ -4,43 +4,51 @@ import { classifyDeployJobs, classifyIntegrationJobs, type Job, parseArgs, resol
 const job = (name: string, conclusion: string | null, status = "completed"): Job => ({ name, conclusion, status })
 
 describe("classifyDeployJobs", () => {
-	test("deploy verde: chegou", () => {
-		const states = classifyDeployJobs([job("check-sisub", "success"), job("build-sisub / build", "success"), job("deploy-sisub / deploy", "success")])
+	test("release verde: chegou", () => {
+		const states = classifyDeployJobs([job("verify", "success"), job("release sisub / build", "success"), job("release sisub / deploy", "success")])
 		expect(states.get("sisub")).toBe("deployed")
+		expect(states.get("verify")).toBe("checked")
 	})
 
-	test("tudo skipped: o app não mudou", () => {
-		expect(classifyDeployJobs([job("check-api", "skipped"), job("build-api", "skipped"), job("deploy-api", "skipped")]).get("api")).toBe("unchanged")
+	test("verify vermelho: falha, mesmo sem job vermelho do app que ficou fora da matriz", () => {
+		const states = classifyDeployJobs([job("verify", "failure"), job("release api / build", "success"), job("release api / deploy", "success")])
+		expect(states.get("verify")).toBe("failed")
+		expect(states.get("api")).toBe("deployed")
 	})
 
-	test("check vermelho deixa o deploy skipped: é falha, não 'nada a fazer'", () => {
-		const states = classifyDeployJobs([job("check-portal", "failure"), job("build-portal / build", "skipped"), job("deploy-portal / deploy", "skipped")])
+	test("build vermelho deixa o deploy skipped: é falha, não 'nada a fazer'", () => {
+		const states = classifyDeployJobs([job("release portal / build", "failure"), job("release portal / deploy", "skipped")])
 		expect(states.get("portal")).toBe("failed")
 	})
 
 	test("build verde e deploy skipped: bloqueado", () => {
-		const states = classifyDeployJobs([job("check-forms", "success"), job("build-forms / build", "success"), job("deploy-forms / deploy", "skipped")])
+		const states = classifyDeployJobs([job("release forms / build", "success"), job("release forms / deploy", "skipped")])
 		expect(states.get("forms")).toBe("blocked")
 	})
 
-	test("só check (pacotes): vale o check", () => {
-		expect(classifyDeployJobs([job("check-packages", "success")]).get("packages")).toBe("checked")
-		expect(classifyDeployJobs([job("check-packages", "failure")]).get("packages")).toBe("failed")
+	test("site estático: build-docs e deploy-docs", () => {
+		expect(classifyDeployJobs([job("build-docs", "success"), job("deploy-docs", "success")]).get("docs")).toBe("deployed")
+		expect(classifyDeployJobs([job("build-docs", "skipped"), job("deploy-docs", "skipped")]).get("docs")).toBe("unchanged")
 	})
 
 	test("job ainda rodando", () => {
-		expect(classifyDeployJobs([job("check-5s", "success"), job("build-5s / build", null, "in_progress")]).get("5s")).toBe("running")
+		expect(classifyDeployJobs([job("release 5s / build", null, "in_progress")]).get("5s")).toBe("running")
 	})
 
-	test("nome de app com hífen e job fora do padrão", () => {
-		const states = classifyDeployJobs([job("deploy-assignment-selection / deploy", "success"), job("changes", "success"), job("warm-deps", "success")])
+	test("nome de app com hífen; plan e warm-deps não são app", () => {
+		const states = classifyDeployJobs([job("release assignment-selection / deploy", "success"), job("plan", "success"), job("warm-deps", "success")])
 		expect([...states.keys()]).toEqual(["assignment-selection"])
+	})
+
+	test("runs de antes da matriz continuam lidos", () => {
+		const states = classifyDeployJobs([job("check-sisub", "success"), job("build-sisub / build", "success"), job("deploy-sisub / deploy", "success")])
+		expect(states.get("sisub")).toBe("deployed")
 	})
 })
 
 describe("classifyDeployJobs — fila do deploy", () => {
 	test("deploy cancelado: quem decide é o deploy posterior", () => {
-		const states = classifyDeployJobs([job("check-sisub", "success"), job("build-sisub / build", "success"), job("deploy-sisub / deploy", "cancelled")])
+		const states = classifyDeployJobs([job("release sisub / build", "success"), job("release sisub / deploy", "cancelled")])
 		expect(states.get("sisub")).toBe("cancelled")
 	})
 })

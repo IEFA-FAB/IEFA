@@ -68,7 +68,7 @@ A arquitetura visual deve seguir estritamente a sequência de prioridade abaixo:
 
 ### 4.6 Tipografia — Hierarquia semântica
 
-- **Função:** Estabelecer 7 níveis tipográficos com vetores distintos (tamanho, peso, tracking), eliminando decisões ad-hoc de `font-*` / `text-*` nos componentes de feature.
+- **Função:** Estabelecer 7 níveis tipográficos, mais o título de card, que é do primitivo, com vetores distintos (tamanho, peso, tracking), eliminando decisões ad-hoc de `font-*` / `text-*` nos componentes de feature.
 - **Tokens de tracking** (definidos em `styles.css` `:root`): `--tracking-tight: -0.02em` · `--tracking-normal: 0em` · `--tracking-label: 0.05em`
 - **Pesos reconhecidos:** 400 (regular), 500 (medium), 600 (semibold), 700 (bold). Cada peso tem um papel fixo no sistema — ver tabela abaixo.
 - **Classes utilitárias** (definidas em `@layer utilities` de `styles.css`):
@@ -76,7 +76,8 @@ A arquitetura visual deve seguir estritamente a sequência de prioridade abaixo:
 | Nível | Classe | Tamanho | Peso | Tracking | Uso canônico |
 |-------|--------|---------|------|---------|--------------|
 | Display | `.text-display` | 1.375rem | 700 | −0.02em | PageHeader — título de página |
-| Heading | `.text-heading` | 1.125rem | 600 | −0.02em | CardTitle, títulos de seção |
+| Heading | `.text-heading` | 1.125rem | 600 | −0.02em | Títulos de seção fora de card |
+| Título de card | `CardTitle` (sem classe) | 1rem · 0.875rem em `Card size="sm"` | 500 | 0em | Título de todo card. 16px é o tamanho que deixa achar o card certo passando o olho; o compacto é só para card de quadro/lista densa, via `size="sm"` |
 | Subheading | `.text-subheading` | 0.875rem | 500 | 0em | Títulos de dialog/drawer, section headers menores, ênfase de dados em tabelas |
 | Body | `.text-body` | 0.875rem | 400 | 0em | Conteúdo principal, ItemTitle |
 | Label | `.text-label` | 0.75rem | 600 | +0.05em + uppercase | Rótulos de seção, `<th>` com uppercase, badges de categoria |
@@ -93,6 +94,7 @@ A arquitetura visual deve seguir estritamente a sequência de prioridade abaixo:
   - `subheading` e `body` têm o mesmo tamanho (0.875rem) mas diferem em peso: 500 vs 400
 - **Fronteira primitivo/feature:**
   - **Primitivos UI (`src/components/ui/`)** controlam seus próprios pesos internamente (`font-medium` em Button, Badge, Label, CardTitle, etc.). Isso é canônico — não alterar.
+  - **`CardTitle` não recebe classe de tamanho** (`text-subheading`, `text-heading`, `text-sm`, `text-base`…). O tamanho é do primitivo; card compacto é `<Card size="sm">`. No `className` do título só entram layout (`flex items-center gap-2` para ícone) e cor.
   - **Feature components** não devem usar `font-medium`, `font-semibold`, `font-bold`, `text-xs`, `text-sm`, `text-base`, `text-lg`, `tracking-*` ou `uppercase` diretamente. Mapear a um nível semântico da tabela acima.
 
 ## 5. Convenções obrigatórias
@@ -112,6 +114,7 @@ A arquitetura visual deve seguir estritamente a sequência de prioridade abaixo:
 - **Tooltips:** O atributo HTML `title` é proibido como mecanismo de tooltip em elementos interativos. Usar obrigatoriamente o primitivo `<Tooltip>/<TooltipTrigger asChild>/<TooltipContent>` de `@/components/ui/tooltip`. Razão: `title` não é exibido em foco de teclado nem em touch, falha WCAG 1.4.13, e não respeita o tema do design system. Para botões exclusivamente de ícone, complementar com `aria-label` além do `<Tooltip>`.
 - **Navegação Polimórfica:** Para exibir links com aparência de botões, use a prop `render` (ou equivalente `asChild`) do primitivo `Button` encapsulando o `Link` (ex: `<Button render={<Link to="/rota">...</Link>} />`). Jamais aninhe tags iterativas quebrando a semântica de acessibilidade HTML nativa. **Distinção obrigatória:** `render={<Link>}` é exigido quando o destino é uma URL fixa navegável (usuário pode abrir em nova aba, copiar link). `onClick={() => navigate(...)}` é aceito para navegação imperativa contextual — cancel de formulário, redirect pós-ação assíncrona, ou quando a rota depende de lógica de estado em execução.
 - **`className`:** Passado como prop para organizar localmente a interface estrutural, jamais para reespecificar a intenção do componente.
+- **Botão discreto:** ação secundária que não deve competir com o conteúdo (fechar, limpar, voltar, sair) é `variant="subtle"`; remover item de lista ou linha, ou revogar, é `variant="subtle-destructive"` (vermelho só no hover). `ghost` + `text-muted-foreground` + `hover:text-foreground`/`hover:text-destructive` no `className` é o que essas variantes substituem. O respiro entre ícone e texto é do `size`, sem `gap-*` no `className` nem no elemento do `render`; a exceção é botão que empilha conteúdo em coluna (`flex-col`), onde o `gap` é o espaço entre as linhas.
 - **HTML cru:** Uso de native interativo tag (`<button>`) é proibido para montar UI local se houver um primitivo `Button` apto a atender, exceto em integrações profundas onde o primitive causa bugs inadiáveis.
 - **`cn()`:** Exigido globalmente para interpolações dinâmicas de estados com `className`.
 - **Naming semântico:** Declaradores e atributos deverão relatar o estado de intenção (ex: `status="success"`) e nunca a aparência literal (`color="green"`).

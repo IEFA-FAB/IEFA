@@ -1,6 +1,6 @@
 import { LegalFooterLinks } from "@iefa/legal-kit/react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { Link, useRouteContext, useRouter, useRouterState } from "@tanstack/react-router"
+import { Link, useLocation, useRouteContext, useRouter } from "@tanstack/react-router"
 import { ChevronRight, FileBarChart, IdCard, LayoutGrid, LogOut, type LucideIcon, Moon, Search, SquareKanban, Sun, X } from "lucide-react"
 import type React from "react"
 import { useEffect, useId, useRef, useState } from "react"
@@ -13,7 +13,7 @@ import { ModuleSwitcher } from "#/components/module-switcher"
 import { NotificationBell } from "#/components/notification-bell"
 import { Badge } from "#/components/ui/badge"
 import { Button } from "#/components/ui/button"
-import { Input } from "#/components/ui/input"
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "#/components/ui/input-group"
 import { PageHeader } from "#/components/ui/page-header"
 import { Separator } from "#/components/ui/separator"
 import {
@@ -116,7 +116,7 @@ export function HubLayout({ children, title, description, searchable = false, ac
 	// Estado da barra lida do cookie no `beforeLoad` da raiz: o HTML do SSR já sai
 	// no estado certo, sem o salto de 16rem na hidratação.
 	const { sidebarOpen } = useRouteContext({ from: "__root__" })
-	const pathname = useRouterState({ select: (s) => s.location.pathname })
+	const pathname = useLocation({ select: (location) => location.pathname })
 	const tool = findToolByPath(sucontTools, pathname)
 	const blurb = description ?? tool?.description
 	const heading = title ?? tool?.title
@@ -184,7 +184,7 @@ function ThemeToggle() {
 		<Tooltip>
 			<TooltipTrigger
 				render={
-					<Button type="button" variant="ghost" size="icon-sm" aria-label={label} onClick={toggle} className="text-muted-foreground hover:text-foreground">
+					<Button type="button" variant="subtle" size="icon-sm" aria-label={label} onClick={toggle}>
 						{theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
 					</Button>
 				}
@@ -224,8 +224,8 @@ function SidebarLegalLinks() {
 }
 
 function HubSidebar() {
-	const pathname = useRouterState({ select: (s) => s.location.pathname })
-	const divisao = useRouterState({ select: (s) => (s.location.search as { divisao?: string }).divisao })
+	const pathname = useLocation({ select: (location) => location.pathname })
+	const divisao = useLocation({ select: (location) => (location.search as { divisao?: string }).divisao })
 	const { permissions } = useSucontAccess()
 	// Mesmo resolvedor do seletor: a barra tem que listar as ferramentas de uma
 	// divisão que o usuário PODE abrir, venha ela da URL ou do padrão.
@@ -258,7 +258,7 @@ function HubSidebar() {
 
 /** Navegação do módulo `admin`: governança do próprio sucont. */
 function AdminNav() {
-	const pathname = useRouterState({ select: (s) => s.location.pathname })
+	const pathname = useLocation({ select: (location) => location.pathname })
 	const labelId = useId()
 
 	return (
@@ -290,7 +290,7 @@ function AdminNav() {
 
 /** Navegação de uma divisão: as três telas do hub mais as ferramentas DELA, por etapa. */
 function HubNav({ division }: { division: SucontDivision }) {
-	const pathname = useRouterState({ select: (s) => s.location.pathname })
+	const pathname = useLocation({ select: (location) => location.pathname })
 	const activeTool = findToolByPath(sucontTools, pathname)
 	const hubLabelId = useId()
 	const groupLabelId = useId()
@@ -367,8 +367,8 @@ function HubNav({ division }: { division: SucontDivision }) {
  * item aqui é texto simples com `aria-current`, não um segundo título.
  */
 function HubBreadcrumb() {
-	const pathname = useRouterState({ select: (s) => s.location.pathname })
-	const divisao = useRouterState({ select: (s) => (s.location.search as { divisao?: string }).divisao })
+	const pathname = useLocation({ select: (location) => location.pathname })
+	const divisao = useLocation({ select: (location) => (location.search as { divisao?: string }).divisao })
 	const tool = findToolByPath(sucontTools, pathname)
 	const crumbs = buildToolCrumbs(tool)
 
@@ -442,35 +442,33 @@ function HubSearchBar() {
 		if (timer.current) clearTimeout(timer.current)
 		setDraft("")
 		setQuery("")
+		// O botão some junto com o texto; sem isso o foco do teclado cairia no `<body>`.
+		document.getElementById(inputId)?.focus()
 	}
 
 	return (
-		<div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 shadow-sm">
-			<Search className="ml-2 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+		<InputGroup>
 			<label htmlFor={inputId} className="sr-only">
 				Buscar no hub
 			</label>
-			<Input
+			<InputGroupAddon>
+				<Search aria-hidden="true" />
+			</InputGroupAddon>
+			<InputGroupInput
 				id={inputId}
 				type="search"
 				placeholder="Buscar por módulo, assunto, Q35, SIAFI, Restos a Pagar..."
-				className="h-auto w-full border-none bg-transparent p-0 text-body text-muted-foreground shadow-none outline-none focus-visible:border-none focus-visible:ring-0 dark:bg-transparent"
 				value={draft}
 				onChange={(e) => onChange(e.target.value)}
 			/>
 			{draft !== "" && (
-				<Button
-					type="button"
-					onClick={clear}
-					aria-label="Limpar busca"
-					variant="ghost"
-					size="icon-xs"
-					className="size-7 shrink-0 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
-				>
-					<X className="size-3.5" />
-				</Button>
+				<InputGroupAddon align="inline-end">
+					<InputGroupButton onClick={clear} aria-label="Limpar busca" variant="subtle" size="icon-xs">
+						<X />
+					</InputGroupButton>
+				</InputGroupAddon>
 			)}
-		</div>
+		</InputGroup>
 	)
 }
 
@@ -560,14 +558,7 @@ function NavUser() {
 				{withTooltip(
 					isMobile,
 					"Sair",
-					<Button
-						type="button"
-						onClick={logout}
-						aria-label="Sair"
-						variant="ghost"
-						size="icon-sm"
-						className="shrink-0 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-					>
+					<Button type="button" onClick={logout} aria-label="Sair" variant="subtle" size="icon-sm" className="shrink-0 rounded-lg">
 						<LogOut className="size-4" />
 					</Button>
 				)}

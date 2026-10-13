@@ -114,17 +114,17 @@ export function SyncRunnerPanel({ config }: { config: SyncPanelConfig }) {
 	return (
 		<div className="space-y-6">
 			<div className="flex items-center justify-end gap-2">
-				<Button variant="outline" size="sm" onClick={() => refetch()} disabled={isRunning} className="gap-2">
+				<Button variant="outline" size="sm" onClick={() => refetch()} disabled={isRunning}>
 					<RefreshCw className="size-4" />
 					Atualizar
 				</Button>
 				{isRunning && (
-					<Button size="sm" variant="destructive" onClick={handleStop} disabled={isStopping} className="gap-2">
+					<Button size="sm" variant="destructive" onClick={handleStop} disabled={isStopping}>
 						{isStopping ? <Loader2 className="size-4 animate-spin" /> : <Square className="size-4" />}
 						Parar Sync
 					</Button>
 				)}
-				<Button size="sm" onClick={handleTrigger} disabled={isTriggering || isRunning} className="gap-2">
+				<Button size="sm" onClick={handleTrigger} disabled={isTriggering || isRunning}>
 					{isTriggering ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />}
 					{isRunning ? "Sync em andamento…" : "Iniciar Sync"}
 				</Button>
@@ -144,7 +144,7 @@ export function SyncRunnerPanel({ config }: { config: SyncPanelConfig }) {
 						<CardHeader>
 							<div className="flex items-start justify-between gap-4">
 								<div>
-									<CardTitle className="text-base">
+									<CardTitle>
 										Sync #{sync.id}
 										<span className="ml-2 text-sm font-normal text-muted-foreground">— disparada por {sync.triggered_by}</span>
 									</CardTitle>
@@ -189,7 +189,7 @@ export function SyncRunnerPanel({ config }: { config: SyncPanelConfig }) {
 					{sync.steps.length > 0 && (
 						<Card>
 							<CardHeader>
-								<CardTitle className="text-base">Progresso por {config.stepColumnHeader}</CardTitle>
+								<CardTitle>Progresso por {config.stepColumnHeader}</CardTitle>
 							</CardHeader>
 							<CardContent className="p-0">
 								<div className="overflow-x-auto">

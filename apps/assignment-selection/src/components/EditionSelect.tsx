@@ -5,7 +5,7 @@ export function EditionSelect({ editions, value, onChange }: { editions: Edition
 	const current = editions.find((e) => e.id === value)
 	return (
 		<Select value={value ?? null} onValueChange={(v) => onChange(v as string)}>
-			<SelectTrigger className="w-44 bg-white text-slate-800">
+			<SelectTrigger className="w-44">
 				<SelectValue>{current ? current.name : "Edição"}</SelectValue>
 			</SelectTrigger>
 			<SelectContent>

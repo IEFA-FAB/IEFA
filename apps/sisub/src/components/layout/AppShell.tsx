@@ -155,7 +155,7 @@ export function AppShell() {
 						{(!isOnScopeHub || isMobile) && (
 							<>
 								<SidebarTrigger className="size-9 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors" />
-								<Separator orientation="vertical" className="mx-2 h-6 bg-border data-[orientation=vertical]:self-center" />
+								<Separator orientation="vertical" className="mx-2 h-6 data-[orientation=vertical]:self-center" />
 							</>
 						)}
 						{isMobile ? (
@@ -215,7 +215,7 @@ export function AppShell() {
 					<div className="flex shrink-0 items-center gap-2">
 						{/* No celular a sidebar vira gaveta: a busca precisa de um ponto de entrada à vista */}
 						{isMobile && (
-							<Button variant="ghost" size="icon" onClick={openCommandPalette} aria-label="Buscar página" className="text-muted-foreground">
+							<Button variant="subtle" size="icon" onClick={openCommandPalette} aria-label="Buscar página">
 								<Search className="size-4" />
 							</Button>
 						)}

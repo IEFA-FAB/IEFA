@@ -137,7 +137,7 @@ export function ApplyEventDialog({ open, onClose, templateId, templateName, temp
 					{dates.length > 0 ? (
 						<div className="flex flex-wrap gap-1.5">
 							{dates.map((d) => (
-								<Badge key={d} variant="outline" className="gap-1 pr-1">
+								<Badge key={d} variant="outline" className="pr-1">
 									{format(parseLocalDate(d), "dd/MM/yyyy (EEE)", { locale: ptBR })}
 									<button
 										type="button"

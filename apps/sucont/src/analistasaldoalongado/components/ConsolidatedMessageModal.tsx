@@ -3,6 +3,7 @@ import { useMemo, useState } from "react"
 import { EditableMessage } from "#/components/editable-message"
 import { Button } from "#/components/ui/button"
 import { Input } from "#/components/ui/input"
+import { Label } from "#/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 import { useMessageDraft } from "#/hooks/use-editable-message"
 import type { UgConsolidated } from "../utils/analytics"
@@ -128,14 +129,7 @@ export function ConsolidatedMessageModal({ data, racFilter, onClose }: Consolida
 							</div>
 						</div>
 					</div>
-					<Button
-						type="button"
-						onClick={onClose}
-						variant="ghost"
-						size="icon"
-						aria-label="Fechar"
-						className="text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors"
-					>
+					<Button type="button" onClick={onClose} variant="subtle" size="icon" aria-label="Fechar" className="rounded-full transition-colors">
 						<X className="w-6 h-6" />
 					</Button>
 				</div>
@@ -149,44 +143,29 @@ export function ConsolidatedMessageModal({ data, racFilter, onClose }: Consolida
 
 						<div className="p-4 space-y-4">
 							<div className="space-y-1.5">
-								<label htmlFor="cons-msg-number" className="text-caption text-foreground">
-									Número da Mensagem
-								</label>
+								<Label htmlFor="cons-msg-number">Número da Mensagem</Label>
 								<Input
 									id="cons-msg-number"
 									type="text"
 									placeholder="Ex: 123"
-									className="px-3 py-1.5 text-body border-border rounded-lg focus-visible:ring-ring focus-visible:border-ring bg-card text-foreground"
+									size="sm"
 									value={messageNumber}
 									onChange={(e) => setMessageNumber(e.target.value)}
 								/>
 							</div>
 							<div className="space-y-1.5">
-								<label htmlFor="cons-msg-date" className="text-caption text-foreground">
-									Data da Mensagem
-								</label>
-								<Input
-									id="cons-msg-date"
-									type="date"
-									className="px-3 py-1.5 text-body border-border rounded-lg focus-visible:ring-ring focus-visible:border-ring bg-card text-foreground"
-									value={messageDate}
-									onChange={(e) => setMessageDate(e.target.value)}
-								/>
+								<Label htmlFor="cons-msg-date">Data da Mensagem</Label>
+								<Input id="cons-msg-date" type="date" size="sm" value={messageDate} onChange={(e) => setMessageDate(e.target.value)} />
 							</div>
 
 							<div className="space-y-2">
-								<label htmlFor="cons-msg-type" className="text-caption text-foreground">
-									Tipo de Mensagem
-								</label>
+								<Label htmlFor="cons-msg-type">Tipo de Mensagem</Label>
 								<Select
 									items={{ COM_PRAZO: "Ação com Prazo", SEM_PRAZO: "Ação sem Prazo", ALERTA: "Apenas Alerta" }}
 									value={messageType}
 									onValueChange={(value) => setMessageType(value as MessageType)}
 								>
-									<SelectTrigger
-										id="cons-msg-type"
-										className="w-full px-3 py-1.5 text-body border border-border rounded-lg focus:ring-2 focus:ring-ring focus:border-ring bg-card text-foreground"
-									>
+									<SelectTrigger id="cons-msg-type" size="sm" className="w-full">
 										<SelectValue />
 									</SelectTrigger>
 									<SelectContent>
@@ -198,16 +177,8 @@ export function ConsolidatedMessageModal({ data, racFilter, onClose }: Consolida
 
 								{messageType === "COM_PRAZO" && (
 									<div className="pt-2">
-										<label htmlFor="cons-msg-deadline" className="text-caption text-foreground mb-1.5 block">
-											Data Limite
-										</label>
-										<Input
-											id="cons-msg-deadline"
-											type="date"
-											className="px-3 py-1.5 text-body border-border rounded-lg focus-visible:ring-ring focus-visible:border-ring bg-card text-foreground"
-											value={deadlineDate}
-											onChange={(e) => setDeadlineDate(e.target.value)}
-										/>
+										<Label htmlFor="cons-msg-deadline">Data Limite</Label>
+										<Input id="cons-msg-deadline" type="date" size="sm" value={deadlineDate} onChange={(e) => setDeadlineDate(e.target.value)} />
 									</div>
 								)}
 							</div>

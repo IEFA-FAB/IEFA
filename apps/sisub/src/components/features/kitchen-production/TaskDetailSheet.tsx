@@ -72,11 +72,7 @@ export function TaskDetailSheet({ item, open, onOpenChange, onUpdateStatus, kitc
 			<SheetContent side="right" className="sm:max-w-lg w-full flex flex-col overflow-y-auto gap-0">
 				<SheetHeader className="border-b border-border">
 					<div className="flex flex-wrap items-center gap-2 mb-1">
-						{mealType?.name && (
-							<Badge variant="secondary" className="text-xs">
-								{mealType.name}
-							</Badge>
-						)}
+						{mealType?.name && <Badge variant="secondary">{mealType.name}</Badge>}
 						<Badge variant={statusVariant(task.status)} className="text-xs">
 							{statusLabel(task.status)}
 						</Badge>

@@ -38,7 +38,7 @@ export function ExpiringInPeriod({ kitchenId, from, until }: { kitchenId: number
 	return (
 		<Card>
 			<CardHeader className="pb-2">
-				<CardTitle className="flex items-center gap-2 text-subheading">
+				<CardTitle className="flex items-center gap-2">
 					<CalendarClock className="size-4" />
 					Vence no período planejado
 				</CardTitle>

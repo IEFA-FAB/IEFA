@@ -159,3 +159,27 @@ updates:
       default-days: 7
     commit-message:
       prefix: "chore(deps)"
+
+  # ── Providers do Terraform ─────────────────────────────────────────────────
+  # Sem isto os `.terraform.lock.hcl` só andavam à mão e derivavam entre stacks (6.53 e 6.55 do
+  # aws ao mesmo tempo). Um PR por semana com todos os stacks juntos: provider diferente por stack
+  # é o que torna um plan incomparável com o outro. O CI aplica o lock commitado
+  # (`init -lockfile=readonly`), então o PR do Dependabot é o único caminho de versão nova.
+  - package-ecosystem: terraform
+    directories:
+      - "/infra/*"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: America/Sao_Paulo
+    # Espera antes de propor uma versão recém-publicada: a janela em que um pacote
+    # comprometido é publicado, detectado e despublicado costuma ser de horas a dias.
+    # Atualização de SEGURANÇA ignora o cooldown e vem na hora, que é o certo.
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      terraform-providers:
+        patterns: ["*"]
