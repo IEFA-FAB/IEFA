@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "vite dev --port 3000",
-    "build": "vite build",
+    "build": "bunx --bun vite build",
     "preview": "vite preview",
     "format": "biome format",
     "lint": "biome check && bun ../../scripts/lint-tailwind.ts sucont",
