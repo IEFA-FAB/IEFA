@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest"
-import { generateRestrictedDates, inferDefaultMeal, MEAL_LABEL } from "./fiscal"
+import { createScanCache, generateRestrictedDates, inferDefaultMeal, MEAL_LABEL, type ScanScope } from "./fiscal"
 
 describe("MEAL_LABEL", () => {
 	test("cobre as quatro refeições com rótulos pt-BR", () => {
@@ -56,5 +56,45 @@ describe("generateRestrictedDates", () => {
 		for (const d of dates) expect(d).toMatch(/^\d{4}-\d{2}-\d{2}$/)
 		// vira a virada de ano corretamente (31/12 → 01/01 → 02/01)
 		expect(dates).toEqual(["2025-12-31", "2026-01-01", "2026-01-02"])
+	})
+})
+
+describe("createScanCache", () => {
+	const UUID = "11111111-2222-3333-4444-555555555555"
+	const lunch: ScanScope = { date: "2026-07-06", meal: "almoco", messHallId: 7 }
+	const dinner: ScanScope = { ...lunch, meal: "janta" }
+
+	test("leitura marcada no almoço não bloqueia o mesmo militar no jantar", () => {
+		const cache = createScanCache()
+		cache.mark(lunch, UUID)
+		expect(cache.has(lunch, UUID)).toBe(true)
+		expect(cache.has(dinner, UUID)).toBe(false)
+	})
+
+	test("a chave também separa data e rancho", () => {
+		const cache = createScanCache()
+		cache.mark(lunch, UUID)
+		expect(cache.has({ ...lunch, date: "2026-07-07" }, UUID)).toBe(false)
+		expect(cache.has({ ...lunch, messHallId: 8 }, UUID)).toBe(false)
+	})
+
+	test("presença excluída libera nova leitura só naquela refeição", () => {
+		const cache = createScanCache()
+		cache.mark(lunch, UUID)
+		cache.mark(dinner, UUID)
+		cache.forget(lunch, UUID)
+		expect(cache.has(lunch, UUID)).toBe(false)
+		expect(cache.has(dinner, UUID)).toBe(true)
+	})
+
+	test("despeja o mais antigo ao passar do limite", () => {
+		const cache = createScanCache(2)
+		cache.mark(lunch, "a")
+		cache.mark(lunch, "b")
+		cache.mark(lunch, "a") // repetida não renova nem duplica
+		cache.mark(lunch, "c")
+		expect(cache.has(lunch, "a")).toBe(false)
+		expect(cache.has(lunch, "b")).toBe(true)
+		expect(cache.has(lunch, "c")).toBe(true)
 	})
 })

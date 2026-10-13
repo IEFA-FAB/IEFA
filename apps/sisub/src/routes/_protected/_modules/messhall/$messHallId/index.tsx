@@ -17,10 +17,10 @@ import { useAuth } from "@/hooks/auth/useAuth"
 import { useAddOtherPresence, useOtherPresencesCount, useScanProcessor } from "@/hooks/business/useFiscalOps"
 import { usePresenceManagement } from "@/hooks/data/usePresenceManagement"
 import { cn } from "@/lib/cn"
-import { generateRestrictedDates, inferDefaultMeal } from "@/lib/fiscal"
+import { createScanCache, generateRestrictedDates, inferDefaultMeal, type ScanCache } from "@/lib/fiscal"
 import { resolveDisplayNameFn } from "@/server/messhall.fn"
 import type { MealKey } from "@/types/domain/meal"
-import type { DialogState, FiscalFilters } from "@/types/domain/presence"
+import type { DialogState, FiscalFilters, FiscalPresenceRecord } from "@/types/domain/presence"
 
 export const Route = createFileRoute("/_protected/_modules/messhall/$messHallId/")({
 	// Refeição e dia padrão saem do relógio LOCAL (`inferDefaultMeal`, `generateRestrictedDates`).
@@ -51,6 +51,17 @@ const UUID_REGEX = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}
 function extractUuid(payload: string): string | null {
 	const match = payload.match(UUID_REGEX)
 	return match ? match[0].toLowerCase() : null
+}
+
+// A câmera decodifica o mesmo crachá várias vezes por segundo: o cooldown segura a rajada entre
+// leituras e o scanCache (por OM + data + refeição) impede reabrir o diálogo de quem já foi lido.
+const SCAN_COOLDOWN_MS = 800
+
+// "Nenhum QR no quadro" chega a cada frame e é o estado normal; o resto é falha real de decodificação.
+function onScanFail(err: string | Error) {
+	if (err === QrScanner.NO_QR_CODE_FOUND) return
+	// biome-ignore lint/suspicious/noConsole: intencional — falha de decodificação não tem outro canal
+	console.error("[scanner] falha ao decodificar QR:", err)
 }
 
 interface ScannerState {
@@ -96,7 +107,7 @@ const scannerReducer = (state: ScannerState, action: ScannerAction): ScannerStat
 /* =====================================================================
    Tab: Scanner QR + Presença Anônima (MESSHALL-02 + MESSHALL-04)
    ===================================================================== */
-function ScannerTab({ filters, onFiltersChange }: { filters: FiscalFilters; onFiltersChange: (f: FiscalFilters) => void }) {
+function ScannerTab({ filters, onFiltersChange, scanCache }: { filters: FiscalFilters; onFiltersChange: (f: FiscalFilters) => void; scanCache: ScanCache }) {
 	"use no memo"
 	const scannerRef = useRef<QrScanner | null>(null)
 	const videoRef = useRef<HTMLVideoElement>(null)
@@ -120,25 +131,7 @@ function ScannerTab({ filters, onFiltersChange }: { filters: FiscalFilters; onFi
 	const addOtherMutation = useAddOtherPresence()
 	const { confirmPresence } = usePresenceManagement(filters)
 
-	// Cooldown + LRU cache
-	const COOLDOWN_MS = 800
-	const MAX_CACHE = 300
 	const lastScanAtRef = useRef(0)
-	const recentlyScannedRef = useRef(new Set<string>())
-	const scannedQueueRef = useRef<string[]>([])
-
-	const markScanned = useCallback((uuid: string) => {
-		const set = recentlyScannedRef.current
-		const queue = scannedQueueRef.current
-		if (!set.has(uuid)) {
-			set.add(uuid)
-			queue.push(uuid)
-			if (queue.length > MAX_CACHE) {
-				const oldest = queue.shift()
-				if (oldest) set.delete(oldest)
-			}
-		}
-	}, [])
 
 	const [scannerState, dispatch] = useReducer(scannerReducer, {
 		isReady: false,
@@ -169,45 +162,39 @@ function ScannerTab({ filters, onFiltersChange }: { filters: FiscalFilters; onFi
 		processScanRef.current = processScan
 	}, [processScan])
 
-	const markScannedRef = useRef(markScanned)
-	useEffect(() => {
-		markScannedRef.current = markScanned
-	}, [markScanned])
+	const onScanSuccess = useCallback(
+		(result: QrScanner.ScanResult) => {
+			const raw = (result?.data || "").trim()
+			if (!raw) return
+			const uuid = extractUuid(raw)
+			if (!uuid) return
 
-	const onScanSuccess = useCallback((result: QrScanner.ScanResult) => {
-		const raw = (result?.data || "").trim()
-		if (!raw) return
-		const uuid = extractUuid(raw)
-		if (!uuid) return
+			// Escopo da leitura: os filtros do instante do scan, não os de quando a resposta chegar.
+			const scope = filtersRef.current
+			const now = Date.now()
+			if (now - lastScanAtRef.current < SCAN_COOLDOWN_MS) return
+			if (scanCache.has(scope, uuid)) return
+			if (isProcessingRef.current) return
 
-		const now = Date.now()
-		if (now - lastScanAtRef.current < COOLDOWN_MS) return
-		if (recentlyScannedRef.current.has(uuid)) return
-		if (isProcessingRef.current) return
+			lastScanAtRef.current = now
+			setIsProcessing(true)
 
-		lastScanAtRef.current = now
-		setIsProcessing(true)
-
-		;(async () => {
-			try {
-				const { willEat } = await processScanRef.current(uuid, filtersRef.current)
-				if (!isMountedRef.current) return
-				setLastScanResult(uuid)
-				setDialog({ open: true, uuid, willEat, willEnter: "sim" })
-				markScannedRef.current(uuid)
-				if (isMountedRef.current) setIsProcessing(false)
-			} catch (_err) {
-				if (isMountedRef.current) toast.error("Erro", { description: "Falha ao processar QR." })
-				if (isMountedRef.current) setIsProcessing(false)
-			}
-		})()
-	}, [])
-
-	const onScanFail = useCallback((err: string | Error) => {
-		if (String(err) !== "No QR code found") {
-			// suppress "No QR code found" noise
-		}
-	}, [])
+			;(async () => {
+				try {
+					const { willEat } = await processScanRef.current(uuid, scope)
+					if (!isMountedRef.current) return
+					setLastScanResult(uuid)
+					setDialog({ open: true, uuid, willEat, willEnter: "sim" })
+					scanCache.mark(scope, uuid)
+					if (isMountedRef.current) setIsProcessing(false)
+				} catch (_err) {
+					if (isMountedRef.current) toast.error("Erro", { description: "Falha ao processar QR." })
+					if (isMountedRef.current) setIsProcessing(false)
+				}
+			})()
+		},
+		[scanCache]
+	)
 
 	useEffect(() => {
 		let isCancelled = false
@@ -241,7 +228,7 @@ function ScannerTab({ filters, onFiltersChange }: { filters: FiscalFilters; onFi
 			scannerRef.current?.destroy()
 			scannerRef.current = null
 		}
-	}, [onScanFail, onScanSuccess])
+	}, [onScanSuccess])
 
 	const handleConfirmDialog = useCallback(async () => {
 		if (!dialog.uuid) return
@@ -387,8 +374,20 @@ function ScannerTab({ filters, onFiltersChange }: { filters: FiscalFilters; onFi
 /* =====================================================================
    Tab: Lista de Presenças em Tempo Real (MESSHALL-03)
    ===================================================================== */
-function AttendanceTab({ filters, onFiltersChange }: { filters: FiscalFilters; onFiltersChange: (f: FiscalFilters) => void }) {
-	const { presences, arranchamentoMap, removePresence } = usePresenceManagement(filters)
+function AttendanceTab({ filters, onFiltersChange, scanCache }: { filters: FiscalFilters; onFiltersChange: (f: FiscalFilters) => void; scanCache: ScanCache }) {
+	const { presences, arranchamentoMap, removePresence: deletePresence } = usePresenceManagement(filters)
+
+	// Presença excluída libera o militar para ser lido de novo nesta refeição; sem isto o
+	// scanner ignoraria o QR dele até sair da página.
+	const removePresence = async (row: FiscalPresenceRecord) => {
+		try {
+			await deletePresence(row)
+			// A lista mostra só as presenças dos filtros atuais: o escopo da linha é o dos filtros.
+			scanCache.forget(filters, row.user_id)
+		} catch {
+			// O toast de falha já sai do onError da mutation; o militar continua presente.
+		}
+	}
 
 	return (
 		<div className="space-y-4">
@@ -436,6 +435,10 @@ function PresencePage() {
 		setFilters((f) => ({ ...f, messHallId }))
 	}
 
+	// Aqui, e não no ScannerTab: as abas desmontam ao trocar, e a exclusão na lista precisa
+	// liberar o UUID no mesmo cache que o scanner consulta.
+	const [scanCache] = useState(createScanCache)
+
 	return (
 		<div className="space-y-6">
 			<PageHeader title="Presenças" />
@@ -453,11 +456,11 @@ function PresencePage() {
 				</TabsList>
 
 				<TabsContent value="scanner">
-					<ScannerTab filters={filters} onFiltersChange={setFilters} />
+					<ScannerTab filters={filters} onFiltersChange={setFilters} scanCache={scanCache} />
 				</TabsContent>
 
 				<TabsContent value="attendance">
-					<AttendanceTab filters={filters} onFiltersChange={setFilters} />
+					<AttendanceTab filters={filters} onFiltersChange={setFilters} scanCache={scanCache} />
 				</TabsContent>
 			</Tabs>
 		</div>

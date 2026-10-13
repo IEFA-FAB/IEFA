@@ -125,6 +125,20 @@ Hipóteses a verificar.
 - **O sistema precisa:** registrar "outras presenças" no dia sem cadastro individual.
 - **Cobertura:** `other_presences` — verificar teste.
 
+### FIS-SCN-01 — "Troquei do almoço para o jantar e o scanner parou de ler quem já tinha almoçado"
+- **Realidade:** o fiscal fica com a mesma tela aberta do almoço ao jantar (ou corrige a data);
+  quem almoçou volta para jantar. Ou uma presença registrada por engano é excluída na lista e o
+  militar passa de novo pelo leitor.
+- **O sistema precisa:** o cache de UUIDs já lidos (que evita reabrir o diálogo enquanto o crachá
+  continua na frente da câmera) é por OM + data + refeição, não só por UUID; excluir a presença
+  tira o UUID do cache daquela refeição. O cache vive na página, e não na aba do scanner, porque as
+  abas desmontam ao trocar.
+- **UX:** trocar a refeição no filtro basta; nenhuma leitura é ignorada em silêncio. Excluir na
+  "Lista de Presenças" e voltar ao scanner lê o militar de novo.
+- **Cobertura:** `apps/sisub/src/lib/fiscal.test.ts › createScanCache` (chave por refeição, data e
+  rancho; exclusão libera só aquela refeição; despejo LRU). Fiação na tela
+  (`messhall/$messHallId/index.tsx`): **LACUNA** de e2e (precisa de câmera simulada).
+
 ### FIS-PRS-02 — "O refeitório fechou (falta de água)"
 - **Relacionado:** GC-AGD-07; o comensal precisa saber que não haverá refeição quente.
 - **Cobertura:** hipótese.
