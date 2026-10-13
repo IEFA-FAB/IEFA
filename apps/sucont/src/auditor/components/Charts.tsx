@@ -18,40 +18,24 @@ import {
 	XAxis,
 	YAxis,
 } from "recharts"
+import {
+	type AggregatedItem,
+	aggregateComparisonData,
+	buildTimeSeries,
+	type ComparisonViewMode,
+	computeComparisonLayout,
+	type EvolutionViewMode,
+	resolveTooltipValues,
+	type TimeSeriesItem,
+	type TooltipDataPayload,
+} from "../services/chart-data"
 import { formatCompactNumber, formatCurrency, toShortDate } from "../services/dataProcessor"
 import { chartChrome, chartSeries } from "../theme"
 import type { FinancialRecord, TimeFilter } from "../types"
-import { AccountGroup, RiskLevel } from "../types"
+import { RiskLevel } from "../types"
 
-/**
- * Opacidade da barra por posição na curva de Pareto: cheia até 80% do acumulado,
- * apagada depois. Era um `<Cell>` por ponto (deprecado, sai no recharts 4); agora vai
- * no próprio dado, em `fillOpacity`, que o recharts espalha no retângulo.
- *
- * No dado e não em `shape`: passar `shape` liga o `hasCustomShape` do recharts, que
- * desliga o descarte de retângulo de dimensão zero — uma UG com `intangivelDiff === 0`
- * passaria a desenhar um retângulo sem altura por cima da pilha.
- */
-function paretoOpacity(row: { accumulatedPct?: number } | undefined) {
-	return row?.accumulatedPct && row.accumulatedPct <= 80 ? 1 : 0.4
-}
-
-/** Passo horizontal mínimo entre dois nomes de UG inclinados a -45°, em px. */
-const PARETO_LABEL_PITCH = 50
-/** Largura que o eixo de percentual e as margens tiram da faixa das barras, em px. */
-const PARETO_AXIS_GUTTER = 90
-/**
- * Altura reservada para os nomes de UG inclinados a -45°, em px.
- *
- * É o `height` do EIXO que precisa cobri-los, e não a `margin.bottom` do gráfico:
- * o recharts soma a altura do eixo e a da legenda por cima da margem e ancora a
- * legenda no fim da faixa, então aumentar a margem empurra os dois juntos e o vão
- * entre eles continua zero — só encolhe a área de plotagem. Quem transbordava a
- * faixa do eixo e alcançava a legenda era o texto inclinado: "CINDACTA IV" mede
- * ~70px na vertical, contra os 60px que o eixo reservava.
- */
-const PARETO_AXIS_HEIGHT = 84
-const PARETO_AXIS_HEIGHT_EXPANDED = 110
+// `paretoOpacity` e as medidas do eixo do Pareto (`PARETO_*`) foram para
+// services/chart-data.ts, junto com a derivação de layout que as usa.
 
 interface ChartProps {
 	data: FinancialRecord[]
@@ -100,24 +84,6 @@ interface LabelListContentProps {
 }
 
 // --- Custom Tooltip ---
-interface TooltipDataPayload {
-	diff?: number
-	totalDiff?: number
-	difference?: number
-	siafi?: number
-	totalSiafi?: number
-	siafiValue?: number
-	siloms?: number
-	totalSiloms?: number
-	silomsValue?: number
-	accumulatedPct?: number
-	icc?: number
-	name?: string
-	ug?: string
-	bmpDiff?: number
-	consumoDiff?: number
-	intangivelDiff?: number
-}
 interface TooltipPayloadEntry {
 	payload: TooltipDataPayload
 }
@@ -127,22 +93,40 @@ interface CustomDetailedTooltipProps {
 	label?: string
 	viewMode?: string
 }
+/** Abertura da diferença por grupo de conta, no tooltip das linhas que a trazem. */
+function TooltipGroupBreakdown({ bmpDiff, consumoDiff, intangivelDiff }: { bmpDiff: number; consumoDiff?: number; intangivelDiff?: number }) {
+	return (
+		<div className="pl-4 space-y-1 mt-1 border-l border-surface-inverted-border/50">
+			<div className="flex items-center justify-between">
+				<div className="flex items-center gap-1.5">
+					<div className="w-1.5 h-1.5 rounded-sm bg-(--series-bmp)"></div>
+					<span className={`text-label text-muted-foreground`}>BMP</span>
+				</div>
+				<span className={`text-hint font-mono text-foreground`}>{formatCurrency(bmpDiff)}</span>
+			</div>
+			<div className="flex items-center justify-between">
+				<div className="flex items-center gap-1.5">
+					<div className="w-1.5 h-1.5 rounded-sm bg-warning"></div>
+					<span className={`text-label text-muted-foreground`}>Consumo</span>
+				</div>
+				<span className={`text-hint font-mono text-foreground`}>{formatCurrency(consumoDiff ?? 0)}</span>
+			</div>
+			<div className="flex items-center justify-between">
+				<div className="flex items-center gap-1.5">
+					<div className="w-1.5 h-1.5 rounded-sm bg-(--series-intangivel)"></div>
+					<span className={`text-label text-muted-foreground`}>Intangível</span>
+				</div>
+				<span className={`text-hint font-mono text-foreground`}>{formatCurrency(intangivelDiff ?? 0)}</span>
+			</div>
+		</div>
+	)
+}
+
 const CustomDetailedTooltip = ({ active, payload, label, viewMode: _viewMode }: CustomDetailedTooltipProps) => {
 	if (active && payload?.length) {
 		const data = payload[0].payload
 
-		const diff = data.diff !== undefined ? data.diff : data.totalDiff !== undefined ? data.totalDiff : data.difference
-		const siafi = data.siafi !== undefined ? data.siafi : data.totalSiafi !== undefined ? data.totalSiafi : data.siafiValue
-		const siloms = data.siloms !== undefined ? data.siloms : data.totalSiloms !== undefined ? data.totalSiloms : data.silomsValue
-		const pct = data.accumulatedPct
-		const icc = data.icc
-
-		const siafiNum = siafi ?? 0
-		const silomsNum = siloms ?? 0
-		const absDiff = Math.abs(siafiNum - silomsNum)
-		const pctDiff = siafiNum > 0 ? (absDiff / siafiNum) * 100 : 0
-
-		const displayName = data.name && data.name !== "N/A" ? data.name : data.ug && data.ug !== "N/A" ? data.ug : label
+		const { diff, siafi, siloms, pct, icc, pctDiff, displayName } = resolveTooltipValues(data, label)
 
 		return (
 			<div
@@ -179,31 +163,7 @@ const CustomDetailedTooltip = ({ active, payload, label, viewMode: _viewMode }: 
 						<span className={`text-caption font-mono text-destructive`}>{formatCurrency(diff ?? 0)}</span>
 					</div>
 
-					{data.bmpDiff !== undefined && (
-						<div className="pl-4 space-y-1 mt-1 border-l border-surface-inverted-border/50">
-							<div className="flex items-center justify-between">
-								<div className="flex items-center gap-1.5">
-									<div className="w-1.5 h-1.5 rounded-sm bg-(--series-bmp)"></div>
-									<span className={`text-label text-muted-foreground`}>BMP</span>
-								</div>
-								<span className={`text-hint font-mono text-foreground`}>{formatCurrency(data.bmpDiff)}</span>
-							</div>
-							<div className="flex items-center justify-between">
-								<div className="flex items-center gap-1.5">
-									<div className="w-1.5 h-1.5 rounded-sm bg-warning"></div>
-									<span className={`text-label text-muted-foreground`}>Consumo</span>
-								</div>
-								<span className={`text-hint font-mono text-foreground`}>{formatCurrency(data.consumoDiff ?? 0)}</span>
-							</div>
-							<div className="flex items-center justify-between">
-								<div className="flex items-center gap-1.5">
-									<div className="w-1.5 h-1.5 rounded-sm bg-(--series-intangivel)"></div>
-									<span className={`text-label text-muted-foreground`}>Intangível</span>
-								</div>
-								<span className={`text-hint font-mono text-foreground`}>{formatCurrency(data.intangivelDiff ?? 0)}</span>
-							</div>
-						</div>
-					)}
+					{data.bmpDiff !== undefined && <TooltipGroupBreakdown bmpDiff={data.bmpDiff} consumoDiff={data.consumoDiff} intangivelDiff={data.intangivelDiff} />}
 
 					<div className="flex items-center justify-between">
 						<div className="flex items-center gap-2">
@@ -239,6 +199,99 @@ const CustomDetailedTooltip = ({ active, payload, label, viewMode: _viewMode }: 
 	return null
 }
 
+interface ComparisonToolbarProps {
+	totalFinancialImpact: number
+	viewMode: ComparisonViewMode
+	onViewModeChange: (mode: ComparisonViewMode) => void
+	treeGroupBy: "ODS" | "ORGAO" | "UG"
+	onTreeGroupByChange: (groupBy: "ODS" | "ORGAO" | "UG") => void
+}
+
+/** Painel de impacto + seletores de agrupamento (só na árvore) e de visão do `ComparisonChart`. */
+function ComparisonToolbar({ totalFinancialImpact, viewMode, onViewModeChange, treeGroupBy, onTreeGroupByChange }: ComparisonToolbarProps) {
+	/*
+	  O seletor de visão ficava em `absolute top-0 right-0`, na mesma faixa
+	  vertical do painel de impacto, que é centralizado no fluxo: abaixo de
+	  ~700px os dois se imprimiam um sobre o outro. Agora são irmãos na mesma
+	  linha flex, e o seletor desce quando não cabe ao lado.
+	*/
+	return (
+		<div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+			<div
+				className={`flex items-center gap-3 px-4 py-2 rounded-xl border shadow-sm
+          bg-card border-border
+        `}
+			>
+				<div className="flex flex-col text-center">
+					<span className="text-label text-muted-foreground">Impacto Financeiro Total</span>
+					<span className={`text-subheading text-foreground`}>{formatCurrency(totalFinancialImpact)}</span>
+				</div>
+			</div>
+
+			<div className="flex min-w-0 max-w-full flex-wrap items-center gap-2 sm:gap-4">
+				{viewMode === "tree" && (
+					<div className="flex items-center gap-2 mr-4">
+						<span className={`text-label text-muted-foreground`}>Agrupar por:</span>
+						<div className={`flex rounded-lg p-0.5 border shadow-sm bg-muted border-border`}>
+							{(["ODS", "ORGAO", "UG"] as const).map((gb) => (
+								<button
+									key={gb}
+									type="button"
+									onClick={() => onTreeGroupByChange(gb)}
+									className={`flex items-center gap-1.5 px-2.5 py-1 text-hint rounded-md transition-all focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 ${treeGroupBy === gb ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+								>
+									{gb === "ODS" && <Layers className="w-3 h-3" />}
+									{gb === "ORGAO" && <Building2 className="w-3 h-3" />}
+									{gb === "UG" && <User className="w-3 h-3" />}
+									{gb === "ORGAO" ? "Órgão" : gb}
+								</button>
+							))}
+						</div>
+					</div>
+				)}
+
+				<div className={`flex min-w-0 max-w-full overflow-x-auto custom-scrollbar rounded-lg p-0.5 border shadow-sm bg-muted border-border`}>
+					{(
+						[
+							{ mode: "ranking", icon: LayoutList, label: "Pareto" },
+							{ mode: "tree", icon: Network, label: "Árvore" },
+							{ mode: "composition", icon: BarChart3, label: "Composição" },
+						] as const
+					).map(({ mode, icon: Icon, label }) => (
+						<button
+							key={mode}
+							type="button"
+							onClick={() => onViewModeChange(mode)}
+							className={`flex items-center gap-2 px-3 py-1.5 text-label rounded-md transition-all focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 ${viewMode === mode ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+						>
+							<Icon className="w-3 h-3" />
+							{label}
+						</button>
+					))}
+				</div>
+			</div>
+		</div>
+	)
+}
+
+/** Divergência líquida (SILOMS − SIAFI) da visão de Composição expandida. */
+function NetDivergencePanel({ totalNetDivergence }: { totalNetDivergence: number }) {
+	return (
+		<div
+			className={`mb-2 px-3 py-2 rounded-lg border flex items-center justify-between max-w-md
+           bg-muted/50 border-border`}
+		>
+			<span className="text-label text-muted-foreground">Divergência Líquida</span>
+			<span
+				className={`text-subheading font-mono ${totalNetDivergence > 0 ? "text-success" : totalNetDivergence < 0 ? "text-destructive" : "text-muted-foreground"}`}
+			>
+				{totalNetDivergence > 0 ? "+" : ""}
+				{formatCurrency(totalNetDivergence)}
+			</span>
+		</div>
+	)
+}
+
 // --- Comparison Chart ---
 export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHierarchy, hierarchyLevel = "UG", hierarchyFilter = ["TODOS"] }) => {
 	const [viewMode, setViewMode] = useState<"composition" | "ranking" | "tree">("ranking")
@@ -265,83 +318,13 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 		}
 	}, [viewMode, treeGroupBy, setHierarchy])
 
-	type AggregatedItem = {
-		name: string
-		ug: string
-		siafi: number
-		siloms: number
-		diff: number
-		netDiff: number
-		orgaoSuperior: string
-		ods: string
-		riskLevel?: RiskLevel
-		bmpDiff: number
-		consumoDiff: number
-		intangivelDiff: number
-		accumulatedPct?: number
-	}
-
 	type OrgaoChildShape = { name: string; ods: string; children: AggregatedItem[] }
 	type OdsGroupShape = { name: string; ods: string; children: Record<string, OrgaoChildShape> }
 
-	const { aggregated, paretoData, totalAbsDiff } = useMemo(() => {
-		if (!data) return { aggregated: [], paretoData: [], totalAbsDiff: 0 }
-
-		const agg = data
-			.reduce((acc, curr) => {
-				let key = curr.ug
-
-				const isSpecificUnitSelected = hierarchyFilter && hierarchyFilter.length === 1 && hierarchyFilter[0] !== "TODOS"
-
-				if (isSpecificUnitSelected || hierarchyLevel === "UG") key = curr.ug
-				else if (hierarchyLevel === "ODS") key = curr.ods
-				else if (hierarchyLevel === "ORGAO") key = curr.orgaoSuperior
-
-				const found = acc.find((item) => item.name === key)
-				if (found) {
-					found.siafi += curr.siafiValue || 0
-					found.siloms += curr.silomsValue || 0
-					found.diff += curr.difference || 0
-					found.netDiff += curr.silomsValue - curr.siafiValue
-
-					if (curr.group === AccountGroup.BMP) found.bmpDiff += curr.difference || 0
-					if (curr.group === AccountGroup.CONSUMO) found.consumoDiff += curr.difference || 0
-					if (curr.group === AccountGroup.INTANGIVEL) found.intangivelDiff += curr.difference || 0
-				} else {
-					acc.push({
-						name: key,
-						ug: curr.ug,
-						siafi: curr.siafiValue || 0,
-						siloms: curr.silomsValue || 0,
-						diff: curr.difference || 0,
-						netDiff: curr.silomsValue - curr.siafiValue || 0,
-						orgaoSuperior: curr.orgaoSuperior,
-						ods: curr.ods,
-						riskLevel: curr.riskLevel,
-						bmpDiff: curr.group === AccountGroup.BMP ? curr.difference || 0 : 0,
-						consumoDiff: curr.group === AccountGroup.CONSUMO ? curr.difference || 0 : 0,
-						intangivelDiff: curr.group === AccountGroup.INTANGIVEL ? curr.difference || 0 : 0,
-					})
-				}
-				return acc
-			}, [] as AggregatedItem[])
-			.filter((item) => item.diff > 0)
-
-		agg.sort((a, b) => b.diff - a.diff)
-
-		const total = agg.reduce((sum, item) => sum + item.diff, 0)
-		let acc2 = 0
-		const pareto = agg.map((item) => {
-			acc2 += item.diff
-			return {
-				...item,
-				totalAbsDiffContext: total,
-				accumulatedPct: total > 0 ? (acc2 / total) * 100 : 0,
-			}
-		})
-
-		return { aggregated: agg, paretoData: pareto, totalAbsDiff: total }
-	}, [data, hierarchyFilter, hierarchyLevel])
+	const { aggregated, paretoData, totalAbsDiff } = useMemo(
+		() => aggregateComparisonData(data, hierarchyFilter, hierarchyLevel),
+		[data, hierarchyFilter, hierarchyLevel]
+	)
 
 	const treeData = useMemo(() => {
 		if (treeGroupBy === "UG") {
@@ -424,40 +407,17 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 	const totalNetDivergence = aggregated.reduce((sum, item) => sum + item.netDiff, 0)
 	const totalFinancialImpact = aggregated.reduce((sum, item) => sum + item.diff, 0)
 
-	/**
-	 * Quantas barras cabem sai da largura MEDIDA da área de plotagem, e não do
-	 * viewport: o eixo X é nominal — cada barra carrega o nome da UG inclinado a
-	 * -45°, e `interval={0}` obriga o recharts a desenhar todos. Quem determina a
-	 * colisão é o passo entre barras, e a mesma janela de 1024px dá plotagens
-	 * diferentes com a barra lateral aberta ou fechada.
-	 *
-	 * `PARETO_LABEL_PITCH`: um nome de UG ocupa ~70px de texto, e inclinado a 45°
-	 * projeta ~50px na horizontal. Abaixo desse passo os nomes se sobrepõem.
-	 *
-	 * O teto de 20 é da visão compacta, não do dado — expandir mostra a série
-	 * inteira, com rolagem horizontal própria.
-	 */
-	const compactCount = plotWidth > 0 ? Math.min(20, Math.max(6, Math.floor((plotWidth - PARETO_AXIS_GUTTER) / PARETO_LABEL_PITCH))) : 20
-	const displayData = isExpanded ? paretoData : paretoData.slice(0, compactCount)
-	// Linhas próprias do Pareto: `displayData` também alimenta o BarChart de Composição
-	// (SIAFI × SILOMS), que não quer opacidade nenhuma.
-	const paretoRows = displayData.map((row) => ({ ...row, fillOpacity: paretoOpacity(row) }))
+	// Contagem de barras, contêiner e eixo: ver `computeComparisonLayout`.
+	const { displayData, paretoRows, containerStyle, overflowClass, axisHeight, compositionBarSize, paretoBarSize } = computeComparisonLayout(
+		paretoData,
+		plotWidth,
+		isExpanded,
+		viewMode
+	)
 
 	if (displayData.length === 0) {
 		return <div className="flex items-center justify-center h-full text-muted-foreground">Sem dados para exibir.</div>
 	}
-
-	const containerStyle: React.CSSProperties = isExpanded
-		? viewMode === "tree"
-			? { width: "2400px", height: "1600px" }
-			: {
-					width: "100%",
-					height: "100%",
-					minWidth: `${Math.max(displayData.length * 100, 1200)}px`,
-				}
-		: { width: "100%", height: "100%" }
-
-	const overflowClass = isExpanded ? (viewMode === "tree" ? "flex-1 overflow-auto custom-scrollbar" : "overflow-x-auto custom-scrollbar pb-2") : ""
 
 	interface AxisTickProps {
 		x?: number
@@ -547,82 +507,15 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 
 	return (
 		<div className="flex flex-col h-full w-full relative">
-			{/*
-			  O seletor de visão ficava em `absolute top-0 right-0`, na mesma faixa
-			  vertical do painel de impacto, que é centralizado no fluxo: abaixo de
-			  ~700px os dois se imprimiam um sobre o outro. Agora são irmãos na mesma
-			  linha flex, e o seletor desce quando não cabe ao lado.
-			*/}
-			<div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-				<div
-					className={`flex items-center gap-3 px-4 py-2 rounded-xl border shadow-sm
-          bg-card border-border
-        `}
-				>
-					<div className="flex flex-col text-center">
-						<span className="text-label text-muted-foreground">Impacto Financeiro Total</span>
-						<span className={`text-subheading text-foreground`}>{formatCurrency(totalFinancialImpact)}</span>
-					</div>
-				</div>
+			<ComparisonToolbar
+				totalFinancialImpact={totalFinancialImpact}
+				viewMode={viewMode}
+				onViewModeChange={setViewMode}
+				treeGroupBy={treeGroupBy}
+				onTreeGroupByChange={setTreeGroupBy}
+			/>
 
-				<div className="flex min-w-0 max-w-full flex-wrap items-center gap-2 sm:gap-4">
-					{viewMode === "tree" && (
-						<div className="flex items-center gap-2 mr-4">
-							<span className={`text-label text-muted-foreground`}>Agrupar por:</span>
-							<div className={`flex rounded-lg p-0.5 border shadow-sm bg-muted border-border`}>
-								{(["ODS", "ORGAO", "UG"] as const).map((gb) => (
-									<button
-										key={gb}
-										type="button"
-										onClick={() => setTreeGroupBy(gb)}
-										className={`flex items-center gap-1.5 px-2.5 py-1 text-hint rounded-md transition-all focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 ${treeGroupBy === gb ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-									>
-										{gb === "ODS" && <Layers className="w-3 h-3" />}
-										{gb === "ORGAO" && <Building2 className="w-3 h-3" />}
-										{gb === "UG" && <User className="w-3 h-3" />}
-										{gb === "ORGAO" ? "Órgão" : gb}
-									</button>
-								))}
-							</div>
-						</div>
-					)}
-
-					<div className={`flex min-w-0 max-w-full overflow-x-auto custom-scrollbar rounded-lg p-0.5 border shadow-sm bg-muted border-border`}>
-						{(
-							[
-								{ mode: "ranking", icon: LayoutList, label: "Pareto" },
-								{ mode: "tree", icon: Network, label: "Árvore" },
-								{ mode: "composition", icon: BarChart3, label: "Composição" },
-							] as const
-						).map(({ mode, icon: Icon, label }) => (
-							<button
-								key={mode}
-								type="button"
-								onClick={() => setViewMode(mode)}
-								className={`flex items-center gap-2 px-3 py-1.5 text-label rounded-md transition-all focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 ${viewMode === mode ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-							>
-								<Icon className="w-3 h-3" />
-								{label}
-							</button>
-						))}
-					</div>
-				</div>
-			</div>
-
-			{isExpanded && viewMode === "composition" && (
-				<div
-					className={`mb-2 px-3 py-2 rounded-lg border flex items-center justify-between max-w-md
-           bg-muted/50 border-border`}
-				>
-					<span className="text-label text-muted-foreground">Divergência Líquida</span>
-					<span
-						className={`text-subheading font-mono ${totalNetDivergence > 0 ? "text-success" : totalNetDivergence < 0 ? "text-destructive" : "text-muted-foreground"}`}
-					>
-						{totalNetDivergence > 0 ? "+" : ""}
-						{formatCurrency(totalNetDivergence)}
-					</span>
-				</div>
-			)}
+			{isExpanded && viewMode === "composition" && <NetDivergencePanel totalNetDivergence={totalNetDivergence} />}
 
 			<div className={`flex-1 w-full mt-2 ${overflowClass}`}>
 				<div ref={measurePlot} style={containerStyle} className="w-full h-full relative">
@@ -634,7 +527,7 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 									dataKey="name"
 									tick={<CustomizedAxisTick data={displayData} hierarchyLevel={hierarchyLevel} />}
 									interval={0}
-									height={isExpanded ? PARETO_AXIS_HEIGHT_EXPANDED : PARETO_AXIS_HEIGHT}
+									height={axisHeight}
 									axisLine={false}
 									tickLine={false}
 								/>
@@ -650,8 +543,8 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 								/>
 								<Tooltip content={<CustomDetailedTooltip />} cursor={{ fill: chartChrome.surfaceMuted }} />
 								<Legend wrapperStyle={{ paddingTop: "20px" }} />
-								<Bar dataKey="siafi" name="SIAFI" fill={chartSeries.bmp} radius={[4, 4, 0, 0]} barSize={isExpanded ? 30 : undefined} />
-								<Bar dataKey="siloms" name="SILOMS" fill={chartSeries.icc} radius={[4, 4, 0, 0]} barSize={isExpanded ? 30 : undefined} />
+								<Bar dataKey="siafi" name="SIAFI" fill={chartSeries.bmp} radius={[4, 4, 0, 0]} barSize={compositionBarSize} />
+								<Bar dataKey="siloms" name="SILOMS" fill={chartSeries.icc} radius={[4, 4, 0, 0]} barSize={compositionBarSize} />
 							</BarChart>
 						) : viewMode === "ranking" ? (
 							<ComposedChart data={paretoRows} margin={{ top: 40, right: 30, left: 20, bottom: 8 }}>
@@ -660,7 +553,7 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 									dataKey="name"
 									tick={<CustomizedAxisTick data={displayData} hierarchyLevel={hierarchyLevel} />}
 									interval={0}
-									height={isExpanded ? PARETO_AXIS_HEIGHT_EXPANDED : PARETO_AXIS_HEIGHT}
+									height={axisHeight}
 									axisLine={false}
 									tickLine={false}
 								/>
@@ -690,8 +583,8 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 								  cada uma abria uma greta entre elas — a barra lia como três cápsulas
 								  soltas, e não como uma composição de um mesmo total.
 								*/}
-								<Bar yAxisId="left" dataKey="bmpDiff" name="BMP" stackId="a" fill={chartSeries.bmp} barSize={isExpanded ? 40 : undefined} />
-								<Bar yAxisId="left" dataKey="consumoDiff" name="Bens de Consumo" stackId="a" fill={chartSeries.consumo} barSize={isExpanded ? 40 : undefined} />
+								<Bar yAxisId="left" dataKey="bmpDiff" name="BMP" stackId="a" fill={chartSeries.bmp} barSize={paretoBarSize} />
+								<Bar yAxisId="left" dataKey="consumoDiff" name="Bens de Consumo" stackId="a" fill={chartSeries.consumo} barSize={paretoBarSize} />
 								{/*
 								  Sem `LabelList` do total aqui, e a ausência é deliberada.
 
@@ -704,14 +597,7 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 								  vizinhas mente mais do que rótulo nenhum. O total de cada UG está no
 								  tooltip, que é onde a leitura por barra acontece.
 								*/}
-								<Bar
-									yAxisId="left"
-									dataKey="intangivelDiff"
-									name="Intangíveis"
-									stackId="a"
-									fill={chartSeries.intangivel}
-									barSize={isExpanded ? 40 : undefined}
-								/>
+								<Bar yAxisId="left" dataKey="intangivelDiff" name="Intangíveis" stackId="a" fill={chartSeries.intangivel} barSize={paretoBarSize} />
 
 								<Line
 									yAxisId="right"
@@ -743,9 +629,89 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 	)
 }
 
+/** Abas de modo do `EvolutionChart`. */
+function EvolutionModeTabs({ viewMode, onViewModeChange }: { viewMode: EvolutionViewMode; onViewModeChange: (mode: EvolutionViewMode) => void }) {
+	return (
+		<div className={`flex min-w-0 max-w-full overflow-x-auto custom-scrollbar rounded-lg p-0.5 border shadow-sm bg-muted border-border`}>
+			{(
+				[
+					{ mode: "total", label: "Saldos (Total)" },
+					{ mode: "overlap", label: "SIAFi x SIloms" },
+					{ mode: "icc", label: "ICC (%)" },
+					{ mode: "comparison", label: "Comparativo Anual" },
+				] as const
+			).map(({ mode, label }) => (
+				<button
+					key={mode}
+					type="button"
+					onClick={() => onViewModeChange(mode)}
+					className={`px-3 py-1.5 text-hint whitespace-nowrap rounded-md transition-all focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 ${viewMode === mode ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+				>
+					{label}
+				</button>
+			))}
+		</div>
+	)
+}
+
+/** ICC do último ponto da janela, no Comparativo Anual. */
+function CurrentIccBadge({ point }: { point: TimeSeriesItem }) {
+	return (
+		<div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border shadow-sm bg-success/10 border-success/30`}>
+			<span className={`text-label text-success`}>ICC Atual ({point.axisLabel}):</span>
+			<span className={`text-heading text-success`}>{(point.icc ?? 0).toFixed(1)}%</span>
+		</div>
+	)
+}
+
+/** Legenda HTML do `EvolutionChart`: só as séries que o modo ativo desenha. */
+function EvolutionLegend({ viewMode }: { viewMode: EvolutionViewMode }) {
+	return (
+		<div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+			{viewMode === "icc" ? (
+				<div className="flex items-center gap-2">
+					<div className="w-3 h-3 rounded-sm bg-(--series-icc)"></div>
+					<span className="text-label text-muted-foreground">Índice de Conciliação</span>
+				</div>
+			) : viewMode === "comparison" ? (
+				<>
+					<div className="flex items-center gap-2">
+						<div className="w-3 h-3 rounded-sm" style={{ backgroundColor: chartChrome.axis }}></div>
+						<span className="text-label text-muted-foreground">Ano Anterior</span>
+					</div>
+					<div className="flex items-center gap-2">
+						<div className="w-3 h-3 rounded-sm bg-(--series-pareto)"></div>
+						<span className="text-label text-muted-foreground">Ano Atual</span>
+					</div>
+				</>
+			) : viewMode === "overlap" ? (
+				<>
+					<div className="flex items-center gap-2">
+						<div className="w-3 h-3 rounded-sm bg-(--series-siafi)"></div>
+						<span className="text-label text-muted-foreground">SIAFi</span>
+					</div>
+					<div className="flex items-center gap-2">
+						<div className="w-3 h-3 rounded-sm bg-(--series-siloms)"></div>
+						<span className="text-label text-muted-foreground">SIloms</span>
+					</div>
+					<div className="flex items-center gap-2">
+						<div className="w-3 h-3 rounded-sm bg-(--series-diff) opacity-50"></div>
+						<span className="text-label text-muted-foreground">Divergência</span>
+					</div>
+				</>
+			) : (
+				<div className="flex items-center gap-2">
+					<div className="w-3 h-3 rounded-sm bg-(--series-pareto)"></div>
+					<span className="text-label text-muted-foreground">Divergência</span>
+				</div>
+			)}
+		</div>
+	)
+}
+
 // --- Evolution Area Chart ---
 export const EvolutionChart: React.FC<ChartProps> = ({ data, selectedMonth, timeFilter = "MENSAL" }) => {
-	const [viewMode, setViewMode] = useState<"total" | "overlap" | "icc" | "comparison">("total")
+	const [viewMode, setViewMode] = useState<EvolutionViewMode>("total")
 	const [plotWidth, setPlotWidth] = useState(0)
 
 	/**
@@ -772,87 +738,7 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, selectedMonth, time
 	})
 	const [isManuallyAdjusted, setIsManuallyAdjusted] = useState(false)
 
-	type TimeSeriesItem = {
-		date: string
-		year: number
-		monthIndex: number
-		totalDiff: number
-		totalSiafi: number
-		totalSiloms: number
-		timestamp: number
-		axisLabel: string
-		icc?: number
-		diffHighlight?: number
-		prevYearDiff?: number
-		prevYearLabel?: string
-		currentYearLabel?: string
-	}
-
-	const timeSeries = useMemo(() => {
-		if (!data) return [] as TimeSeriesItem[]
-		const grouped = data.reduce((acc, curr) => {
-			const found = acc.find((item) => item.date === curr.date)
-			if (found) {
-				found.totalDiff += curr.difference
-				found.totalSiafi += curr.siafiValue
-				found.totalSiloms += curr.silomsValue
-			} else {
-				acc.push({
-					date: curr.date,
-					year: curr.year,
-					monthIndex: curr.monthIndex,
-					totalDiff: curr.difference,
-					totalSiafi: curr.siafiValue,
-					totalSiloms: curr.silomsValue,
-					timestamp: curr.year * 100 + curr.monthIndex,
-					axisLabel: toShortDate(curr.date),
-				})
-			}
-			return acc
-		}, [] as TimeSeriesItem[])
-
-		const sorted = grouped.sort((a, b) => a.timestamp - b.timestamp)
-
-		let filteredSorted = sorted
-		if (timeFilter !== "MENSAL" && sorted.length > 0 && viewMode !== "comparison") {
-			let gap = 1
-			if (timeFilter === "TRIMESTRAL") gap = 3
-			if (timeFilter === "SEMESTRAL") gap = 6
-			if (timeFilter === "ANUAL") gap = 12
-
-			let anchorIndex = sorted.length - 1
-			if (selectedMonth && selectedMonth !== "TODOS") {
-				const foundIndex = sorted.findIndex((s) => s.date === selectedMonth)
-				if (foundIndex >= 0) anchorIndex = foundIndex
-			}
-
-			const anchorItem = sorted[anchorIndex]
-			const anchorTotalMonths = anchorItem.year * 12 + anchorItem.monthIndex
-
-			filteredSorted = sorted.filter((item) => {
-				const itemTotalMonths = item.year * 12 + item.monthIndex
-				const diffMonths = anchorTotalMonths - itemTotalMonths
-				return diffMonths >= 0 && diffMonths % gap === 0
-			})
-		}
-
-		return filteredSorted.map((item) => {
-			const icc = item.totalSiafi > 0 ? Math.max(0, (1 - item.totalDiff / item.totalSiafi) * 100) : item.totalDiff === 0 ? 100 : 0
-
-			const prevYear = item.year - 1
-			const prevMonth = item.monthIndex
-			const prevYearItem = sorted.find((s) => s.year === prevYear && s.monthIndex === prevMonth)
-
-			return {
-				...item,
-				icc: Math.max(0, Math.min(100, icc)),
-				diffHighlight: Math.abs(item.totalSiafi - item.totalSiloms),
-				prevYearDiff: prevYearItem ? prevYearItem.totalDiff : 0,
-				prevYearLabel: prevYearItem ? toShortDate(prevYearItem.date) : "N/A",
-				currentYearLabel: toShortDate(item.date),
-			}
-		})
-	}, [data, timeFilter, viewMode, selectedMonth])
+	const timeSeries: TimeSeriesItem[] = useMemo(() => buildTimeSeries(data, timeFilter, viewMode, selectedMonth), [data, timeFilter, viewMode, selectedMonth])
 
 	useEffect(() => {
 		setIsManuallyAdjusted(false)
@@ -925,32 +811,9 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, selectedMonth, time
 			*/}
 			<div className="flex flex-wrap justify-between items-center gap-2 mb-1 px-2">
 				<div className="flex min-w-0 max-w-full flex-wrap items-center gap-2 sm:gap-4">
-					<div className={`flex min-w-0 max-w-full overflow-x-auto custom-scrollbar rounded-lg p-0.5 border shadow-sm bg-muted border-border`}>
-						{(
-							[
-								{ mode: "total", label: "Saldos (Total)" },
-								{ mode: "overlap", label: "SIAFi x SIloms" },
-								{ mode: "icc", label: "ICC (%)" },
-								{ mode: "comparison", label: "Comparativo Anual" },
-							] as const
-						).map(({ mode, label }) => (
-							<button
-								key={mode}
-								type="button"
-								onClick={() => setViewMode(mode)}
-								className={`px-3 py-1.5 text-hint whitespace-nowrap rounded-md transition-all focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 ${viewMode === mode ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-							>
-								{label}
-							</button>
-						))}
-					</div>
+					<EvolutionModeTabs viewMode={viewMode} onViewModeChange={setViewMode} />
 
-					{viewMode === "comparison" && timeSeries[brushRange.end] && (
-						<div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border shadow-sm bg-success/10 border-success/30`}>
-							<span className={`text-label text-success`}>ICC Atual ({timeSeries[brushRange.end].axisLabel}):</span>
-							<span className={`text-heading text-success`}>{(timeSeries[brushRange.end].icc ?? 0).toFixed(1)}%</span>
-						</div>
-					)}
+					{viewMode === "comparison" && timeSeries[brushRange.end] && <CurrentIccBadge point={timeSeries[brushRange.end]} />}
 				</div>
 
 				{/*
@@ -961,45 +824,7 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, selectedMonth, time
 				  não tem. E o marcador de Divergência saía em `bg-destructive`, enquanto a
 				  área é traçada em `--series-pareto`: cor de legenda que não existe no gráfico.
 				*/}
-				<div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-					{viewMode === "icc" ? (
-						<div className="flex items-center gap-2">
-							<div className="w-3 h-3 rounded-sm bg-(--series-icc)"></div>
-							<span className="text-label text-muted-foreground">Índice de Conciliação</span>
-						</div>
-					) : viewMode === "comparison" ? (
-						<>
-							<div className="flex items-center gap-2">
-								<div className="w-3 h-3 rounded-sm" style={{ backgroundColor: chartChrome.axis }}></div>
-								<span className="text-label text-muted-foreground">Ano Anterior</span>
-							</div>
-							<div className="flex items-center gap-2">
-								<div className="w-3 h-3 rounded-sm bg-(--series-pareto)"></div>
-								<span className="text-label text-muted-foreground">Ano Atual</span>
-							</div>
-						</>
-					) : viewMode === "overlap" ? (
-						<>
-							<div className="flex items-center gap-2">
-								<div className="w-3 h-3 rounded-sm bg-(--series-siafi)"></div>
-								<span className="text-label text-muted-foreground">SIAFi</span>
-							</div>
-							<div className="flex items-center gap-2">
-								<div className="w-3 h-3 rounded-sm bg-(--series-siloms)"></div>
-								<span className="text-label text-muted-foreground">SIloms</span>
-							</div>
-							<div className="flex items-center gap-2">
-								<div className="w-3 h-3 rounded-sm bg-(--series-diff) opacity-50"></div>
-								<span className="text-label text-muted-foreground">Divergência</span>
-							</div>
-						</>
-					) : (
-						<div className="flex items-center gap-2">
-							<div className="w-3 h-3 rounded-sm bg-(--series-pareto)"></div>
-							<span className="text-label text-muted-foreground">Divergência</span>
-						</div>
-					)}
-				</div>
+				<EvolutionLegend viewMode={viewMode} />
 			</div>
 
 			<div ref={measurePlot} className="flex-1 min-h-[300px]">

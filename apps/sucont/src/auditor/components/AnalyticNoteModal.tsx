@@ -1,7 +1,16 @@
 import { useMutation } from "@tanstack/react-query"
 import { AlertTriangle, Check, Copy, Download, FileText, Loader2, Sparkles } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
-import { formatCurrency } from "#/auditor/services/dataProcessor"
+import {
+	buildGroupRows,
+	buildInterOmRows,
+	buildOffenderRows,
+	buildPreviewRows,
+	buildSummaryRows,
+	buildTrendRows,
+	describeTimeFilter,
+	SCOPE_LABEL,
+} from "#/auditor/services/analytic-note-view"
 import type { ReportDataset } from "#/auditor/services/report"
 import { generateAnalyticNote } from "#/auditor/services/report-client"
 import { NOTE_TITLE } from "#/auditor/services/report-markdown"
@@ -20,22 +29,8 @@ interface AnalyticNoteModalProps {
 	dataset: ReportDataset | null
 }
 
-const GROUP_LABEL: Record<string, string> = {
-	BMP: "Bens Móveis Permanentes",
-	CONSUMO: "Bens de Consumo",
-	INTANGIVEL: "Bens Intangíveis",
-}
-
-const SCOPE_LABEL: Record<string, string> = {
-	MENSAL: "Mensal",
-	TRIMESTRAL: "Trimestral",
-	SEMESTRAL: "Semestral",
-	ANUAL: "Anual",
-}
-
-const groupLabel = (group: string) => GROUP_LABEL[group] ?? group
-
-const percent = (value: number | null) => (value === null ? "—" : `${value > 0 ? "+" : ""}${value.toFixed(2)}%`)
+// `GROUP_LABEL`, `SCOPE_LABEL`, `groupLabel` e `percent` foram para
+// services/analytic-note-view.ts, junto com as linhas das tabelas que os usam.
 
 function NoteTable({ head, rows }: { head: string[]; rows: React.ReactNode[][] }) {
 	return (
@@ -90,6 +85,197 @@ function Prose({ text }: { text: string }) {
 				</p>
 			))}
 		</div>
+	)
+}
+
+/** Recorte que o cabeçalho descreve: competência · escopo · hierarquia. */
+function NoteScopeLine({ source }: { source: ReportDataset }) {
+	return (
+		<p className="mt-1 text-caption text-muted-foreground">
+			{source.competenceLabel} · {describeTimeFilter(source.timeFilter)} · {source.scopeLabel}
+		</p>
+	)
+}
+
+/** Copiar e baixar o Markdown da nota gerada. */
+function ResultActions({ copied, onCopy, onDownload }: { copied: boolean; onCopy: () => void; onDownload: () => void }) {
+	return (
+		<>
+			<Button variant="outline" size="sm" onClick={onCopy}>
+				{copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+				{copied ? "Copiado" : "Copiar Markdown"}
+			</Button>
+			<Button variant="outline" size="sm" onClick={onDownload}>
+				<Download className="size-4" />
+				Baixar .md
+			</Button>
+		</>
+	)
+}
+
+interface NotePreviewProps {
+	dataset: ReportDataset
+	isPending: boolean
+	isError: boolean
+	error: Error | null
+	onInterrupt: () => void
+	onGenerate: () => void
+}
+
+/** Resumo do que vai ao modelo e o botão que dispara a geração. */
+function NotePreview({ dataset, isPending, isError, error, onInterrupt, onGenerate }: NotePreviewProps) {
+	return (
+		<div className="mx-auto max-w-2xl space-y-5">
+			<SectionHeader
+				title="O que será analisado"
+				description="A nota é redigida por modelo de linguagem sobre este recorte. Os valores e as tabelas são calculados pelo sistema."
+			/>
+
+			<NoteTable head={["Item", "Valor"]} rows={buildPreviewRows(dataset)} />
+
+			<Alert variant="info">
+				<Sparkles />
+				<AlertTitle>Texto gerado por IA — revisão obrigatória</AlertTitle>
+				<AlertDescription>
+					O modelo interpreta os números; ele não os produz. Ainda assim, a nota sai assinada pela SUCONT-4 e precisa ser lida antes de qualquer encaminhamento.
+				</AlertDescription>
+			</Alert>
+
+			<div className="flex justify-end gap-2">
+				{isPending ? (
+					<Button variant="outline" onClick={onInterrupt}>
+						Interromper
+					</Button>
+				) : null}
+				<Button onClick={onGenerate} disabled={isPending}>
+					{isPending ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
+					{isPending ? "Redigindo a nota…" : "Gerar nota analítica"}
+				</Button>
+			</div>
+
+			{isError && !(error instanceof DOMException) && (
+				<Alert variant="destructive">
+					<AlertTriangle />
+					<AlertTitle>A nota não foi gerada</AlertTitle>
+					<AlertDescription>{error instanceof Error ? error.message : "Erro desconhecido"}</AlertDescription>
+				</Alert>
+			)}
+		</div>
+	)
+}
+
+/** A nota gerada: tabelas do sistema intercaladas com a prosa do modelo. */
+function NoteArticle({ snapshot, note }: { snapshot: ReportDataset; note: AnalyticNote }) {
+	return (
+		<article className="space-y-8">
+			<section className="space-y-3">
+				<SectionHeader title="1. Sumário executivo e diagnóstico" />
+				<NoteTable head={["Indicador", "Valor"]} rows={buildSummaryRows(snapshot)} />
+				<Prose text={note.sumarioExecutivo} />
+			</section>
+
+			<section className="space-y-3">
+				<SectionHeader title={`2. Unidades críticas — as ${snapshot.topOffenders.length} maiores divergências`} />
+				<NoteTable head={["UG", "Cód.", "Grupo", "Divergência", "SIAFI", "SILOMS", "Situação", "Risco"]} rows={buildOffenderRows(snapshot.topOffenders)} />
+				<Prose text={note.leituraUnidadesCriticas} />
+			</section>
+
+			<section className="space-y-3">
+				<SectionHeader title="3. Destaques de alerta" />
+				{note.destaquesDeAlerta.length === 0 ? (
+					<p className="text-body text-muted-foreground">O modelo não produziu destaques para esta competência.</p>
+				) : (
+					<div className="grid gap-3">
+						{note.destaquesDeAlerta.map((highlight, index) => (
+							// Chave posicional: o título vem do modelo e pode repetir.
+							<div key={index} className="rounded-lg border border-border bg-card p-4">
+								<h3 className="text-subheading text-foreground">
+									3.{index + 1} {highlight.titulo}
+									{highlight.unidade && <span className="text-muted-foreground"> — {highlight.unidade}</span>}
+								</h3>
+								<p className="mt-2 text-body text-foreground leading-relaxed">{highlight.analise}</p>
+								<p className="mt-2 text-body text-foreground">
+									<span className="text-label text-muted-foreground">Ação recomendada </span>
+									{highlight.acaoRecomendada}
+								</p>
+							</div>
+						))}
+					</div>
+				)}
+			</section>
+
+			{snapshot.interOm.length > 0 && (
+				<section className="space-y-3">
+					<SectionHeader title="3-A. Possíveis transferências entre OMs sem contrapartida no SILOMS" />
+					<NoteTable head={["Unidade A", "Unidade B", "Grupo", "Valor do movimento", "Resíduo do casamento"]} rows={buildInterOmRows(snapshot.interOm)} />
+					<Alert variant="warning">
+						<AlertTriangle />
+						<AlertTitle>Hipótese para conferência, não constatação</AlertTitle>
+						<AlertDescription>
+							As unidades acima tiveram movimento de SIAFI em sentidos opostos e magnitude equivalente na competência, com o SILOMS praticamente parado nas
+							duas. Duas movimentações independentes de valor próximo produzem o mesmo padrão — confirme pelas Notas de Lançamento antes de cobrar.
+						</AlertDescription>
+					</Alert>
+				</section>
+			)}
+
+			<section className="space-y-4">
+				<SectionHeader title="4. Dinâmica de tendências e evolução" />
+				<Prose text={note.leituraTendencias} />
+				{snapshot.trends.map((scope) => (
+					<div key={scope.scope} className="space-y-3">
+						<h3 className="text-subheading text-foreground">{SCOPE_LABEL[scope.scope] ?? scope.scope}</h3>
+						<p className="text-label text-muted-foreground">Agravamento</p>
+						{scope.worsening.length === 0 ? (
+							<p className="text-body text-muted-foreground">Nenhuma unidade aumentou a divergência neste escopo.</p>
+						) : (
+							<NoteTable head={["UG", "Cód.", "Grupo", "Variação", "%", "Atual", "Anterior"]} rows={buildTrendRows(scope.worsening)} />
+						)}
+						<p className="text-label text-muted-foreground">Melhoria</p>
+						{scope.improving.length === 0 ? (
+							<p className="text-body text-muted-foreground">Nenhuma unidade reduziu a divergência neste escopo.</p>
+						) : (
+							<NoteTable head={["UG", "Cód.", "Grupo", "Variação", "%", "Atual", "Anterior"]} rows={buildTrendRows(scope.improving)} />
+						)}
+					</div>
+				))}
+			</section>
+
+			<section className="space-y-3">
+				<SectionHeader title="5. Gargalos por natureza de bem" />
+				<NoteTable head={["Grupo", "Divergência", "SIAFI", "SILOMS", "UGs"]} rows={buildGroupRows(snapshot.groups)} />
+				<Prose text={note.leituraGrupos} />
+			</section>
+
+			<section className="space-y-3">
+				<SectionHeader title="6. Plano de ação e recomendações estratégicas" />
+				{note.planoDeAcao.length === 0 ? (
+					<p className="text-body text-muted-foreground">O modelo não produziu recomendações para esta competência.</p>
+				) : (
+					<ol className="ml-5 list-decimal space-y-2">
+						{note.planoDeAcao.map((item, index) => (
+							// Chave posicional: a recomendação vem do modelo e pode repetir.
+							<li key={index} className="text-body text-foreground leading-relaxed">
+								{item}
+							</li>
+						))}
+					</ol>
+				)}
+			</section>
+
+			<section className="space-y-3">
+				<SectionHeader title="7. Conclusão" />
+				<Prose text={note.conclusao} />
+			</section>
+
+			<Alert variant="info">
+				<Sparkles />
+				<AlertTitle>Texto gerado por IA — revisão obrigatória</AlertTitle>
+				<AlertDescription>
+					Os valores e as tabelas acima são calculados pelo sistema. O texto analítico é do modelo e exige revisão antes de qualquer encaminhamento.
+				</AlertDescription>
+			</Alert>
+		</article>
 	)
 }
 
@@ -151,6 +337,7 @@ export function AnalyticNoteModal({ isOpen, onClose, dataset }: AnalyticNoteModa
 	const note: AnalyticNote | null = result?.note ?? null
 	/** Recorte congelado no momento da geração. Ver o comentário do `mutationFn`. */
 	const snapshot = result?.dataset ?? null
+	const headerSource = snapshot ?? dataset
 
 	const handleCopy = async () => {
 		if (!result) return
@@ -192,26 +379,10 @@ export function AnalyticNoteModal({ isOpen, onClose, dataset }: AnalyticNoteModa
 							<span className="truncate">{NOTE_TITLE}</span>
 						</DialogTitle>
 						{/* Depois de gerada, o cabeçalho descreve o recorte que a produziu — não o que a tela tem agora. */}
-						{(snapshot ?? dataset) && (
-							<p className="mt-1 text-caption text-muted-foreground">
-								{(snapshot ?? dataset)?.competenceLabel} · {SCOPE_LABEL[(snapshot ?? dataset)?.timeFilter ?? ""] ?? (snapshot ?? dataset)?.timeFilter} ·{" "}
-								{(snapshot ?? dataset)?.scopeLabel}
-							</p>
-						)}
+						{headerSource && <NoteScopeLine source={headerSource} />}
 					</div>
 					<div className="flex shrink-0 items-center gap-2">
-						{result && (
-							<>
-								<Button variant="outline" size="sm" onClick={handleCopy}>
-									{copied ? <Check className="size-4" /> : <Copy className="size-4" />}
-									{copied ? "Copiado" : "Copiar Markdown"}
-								</Button>
-								<Button variant="outline" size="sm" onClick={handleDownload}>
-									<Download className="size-4" />
-									Baixar .md
-								</Button>
-							</>
-						)}
+						{result && <ResultActions copied={copied} onCopy={handleCopy} onDownload={handleDownload} />}
 						<Button variant="ghost" size="sm" onClick={onClose}>
 							Fechar
 						</Button>
@@ -228,242 +399,20 @@ export function AnalyticNoteModal({ isOpen, onClose, dataset }: AnalyticNoteModa
 					)}
 
 					{dataset && !result && (
-						<div className="mx-auto max-w-2xl space-y-5">
-							<SectionHeader
-								title="O que será analisado"
-								description="A nota é redigida por modelo de linguagem sobre este recorte. Os valores e as tabelas são calculados pelo sistema."
-							/>
-
-							<NoteTable
-								head={["Item", "Valor"]}
-								rows={[
-									["Competência", dataset.competenceLabel],
-									["Recorte", dataset.scopeLabel],
-									["Unidades Gestoras", String(dataset.ugCount)],
-									["Registros (UG × grupo)", String(dataset.recordCount)],
-									["Divergência total", formatCurrency(dataset.totals.absoluteDifference)],
-									["Diferença líquida", formatCurrency(dataset.totals.netDifference)],
-									["Competência anterior", dataset.previous ? dataset.previous.label : "não consta na base carregada"],
-								]}
-							/>
-
-							<Alert variant="info">
-								<Sparkles />
-								<AlertTitle>Texto gerado por IA — revisão obrigatória</AlertTitle>
-								<AlertDescription>
-									O modelo interpreta os números; ele não os produz. Ainda assim, a nota sai assinada pela SUCONT-4 e precisa ser lida antes de qualquer
-									encaminhamento.
-								</AlertDescription>
-							</Alert>
-
-							<div className="flex justify-end gap-2">
-								{mutation.isPending ? (
-									<Button
-										variant="outline"
-										onClick={() => {
-											abortRef.current?.abort()
-											mutation.reset()
-										}}
-									>
-										Interromper
-									</Button>
-								) : null}
-								<Button onClick={() => dataset && mutation.mutate(dataset)} disabled={mutation.isPending}>
-									{mutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
-									{mutation.isPending ? "Redigindo a nota…" : "Gerar nota analítica"}
-								</Button>
-							</div>
-
-							{mutation.isError && !(mutation.error instanceof DOMException) && (
-								<Alert variant="destructive">
-									<AlertTriangle />
-									<AlertTitle>A nota não foi gerada</AlertTitle>
-									<AlertDescription>{mutation.error instanceof Error ? mutation.error.message : "Erro desconhecido"}</AlertDescription>
-								</Alert>
-							)}
-						</div>
+						<NotePreview
+							dataset={dataset}
+							isPending={mutation.isPending}
+							isError={mutation.isError}
+							error={mutation.error}
+							onInterrupt={() => {
+								abortRef.current?.abort()
+								mutation.reset()
+							}}
+							onGenerate={() => dataset && mutation.mutate(dataset)}
+						/>
 					)}
 
-					{snapshot && result && note && (
-						<article className="space-y-8">
-							<section className="space-y-3">
-								<SectionHeader title="1. Sumário executivo e diagnóstico" />
-								<NoteTable
-									head={["Indicador", "Valor"]}
-									rows={[
-										["Saldo total SIAFI", formatCurrency(snapshot.totals.siafi)],
-										["Saldo total SILOMS", formatCurrency(snapshot.totals.siloms)],
-										["Divergência total (soma dos módulos)", formatCurrency(snapshot.totals.absoluteDifference)],
-										["Diferença líquida (SIAFI − SILOMS)", formatCurrency(snapshot.totals.netDifference)],
-										["Unidades Gestoras analisadas", String(snapshot.ugCount)],
-										[
-											"Preponderância",
-											`SIAFI maior em ${snapshot.preponderance.siafi} · SILOMS maior em ${snapshot.preponderance.siloms} · equilibrados ${snapshot.preponderance.equal}`,
-										],
-										[
-											`Competência anterior (${snapshot.previous?.label ?? "—"})`,
-											snapshot.previous ? formatCurrency(snapshot.previous.totals.absoluteDifference) : "não consta na base carregada",
-										],
-									]}
-								/>
-								<Prose text={note.sumarioExecutivo} />
-							</section>
-
-							<section className="space-y-3">
-								<SectionHeader title={`2. Unidades críticas — as ${snapshot.topOffenders.length} maiores divergências`} />
-								<NoteTable
-									head={["UG", "Cód.", "Grupo", "Divergência", "SIAFI", "SILOMS", "Situação", "Risco"]}
-									rows={snapshot.topOffenders.map((o) => [
-										o.ug,
-										o.cod,
-										groupLabel(o.group),
-										formatCurrency(o.difference),
-										formatCurrency(o.siafi),
-										formatCurrency(o.siloms),
-										o.preponderance === "EQUAL" ? "Equilibrado" : o.preponderance === "SIAFI" ? "SIAFI > SILOMS" : "SILOMS > SIAFI",
-										o.riskLevel ?? "—",
-									])}
-								/>
-								<Prose text={note.leituraUnidadesCriticas} />
-							</section>
-
-							<section className="space-y-3">
-								<SectionHeader title="3. Destaques de alerta" />
-								{note.destaquesDeAlerta.length === 0 ? (
-									<p className="text-body text-muted-foreground">O modelo não produziu destaques para esta competência.</p>
-								) : (
-									<div className="grid gap-3">
-										{note.destaquesDeAlerta.map((highlight, index) => (
-											// Chave posicional: o título vem do modelo e pode repetir.
-											<div key={index} className="rounded-lg border border-border bg-card p-4">
-												<h3 className="text-subheading text-foreground">
-													3.{index + 1} {highlight.titulo}
-													{highlight.unidade && <span className="text-muted-foreground"> — {highlight.unidade}</span>}
-												</h3>
-												<p className="mt-2 text-body text-foreground leading-relaxed">{highlight.analise}</p>
-												<p className="mt-2 text-body text-foreground">
-													<span className="text-label text-muted-foreground">Ação recomendada </span>
-													{highlight.acaoRecomendada}
-												</p>
-											</div>
-										))}
-									</div>
-								)}
-							</section>
-
-							{snapshot.interOm.length > 0 && (
-								<section className="space-y-3">
-									<SectionHeader title="3-A. Possíveis transferências entre OMs sem contrapartida no SILOMS" />
-									<NoteTable
-										head={["Unidade A", "Unidade B", "Grupo", "Valor do movimento", "Resíduo do casamento"]}
-										rows={snapshot.interOm.map((t) => [
-											`${t.ugA} (${t.codA})`,
-											`${t.ugB} (${t.codB})`,
-											groupLabel(t.group),
-											formatCurrency(t.value),
-											formatCurrency(t.residual),
-										])}
-									/>
-									<Alert variant="warning">
-										<AlertTriangle />
-										<AlertTitle>Hipótese para conferência, não constatação</AlertTitle>
-										<AlertDescription>
-											As unidades acima tiveram movimento de SIAFI em sentidos opostos e magnitude equivalente na competência, com o SILOMS praticamente parado
-											nas duas. Duas movimentações independentes de valor próximo produzem o mesmo padrão — confirme pelas Notas de Lançamento antes de cobrar.
-										</AlertDescription>
-									</Alert>
-								</section>
-							)}
-
-							<section className="space-y-4">
-								<SectionHeader title="4. Dinâmica de tendências e evolução" />
-								<Prose text={note.leituraTendencias} />
-								{snapshot.trends.map((scope) => (
-									<div key={scope.scope} className="space-y-3">
-										<h3 className="text-subheading text-foreground">{SCOPE_LABEL[scope.scope] ?? scope.scope}</h3>
-										<p className="text-label text-muted-foreground">Agravamento</p>
-										{scope.worsening.length === 0 ? (
-											<p className="text-body text-muted-foreground">Nenhuma unidade aumentou a divergência neste escopo.</p>
-										) : (
-											<NoteTable
-												head={["UG", "Cód.", "Grupo", "Variação", "%", "Atual", "Anterior"]}
-												rows={scope.worsening.map((i) => [
-													i.ug,
-													i.cod,
-													groupLabel(i.group),
-													formatCurrency(i.delta),
-													percent(i.deltaPct),
-													formatCurrency(i.difference),
-													formatCurrency(i.previousDifference),
-												])}
-											/>
-										)}
-										<p className="text-label text-muted-foreground">Melhoria</p>
-										{scope.improving.length === 0 ? (
-											<p className="text-body text-muted-foreground">Nenhuma unidade reduziu a divergência neste escopo.</p>
-										) : (
-											<NoteTable
-												head={["UG", "Cód.", "Grupo", "Variação", "%", "Atual", "Anterior"]}
-												rows={scope.improving.map((i) => [
-													i.ug,
-													i.cod,
-													groupLabel(i.group),
-													formatCurrency(i.delta),
-													percent(i.deltaPct),
-													formatCurrency(i.difference),
-													formatCurrency(i.previousDifference),
-												])}
-											/>
-										)}
-									</div>
-								))}
-							</section>
-
-							<section className="space-y-3">
-								<SectionHeader title="5. Gargalos por natureza de bem" />
-								<NoteTable
-									head={["Grupo", "Divergência", "SIAFI", "SILOMS", "UGs"]}
-									rows={snapshot.groups.map((g) => [
-										groupLabel(g.group),
-										formatCurrency(g.difference),
-										formatCurrency(g.siafi),
-										formatCurrency(g.siloms),
-										String(g.ugCount),
-									])}
-								/>
-								<Prose text={note.leituraGrupos} />
-							</section>
-
-							<section className="space-y-3">
-								<SectionHeader title="6. Plano de ação e recomendações estratégicas" />
-								{note.planoDeAcao.length === 0 ? (
-									<p className="text-body text-muted-foreground">O modelo não produziu recomendações para esta competência.</p>
-								) : (
-									<ol className="ml-5 list-decimal space-y-2">
-										{note.planoDeAcao.map((item, index) => (
-											// Chave posicional: a recomendação vem do modelo e pode repetir.
-											<li key={index} className="text-body text-foreground leading-relaxed">
-												{item}
-											</li>
-										))}
-									</ol>
-								)}
-							</section>
-
-							<section className="space-y-3">
-								<SectionHeader title="7. Conclusão" />
-								<Prose text={note.conclusao} />
-							</section>
-
-							<Alert variant="info">
-								<Sparkles />
-								<AlertTitle>Texto gerado por IA — revisão obrigatória</AlertTitle>
-								<AlertDescription>
-									Os valores e as tabelas acima são calculados pelo sistema. O texto analítico é do modelo e exige revisão antes de qualquer encaminhamento.
-								</AlertDescription>
-							</Alert>
-						</article>
-					)}
+					{snapshot && result && note && <NoteArticle snapshot={snapshot} note={note} />}
 				</div>
 			</DialogContent>
 		</Dialog>
