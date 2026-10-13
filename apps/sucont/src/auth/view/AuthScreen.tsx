@@ -1,31 +1,42 @@
-import { safeRedirect } from "@iefa/auth-kit"
-import { useLoginRateLimiter } from "@iefa/auth-kit/react"
+import { type AuthScreenConfig, FAB_EMAIL_AUTH_MESSAGES } from "@iefa/auth-kit"
+import { type AuthScreenController, useAuthScreen } from "@iefa/auth-kit/react"
 import { LegalFooterLinks } from "@iefa/legal-kit/react"
 import { ArrowLeft, CheckCircle, CircleAlert, Eye, EyeOff, Loader2, Lock, Mail, Monitor, ShieldAlert, User } from "lucide-react"
-import { useEffect, useRef, useState } from "react"
 import { Button } from "#/components/ui/button"
 import { Input } from "#/components/ui/input"
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "#/components/ui/input-group"
 import { Label } from "#/components/ui/label"
 import { TOOL_STAGES } from "#/lib/types"
 
-const FAB_EMAIL_REGEX = /^[a-zA-Z0-9]+(?:[._-][a-zA-Z0-9]+)*@fab\.mil\.br$/
-const STORAGE_KEY_REMEMBER_EMAIL = "sucont_remember_email"
-
-function normalizeEmail(email: string) {
-	return email.trim().toLowerCase()
-}
-
-function getPasswordError(v: string): string | null {
-	if (v.length < 8) return "Mínimo de 8 caracteres."
-	if (!/[a-z]/.test(v)) return "Inclua pelo menos uma letra minúscula."
-	if (!/[A-Z]/.test(v)) return "Inclua pelo menos uma letra maiúscula."
-	if (!/\d/.test(v)) return "Inclua pelo menos um número."
-	return null
-}
-
 // View derivada da URL — "reset" ativado por token_hash, "forgot" por ?view=forgot
-export type AuthView = "auth" | "forgot" | "reset"
+export type { AuthView } from "@iefa/auth-kit"
+
+/**
+ * Regras da tela vêm de @iefa/auth-kit; aqui o que é deste app:
+ * - textos com "e-mail" e credencial recusada reconhecida sem caixa e com hífen;
+ * - trocar entre login e cadastro limpa os banners, e a mensagem de conta criada
+ *   é gravada depois dessa troca para sobreviver na aba de login;
+ * - quem já está autenticado só é redirecionado a partir da view de login (não
+ *   arranca o usuário da tela de nova senha, onde o verifyOtp já cria uma sessão
+ *   de recuperação);
+ * - nova senha salva é confirmada em banner, não em `alert`.
+ */
+const AUTH_SCREEN_CONFIG: AuthScreenConfig = {
+	rememberEmailKey: "sucont_remember_email",
+	messages: {
+		...FAB_EMAIL_AUTH_MESSAGES,
+		emailHint: "Use seu e-mail institucional @fab.mil.br (sem caracteres especiais).",
+		emailInvalid: "E-mail inválido. Use seu e-mail @fab.mil.br (sem caracteres especiais).",
+		invalidCredentials: "Senha incorreta ou e-mail não cadastrado",
+		signUpSuccess: "Conta criada! Verifique seu e-mail para confirmar.",
+		forgotFallback: "Erro ao enviar e-mail.",
+	},
+	invalidCredentialsPattern: /e-mail ou senha incorretos|invalid login credentials/i,
+	clearFeedbackOnTabSwitch: true,
+	signUpSuccessAfterTabSwitch: true,
+	redirectOnlyFromAuthView: true,
+	resetSuccessFeedback: "banner",
+}
 
 export interface AuthScreenProps {
 	isLoading: boolean
@@ -191,237 +202,280 @@ function BackToLogin({ onClick }: { onClick: () => void }) {
 	)
 }
 
+type ScreenProps = { screen: AuthScreenController }
+
+// ─── Views ────────────────────────────────────────────────────────────────────
+
+// ── Nova senha — ativado por token_hash na URL (link do e-mail) ────────────
+function ResetPasswordView({ screen }: ScreenProps) {
+	const { error, successMessage, isSubmitting, newPassword, setNewPassword, goToAuth, handleResetPassword } = screen
+	return (
+		<Shell>
+			<Card title="Nova senha" subtitle="Defina uma nova senha segura para sua conta.">
+				<form onSubmit={handleResetPassword} className="flex flex-col gap-4">
+					{error && <ErrorBanner message={error} />}
+					{successMessage && <SuccessBanner message={successMessage} />}
+
+					<Field id="reset-password" label="Nova senha">
+						<Input
+							id="reset-password"
+							type="password"
+							value={newPassword}
+							onChange={(e) => setNewPassword(e.target.value)}
+							required
+							minLength={8}
+							placeholder="Mínimo 8 caracteres"
+							autoComplete="new-password"
+						/>
+					</Field>
+
+					<Button type="submit" className="w-full" disabled={isSubmitting}>
+						{isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />}
+						{isSubmitting ? "Atualizando..." : "Atualizar senha"}
+					</Button>
+				</form>
+			</Card>
+			<div className="flex justify-center">
+				<BackToLogin onClick={goToAuth} />
+			</div>
+		</Shell>
+	)
+}
+
+// ── Recuperar senha — ativado por ?view=forgot na URL ─────────────────────
+function ForgotPasswordView({ screen }: ScreenProps) {
+	const { error, successMessage, isSubmitting, forgotEmail, setForgotEmail, goToAuth, handleForgotPassword } = screen
+	return (
+		<Shell>
+			<Card title="Recuperar senha" subtitle="Enviaremos um link de redefinição para o seu e-mail institucional.">
+				<form onSubmit={handleForgotPassword} className="flex flex-col gap-4">
+					{error && <ErrorBanner message={error} />}
+					{successMessage && <SuccessBanner message={successMessage} />}
+
+					<Field id="forgot-email" label="E-mail institucional">
+						<Input
+							id="forgot-email"
+							type="email"
+							placeholder="usuario@fab.mil.br"
+							value={forgotEmail}
+							onChange={(e) => setForgotEmail(e.target.value)}
+							required
+							autoComplete="email"
+						/>
+					</Field>
+
+					<Button type="submit" className="w-full" disabled={isSubmitting}>
+						{isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+						{isSubmitting ? "Enviando..." : "Enviar link"}
+					</Button>
+				</form>
+			</Card>
+			<div className="flex justify-center">
+				<BackToLogin onClick={goToAuth} />
+			</div>
+		</Shell>
+	)
+}
+
+// ── CADASTRO ──
+function RegisterForm({ screen }: ScreenProps) {
+	const { error, isSubmitting, registerData, setRegisterData, registerEmailError, handleRegister, handleRegisterEmailChange } = screen
+	return (
+		<form onSubmit={handleRegister} className="flex flex-col gap-4">
+			{error && <ErrorBanner message={error} />}
+
+			<Field id="register-name" label="Nome completo">
+				<InputGroup>
+					<InputGroupAddon>
+						<User />
+					</InputGroupAddon>
+					<InputGroupInput
+						id="register-name"
+						placeholder="João Silva"
+						value={registerData.name}
+						onChange={(e) => setRegisterData({ ...registerData, name: e.target.value })}
+						required
+						autoComplete="name"
+						disabled={isSubmitting}
+					/>
+				</InputGroup>
+			</Field>
+
+			<Field id="register-email" label="E-mail institucional">
+				<InputGroup>
+					<InputGroupAddon>
+						<Mail />
+					</InputGroupAddon>
+					<InputGroupInput
+						id="register-email"
+						type="email"
+						placeholder="usuario@fab.mil.br"
+						aria-invalid={registerEmailError ? true : undefined}
+						aria-describedby={registerEmailError ? "register-email-error" : undefined}
+						value={registerData.email}
+						onChange={handleRegisterEmailChange}
+						required
+						autoComplete="email"
+						disabled={isSubmitting}
+					/>
+				</InputGroup>
+				{registerEmailError && <FieldError id="register-email-error">{registerEmailError}</FieldError>}
+			</Field>
+
+			<Field id="register-password" label="Senha">
+				<Input
+					id="register-password"
+					type="password"
+					placeholder="Mínimo 8 caracteres"
+					value={registerData.password}
+					onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
+					required
+					minLength={8}
+					autoComplete="new-password"
+					disabled={isSubmitting}
+				/>
+			</Field>
+
+			<Field id="register-confirm" label="Confirmar senha">
+				<Input
+					id="register-confirm"
+					type="password"
+					placeholder="Repita a senha"
+					value={registerData.confirm}
+					onChange={(e) => setRegisterData({ ...registerData, confirm: e.target.value })}
+					required
+					autoComplete="new-password"
+					disabled={isSubmitting}
+				/>
+			</Field>
+
+			<Button type="submit" className="w-full mt-1" disabled={isSubmitting || !!registerEmailError}>
+				{isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <User className="h-4 w-4" />}
+				{isSubmitting ? "Criando..." : "Criar conta"}
+			</Button>
+		</form>
+	)
+}
+
+function LoginPasswordField({ screen }: ScreenProps) {
+	const { isSubmitting, showPassword, setShowPassword, loginPassword, passwordError, handleLoginPasswordChange } = screen
+	return (
+		<Field id="password" label="Senha">
+			<InputGroup>
+				<InputGroupAddon>
+					<Lock />
+				</InputGroupAddon>
+				<InputGroupInput
+					id="password"
+					type={showPassword ? "text" : "password"}
+					autoComplete="current-password"
+					placeholder="Sua senha"
+					aria-invalid={passwordError ? true : undefined}
+					aria-describedby={passwordError ? "password-error" : undefined}
+					value={loginPassword}
+					onChange={handleLoginPasswordChange}
+					required
+					disabled={isSubmitting}
+				/>
+				<InputGroupAddon align="inline-end">
+					<InputGroupButton
+						variant="subtle"
+						size="icon-xs"
+						onClick={() => setShowPassword(!showPassword)}
+						aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+					>
+						{showPassword ? <EyeOff /> : <Eye />}
+					</InputGroupButton>
+				</InputGroupAddon>
+			</InputGroup>
+			{passwordError && <FieldError id="password-error">{passwordError}</FieldError>}
+		</Field>
+	)
+}
+
+// ── LOGIN ──
+function LoginForm({ screen }: ScreenProps) {
+	const {
+		isLocked,
+		retryAfter,
+		error,
+		successMessage,
+		isSubmitting,
+		loginEmail,
+		emailError,
+		rememberMe,
+		goToForgot,
+		handleLogin,
+		handleLoginEmailChange,
+		handleRememberMeChange,
+	} = screen
+	return (
+		<form onSubmit={handleLogin} className="flex flex-col gap-4">
+			{isLocked && <ErrorBanner message={`Muitas tentativas. Tente novamente em ${retryAfter}s.`} />}
+			{error && !isLocked && <ErrorBanner message={error} />}
+			{successMessage && <SuccessBanner message={successMessage} />}
+
+			<Field id="email" label="E-mail institucional">
+				<InputGroup>
+					<InputGroupAddon>
+						<Mail />
+					</InputGroupAddon>
+					<InputGroupInput
+						id="email"
+						type="email"
+						autoComplete="username"
+						placeholder="usuario@fab.mil.br"
+						aria-invalid={emailError ? true : undefined}
+						aria-describedby={emailError ? "email-error" : undefined}
+						value={loginEmail}
+						onChange={handleLoginEmailChange}
+						required
+						disabled={isSubmitting}
+					/>
+				</InputGroup>
+				{emailError && <FieldError id="email-error">{emailError}</FieldError>}
+			</Field>
+
+			<LoginPasswordField screen={screen} />
+
+			<div className="flex items-center justify-between">
+				<label className="flex cursor-pointer items-center gap-2 text-caption text-muted-foreground">
+					<input
+						type="checkbox"
+						checked={rememberMe}
+						onChange={handleRememberMeChange}
+						className="h-3.5 w-3.5 cursor-pointer rounded border border-border accent-tech-blue"
+						disabled={isSubmitting}
+					/>
+					Lembrar e-mail
+				</label>
+				<Button type="button" onClick={goToForgot} variant="link" className="h-auto p-0 text-tech-blue">
+					Esqueceu a senha?
+				</Button>
+			</div>
+
+			<Button type="submit" className="w-full" disabled={isSubmitting || isLocked || !!emailError}>
+				{isLocked ? (
+					`Bloqueado (${retryAfter}s)`
+				) : (
+					<>
+						{isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />}
+						{isSubmitting ? "Entrando..." : "Entrar"}
+					</>
+				)}
+			</Button>
+		</form>
+	)
+}
+
 // ─── AuthScreen ───────────────────────────────────────────────────────────────
 
-export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigate, onTabChange, onViewChange, actions }: AuthScreenProps) {
-	const { isLocked, retryAfter, onFailure, onSuccess } = useLoginRateLimiter()
-
-	// View derivada da URL — nunca estado local.
-	// Prioridade: token_hash → reset | ?view=forgot → forgot | default → auth tabs
-	const currentView: AuthView = searchParams.token_hash ? "reset" : searchParams.view === "forgot" ? "forgot" : "auth"
-
-	const [activeTab, setActiveTab] = useState<"login" | "register">(searchParams.tab || "login")
-
-	useEffect(() => {
-		if (searchParams.tab) setActiveTab(searchParams.tab)
-	}, [searchParams.tab])
-
-	const [isSubmitting, setIsSubmitting] = useState(false)
-	const [error, setError] = useState("")
-	const [successMessage, setSuccessMessage] = useState("")
-	const [showPassword, setShowPassword] = useState(false)
-
-	const [loginEmail, setLoginEmail] = useState("")
-	const [loginPassword, setLoginPassword] = useState("")
-	const [rememberMe, setRememberMe] = useState(false)
-	const [emailError, setEmailError] = useState("")
-	const [passwordError, setPasswordError] = useState("")
-
-	const [registerData, setRegisterData] = useState({ name: "", email: "", password: "", confirm: "" })
-	const [registerEmailError, setRegisterEmailError] = useState("")
-
-	const [forgotEmail, setForgotEmail] = useState("")
-	const [newPassword, setNewPassword] = useState("")
-
-	// Limpa erros sempre que a view muda via URL (ex: back button, goToForgot).
-	// biome-ignore lint/correctness/useExhaustiveDependencies: setters são estáveis; deps intencionais para reagir à mudança de view
-	useEffect(() => {
-		setError("")
-		setSuccessMessage("")
-		setEmailError("")
-		setPasswordError("")
-		setRegisterEmailError("")
-	}, [searchParams.view, searchParams.token_hash])
-
-	useEffect(() => {
-		const saved = localStorage.getItem(STORAGE_KEY_REMEMBER_EMAIL)
-		if (saved) {
-			setLoginEmail(saved)
-			setRememberMe(true)
-		}
-	}, [])
-
-	// Redireciona quando já autenticado — só na view de login (não arranca o usuário
-	// da tela de nova senha, onde o verifyOtp já cria uma sessão de recuperação).
-	useEffect(() => {
-		if (!isLoading && isAuthenticated && currentView === "auth") {
-			onNavigate({ to: safeRedirect(searchParams.redirect) ?? "/", replace: true })
-		}
-	}, [isAuthenticated, isLoading, currentView, searchParams.redirect, onNavigate])
-
-	const goToForgot = () => onViewChange?.("forgot")
-	const goToAuth = () => onViewChange?.(null)
-
-	const switchTab = (value: "login" | "register") => {
-		setActiveTab(value)
-		setError("")
-		setSuccessMessage("")
-		onTabChange?.(value)
-	}
-
-	// ── Handlers ──────────────────────────────────────────────────────────────
-
-	const handleLoginEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-		const v = e.target.value
-		setLoginEmail(v)
-		setError("")
-		setEmailError("")
-		if (v && !FAB_EMAIL_REGEX.test(normalizeEmail(v))) {
-			setEmailError("Use seu e-mail institucional @fab.mil.br (sem caracteres especiais).")
-		}
-	}
-
-	const handleRememberMeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-		const checked = e.target.checked
-		setRememberMe(checked)
-		const norm = normalizeEmail(loginEmail)
-		if (checked && loginEmail && FAB_EMAIL_REGEX.test(norm)) {
-			localStorage.setItem(STORAGE_KEY_REMEMBER_EMAIL, norm)
-		} else {
-			localStorage.removeItem(STORAGE_KEY_REMEMBER_EMAIL)
-		}
-	}
-
-	const handleLogin = async (e: React.SyntheticEvent) => {
-		e.preventDefault()
-		if (isLocked) return
-		const norm = normalizeEmail(loginEmail)
-		if (!FAB_EMAIL_REGEX.test(norm)) {
-			setEmailError("E-mail inválido. Use seu e-mail @fab.mil.br (sem caracteres especiais).")
-			return
-		}
-		if (!loginPassword) {
-			setPasswordError("Informe a senha.")
-			return
-		}
-		setIsSubmitting(true)
-		setError("")
-		setEmailError("")
-		setPasswordError("")
-		try {
-			await actions.signIn(norm, loginPassword)
-			onSuccess()
-			if (rememberMe) localStorage.setItem(STORAGE_KEY_REMEMBER_EMAIL, norm)
-			else localStorage.removeItem(STORAGE_KEY_REMEMBER_EMAIL)
-			await onNavigate({ to: safeRedirect(searchParams.redirect) ?? "/", replace: true })
-		} catch (err) {
-			onFailure()
-			const msg = err instanceof Error ? err.message : "Erro desconhecido"
-			if (/e-mail ou senha incorretos|invalid login credentials/i.test(msg)) {
-				setPasswordError("Senha incorreta ou e-mail não cadastrado")
-			} else {
-				setError(msg || "Erro durante a autenticação. Tente mais tarde.")
-			}
-		} finally {
-			setIsSubmitting(false)
-		}
-	}
-
-	const handleRegisterEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-		const v = e.target.value
-		setRegisterData({ ...registerData, email: v })
-		setError("")
-		setRegisterEmailError("")
-		if (v && !FAB_EMAIL_REGEX.test(normalizeEmail(v))) {
-			setRegisterEmailError("Use seu e-mail institucional @fab.mil.br (sem caracteres especiais).")
-		}
-	}
-
-	const handleRegister = async (e: React.SyntheticEvent) => {
-		e.preventDefault()
-		const norm = normalizeEmail(registerData.email)
-		if (!FAB_EMAIL_REGEX.test(norm)) {
-			setRegisterEmailError("E-mail inválido. Use seu e-mail @fab.mil.br (sem caracteres especiais).")
-			return
-		}
-		const regPwErr = getPasswordError(registerData.password)
-		if (regPwErr) {
-			setError(regPwErr)
-			return
-		}
-		if (registerData.password !== registerData.confirm) {
-			setError("As senhas não coincidem.")
-			return
-		}
-		setIsSubmitting(true)
-		setError("")
-		setRegisterEmailError("")
-		try {
-			await actions.signUp(norm, registerData.password, registerData.name)
-			// switchTab limpa successMessage — setar depois para a mensagem sobreviver na aba de login.
-			switchTab("login")
-			setLoginEmail(norm)
-			setSuccessMessage("Conta criada! Verifique seu e-mail para confirmar.")
-		} catch (err) {
-			setError(err instanceof Error ? err.message : "Erro ao criar conta.")
-		} finally {
-			setIsSubmitting(false)
-		}
-	}
-
-	const handleForgotPassword = async (e: React.SyntheticEvent) => {
-		e.preventDefault()
-		const norm = normalizeEmail(forgotEmail)
-		if (!FAB_EMAIL_REGEX.test(norm)) {
-			setError("E-mail inválido. Use seu e-mail @fab.mil.br (sem caracteres especiais).")
-			return
-		}
-		setIsSubmitting(true)
-		setError("")
-		try {
-			await actions.resetPassword(norm)
-			setSuccessMessage("Link enviado! Verifique sua caixa de entrada.")
-		} catch (err) {
-			setError(err instanceof Error ? err.message : "Erro ao enviar e-mail.")
-		} finally {
-			setIsSubmitting(false)
-		}
-	}
-
-	const handleResetPassword = async (e: React.SyntheticEvent) => {
-		e.preventDefault()
-		const resetPwErr = getPasswordError(newPassword)
-		if (resetPwErr) {
-			setError(resetPwErr)
-			return
-		}
-		setIsSubmitting(true)
-		setError("")
-		try {
-			const { error: updateError } = await actions.updateUserPassword(newPassword)
-			if (updateError) throw updateError
-			setSuccessMessage("Senha atualizada com sucesso!")
-			await onNavigate({ to: "/" })
-		} catch (err) {
-			setError(err instanceof Error ? err.message : "Erro ao atualizar senha.")
-		} finally {
-			setIsSubmitting(false)
-		}
-	}
-
-	// Token de recuperação é consumido no primeiro verifyOtp: a partir daí ele já não
-	// é mais válido. Guardamos qual token já foi tentado para não re-verificar num
-	// re-render (actions muda de identidade a cada render; o SIGNED_IN da sessão de
-	// recuperação também dispara re-render), o que mostraria "Link inválido" à toa.
-	const verifiedTokenRef = useRef<string | null>(null)
-	useEffect(() => {
-		// currentView === "reset" ≡ !!searchParams.token_hash — o link do e-mail traz o token.
-		// resetPasswordForEmail gera links com type=recovery; a confirmação de cadastro,
-		// type=email. Encaminhamos o tipo real para o verifyOtp em ambos os casos.
-		const tokenHash = searchParams.token_hash
-		const otpType = searchParams.type
-		if (tokenHash && (otpType === "email" || otpType === "recovery") && verifiedTokenRef.current !== tokenHash) {
-			verifiedTokenRef.current = tokenHash
-			const verify = async () => {
-				const { error: otpError } = await actions.verifyOtp(tokenHash, otpType)
-				if (otpError) setError("Link inválido ou expirado. Solicite uma nova recuperação.")
-			}
-			verify()
-		}
-	}, [searchParams.token_hash, searchParams.type, actions])
+export function AuthScreen(props: AuthScreenProps) {
+	// Aqui só o token_hash abre a view de nova senha: não há sessão de recuperação.
+	const screen = useAuthScreen({ ...props, isRecoverySession: false, config: AUTH_SCREEN_CONFIG })
 
 	// ── Loading ───────────────────────────────────────────────────────────────
-	if (isLoading) {
+	if (props.isLoading) {
 		return (
 			<Shell>
 				<Card>
@@ -434,81 +488,15 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 		)
 	}
 
-	// ── Nova senha — ativado por token_hash na URL (link do e-mail) ────────────
-	if (currentView === "reset") {
-		return (
-			<Shell>
-				<Card title="Nova senha" subtitle="Defina uma nova senha segura para sua conta.">
-					<form onSubmit={handleResetPassword} className="flex flex-col gap-4">
-						{error && <ErrorBanner message={error} />}
-						{successMessage && <SuccessBanner message={successMessage} />}
-
-						<Field id="reset-password" label="Nova senha">
-							<Input
-								id="reset-password"
-								type="password"
-								value={newPassword}
-								onChange={(e) => setNewPassword(e.target.value)}
-								required
-								minLength={8}
-								placeholder="Mínimo 8 caracteres"
-								autoComplete="new-password"
-							/>
-						</Field>
-
-						<Button type="submit" className="w-full" disabled={isSubmitting}>
-							{isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />}
-							{isSubmitting ? "Atualizando..." : "Atualizar senha"}
-						</Button>
-					</form>
-				</Card>
-				<div className="flex justify-center">
-					<BackToLogin onClick={goToAuth} />
-				</div>
-			</Shell>
-		)
-	}
-
-	// ── Recuperar senha — ativado por ?view=forgot na URL ─────────────────────
-	if (currentView === "forgot") {
-		return (
-			<Shell>
-				<Card title="Recuperar senha" subtitle="Enviaremos um link de redefinição para o seu e-mail institucional.">
-					<form onSubmit={handleForgotPassword} className="flex flex-col gap-4">
-						{error && <ErrorBanner message={error} />}
-						{successMessage && <SuccessBanner message={successMessage} />}
-
-						<Field id="forgot-email" label="E-mail institucional">
-							<Input
-								id="forgot-email"
-								type="email"
-								placeholder="usuario@fab.mil.br"
-								value={forgotEmail}
-								onChange={(e) => setForgotEmail(e.target.value)}
-								required
-								autoComplete="email"
-							/>
-						</Field>
-
-						<Button type="submit" className="w-full" disabled={isSubmitting}>
-							{isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
-							{isSubmitting ? "Enviando..." : "Enviar link"}
-						</Button>
-					</form>
-				</Card>
-				<div className="flex justify-center">
-					<BackToLogin onClick={goToAuth} />
-				</div>
-			</Shell>
-		)
-	}
+	if (screen.currentView === "reset") return <ResetPasswordView screen={screen} />
+	if (screen.currentView === "forgot") return <ForgotPasswordView screen={screen} />
 
 	// ── Login + Cadastro (toggle por link) ────────────────────────────────────
-	const isRegister = activeTab === "register"
+	const isRegister = screen.activeTab === "register"
 
 	return (
 		<Shell>
-			{searchParams.denied ? (
+			{props.searchParams.denied ? (
 				<div className="mb-6 flex items-start gap-3 rounded-xl border border-warning/30 bg-warning/10 p-4 text-warning">
 					<ShieldAlert className="w-5 h-5 shrink-0 mt-0.5" />
 					<p className="text-caption leading-relaxed">
@@ -518,176 +506,11 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 			) : null}
 
 			<Card>
-				{isRegister ? (
-					// ── CADASTRO ──
-					<form onSubmit={handleRegister} className="flex flex-col gap-4">
-						{error && <ErrorBanner message={error} />}
-
-						<Field id="register-name" label="Nome completo">
-							<InputGroup>
-								<InputGroupAddon>
-									<User />
-								</InputGroupAddon>
-								<InputGroupInput
-									id="register-name"
-									placeholder="João Silva"
-									value={registerData.name}
-									onChange={(e) => setRegisterData({ ...registerData, name: e.target.value })}
-									required
-									autoComplete="name"
-									disabled={isSubmitting}
-								/>
-							</InputGroup>
-						</Field>
-
-						<Field id="register-email" label="E-mail institucional">
-							<InputGroup>
-								<InputGroupAddon>
-									<Mail />
-								</InputGroupAddon>
-								<InputGroupInput
-									id="register-email"
-									type="email"
-									placeholder="usuario@fab.mil.br"
-									aria-invalid={registerEmailError ? true : undefined}
-									aria-describedby={registerEmailError ? "register-email-error" : undefined}
-									value={registerData.email}
-									onChange={handleRegisterEmailChange}
-									required
-									autoComplete="email"
-									disabled={isSubmitting}
-								/>
-							</InputGroup>
-							{registerEmailError && <FieldError id="register-email-error">{registerEmailError}</FieldError>}
-						</Field>
-
-						<Field id="register-password" label="Senha">
-							<Input
-								id="register-password"
-								type="password"
-								placeholder="Mínimo 8 caracteres"
-								value={registerData.password}
-								onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
-								required
-								minLength={8}
-								autoComplete="new-password"
-								disabled={isSubmitting}
-							/>
-						</Field>
-
-						<Field id="register-confirm" label="Confirmar senha">
-							<Input
-								id="register-confirm"
-								type="password"
-								placeholder="Repita a senha"
-								value={registerData.confirm}
-								onChange={(e) => setRegisterData({ ...registerData, confirm: e.target.value })}
-								required
-								autoComplete="new-password"
-								disabled={isSubmitting}
-							/>
-						</Field>
-
-						<Button type="submit" className="w-full mt-1" disabled={isSubmitting || !!registerEmailError}>
-							{isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <User className="h-4 w-4" />}
-							{isSubmitting ? "Criando..." : "Criar conta"}
-						</Button>
-					</form>
-				) : (
-					// ── LOGIN ──
-					<form onSubmit={handleLogin} className="flex flex-col gap-4">
-						{isLocked && <ErrorBanner message={`Muitas tentativas. Tente novamente em ${retryAfter}s.`} />}
-						{error && !isLocked && <ErrorBanner message={error} />}
-						{successMessage && <SuccessBanner message={successMessage} />}
-
-						<Field id="email" label="E-mail institucional">
-							<InputGroup>
-								<InputGroupAddon>
-									<Mail />
-								</InputGroupAddon>
-								<InputGroupInput
-									id="email"
-									type="email"
-									autoComplete="username"
-									placeholder="usuario@fab.mil.br"
-									aria-invalid={emailError ? true : undefined}
-									aria-describedby={emailError ? "email-error" : undefined}
-									value={loginEmail}
-									onChange={handleLoginEmailChange}
-									required
-									disabled={isSubmitting}
-								/>
-							</InputGroup>
-							{emailError && <FieldError id="email-error">{emailError}</FieldError>}
-						</Field>
-
-						<Field id="password" label="Senha">
-							<InputGroup>
-								<InputGroupAddon>
-									<Lock />
-								</InputGroupAddon>
-								<InputGroupInput
-									id="password"
-									type={showPassword ? "text" : "password"}
-									autoComplete="current-password"
-									placeholder="Sua senha"
-									aria-invalid={passwordError ? true : undefined}
-									aria-describedby={passwordError ? "password-error" : undefined}
-									value={loginPassword}
-									onChange={(e) => {
-										setLoginPassword(e.target.value)
-										setError("")
-										setPasswordError("")
-									}}
-									required
-									disabled={isSubmitting}
-								/>
-								<InputGroupAddon align="inline-end">
-									<InputGroupButton
-										variant="subtle"
-										size="icon-xs"
-										onClick={() => setShowPassword(!showPassword)}
-										aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
-									>
-										{showPassword ? <EyeOff /> : <Eye />}
-									</InputGroupButton>
-								</InputGroupAddon>
-							</InputGroup>
-							{passwordError && <FieldError id="password-error">{passwordError}</FieldError>}
-						</Field>
-
-						<div className="flex items-center justify-between">
-							<label className="flex cursor-pointer items-center gap-2 text-caption text-muted-foreground">
-								<input
-									type="checkbox"
-									checked={rememberMe}
-									onChange={handleRememberMeChange}
-									className="h-3.5 w-3.5 cursor-pointer rounded border border-border accent-tech-blue"
-									disabled={isSubmitting}
-								/>
-								Lembrar e-mail
-							</label>
-							<Button type="button" onClick={goToForgot} variant="link" className="h-auto p-0 text-tech-blue">
-								Esqueceu a senha?
-							</Button>
-						</div>
-
-						<Button type="submit" className="w-full" disabled={isSubmitting || isLocked || !!emailError}>
-							{isLocked ? (
-								`Bloqueado (${retryAfter}s)`
-							) : (
-								<>
-									{isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />}
-									{isSubmitting ? "Entrando..." : "Entrar"}
-								</>
-							)}
-						</Button>
-					</form>
-				)}
+				{isRegister ? <RegisterForm screen={screen} /> : <LoginForm screen={screen} />}
 
 				<p className="text-center text-caption text-muted-foreground">
 					{isRegister ? "Já tem uma conta? " : "Não tem uma conta? "}
-					<Button type="button" onClick={() => switchTab(isRegister ? "login" : "register")} variant="link" className="h-auto p-0 text-foreground">
+					<Button type="button" onClick={() => screen.switchTab(isRegister ? "login" : "register")} variant="link" className="h-auto p-0 text-foreground">
 						{isRegister ? "Entrar" : "Cadastre-se"}
 					</Button>
 				</p>
