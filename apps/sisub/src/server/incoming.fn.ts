@@ -33,6 +33,17 @@ import { getBrasiliaToday } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { publicDbMessage } from "@/lib/db-error-message"
+import {
+	buildNfeRows,
+	buildSupplyOrderRows,
+	buildUnbilledRows,
+	countPendingByNote,
+	INCOMING_KINDS,
+	incomingNoteScope,
+	indexNoteReceipts,
+	indexOrderReceipts,
+	paginateIncoming,
+} from "@/lib/incoming-rows"
 import { purchaseUnitIdOfKitchen } from "@/lib/kitchen-purchase-unit.server"
 import { readAllPages, readAllPagesIn } from "@/lib/read-all-pages"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
@@ -42,54 +53,11 @@ const inventory = () => getServerClient("inventory")
 const procurement = () => getServerClient("procurement")
 const finance = () => getServerClient("finance")
 
-export const INCOMING_KINDS = ["supply_order", "nfe", "delivery_without_invoice", "promised_replacement"] as const
-export type IncomingKind = (typeof INCOMING_KINDS)[number]
-
-export interface IncomingRow {
-	key: string
-	kind: IncomingKind
-	supplierName: string | null
-	supplierDocument: string | null
-	reference: string
-	/** Data prevista (OF) ou de emissão (NF-e), ISO date. */
-	referenceDate: string | null
-	/** Dias de atraso contra a data prevista; 0 quando não há previsão ou não atrasou. */
-	daysLate: number
-	value: number | null
-	summary: string
-	/** O que fazer agora — e é isto que o almoxarife lê primeiro. */
-	nextAction: string
-	/** Identificadores para o atalho da tela. */
-	supplyOrderId: string | null
-	nfeDocumentId: string | null
-	goodsReceiptId: string | null
-	/** Nota da unidade que nenhuma cozinha reivindicou: a ação é na lista de notas. */
-	unclaimedNote: boolean
-}
-
-/**
- * Dias de atraso na data civil de Brasília.
- *
- * Contar em UTC faria uma entrega prevista para hoje aparecer com um dia de
- * atraso a partir das 21h — e o painel que grita atraso onde não há é o painel
- * que ensina a ignorar o alerta.
- */
-function daysLateFrom(expected: string | null, today = getBrasiliaToday()): number {
-	if (!expected) return 0
-	const diff = Math.floor((new Date(`${today}T12:00:00Z`).getTime() - new Date(`${expected.slice(0, 10)}T12:00:00Z`).getTime()) / 86_400_000)
-	return diff > 0 ? diff : 0
-}
+export type { IncomingKind, IncomingRow } from "@/lib/incoming-rows"
+export { INCOMING_KINDS }
 
 /** Entrega sem nota mais velha que isto sai do painel e da sugestão de vínculo. */
 const UNBILLED_HORIZON_DAYS = 45
-
-/**
- * Data civil de Brasília de um instante. Cortar o ISO em UTC punha a nota
- * emitida às 22h no dia seguinte — e mudava a ordem "mais antigo primeiro".
- */
-function civilDate(timestamp: string): string {
-	return getBrasiliaToday(new Date(timestamp))
-}
 
 /** Unidade COMPRADORA da cozinha — quem empenha e a quem a nota é enviada. */
 export const fetchIncomingFn = createServerFn({ method: "GET" })
@@ -105,7 +73,6 @@ export const fetchIncomingFn = createServerFn({ method: "GET" })
 		const inv = inventory()
 		const proc = procurement()
 		const today = getBrasiliaToday()
-		const rows: IncomingRow[] = []
 
 		// ── (a) OF enviada com saldo a receber ───────────────────────────────────
 		// Toda leitura deste arquivo passa por `readAllPages`/`readAllPagesIn`: o
@@ -142,8 +109,6 @@ export const fetchIncomingFn = createServerFn({ method: "GET" })
 		// a mercadoria já está na porta. Sem isto a OF seguia "enviada", atrasada,
 		// com "Cobrar o fornecedor" no topo — enquanto a linha da nota da mesma
 		// entrega dizia "Concluir o recebimento".
-		const definitiveByOrder = new Set<string>()
-		const openByOrder = new Map<string, string>()
 		const orderReceipts = await readAllPagesIn(
 			"os recebimentos das ordens",
 			orderRows.map((order) => order.id),
@@ -157,44 +122,7 @@ export const fetchIncomingFn = createServerFn({ method: "GET" })
 					.order("id")
 					.range(from, to)
 		)
-		for (const row of orderReceipts) {
-			if (row.supply_order_id == null) continue // filtrado no `.in()`; o tipo só o declara nulável
-			if (row.definitive_at != null) definitiveByOrder.add(row.supply_order_id)
-			else openByOrder.set(row.supply_order_id, row.id)
-		}
-
-		for (const order of orderRows) {
-			// OF totalmente recebida sai da lista mesmo que o status não tenha
-			// acompanhado: o painel responde "o que falta chegar", não "o que o
-			// campo status diz"
-			if (definitiveByOrder.has(order.id) && order.status !== "partially_received" && !openByOrder.has(order.id)) continue
-			const empenho = order.empenho_id ? empenhoById.get(order.empenho_id) : undefined
-			const openReceiptId = openByOrder.get(order.id) ?? null
-			// chegou e está sendo conferido: não há o que cobrar
-			const late = openReceiptId ? 0 : daysLateFrom(order.expected_delivery, today)
-			rows.push({
-				key: `of:${order.id}`,
-				kind: "supply_order",
-				supplierName: empenho?.favorecido_nome ?? null,
-				supplierDocument: empenho?.favorecido_cnpj ?? null,
-				reference: order.number ? `OF ${order.number}` : "OF sem número",
-				referenceDate: order.expected_delivery,
-				daysLate: late,
-				value: null,
-				summary: empenho?.numero_empenho ? `Empenho ${empenho.numero_empenho}` : order.empenho_id == null ? "Aguardando empenho" : "Empenho não identificado",
-				nextAction: openReceiptId
-					? "Concluir o recebimento"
-					: order.status === "partially_received"
-						? "Receber o saldo restante"
-						: late > 0
-							? "Cobrar o fornecedor"
-							: "Aguardando entrega",
-				supplyOrderId: order.id,
-				nfeDocumentId: null,
-				goodsReceiptId: openReceiptId,
-				unclaimedNote: false,
-			})
-		}
+		const rows = buildSupplyOrderRows(orderRows, empenhoById, indexOrderReceipts(orderReceipts), today)
 
 		// ── (b) NF-e sem recebimento efetivado ───────────────────────────────────
 		// Nota da cozinha E nota enviada à UNIDADE compradora que nenhuma cozinha
@@ -202,8 +130,7 @@ export const fetchIncomingFn = createServerFn({ method: "GET" })
 		// chegar via NF-e": só `kitchen_id` fazia o painel dizer que não há nada
 		// pendente quando há.
 		const purchaseUnit = await purchaseUnitIdOfKitchen(data.kitchenId)
-		const scope =
-			purchaseUnit == null ? `kitchen_id.eq.${data.kitchenId}` : `kitchen_id.eq.${data.kitchenId},and(kitchen_id.is.null,unit_id.eq.${purchaseUnit})`
+		const scope = incomingNoteScope(data.kitchenId, purchaseUnit)
 		const noteRows = await readAllPages("as notas", (from, to) =>
 			inv
 				.from("nfe_document")
@@ -223,9 +150,6 @@ export const fetchIncomingFn = createServerFn({ method: "GET" })
 		// nesta cozinha, ela ficaria pendente aqui para sempre. E o recebimento em
 		// andamento (rascunho ou provisório) muda a ação: mandar "registrar o
 		// recebimento" de novo esbarra em "já tem um recebimento em andamento".
-		const definitiveByNote = new Set<string>()
-		const openHereByNote = new Map<string, string>()
-		const openElsewhere = new Set<string>()
 		const noteReceipts = await readAllPagesIn("os recebimentos das notas", noteIds, (chunk, from, to) =>
 			inv
 				.from("goods_receipt")
@@ -235,67 +159,13 @@ export const fetchIncomingFn = createServerFn({ method: "GET" })
 				.order("id")
 				.range(from, to)
 		)
-		for (const row of noteReceipts) {
-			if (row.nfe_document_id == null) continue // filtrado no `.in()`
-			if (row.definitive_at != null) definitiveByNote.add(row.nfe_document_id)
-			else if (Number(row.kitchen_id) === data.kitchenId) openHereByNote.set(row.nfe_document_id, row.id)
-			else openElsewhere.add(row.nfe_document_id)
-		}
 		// Itens ainda não casados, para dizer QUANTOS faltam em vez de "resolver".
 		// Só os pendentes vêm do banco; cortar esta lista mostrava "Registrar o
 		// recebimento" em nota com item sem insumo, que a criação do recebimento recusa.
-		const pendingByNote = new Map<string, number>()
 		const pendingItems = await readAllPagesIn("os itens das notas", noteIds, (chunk, from, to) =>
 			inv.from("nfe_item").select("id, nfe_document_id").in("nfe_document_id", chunk).is("ingredient_item_id", null).order("id").range(from, to)
 		)
-		for (const item of pendingItems) pendingByNote.set(item.nfe_document_id, (pendingByNote.get(item.nfe_document_id) ?? 0) + 1)
-
-		for (const note of noteRows) {
-			if (definitiveByNote.has(note.id)) continue
-			const openReceiptId = openHereByNote.get(note.id) ?? null
-			// outra cozinha está recebendo esta nota — não é mais "a caminho" daqui
-			if (openReceiptId == null && openElsewhere.has(note.id)) continue
-			const pending = pendingByNote.get(note.id) ?? 0
-			// nota cancelada na SEFAZ não é entrega a esperar, é entrega que não vem
-			const cancelled = note.situation_result === "cancelled"
-			rows.push({
-				key: `nfe:${note.id}`,
-				kind: "nfe",
-				supplierName: note.supplier_name,
-				supplierDocument: note.supplier_cnpj ?? note.supplier_cpf,
-				reference: note.access_key ? `NF-e ${note.access_key.slice(25, 34)}` : "NF-e sem chave",
-				referenceDate: note.issued_at ? civilDate(note.issued_at) : null,
-				// NF-e não tem data ESPERADA — só a de emissão. Contar atraso a partir
-				// dela dava "1 dia de atraso" a toda nota de ontem, inflava o contador
-				// e passava nota comum à frente de OF realmente atrasada.
-				daysLate: 0,
-				value: note.total_value == null ? null : Number(note.total_value),
-				summary: cancelled
-					? "Cancelada na SEFAZ"
-					: openReceiptId
-						? "Recebimento em andamento"
-						: note.kitchen_id == null
-							? "Enviada à unidade, ainda sem cozinha"
-							: note.status === "announced"
-								? "Anunciada pela chave, XML não recebido"
-								: "Nota disponível",
-				nextAction: cancelled
-					? "Não receber — confirme com o fornecedor"
-					: openReceiptId
-						? "Concluir o recebimento"
-						: note.kitchen_id == null
-							? "Assumir a nota para esta cozinha"
-							: note.status === "announced"
-								? "Importar o XML da nota"
-								: pending > 0
-									? `Casar ${pending} ${pending === 1 ? "item" : "itens"}`
-									: "Registrar o recebimento",
-				supplyOrderId: null,
-				nfeDocumentId: note.id,
-				goodsReceiptId: openReceiptId,
-				unclaimedNote: note.kitchen_id == null,
-			})
-		}
+		rows.push(...buildNfeRows(noteRows, indexNoteReceipts(noteReceipts, data.kitchenId), countPendingByNote(pendingItems)))
 
 		// ── (c) entrega sem nota ─────────────────────────────────────────────────
 		// O pão chega todo dia e é faturado na sexta. Cada entrega é real e não
@@ -327,24 +197,7 @@ export const fetchIncomingFn = createServerFn({ method: "GET" })
 				.order("id")
 				.range(from, to)
 		)
-		for (const receipt of unbilled) {
-			rows.push({
-				key: `sem-nota:${receipt.id}`,
-				kind: "delivery_without_invoice",
-				supplierName: receipt.supplier_name,
-				supplierDocument: receipt.supplier_document,
-				reference: receipt.delivery_note_number ? `Remessa ${receipt.delivery_note_number}` : "Entrega sem nota",
-				referenceDate: civilDate(receipt.created_at),
-				daysLate: 0,
-				value: null,
-				summary: receipt.status === "provisional" ? "Recebimento provisório, aguardando a nota" : "Entregue, aguardando a nota fiscal",
-				nextAction: "Vincular à nota quando ela chegar",
-				supplyOrderId: receipt.supply_order_id,
-				nfeDocumentId: null,
-				goodsReceiptId: receipt.id,
-				unclaimedNote: false,
-			})
-		}
+		rows.push(...buildUnbilledRows(unbilled))
 
 		// ── (d) reposição prometida — AINDA NÃO ─────────────────────────────────
 		// A spec prevê a linha recusada com reposição prometida como quarta origem
@@ -358,13 +211,7 @@ export const fetchIncomingFn = createServerFn({ method: "GET" })
 
 		// O atrasado vem primeiro, e o mais atrasado antes — é a ordem em que o
 		// almoxarife precisa cobrar. Depois, o mais antigo.
-		rows.sort((a, b) => b.daysLate - a.daysLate || (a.referenceDate ?? "9999").localeCompare(b.referenceDate ?? "9999"))
-		const filtered = data.kinds?.length ? rows.filter((row) => data.kinds?.includes(row.kind)) : rows
-		return {
-			rows: filtered.slice(0, data.limit),
-			total: filtered.length,
-			late: filtered.filter((row) => row.daysLate > 0).length,
-		}
+		return paginateIncoming(rows, data.kinds, data.limit)
 	})
 
 /**
