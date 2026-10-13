@@ -1,53 +1,60 @@
 ## Why
 
-O SISPROV (Sistema de Provisões, fardamento gratuito) é a frente do Projeto SIA (Convênio 001/IEFA/2025, IEFA × FCMF) que inverte a lógica de provisão de fardamento da FAB: em vez de o estoque perseguir o consumo passado, o sistema parte do efetivo previsto de incorporação e renovação, aplica o enxoval do grupo de demanda e a curva antropométrica por gênero, desconta o estoque da rede e gera a ordem de fornecimento ao depósito central, com aprovação humana.
+O SISPROV (Sistema de Provisões) é o sistema que nasceu para o estoque. A frente do Projeto SIA (Convênio 001/IEFA/2025, IEFA × FCMF) que o originou é o fardamento gratuito: partir do efetivo previsto, aplicar o enxoval e a curva de tamanhos, descontar o estoque da rede e gerar a ordem de fornecimento. Mas o estoque não é do fardamento. A alimentação do sisub também tem estoque, e hoje ele está modelado como se fosse o único: todo item é ingrediente ou preparação congelada, todo local é uma cozinha.
 
-O legado (fab-provisao, Dextra, 2013 a 2015, Java 6 + EJB 3 + Tapestry 5.0.6 + JBoss 4) foi entregue e nunca implantado. A análise de 26/08/2026 mostrou build irreproduzível, schema SQL perdido, integração com o SIA frágil por construção e a distribuição individual ao militar nunca implementada. O que tem valor nele (modelo de dados de 78 entidades, regras de cálculo das OS 14 a 16 com seis defeitos catalogados, 21 templates de relatório, matriz RBAC) é portável sem compilar nada.
+Decisão do mantenedor em 13/10/2026: **o SISPROV é dono de todo e qualquer estoque**, e o estoque do sisub é uma classe dele (alimentação). No fundo é um sistema só; para o usuário, cada um vê o recorte do seu domínio, e quem é do rancho continua vendo só alimentação, na tela do sisub. O estoque continua no schema `inventory`.
 
-Em 11/10/2026 o Cap Hoffmann, responsável técnico, marcou a folha de decisão do projeto (a ratificar pela Direção): a plataforma é o monorepo IEFA, sobre o núcleo comum onde o SISUB já roda em produção. Este change registra essa decisão e cria a fundação sobre a qual as fases seguintes constroem: o app, o schema, os módulos de autorização, o lugar do item de fardamento no núcleo e o glossário. É o entregável do marco M1 do cronograma do projeto.
+O momento é agora: o ledger está vazio em produção (piloto travado), então generalizar custa DDL e código, sem migração de dado contábil.
 
-Nada do SISPROV existe hoje no monorepo. O que o núcleo já entrega e o SISPROV herda: `core.item` (identidade de item com `kind = material`), `core.military_identity` e o vínculo SARAM verificado, PBAC por papel escopado por OM com hierarquia de apoio (precedente do Projeto α), ledger de estoque, fechamento mensal, MRP, `procurement`, `finance`, catálogo regulamentar `rumaer`, ambiente de treino, `legal-kit`, `auth-kit`, `supabase-kit`.
+O legado (fab-provisao, 2013 a 2015) nunca entrou em produção e não está no ar. Serve de fonte de requisitos, não de decisão: depósito, almoxarifado e distribuição, que lá eram módulos à parte, aqui são locais e movimentos do mesmo ledger.
 
 ## What Changes
 
-- **App novo `apps/sisprov`** (TanStack Start + Nitro, React 19), pelo trilho dos sete passos que rumaer, sucont e contrate percorreram, com o design system do sisub e `STYLE_CONTRACT.md` próprio. Nasce com login, hub por permissão, três módulos vazios honestos, rotas legais e aviso de ciência, e nenhuma tela de negócio: o conteúdo vem nos changes seguintes.
-- **Package novo `packages/sisprov-domain`** com a estrutura do `sisub-domain` (schemas, operations, guards, types, utils) e os guards dos três módulos. Operations chegam com o catálogo (change seguinte).
-- **Schema `sisprov`** no banco compartilhado: criado vazio, com grants no padrão do sucont, exposto no PostgREST e na lista de schemas tipados. Nenhuma tabela neste change, de propósito: tabela com `unit_id` só nasce depois de declarada no guard de reset de treino do sisub.
-- **Três módulos PBAC por papel**, escopados por OM (`unit`) com hierarquia de apoio, no `AppModule` de `@iefa/pbac`: `sisprov-planning` (elo SISPROV na OM: previsão de incorporação), `sisprov-supply` (almoxarifado da OM: receber OF, distribuir) e `sisprov-admin` (SDAB: enxovais, curvas, aprovação de OF, grants). O militar não tem módulo: é sessão autenticada.
-- **Identidade do item de fardamento** decidida: `core.item` com `kind = material` e perfil no schema `sisprov`, ligado a `rumaer.piece` quando a peça existe no regulamento. Especificada aqui, construída no change do catálogo.
-- **Lote do glossário de fardamento** (`sisprov-glossary`): um nome por conceito antes da primeira tabela.
-- **Reset de treino**: regra de que toda tabela operacional do `sisprov` entra em `RESET_TARGET_TABLES` no PR que a cria, e referência (catálogo, curvas) em `RESET_EXCLUSIONS`.
-- **Documentos legais**: o SISPROV entra nos Termos de Uso, na Política de Privacidade e no inventário da Política de Cookies (`theme`, `auth_rate_limit`, `fab_remember_email`), em versão nova (linha nova, nunca `UPDATE`). Texto proposto; o mantenedor decide.
-- **Deploy e infra**: entrada no `apps.manifest.json` (artefatos regerados por `generate:deploy`), jobs `check/build/deploy-sisprov` no `deploy.yml`, stack `infra/sisprov`.
-- **Documentação de sistema**: página em `apps/docs/content/docs/sisprov`, seção dos módulos em `docs/pbac/modulos.mdx`, arquivos do catálogo de edge cases, linhas nas tabelas de `AGENTS.md`, `README.md`, `PRODUCT.md` e `LGPD.md`.
+- **O estoque passa a ser multiclasse**, numa migration (`inventory_multiclass`):
+  - local de estoque explícito (`inventory.stock_location`: OM, nível, cozinha opcional, classes que guarda), um por cozinha no backfill;
+  - item pelo núcleo: `item_id` → `core.item` no lugar de `ingredient_id`/`frozen_preparation_id`; a preparação congelada vira subtipo de `core.item`;
+  - classe de suprimento = `core.item.catalog_scope`, com o valor novo `fardamento`, e trava de classe por local;
+  - OF por local (`procurement.supply_order.location_id`);
+  - funções e views do `inventory` recriadas sobre o eixo (local, item);
+  - reset de treino pelo local.
+- **O código do estoque muda de dono:** a lógica pura vai de `@iefa/sisub-domain` para `@iefa/sisprov-domain/inventory`. As telas `/storage/$kitchenId` do sisub ficam onde estão, como a lente de alimentação, operando o local da cozinha.
+- **O módulo `storage` vira o módulo de estoque do SISPROV**, para toda classe, escopado por cozinha, OM (com hierarquia de apoio) ou global. Sai o `sisprov-supply` do primeiro desenho. Ficam `sisprov-planning` (elo na OM) e `sisprov-admin` (SDAB).
+- **Sem schema `sisprov` vazio:** o perfil do fardamento ganha schema próprio com a primeira tabela, no change do catálogo.
+- **App novo `apps/sisprov`** (TanStack Start + Nitro, React 19), com o design system do sisub e `STYLE_CONTRACT.md` próprio. Nasce com login, hub por permissão, Planejamento, Estoque (lista de locais alcançáveis) e Administração (acessos), rotas legais e aviso de ciência.
+- **Package novo `packages/sisprov-domain`:** módulos, guards (inclusive `requireStockLocation`) e o estoque.
+- **Documentos legais:** o SISPROV entra nos Termos, na Privacidade e no inventário de cookies, em versão nova (linha nova, nunca `UPDATE`). Texto proposto; o mantenedor decide.
+- **Deploy e infra:** entrada no `apps.manifest.json` (o release lê o manifesto; app novo não edita o `deploy.yml`) e stack `infra/sisprov`.
+- **Documentação de sistema:** página do SISPROV, seção dos módulos em `pbac/modulos.mdx`, catálogo de edge cases, linhas em `AGENTS.md`, `README.md`, `PRODUCT.md` e `LGPD.md`.
 
 ## Capabilities
 
 ### New Capabilities
-- `sisprov-foundation`: o app, o schema, o package de domínio, o deploy e a cobertura legal do SISPROV no monorepo.
-- `sisprov-access`: autorização do SISPROV por papel (planning, supply, admin), escopada por OM com hierarquia de apoio; militar como sessão autenticada; autogestão de grants só dos módulos do app, auditada.
-- `sisprov-item-identity`: o item de fardamento como `core.item` de tipo material com perfil `sisprov` e vínculo opcional ao catálogo regulamentar.
+- `stock-ownership`: o SISPROV como dono do estoque de toda classe; local de estoque; classe por item e trava por local; lentes por app.
+- `sisprov-foundation`: o app, o package de domínio, o deploy e a cobertura legal do SISPROV.
+- `sisprov-access`: `storage` como módulo de estoque do SISPROV, `sisprov-planning` e `sisprov-admin`, escopados por OM com hierarquia de apoio; concessão auditada.
+- `sisprov-item-identity`: o item de fardamento como `core.item` de classe `fardamento`.
 - `sisprov-glossary`: um nome por conceito do fardamento em todas as camadas.
 
 ### Modified Capabilities
-- Nenhuma spec arquivada muda. `core.item` (change `sisub-inventory-operations`, migration `20260901120000`) ganha um segundo cliente sem alteração de schema neste change.
+- `stock-ledger`: a chave do ledger passa de (cozinha, ingrediente XOR preparação) para (local, item).
+- `goods-receipt`: a OF é por local de estoque, não por cozinha.
+- `stock-replenishment-mrp`: a política de estoque é por local × item.
 
 ## Impact
 
-- **Apps:** `sisprov` (novo), `docs` (página nova). **Packages:** `sisprov-domain` (novo), `pbac` (três módulos no union), `database` (migration do schema, lista de schemas), `legal-kit` (`APP_NAMES`).
-- **Banco:** `create schema sisprov` + grants + `pgrst.db_schemas`; versão nova dos três documentos legais em `iefa.legal_documents`. **Espera o mantenedor** (migration, documento legal).
-- **Gates e infra:** `apps.manifest.json` e artefatos gerados, `deploy.yml`, `infra/sisprov/**`, `knip.json`. Espera o mantenedor (`infra/**`, `.github/**`).
-- **LGPD:** o app passa a tratar dado pessoal (e-mail institucional, SARAM via `core.military_identity`); por isso entra nos documentos e leva `legal-kit`. Dado antropométrico só chega no change do cadastro (F1.3), com RIPD próprio.
-- **Sisub:** `SisubModule` em `policies/labels.ts` exclui `sisprov-${string}`, como já faz com `sucont-${string}` e `alpha-${string}`; nada mais muda no sisub.
+- **Banco:** migration `inventory_multiclass` (estrutura de todas as tabelas do `inventory`, `procurement.supply_order`, `kitchen.frozen_preparation` como subtipo, `core.item.catalog_scope`, funções e views), migration `legal_documents_sisprov`. **Espera o mantenedor** (migration, documento legal).
+- **Sisub:** server functions de estoque, rotas `/storage/$kitchenId` (resolvem cozinha → local), `training` (reset pelo local), guard de treino; `sisub-domain` perde a lógica pura do estoque para o `sisprov-domain`.
+- **Packages:** `sisprov-domain` (novo), `pbac` (comentário do `storage`, dois módulos `sisprov-*`), `database` (tipos regenerados), `legal-kit` (`APP_NAMES`).
+- **Gates e infra:** `apps.manifest.json` e artefatos gerados, `infra/sisprov/**`, `knip.json`. Espera o mantenedor (`infra/**`).
+- **Produção:** janela curta entre o apply e o deploy em que o estoque do sisub não abre (D10 do design). O ledger está vazio.
+- **LGPD:** o app trata e-mail institucional e SARAM (`core.military_identity`); dado antropométrico só chega no change do cadastro, com RIPD próprio.
 
 ## Não-objetivos
 
-- Qualquer tela ou tabela de negócio: catálogo (F1.1), grupos de demanda (F1.2), cadastro antropométrico e coleta (F1.3, F1.6), curva (F1.4), integração SIGPES (F1.5) são changes próprios, nesta ordem, conforme `SIA/docs/SISPROV-plano-desenvolvimento.md` (local).
-- Refactor do ledger para aceitar `core.item` (G1), eixo de escopo do estoque (G2), separação `core-domain` (G7): change `sisprov-core-inventory`, antes da Fase 2.
-- Operar o depósito central (logística física, OS 08 a 12 do legado) e a integração SIA de NF: fora da v1 por decisão Q1, com gate à SDAB.
-- MOMAT, DEMOP e balanço: fora da v1 por decisão Q6, com gate à SDAB.
-- Portar código do legado: o legado é especificação executável, nunca dependência.
-- Carga de efetivo por planilha: descartada (Q4); a fonte é o SIGPES online, no núcleo.
-- Chat de módulo, MCP e qualquer IA: não há caso de uso escrito; IA nunca é caminho crítico.
-- Agent-web (Markdown negotiation, `llms.txt`): o SISPROV é inteiro autenticado; entra quando houver conteúdo público ou tool de agente.
-- Ratificar a decisão de plataforma pela Direção: este change a registra como decisão do responsável técnico, com a ressalva.
+- Telas de operação do fardamento (receber, distribuir, contar), catálogo, grupos de demanda, ficha de tamanhos, curva, integração SIGPES: changes próprios, nesta ordem.
+- Mover as telas de estoque do rancho para o app SISPROV: o rancho continua no sisub (decisão de 13/10/2026).
+- Embalagem de item fora da alimentação: entra com o catálogo.
+- Operar o depósito central e a integração de NF do SIA: fora da v1, com gate à SDAB.
+- Portar código do legado.
+- IA, chat de módulo e MCP: não há caso de uso escrito.
+- Ratificar a decisão de plataforma pela Direção: registrada aqui como decisão do responsável técnico e do mantenedor.

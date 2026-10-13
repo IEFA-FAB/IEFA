@@ -1,28 +1,28 @@
 ## ADDED Requirements
 
 ### Requirement: App SISPROV no monorepo
-O sistema SHALL ter o app `apps/sisprov` (TanStack Start + Nitro, React 19) construído pelo mesmo trilho dos demais apps do ERP: `@iefa/tsconfig/react-app.json`, `@iefa/supabase-kit` para todo cliente Supabase, `@iefa/auth-kit` para ações de autenticação, `@iefa/pbac/start` para os gates de servidor, entrada em `apps.manifest.json` com os artefatos de deploy regerados por `bun run generate:deploy`, jobs `check-sisprov`, `build-sisprov` e `deploy-sisprov` no `deploy.yml`, stack `infra/sisprov` idêntica às demais salvo o `terraform.tfvars`. O app MUST ler as variáveis `VITE_SISPROV_SUPABASE_URL`, `VITE_SISPROV_SUPABASE_PUBLISHABLE_KEY` (cliente) e `SISPROV_SUPABASE_SECRET_KEY` (servidor), documentadas em `.env.schema`, e falhar na primeira leitura quando faltarem.
+O sistema SHALL ter o app `apps/sisprov` (TanStack Start + Nitro, React 19) construído pelo mesmo trilho dos demais apps do ERP: `@iefa/tsconfig/react-app.json`, `@iefa/supabase-kit` para todo cliente Supabase, `@iefa/auth-kit` para ações de autenticação, `@iefa/pbac/start` para os gates de servidor, entrada em `apps.manifest.json` (com `healthUrlVar` e `buildArgFrom`) e artefatos de deploy regerados por `bun run generate:deploy`, sem editar o `deploy.yml` (o release lê o manifesto), stack `infra/sisprov` idêntica às demais salvo o `terraform.tfvars`. O app MUST ler as variáveis `VITE_SISPROV_SUPABASE_URL`, `VITE_SISPROV_SUPABASE_PUBLISHABLE_KEY` (cliente) e `SISPROV_SUPABASE_SECRET_KEY` (servidor), documentadas em `.env.schema`, e falhar na primeira leitura quando faltarem.
 
 #### Scenario: Deploy gerado do manifesto
 - **WHEN** o app está em `apps.manifest.json` e `bun run check:deploy` roda
-- **THEN** `Dockerfile`, `docker-bake.hcl`, `.github/paths-filter.yml` e as regiões geradas do `deploy.yml` já contêm o sisprov e o comando sai sem drift
+- **THEN** `Dockerfile`, `docker-bake.hcl` e `.github/paths-filter.yml` já contêm o sisprov e o comando sai sem drift
 
 #### Scenario: Variável de servidor ausente
 - **WHEN** `SISPROV_SUPABASE_SECRET_KEY` não está definida e uma server function é chamada
 - **THEN** o módulo de ambiente lança erro nomeando a variável, em vez de o app subir e falhar numa query
 
-### Requirement: Schema `sisprov` vazio e exposto
-O banco SHALL ter o schema `sisprov` criado por migration com cabeçalho-decisão, `grant usage` para `anon`, `authenticated` e `service_role`, default privileges de `select` para `authenticated` e `all` para `service_role` em tabelas futuras, incluído em `pgrst.db_schemas` e na lista `SUPABASE_SCHEMAS` do pacote `database`. O schema MUST nascer sem tabelas: tabela com `unit_id` só é criada depois de declarada no guard de reset de treino do sisub.
+### Requirement: Sem schema próprio do app
+O SISPROV MUST NOT ter schema `sisprov`. O estoque vive em `inventory`, o item em `core.item`, a OF em `procurement` e o perfil de cada classe no schema da classe. Tabela nova do fardamento nasce no schema da classe, criado com a primeira tabela, e entra no guard de reset de treino no mesmo PR quando tiver `unit_id` ou `location_id`.
 
-#### Scenario: Schema criado sem tabela
-- **WHEN** a migration de fundação é aplicada
-- **THEN** `sisprov` existe, aparece na API do PostgREST e nenhuma tabela nova é encontrada pelo guard `training.operations.test.ts`
+#### Scenario: Lista de schemas tipados
+- **WHEN** `SUPABASE_SCHEMAS` e os schemas de `generated.ts` são comparados
+- **THEN** não há `sisprov` em nenhum dos dois e o teste de fonte única passa
 
 ### Requirement: Package `sisprov-domain`
-O sistema SHALL ter `packages/sisprov-domain` com a estrutura do `sisub-domain` (`schemas/`, `operations/`, `guards/`, `types/`, `utils/`), exports por subpath, `UserContext` re-exportado de `@iefa/pbac`, hierarquia `DomainError` e guards dos três módulos do SISPROV. Operation de escrita MUST receber `ctx` e chamar um guard (regra `domain-op-discards-user-context`, estendida ao package).
+O sistema SHALL ter `packages/sisprov-domain` com a estrutura do `sisub-domain` (`schemas/`, `operations/`, `guards/`, `types/`, `utils/`), exports por subpath, `UserContext` re-exportado de `@iefa/pbac`, hierarquia `DomainError` guards dos módulos do SISPROV (inclusive `requireStockLocation`, D3 do design) e, no subpath `inventory`, a lógica pura do estoque que sai do `sisub-domain`. Operation de escrita MUST receber `ctx` e chamar um guard (regra `domain-op-discards-user-context`, estendida ao package).
 
 #### Scenario: Guard por OM com hierarquia de apoio
-- **WHEN** um usuário tem `sisprov-supply` nível 2 na OM apoiadora e a operation exige nível 2 numa OM apoiada por ela
+- **WHEN** um usuário tem `sisprov-planning` nível 2 na OM apoiadora e a operation exige nível 2 numa OM apoiada por ela
 - **THEN** o guard aceita; na OM não coberta, lança `PermissionDeniedError`
 
 ### Requirement: Rotas legais e aviso de ciência
@@ -40,7 +40,7 @@ O app SHALL ter `/` redirecionando para `/hub` (autenticado) ou `/auth`; `/hub` 
 - **THEN** vê a mensagem de acesso não concedido com o canal para pedir, e nenhum card de módulo
 
 #### Scenario: Rota negada
-- **WHEN** um usuário com `sisprov-supply` apenas abre `/admin`
+- **WHEN** um usuário com `storage` apenas abre `/admin`
 - **THEN** é redirecionado a `/hub` com `denied=sisprov-admin` e a tela explica a negativa
 
 ### Requirement: Saúde e estado do banco

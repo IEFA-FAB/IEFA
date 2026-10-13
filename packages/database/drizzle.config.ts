@@ -40,9 +40,6 @@ export default defineConfig({
 		"inventory",
 		"gs1_integration",
 		"siafi_integration",
-		// SISPROV (fardamento gratuito): schema criado vazio em `sisprov-foundation`; as tabelas
-		// chegam nos changes seguintes e o `sisprov-domain` as lê pelo Drizzle como o sisub-domain.
-		"sisprov",
 	],
 	dbCredentials: {
 		// O driver `pg` (usado só pelo `drizzle-kit pull`) passou a tratar

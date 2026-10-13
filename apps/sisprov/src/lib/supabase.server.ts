@@ -5,9 +5,9 @@ import { envServer } from "./env.server"
 const url = () => envServer.VITE_SISPROV_SUPABASE_URL
 const secretKey = () => envServer.SISPROV_SUPABASE_SECRET_KEY
 
-// Não há `getSisprovServerClient()` neste change de propósito: o schema `sisprov` nasce vazio e
-// os tipos gerados (`@iefa/database/generated`) só o conhecem depois de a migration ser aplicada
-// e `db:types` rodar. O cliente tipado do schema entra com a primeira tabela (`sisprov-catalog`).
+// Não há schema `sisprov`: o estoque de toda classe vive em `inventory`, o item em `core.item` e o
+// perfil de cada classe no schema dela. O schema próprio de uma classe nova (fardamento) nasce com a
+// primeira tabela, no change do catálogo (`openspec/changes/sisprov-foundation`, D13).
 
 /**
  * Cliente service role apontando para o schema `access_control`: tabela `user_permissions`
