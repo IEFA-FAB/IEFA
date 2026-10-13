@@ -259,6 +259,144 @@ describe("checkDemand", () => {
 	})
 })
 
+/**
+ * As janelas com quase tudo errado: dispara a maior parte das regras de uma vez. A lista
+ * completa, na ordem, prende a ordem das seções e a numeração dos ids repetidos.
+ */
+function messyDemand(): DemandPayload {
+	const demand = windowsDemand()
+	demand.requestingArea = " "
+	Object.assign(demand.context, { problem: "Janelas velhas.", consequence: "", deadline: "2026-01-10", trigger: "", priorityReason: "" })
+	const [fundamental, means] = demand.objectives as [DemandPayload["objectives"][number], DemandPayload["objectives"][number]]
+	fundamental.attribute.target = ""
+	demand.objectives.push(
+		{ ...fundamental, id: "f2", text: "Reduzir o consumo de energia", attribute: { ...fundamental.attribute, target: "10%" } },
+		{ ...means, id: "m2", text: "Vidro com controle solar", supports: ["x"] }
+	)
+	const alternatives = demand.alternatives as Array<DemandPayload["alternatives"][number]>
+	if (alternatives[2]) alternatives[2].notes = ""
+	demand.choiceRationale = ""
+	Object.assign(demand.solution, {
+		object: `Aquisição de janelas ${"sob medida ".repeat(25)}`,
+		deliveryPlace: "",
+		sustainability: "",
+		parcelamento: { decision: "grupo_unico", rationale: "" },
+	})
+	demand.solution.requirements.push(
+		{ id: "r2", text: "Perfil reforçado — linha Suprema", kind: "tecnico", objectiveId: "m1" },
+		{ id: "r3", text: "Fecho tipo punho – preto", kind: "tecnico", objectiveId: "m1" }
+	)
+	demand.solution.exclusions.push({ id: "x2", text: "Pintura", reason: "" })
+	const [first, second] = demand.items as [DemandPayload["items"][number], DemandPayload["items"][number]]
+	Object.assign(first, { quantity: 0, catalogCode: "", quantityRationale: "", expenseNature: "" })
+	second.expenseNature = "3.3.90.39.17"
+	demand.items.push({ ...second, id: "i3", expenseNature: "4.4.90.52" })
+	const quotes = demand.quotes as Array<DemandPayload["quotes"][number]>
+	if (quotes[0]) quotes[0].validUntil = "2026-09-01"
+	if (quotes[1]) quotes[1].supplierDocument = "11111111000299"
+	quotes.push({ ...(quotes[2] as DemandPayload["quotes"][number]), id: "q4", supplier: "", date: null, prices: { i1: 9000 } })
+	const risk = demand.risks[0] as DemandPayload["risks"][number]
+	risk.probability = 5
+	demand.risks.push(
+		{
+			...risk,
+			id: "k2",
+			risk: "Atraso na habilitação do fornecedor",
+			probability: null,
+			preventiveOwner: "",
+			allocationDetail: "",
+			preventiveAction: "Responsável: fiscal — conferir",
+		},
+		{ ...risk, id: "k3", risk: "Acidente na obra às pressas", contingencyAction: "" }
+	)
+	Object.assign(demand.planning, { nup: "", environmentalImpacts: "", team: [{ id: "t1", name: "Fulano", position: "Ten", role: "requisitante" }] })
+	return demand
+}
+
+describe("checkDemand: ordem completa das pendências", () => {
+	test("demanda vazia", () => {
+		expect(checkDemand(emptyDemand(), TODAY).map((check) => `${check.severity}:${check.step}:${check.id}`)).toEqual(EMPTY_IDS)
+	})
+
+	test("demanda com quase tudo errado", () => {
+		expect(checkDemand(messyDemand(), TODAY).map((check) => `${check.severity}:${check.step}:${check.id}`)).toEqual(MESSY_IDS)
+	})
+})
+
+const EMPTY_IDS = [
+	"bloqueia:contexto:area",
+	"bloqueia:contexto:problem",
+	"atencao:contexto:consequence",
+	"atencao:contexto:deadline",
+	"bloqueia:objetivos:fundamental",
+	"bloqueia:alternativas:alternatives",
+	"bloqueia:alternativas:chosen",
+	"bloqueia:alternativas:rationale",
+	"dica:alternativas:ata",
+	"bloqueia:solucao:nature",
+	"bloqueia:solucao:object",
+	"bloqueia:solucao:description",
+	"atencao:solucao:requirements",
+	"bloqueia:itens:items",
+	"bloqueia:riscos:risks",
+	"atencao:planejamento:team",
+	"atencao:planejamento:pca",
+	"dica:planejamento:nup",
+	"atencao:planejamento:environment",
+]
+
+const MESSY_IDS = [
+	"bloqueia:contexto:area",
+	"bloqueia:contexto:problem",
+	"atencao:contexto:consequence",
+	"atencao:contexto:deadline-past",
+	"atencao:contexto:supervening",
+	"atencao:contexto:priority",
+	"atencao:objetivos:attribute-f1",
+	"atencao:objetivos:means-m2",
+	"atencao:solucao:trace-f2",
+	"bloqueia:alternativas:rationale",
+	"atencao:alternativas:rating-f2",
+	"atencao:alternativas:discarded-a3",
+	"atencao:solucao:object-length",
+	"atencao:solucao:exclusion-x2",
+	"bloqueia:solucao:parcelamento",
+	"atencao:solucao:delivery",
+	"dica:solucao:tr-8-9",
+	"bloqueia:itens:item-i1",
+	"atencao:itens:catalog-i1",
+	"atencao:itens:rationale-i1",
+	"atencao:itens:nd-i1",
+	"atencao:itens:nd-mismatch-i2",
+	"dica:itens:nd-incorp-i3",
+	"dica:precos:cv-i1",
+	"bloqueia:precos:price-i3",
+	"atencao:precos:expired-q1",
+	"atencao:precos:dependent-q1-q2",
+	"atencao:precos:dependent-q3-q4",
+	"atencao:precos:quote-q4",
+	"atencao:riscos:certain-k1",
+	"bloqueia:riscos:scale-k2",
+	"atencao:riscos:generic-k2",
+	"atencao:riscos:generic-k2-2",
+	"atencao:riscos:owners-k2",
+	"atencao:riscos:owner-in-text-k2",
+	"atencao:riscos:allocation-k2",
+	"atencao:riscos:certain-k3",
+	"atencao:riscos:generic-k3",
+	"atencao:riscos:actions-k3",
+	"dica:riscos:risk-contractor",
+	"atencao:planejamento:team",
+	"dica:planejamento:nup",
+	"atencao:planejamento:environment",
+	"dica:precos:same-nature",
+	"dica:precos:me-epp",
+	"atencao:solucao:dash-solucao-requisito",
+	"atencao:solucao:dash-solucao-requisito-2",
+	'atencao:riscos:dash-riscos-risco "Atraso na habilitação do fornecedor"',
+	'atencao:riscos:admits-riscos-risco "Acidente na obra às pressas"-às pressas',
+]
+
 describe("buildDocuments", () => {
 	const documents = buildDocuments(windowsDemand(), TODAY)
 	const form = (id: string) => documents.forms.find((candidate) => candidate.id === id)
