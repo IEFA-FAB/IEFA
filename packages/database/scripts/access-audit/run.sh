@@ -4,11 +4,16 @@
 # da fase 1 e a corrida, aplica a fase 2 e roda os testes dela, o arquivamento de
 # 20260926218000, a autorização de cadastro externo e o hook do Auth (20261001100000…), o teto
 # de `admin:3` (20261001120000) e, por fim, o endurecimento de 20261001140000… (log
-# append-only, TRUNCATE, troca de e-mail). Apaga o cluster no fim.
+# append-only, TRUNCATE, troca de e-mail) e o vínculo de SARAM verificado (20261003100000). Apaga o
+# cluster no fim.
 #
 #   bash packages/database/scripts/access-audit/run.sh
 #
-# Requer `initdb`, `pg_ctl` e `psql` (PostgreSQL ≥ 15, por `nulls not distinct`).
+# Requer `initdb`, `pg_ctl` e `psql` (PostgreSQL ≥ 15, por `nulls not distinct`). Sem eles na
+# máquina, num contêiner descartável (a imagem traz o `unaccent`):
+#
+#   podman run --rm -v "$(pwd)":/repo:Z -w /repo --user postgres docker.io/library/postgres:17-alpine \
+#     bash packages/database/scripts/access-audit/run.sh
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -68,4 +73,9 @@ run "$HERE/audit-hardening.test.sql"
 run "$MIGRATIONS/20261001120000_access_admin_level_ceiling.sql"
 run "$MIGRATIONS/20261001120000_access_admin_level_ceiling.sql"
 run "$HERE/admin-ceiling.test.sql"
+# 20261003100000: vínculo de SARAM verificado e conta institucional (aplica a migration duas vezes
+# de dentro do teste, depois de semear o estado de antes para o backfill).
+run "$HERE/saram-link.test.sql"
+run "$MIGRATIONS/20261003100100_saram_link_request_fk_indexes.sql"
+run "$MIGRATIONS/20261003100100_saram_link_request_fk_indexes.sql"
 echo "access-audit: tudo verde"

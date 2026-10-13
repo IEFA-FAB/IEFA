@@ -1,4 +1,5 @@
 import { arredondarCentavos, saldoZerado } from "#/lib/analysis/tolerancia"
+import { addDays, formatBrDate, todayInBrasilia } from "#/lib/brasilia"
 import { blocoFundamentacao, FUNDAMENTO_CONCILIACAO_SISTEMAS } from "#/lib/normas"
 import {
 	AccountGroup,
@@ -797,6 +798,20 @@ Esta Diretoria reconhece o trabalho realizado pela gestão da Unidade e coloca �
 DIREF/SUCONT/SUCONT-4`
 }
 
+/** Dias corridos entre hoje e o prazo que o modal da mensagem SIAFI propõe. */
+const DEFAULT_DEADLINE_DAYS = 3
+
+/**
+ * Prazo inicial do modal da mensagem SIAFI, em ISO (`AAAA-MM-DD`): é o valor que o
+ * `<input type="date">` lê e grava. O texto da mensagem cita a data em `DD/MM/AAAA`,
+ * e quem converte é o `generateMessage`.
+ */
+export const getDefaultMessageDeadline = (now: Date = new Date()): string => addDays(todayInBrasilia(now), DEFAULT_DEADLINE_DAYS)
+
+/**
+ * `deadline` chega em ISO (`AAAA-MM-DD`, o valor do campo de data) e sai no texto como
+ * `DD/MM/AAAA`. Vazio cai no marcador de preencher de cada modelo.
+ */
 export const generateMessage = (
 	type: "RANKING" | "HEATMAP",
 	record: FinancialRecord,
@@ -805,18 +820,16 @@ export const generateMessage = (
 	history: FinancialRecord[] = [],
 	timeFilter: TimeFilter = "MENSAL"
 ): string => {
+	const deadlineText = formatBrDate(deadline)
 	try {
 		if (type === "RANKING") {
-			return generateRankingMessage(record, msgNumber, deadline, history, timeFilter)
+			return generateRankingMessage(record, msgNumber, deadlineText, history, timeFilter)
 		}
-		return generateHeatmapMessage(record, msgNumber, deadline, history)
+		return generateHeatmapMessage(record, msgNumber, deadlineText, history)
 	} catch (_error) {
 		return "ERRO AO GERAR MENSAGEM. VERIFIQUE OS DADOS."
 	}
 }
-
-export const generateSiafiMessageText = (record: FinancialRecord, msgNumber: string, deadline: string, history?: FinancialRecord[]) =>
-	generateHeatmapMessage(record, msgNumber, deadline, history || [])
 
 /**
  * Reescreve o número da MSG num corpo já redigido.
@@ -853,4 +866,13 @@ export const dedupeBalanceGrain = <T extends { period: string; ugCodigo: string;
 		byGrain.set(key, row)
 	}
 	return { rows: [...byGrain.values()], duplicates }
+}
+
+/**
+ * Texto da pré-visualização depois de trocar o prazo. Intocado (igual ao último gerado), vira o
+ * texto regerado; editado pelo operador, mantém a edição e só troca a data antiga pela nova.
+ */
+export function applyDeadlineChange(current: string, lastGenerated: string, regenerated: string, previousDeadline: string, nextDeadline: string): string {
+	if (current === lastGenerated) return regenerated
+	return current.replaceAll(formatBrDate(previousDeadline), formatBrDate(nextDeadline))
 }

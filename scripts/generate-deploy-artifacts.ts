@@ -2,8 +2,8 @@
 /**
  * Gera Dockerfile, docker-bake.hcl e .github/paths-filter.yml a partir de
  * `apps.manifest.json` + o grafo de dependências de workspace lido dos
- * package.json, e as regiões marcadas (`# >>> gerado: <nome>`) do
- * .github/workflows/deploy.yml que só repetem a lista de apps.
+ * package.json. O deploy.yml não é gerado: ele lê o manifesto em tempo de execução
+ * (`scripts/release-plan.ts` e `scripts/release-verify.ts`).
  *
  * Motivo: adicionar um app (ou um package compartilhado) exigia editar as mesmas
  * listas à mão em três arquivos. Elas divergiam em silêncio e o modo de falha era
@@ -29,7 +29,7 @@ type App = {
 	 * `<path>/Dockerfile`, fora do monorepo Bun (sem workspace, sem estágio `deps`).
 	 * Não entra no Dockerfile raiz e o paths-filter só olha a própria pasta.
 	 */
-	kind?: "nitro" | "bun-bundle" | "bun-source" | "dockerfile"
+	kind?: "nitro" | "bun-bundle" | "dockerfile"
 	port?: number
 	entry?: string
 	buildArgs: string[]
@@ -44,15 +44,39 @@ type App = {
 	buildSecrets?: string[]
 	buildSecretComments?: Record<string, string>
 	runtimeEnv?: Record<string, string>
+	/** bun-bundle: o app tem `public/` versionado, que vai para a imagem ao lado do `dist/`. */
+	copyPublic?: boolean
 	runtimeFrom?: "base"
 	outputAt?: string
-	copyWorkspacesAtRuntime?: boolean
 	aliasOf?: string
 	notes?: string
+	/** GitHub Variable com a URL do smoke test depois do rollout no ECS. Ausente → sem smoke test. */
+	healthUrlVar?: string
+	/**
+	 * Tarefas de turbo (`<workspace>#<tarefa>`) que liberam o deploy do app no push da `main`.
+	 * Padrão: lint, typecheck e test do próprio workspace; app de kind `dockerfile` não tem nenhuma.
+	 */
+	check?: string[]
+	/** `static-site`: publicado como site estático (jobs `docs-*` do deploy.yml), fora da matriz do ECS. */
+	release?: "ecs" | "static-site"
+	buildTimeoutMinutes?: number
+	bakeAttemptTimeoutMinutes?: number
+	/** Build arg → GitHub Variable de onde ele sai, quando o nome difere (o rumaer usa as vars do sisub). */
+	buildArgFrom?: Record<string, string>
+	/** Build args que podem sair vazios (o Faro desligado vira no-op); os outros falham o build. */
+	optionalBuildArgs?: string[]
 }
 
+export type { App }
+
 type Manifest = {
+	/** Imagem dos estágios de build e do runtime dos apps Nitro. */
 	bunImage: string
+	/**
+	 * Runtime dos serviços `bun-bundle`: distroless, sem shell nem gerenciador de pacotes. Tem de
+	 * estar na mesma versão do Bun que `bunImage`, que é quem gera o bundle.
+	 */
+	bunRuntimeImage: string
 	registryDefaults: { registry: string; repositoryPrefix: string }
 	apps: App[]
 }
@@ -60,9 +84,9 @@ type Manifest = {
 export const manifest: Manifest = JSON.parse(readFileSync(join(ROOT, "apps.manifest.json"), "utf8"))
 
 /**
- * Chave do app no paths-filter e nos outputs do `changes` (`sisub-mcp` é lido como `mcp`). Uma
- * função só para os dois geradores: se divergirem, o deploy.yml lê um output que não existe e
- * o app para de deployar em silêncio.
+ * Nome do filtro do app no paths-filter (`sisub-mcp` é `mcp`, por histórico). Uma função só para
+ * o gerador e o `release-plan.ts`: se divergirem, o plano não reconhece o filtro e o app para
+ * de deployar em silêncio.
  */
 export function filterKeyOf(app: App): string {
 	return app.filterKey ?? app.key.replaceAll("-", "_")
@@ -81,16 +105,31 @@ export function buildSourceOf(app: App): App {
  * estágio que ele reusa (o `--mount=type=secret` está no RUN desse estágio). Sem o
  * segundo, o alias buildaria sem o segredo em silêncio.
  */
-function bakeSecretsOf(app: App): string[] {
+export function bakeSecretsOf(app: App): string[] {
 	const stage = app.aliasOf ? manifest.apps.find((a) => a.key === app.aliasOf) : undefined
 	return [...new Set([...(stage?.buildSecrets ?? []), ...(app.buildSecrets ?? [])])]
 }
 
+/** Versão do Bun na tag (`oven/bun:1.4.0-alpine@sha256:…` → `1.4.0`). Confere a tag, não o digest. */
+function parseBunVersion(image: string): string | undefined {
+	return /^oven\/bun:(\d+\.\d+\.\d+)-/.exec(image)?.[1]
+}
+
+const buildBunVersion = parseBunVersion(manifest.bunImage)
+if (buildBunVersion === undefined || buildBunVersion !== parseBunVersion(manifest.bunRuntimeImage)) {
+	throw new Error("bunImage e bunRuntimeImage têm de estar na mesma versão do Bun: o bundle sai de uma e roda na outra")
+}
+
 for (const app of manifest.apps) {
+	if (!app.aliasOf && app.kind !== "nitro" && app.kind !== "bun-bundle" && app.kind !== "dockerfile") {
+		throw new Error(`${app.key}: kind obrigatório (nitro, bun-bundle ou dockerfile)`)
+	}
+	if (app.kind === "bun-bundle" && app.entry !== `${app.path}/dist/index.js`) {
+		throw new Error(`${app.key}: entry de bun-bundle é ${app.path}/dist/index.js (saída do \`bun run build\`)`)
+	}
 	if (!app.buildSecrets?.length) continue
 	// O secret é montado no RUN de build do estágio do próprio app: Dockerfile próprio
-	// (kind dockerfile), bun-source (sem passo de build) e alias (reusa outro estágio)
-	// não têm onde montá-lo.
+	// (kind dockerfile) e alias (reusa outro estágio) não têm onde montá-lo.
 	if (app.aliasOf || (app.kind !== "nitro" && app.kind !== "bun-bundle")) {
 		throw new Error(`${app.key}: buildSecrets só vale para app kind nitro/bun-bundle sem aliasOf (é montado no RUN de build)`)
 	}
@@ -228,46 +267,30 @@ function dockerStage(app: App) {
 			"COPY docker/bun-serve-idle-timeout.ts ./docker/bun-serve-idle-timeout.ts",
 			"USER bun",
 			`EXPOSE ${app.port}`,
-			`CMD ["bun", "--preload", "./docker/bun-serve-idle-timeout.ts", "${outputAt.replace(/^\.\//, "")}/server/index.mjs"]`
+			// `--no-install`: o `.output` traz o próprio node_modules; o que faltar nele é bug do
+			// build, não pacote para baixar do npm em produção.
+			`CMD ["bun", "--no-install", "--preload", "./docker/bun-serve-idle-timeout.ts", "${outputAt.replace(/^\.\//, "")}/server/index.mjs"]`
 		)
 		return out.join("\n")
 	}
 
-	if (app.kind === "bun-bundle") {
-		out.push(
-			...buildSecretCommentLines(app),
-			`RUN ${secretMounts(app)}bun --filter='${app.workspace}' run build`,
-			`RUN test -f ${app.entry} || \\\n    (echo "❌ Build failed: output missing" && exit 1)`,
-			"",
-			`FROM base AS ${app.key}`,
-			"ENV NODE_ENV=production"
-		)
-		for (const [k, v] of Object.entries(app.runtimeEnv ?? {})) out.push(`ENV ${k}=${v}`)
-		out.push(
-			// Bundle gerado por `bun build --target bun` é self-contained (deps inlined)
-			// — a imagem de runtime não precisa de node_modules.
-			`COPY --from=${app.key}-build /app/${app.path}/dist ./${app.path}/dist`,
-			`COPY --from=${app.key}-build /app/${app.path}/public ./${app.path}/public`,
-			"USER bun",
-			`EXPOSE ${app.port}`,
-			`CMD ["bun", "${app.entry}"]`
-		)
-		return out.join("\n")
-	}
-
-	// bun-source: roda o entrypoint TypeScript direto, então precisa de node_modules.
-	out.push(`RUN test -f ${app.entry} || \\\n    (echo "❌ ${app.key} entrypoint missing" && exit 1)`, "", `FROM base AS ${app.key}`, "ENV NODE_ENV=production")
+	// bun-bundle: `bun build --target bun` inlina as dependências, então o runtime leva só o
+	// `dist/` (e o `public/`, com `copyPublic`) numa imagem distroless: sem shell, sem apk e sem
+	// node_modules. Os `.map` do `dist/` trazem o código-fonte (o repo é público) e dão o stack
+	// trace em `.ts`; não há rota que sirva o `dist/`. `--no-install`: sem node_modules, o Bun liga o
+	// auto-install, e um import de pacote ausente baixaria código do npm em produção.
+	out.push(
+		...buildSecretCommentLines(app),
+		`RUN ${secretMounts(app)}bun --filter='${app.workspace}' run build`,
+		`RUN test -f ${app.entry} || \\\n    (echo "❌ Build failed: output missing" && exit 1)`,
+		"",
+		`FROM \${BUN_RUNTIME_IMAGE} AS ${app.key}`,
+		"ENV NODE_ENV=production"
+	)
 	for (const [k, v] of Object.entries(app.runtimeEnv ?? {})) out.push(`ENV ${k}=${v}`)
-	if (app.copyWorkspacesAtRuntime) {
-		out.push(
-			`COPY --from=${app.key}-build /app/package.json ./package.json`,
-			`COPY --from=${app.key}-build /app/node_modules ./node_modules`,
-			`COPY --from=${app.key}-build /app/packages ./packages`
-		)
-	} else {
-		out.push("COPY --from=deps /app/node_modules ./node_modules")
-	}
-	out.push(`COPY --from=${app.key}-build /app/${app.path} ./${app.path}`, "USER bun", `EXPOSE ${app.port}`, `CMD ["bun", "${app.entry}"]`)
+	out.push("WORKDIR /app", `COPY --from=${app.key}-build /app/${app.path}/dist ./${app.path}/dist`)
+	if (app.copyPublic) out.push(`COPY --from=${app.key}-build /app/${app.path}/public ./${app.path}/public`)
+	out.push("USER nonroot", `EXPOSE ${app.port}`, 'ENTRYPOINT ["/usr/local/bin/bun", "--no-install"]', `CMD ["${app.entry}"]`)
 	return out.join("\n")
 }
 
@@ -276,6 +299,7 @@ function renderDockerfile() {
 	const parts = [
 		header("BASE - Alpine com Bun", `${GENERATED_BANNER}\nDigest centralizado: bump de versão do Bun altera só o manifesto.`),
 		`ARG BUN_IMAGE=${manifest.bunImage}`,
+		`ARG BUN_RUNTIME_IMAGE=${manifest.bunRuntimeImage}`,
 		// biome-ignore lint/suspicious/noTemplateCurlyInString: `${BUN_IMAGE}` é interpolação de ARG do Dockerfile gerado, não template literal de JS
 		"FROM ${BUN_IMAGE} AS base",
 		"RUN apk add --no-cache libc6-compat",
@@ -377,7 +401,7 @@ function renderBake() {
 			for (const n of names) lines.push(`    ${n.padEnd(width)} = ${args[n]}`)
 			lines.push("  }")
 		}
-		// Lido da variável de ambiente do processo do bake (o _app-build.yml a define a
+		// Lido da variável de ambiente do processo do bake (o _release.yml a define a
 		// partir do secret do GitHub). Ausente → o secret não é montado e o build segue.
 		const secrets = bakeSecretsOf(app)
 		if (secrets.length) {
@@ -401,8 +425,11 @@ const PIPELINE_TRIGGERS = [
 	"apps.manifest.json",
 	".github/paths-filter.yml",
 	".github/workflows/deploy.yml",
-	".github/workflows/_app-build.yml",
-	".github/workflows/_app-deploy.yml",
+	".github/workflows/_release.yml",
+	"scripts/generate-deploy-artifacts.ts",
+	"scripts/release-plan.ts",
+	"scripts/release-verify.ts",
+	"scripts/release-build-env.ts",
 ]
 
 /** Arquivos que reconstroem qualquer imagem do monorepo, então disparam todos os apps dele.
@@ -427,8 +454,8 @@ function renderPathsFilter() {
 			source.kind === "dockerfile"
 				? [`${source.path}/**`, ...PIPELINE_TRIGGERS]
 				: [`${source.path}/**`, ...packageDepsOf(source.workspace as string).map((d) => `${d}/**`), ...GLOBAL_TRIGGERS]
-		// `filterKey` existe porque o deploy.yml lê `steps.filter.outputs.<key>` e alguns
-		// nomes históricos não batem com a chave do app (sisub-mcp é lido como `mcp`).
+		// `filterKey` é o nome do filtro (sisub-mcp é `mcp`, por histórico); o release-plan.ts o
+		// traduz de volta para a chave do app.
 		lines.push(`${filterKeyOf(app)}:`)
 		for (const p of paths) lines.push(`  - '${p}'`)
 		lines.push("")
@@ -437,83 +464,21 @@ function renderPathsFilter() {
 }
 
 // ---------------------------------------------------------------------------
-// .github/workflows/deploy.yml — regiões geradas
-// ---------------------------------------------------------------------------
 
-/**
- * O deploy.yml repetia a lista de apps em seis lugares (input `force_*`, output do `changes`,
- * env e `echo` do "Resolve outputs", condição do `warm-deps`), e app novo era seis edições à
- * mão. Essas regiões ficam entre `# >>> gerado: <nome>` e `# <<< gerado: <nome>` e saem
- * daqui; os jobs `check/build/deploy-<app>` continuam escritos à mão, porque cada app tem
- * os seus passos.
- */
-const DEPLOY_WORKFLOW = ".github/workflows/deploy.yml"
-
-/** `steps.x.outputs.<k>`, com colchetes quando a chave começa por dígito (`5s`). */
-const outputRef = (prefix: string, key: string) => (/^\d/.test(key) ? `${prefix}['${key}']` : `${prefix}.${key}`)
-const envNameOf = (key: string) => key.toUpperCase()
-
-/** Linhas de cada região, com indentação RELATIVA ao marcador (o renderizador soma a dele). */
-export function deployRegions(apps: readonly App[] = manifest.apps): Record<string, string[]> {
-	const keys = apps.map(filterKeyOf)
-	return {
-		"force-inputs": apps.flatMap((app) => [
-			`force_${filterKeyOf(app)}:`,
-			`  description: "Force deploy ${app.key}${app.title ? ` — ${app.title.replaceAll('"', "'")}` : ""}"`,
-			"  type: boolean",
-			"  default: false",
-		]),
-		"changes-outputs": keys.map((key) => `${key}: \${{ ${outputRef("steps.final.outputs", key)} }}`),
-		"resolve-env": [
-			...keys.map((key) => `FORCE_${envNameOf(key)}: \${{ inputs.force_${key} }}`),
-			...keys.map((key) => `FILTER_${envNameOf(key)}: \${{ ${outputRef("steps.filter.outputs", key)} }}`),
-		],
-		"resolve-force": keys.map((key) => `echo "${key}=$FORCE_${envNameOf(key)}"`),
-		"resolve-filter": keys.map((key) => `echo "${key}=$FILTER_${envNameOf(key)}"`),
-		// App cujo build é de kind `dockerfile` (próprio ou pelo alias) não usa o estágio `deps`.
-		"warm-deps-if": [
-			"if: >-",
-			...apps
-				.filter((app) => buildSourceOf(app).kind !== "dockerfile")
-				.map((app, index, list) => `  ${outputRef("needs.changes.outputs", filterKeyOf(app))} == 'true'${index < list.length - 1 ? " ||" : ""}`),
-		],
-	}
+/** Sob demanda: o plan e o verify do deploy importam este módulo só pelo manifesto. */
+export function renderArtifacts(): Array<[string, string]> {
+	return [
+		["Dockerfile", renderDockerfile()],
+		["docker-bake.hcl", renderBake()],
+		[".github/paths-filter.yml", renderPathsFilter()],
+	]
 }
-
-/** Reescreve cada região marcada; região ausente ou duplicada é erro (cópia não seria checada). */
-export function renderDeployWorkflow(current: string, regions: Record<string, string[]> = deployRegions()): string {
-	let out = current
-	for (const [name, body] of Object.entries(regions)) {
-		const openings = out.split("\n").filter((line) => line.trimStart().startsWith(`# >>> gerado: ${name} `)).length
-		if (openings !== 1) throw new Error(`${DEPLOY_WORKFLOW}: região "${name}" aparece ${openings} vez(es); tem de ser exatamente uma`)
-		const re = new RegExp(`^( *)# >>> gerado: ${name} [^\\n]*\\n[\\s\\S]*?^ *# <<< gerado: ${name}$`, "m")
-		const match = re.exec(out)
-		if (!match) throw new Error(`${DEPLOY_WORKFLOW}: região "${name}" sem o marcador de fim (# <<< gerado: ${name})`)
-		const indent = match[1] ?? ""
-		const block = [
-			`${indent}# >>> gerado: ${name} (bun run generate:deploy; não editar à mão)`,
-			...body.map((line) => indent + line),
-			`${indent}# <<< gerado: ${name}`,
-		].join("\n")
-		out = out.slice(0, match.index) + block + out.slice(match.index + match[0].length)
-	}
-	return out
-}
-
-// ---------------------------------------------------------------------------
-
-export const artifacts: Array<[string, string]> = [
-	["Dockerfile", renderDockerfile()],
-	["docker-bake.hcl", renderBake()],
-	[".github/paths-filter.yml", renderPathsFilter()],
-	[DEPLOY_WORKFLOW, renderDeployWorkflow(readFileSync(join(ROOT, DEPLOY_WORKFLOW), "utf8"))],
-]
 
 if (import.meta.main) {
 	const check = process.argv.includes("--check")
 	let drift = false
 
-	for (const [file, content] of artifacts) {
+	for (const [file, content] of renderArtifacts()) {
 		const path = join(ROOT, file)
 		const current = (() => {
 			try {

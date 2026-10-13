@@ -196,7 +196,7 @@ export async function listDesignations(db: SisubDb, ctx: UserContext, input: { u
 					d.valid_from, d.valid_to, d.empenho_id, e.numero_empenho, d.arp_id, a.numero_ata, d.acquisition_id, d.created_at
 				from procurement.contract_designation d
 				left join core.user_data u on u.id = d.person_id
-				left join core.military_identity m on m.saram = u.saram
+				left join core.military_identity m on m.saram = core.visible_saram(u.id)
 				left join finance.empenho e on e.id = d.empenho_id
 				left join procurement.arp a on a.id = d.arp_id
 				where d.unit_id = ${input.unitId}
@@ -250,7 +250,7 @@ export async function listDesignationCandidates(db: SisubDb, ctx: UserContext, i
 				select distinct p.user_id, ${PERSON_LABEL} as label
 				from access_control.user_permissions p
 				left join core.user_data u on u.id = p.user_id
-				left join core.military_identity m on m.saram = u.saram
+				left join core.military_identity m on m.saram = core.visible_saram(u.id)
 				where (p.expires_at is null or p.expires_at > now())
 					and p.level >= 1
 					and (
@@ -284,7 +284,7 @@ export async function createDesignation(db: SisubDb, ctx: UserContext, input: De
 					(select coalesce(array_agg(distinct ${PERSON_LABEL}), '{}')
 						from access_control.user_permissions p
 						left join core.user_data u on u.id = p.user_id
-						left join core.military_identity m on m.saram = u.saram
+						left join core.military_identity m on m.saram = core.visible_saram(u.id)
 						where p.module = 'unit' and p.level >= 2 and p.unit_id = ${input.unitId}
 							and p.user_id <> ${ctx.userId} and (p.expires_at is null or p.expires_at > now())) as designators
 			`)

@@ -62,6 +62,8 @@ export const SEGMENT_PT: Record<string, string> = {
 	"weekly-menus": "Cardápios Semanais",
 	ingredients: "Insumos",
 	permissions: "Permissões",
+	"military-record": "Meu cadastro militar",
+	"military-records": "Cadastro Militar",
 	evaluation: "Avaliação",
 	"review-queues": "Filas de Revisão",
 	training: "Ambiente de Treino",

@@ -10,10 +10,10 @@
   "scripts": {
     "lint": "biome check .",
     "test": "bun test --no-env-file $(find src -name '*.test.ts' -print)",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "bun check"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.116.0"
+    "@supabase/supabase-js": "^2.117.3"
   },
   "peerDependencies": {
     "react": "^19.2"

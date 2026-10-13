@@ -113,7 +113,7 @@ export function TrashDrawer({ open, onClose, kitchenId }: TrashDrawerProps) {
 													<Button
 														size="sm"
 														variant="outline"
-														className="w-full h-8 gap-2 hover:bg-success/10 hover:text-success hover:border-success/30"
+														className="w-full h-8 hover:bg-success/10 hover:text-success hover:border-success/30"
 														onClick={() => restoreItem(item.id)}
 														disabled={isPending}
 													>
@@ -139,7 +139,7 @@ export function TrashDrawer({ open, onClose, kitchenId }: TrashDrawerProps) {
 											<Item key={template.id} variant="muted">
 												<ItemHeader>
 													<ItemContent>
-														<ItemTitle className="gap-2">
+														<ItemTitle>
 															{template.name}
 															{template.kitchen_id === null && (
 																<Badge variant="outline" className="text-[10px]">
@@ -165,7 +165,7 @@ export function TrashDrawer({ open, onClose, kitchenId }: TrashDrawerProps) {
 													<Button
 														size="sm"
 														variant="outline"
-														className="w-full h-8 gap-2 hover:bg-success/10 hover:text-success hover:border-success/30"
+														className="w-full h-8 hover:bg-success/10 hover:text-success hover:border-success/30"
 														onClick={() => restoreTemplate(template.id)}
 														disabled={isPending}
 													>

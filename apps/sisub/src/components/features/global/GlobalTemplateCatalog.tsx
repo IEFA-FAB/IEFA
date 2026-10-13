@@ -1,19 +1,45 @@
 import { useQuery } from "@tanstack/react-query"
-import { Link, type LinkOptions } from "@tanstack/react-router"
+import { Link, type LinkOptions, useNavigate } from "@tanstack/react-router"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
-import { Edit, Loader2, type LucideIcon, Plus, RefreshCcw, Trash2 } from "lucide-react"
+import {
+	ArrowDown,
+	ArrowUp,
+	CircleAlert,
+	Copy,
+	Edit,
+	FolderInput,
+	FolderPlus,
+	Loader2,
+	type LucideIcon,
+	MoreHorizontal,
+	Pencil,
+	Plus,
+	Printer,
+	RefreshCcw,
+	Trash2,
+} from "lucide-react"
+import { useState, useSyncExternalStore } from "react"
 import { usePBAC } from "@/auth/pbac"
+import { MoveTemplateDialog } from "@/components/features/global/MoveTemplateDialog"
+import { TemplateFolderDialog, type TemplateFolderDialogState } from "@/components/features/global/TemplateFolderDialog"
 import { SnackStandardBadges } from "@/components/features/local/planning/SnackStandardBadges"
 import { QueryErrorState } from "@/components/features/shared/QueryErrorState"
+import { type CatalogFolderRow, TemplateCatalogTree } from "@/components/features/shared/TemplateCatalogTree"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Collapsible, CollapsibleContent, CollapsibleSectionTrigger } from "@/components/ui/collapsible"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { useDeleteTemplateFolder, useDuplicateTemplateAsVariant, useMoveTemplateFolder, useTemplateFolders } from "@/hooks/data/useTemplateFolders"
 import { useDeletedTemplates, useDeleteTemplate, useRestoreTemplate } from "@/hooks/data/useTemplates"
+import { revealOpenFolders } from "@/lib/catalog-open-folders"
+import { isTrashOpen, isTrashOpenOnServer, setTrashOpen, subscribeTrashOpen } from "@/lib/catalog-trash-open"
 import type { OccasionMenuType } from "@/lib/occasion-menu"
 import { queryKeys } from "@/lib/query-keys"
+import { UNFILED_CATALOG_FOLDER_ID } from "@/lib/template-catalog-tree"
 import { fetchMenuTemplatesFn } from "@/server/templates.fn"
 import type { TemplateWithItemCounts } from "@/types/domain/planning"
 
@@ -29,7 +55,11 @@ interface GlobalTemplateCatalogProps {
 	/** Frase do estado vazio para quem pode escrever. */
 	emptyHint: string
 	newLink: LinkOptions
+	/** Novo modelo já dentro de uma pasta (evento e apoio). */
+	newInFolderLink?: (folderId: string) => LinkOptions
 	editorLink: (templateId: string) => LinkOptions
+	/** Folha impressa (evento e apoio) — aberta também a quem só lê o catálogo. */
+	printLink?: (templateId: string) => LinkOptions
 }
 
 /**
@@ -47,10 +77,28 @@ export function GlobalTemplateCatalog({
 	emptyMessage,
 	emptyHint,
 	newLink,
+	newInFolderLink,
 	editorLink,
+	printLink,
 }: GlobalTemplateCatalogProps) {
+	const navigate = useNavigate()
 	// Ocorrências por mês não têm coluna: são quantidade da cozinha, e o modelo global não as tem.
 	const isSupportMenu = templateType === "apoio"
+	// Evento e apoio ficam em pastas da SDAB; o semanal segue em lista.
+	const occasionType = templateType === "weekly" ? null : templateType
+	const { data: folders, isError: foldersError, isLoading: foldersLoading } = useTemplateFolders(occasionType)
+	// Abre a pasta (e a pasta-mãe) onde algo vai entrar: numa pasta fechada, o que entrou sumiria da tela.
+	const revealFolder = (folderId: string | null) => {
+		if (!occasionType) return
+		if (!folderId) return revealOpenFolders(occasionType, [UNFILED_CATALOG_FOLDER_ID])
+		const parentId = folders?.find((f) => f.id === folderId)?.parent_id ?? null
+		revealOpenFolders(occasionType, [parentId, folderId])
+	}
+	const [folderDialog, setFolderDialog] = useState<TemplateFolderDialogState | null>(null)
+	const [moving, setMoving] = useState<{ id: string; name: string | null; folder_id: string | null } | null>(null)
+	const { mutate: moveFolder } = useMoveTemplateFolder()
+	const { mutate: deleteFolder } = useDeleteTemplateFolder()
+	const { mutate: duplicateVariant, isPending: isDuplicating } = useDuplicateTemplateAsVariant()
 
 	const {
 		data: allTemplates,
@@ -79,6 +127,8 @@ export function GlobalTemplateCatalog({
 	// prática, definitivo.
 	const { data: allDeleted, isError: deletedError, refetch: refetchDeleted, isRefetching: deletedRefetching } = useDeletedTemplates(null, { enabled: canWrite })
 	const deleted = allDeleted?.filter((t) => t.template_type === templateType)
+	// Fechada por padrão; o que o usuário abre vale até fechar a aba (`catalog-trash-open`).
+	const trashOpen = useSyncExternalStore(subscribeTrashOpen, () => isTrashOpen(templateType), isTrashOpenOnServer)
 
 	const handleDelete = (id: string, name: string) => {
 		if (
@@ -86,13 +136,152 @@ export function GlobalTemplateCatalog({
 				`Tem certeza que deseja remover ${nounWithArticle} "${name}"?\n\nO item vai para a lixeira no fim desta página e pode ser restaurado de lá.`
 			)
 		) {
-			deleteTemplate(id)
+			// A lixeira abre fechada; sem abri-la aqui, o item some e não aparece onde o diálogo disse.
+			deleteTemplate(id, { onSuccess: () => setTrashOpen(templateType, true) })
 		}
+	}
+
+	const templateActions = (template: TemplateWithItemCounts) => (
+		<>
+			{printLink && (
+				<Tooltip>
+					<TooltipTrigger
+						render={
+							<Button
+								aria-label="Imprimir"
+								size="icon-xs"
+								variant="ghost"
+								nativeButton={false}
+								render={
+									<Link {...printLink(template.id)} onClick={(e) => e.stopPropagation()}>
+										<Printer className="size-4" />
+									</Link>
+								}
+							/>
+						}
+					></TooltipTrigger>
+					<TooltipContent>Imprimir / baixar PDF</TooltipContent>
+				</Tooltip>
+			)}
+			{canWrite && editActions(template)}
+		</>
+	)
+
+	const editActions = (template: TemplateWithItemCounts) => (
+		<>
+			<Tooltip>
+				<TooltipTrigger
+					render={
+						<Button
+							aria-label="Editar"
+							size="icon-xs"
+							variant="ghost"
+							nativeButton={false}
+							render={
+								<Link {...editorLink(template.id)} onClick={(e) => e.stopPropagation()}>
+									<Edit className="size-4" />
+								</Link>
+							}
+						/>
+					}
+				></TooltipTrigger>
+				<TooltipContent>Editar</TooltipContent>
+			</Tooltip>
+			<DropdownMenu>
+				<DropdownMenuTrigger
+					render={<Button aria-label={`Mais ações de ${template.name ?? "modelo"}`} size="icon-xs" variant="ghost" onClick={(e) => e.stopPropagation()} />}
+				>
+					<MoreHorizontal className="size-4" />
+				</DropdownMenuTrigger>
+				<DropdownMenuContent align="end">
+					<DropdownMenuItem
+						disabled={isDuplicating}
+						onClick={() => duplicateVariant(template.id, { onSuccess: (created) => navigate(editorLink(created.id)) })}
+					>
+						<Copy />
+						Duplicar como variante
+					</DropdownMenuItem>
+					<DropdownMenuItem onClick={() => setMoving({ id: template.id, name: template.name, folder_id: template.folder_id })}>
+						<FolderInput />
+						Mover para…
+					</DropdownMenuItem>
+					<DropdownMenuSeparator />
+					<DropdownMenuItem variant="destructive" disabled={isDeleting} onClick={() => handleDelete(template.id, template.name ?? "")}>
+						<Trash2 />
+						Remover
+					</DropdownMenuItem>
+				</DropdownMenuContent>
+			</DropdownMenu>
+		</>
+	)
+
+	const folderActions = (row: CatalogFolderRow) => {
+		const folder = row.folder
+		if (!folder || !occasionType) return null
+		const isEmpty = row.templateCount === 0 && !(folders ?? []).some((f) => f.parent_id === folder.id)
+		return (
+			<DropdownMenu>
+				<DropdownMenuTrigger
+					render={<Button aria-label={`Ações da pasta ${folder.name}`} size="icon-xs" variant="ghost" onClick={(e) => e.stopPropagation()} />}
+				>
+					<MoreHorizontal className="size-4" />
+				</DropdownMenuTrigger>
+				<DropdownMenuContent align="end">
+					{newInFolderLink && (
+						<DropdownMenuItem
+							onClick={() => {
+								revealFolder(folder.id)
+								navigate(newInFolderLink(folder.id))
+							}}
+						>
+							<Plus />
+							Novo modelo aqui
+						</DropdownMenuItem>
+					)}
+					{row.level === 0 && (
+						<DropdownMenuItem onClick={() => setFolderDialog({ mode: "create", templateType: occasionType, parent: folder })}>
+							<FolderPlus />
+							Nova subpasta
+						</DropdownMenuItem>
+					)}
+					<DropdownMenuItem onClick={() => setFolderDialog({ mode: "edit", templateType: occasionType, folder })}>
+						<Pencil />
+						Editar pasta
+					</DropdownMenuItem>
+					<DropdownMenuSeparator />
+					<DropdownMenuItem disabled={row.isFirst} onClick={() => moveFolder({ folderId: folder.id, delta: -1 })}>
+						<ArrowUp />
+						Subir
+					</DropdownMenuItem>
+					<DropdownMenuItem disabled={row.isLast} onClick={() => moveFolder({ folderId: folder.id, delta: 1 })}>
+						<ArrowDown />
+						Descer
+					</DropdownMenuItem>
+					<DropdownMenuSeparator />
+					<DropdownMenuItem
+						variant="destructive"
+						disabled={!isEmpty}
+						onClick={() => {
+							if (window.confirm(`Remover a pasta "${folder.name}"?`)) deleteFolder(folder.id)
+						}}
+					>
+						<Trash2 />
+						{isEmpty ? "Remover pasta" : "Remover pasta (esvazie antes)"}
+					</DropdownMenuItem>
+				</DropdownMenuContent>
+			</DropdownMenu>
+		)
 	}
 
 	return (
 		<div className="space-y-6">
 			<PageHeader title={title} description={description}>
+				{canWrite && occasionType && (
+					<Button size="sm" variant="outline" onClick={() => setFolderDialog({ mode: "create", templateType: occasionType, parent: null })}>
+						<FolderPlus className="size-4 mr-2" />
+						Nova pasta
+					</Button>
+				)}
 				{canWrite && (
 					<Button
 						nativeButton={false}
@@ -114,6 +303,20 @@ export function GlobalTemplateCatalog({
 					</div>
 				) : isError ? (
 					<QueryErrorState message="Não foi possível carregar o catálogo." onRetry={() => refetch()} isRetrying={isRefetching} />
+				) : occasionType && (templates?.length || folders?.length) ? (
+					<>
+						{foldersError && <p className="text-sm text-destructive mb-2">Não foi possível carregar as pastas; os modelos aparecem em "Sem pasta".</p>}
+						<TemplateCatalogTree
+							templateType={occasionType}
+							folders={folders}
+							foldersLoading={foldersLoading}
+							templates={templates ?? []}
+							// Quem só lê abre a folha impressa; quem escreve, o editor.
+							onOpenTemplate={canWrite ? (t) => navigate(editorLink(t.id)) : printLink ? (t) => navigate(printLink(t.id)) : undefined}
+							templateActions={canWrite || printLink ? templateActions : undefined}
+							folderActions={canWrite ? folderActions : undefined}
+						/>
+					</>
 				) : !templates || templates.length === 0 ? (
 					<div className="rounded-md border border-dashed p-10 text-center space-y-3">
 						<Icon className="size-10 mx-auto text-muted-foreground" />
@@ -206,49 +409,63 @@ export function GlobalTemplateCatalog({
 				)}
 			</div>
 
+			<TemplateFolderDialog state={folderDialog} onClose={() => setFolderDialog(null)} onCreated={revealFolder} />
+			<MoveTemplateDialog template={moving} folders={folders} onClose={() => setMoving(null)} onMoved={revealFolder} />
+
 			{canWrite && (deletedError || (deleted && deleted.length > 0)) && (
-				<div className="space-y-3">
-					<div className="flex items-center gap-2">
-						<Trash2 className="size-4 text-muted-foreground" />
-						<h2 className="text-subheading">Lixeira</h2>
-						{deleted && deleted.length > 0 && (
-							<Badge variant="secondary" className="text-xs">
-								{deleted.length}
-							</Badge>
-						)}
-					</div>
-					{deletedError ? (
-						<QueryErrorState message="Não foi possível carregar a lixeira." onRetry={() => refetchDeleted()} isRetrying={deletedRefetching} />
-					) : (
-						<div className="rounded-md border">
-							<Table>
-								<TableHeader>
-									<TableRow>
-										<TableHead>Nome</TableHead>
-										<TableHead className="w-48">Removido em</TableHead>
-										<TableHead className="w-32 text-right">Ação</TableHead>
-									</TableRow>
-								</TableHeader>
-								<TableBody>
-									{deleted?.map((item) => (
-										<TableRow key={item.id}>
-											<TableCell className="text-muted-foreground">{item.name}</TableCell>
-											<TableCell className="text-sm text-muted-foreground">
-												{item.deleted_at ? format(new Date(item.deleted_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR }) : "—"}
-											</TableCell>
-											<TableCell className="text-right">
-												<Button size="sm" variant="outline" onClick={() => restoreTemplate(item.id)} disabled={isRestoring}>
-													<RefreshCcw className="size-3.5 mr-1.5" />
-													Restaurar
-												</Button>
-											</TableCell>
+				<Collapsible open={trashOpen} onOpenChange={(open) => setTrashOpen(templateType, open)}>
+					<h2 className="text-subheading">
+						<CollapsibleSectionTrigger>
+							<Trash2 className="size-4 text-muted-foreground" aria-hidden="true" />
+							Lixeira
+							{deleted && deleted.length > 0 && <Badge variant="secondary">{deleted.length}</Badge>}
+							{/* Fechada, a falha ficaria escondida e a lixeira pareceria só vazia. */}
+							{deletedError && (
+								<span className="inline-flex items-center gap-1 text-caption text-destructive">
+									<CircleAlert className="size-3.5" aria-hidden="true" /> não carregou
+								</span>
+							)}
+						</CollapsibleSectionTrigger>
+					</h2>
+					<CollapsibleContent className="mt-3">
+						{deletedError ? (
+							<QueryErrorState message="Não foi possível carregar a lixeira." onRetry={() => refetchDeleted()} isRetrying={deletedRefetching} />
+						) : (
+							<div className="rounded-md border">
+								<Table>
+									<TableHeader>
+										<TableRow>
+											<TableHead>Nome</TableHead>
+											<TableHead className="w-48">Removido em</TableHead>
+											<TableHead className="w-32 text-right">Ação</TableHead>
 										</TableRow>
-									))}
-								</TableBody>
-							</Table>
-						</div>
-					)}
-				</div>
+									</TableHeader>
+									<TableBody>
+										{deleted?.map((item) => (
+											<TableRow key={item.id}>
+												<TableCell className="text-muted-foreground">{item.name}</TableCell>
+												<TableCell className="text-sm text-muted-foreground">
+													{item.deleted_at ? format(new Date(item.deleted_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR }) : "—"}
+												</TableCell>
+												<TableCell className="text-right">
+													<Button
+														size="sm"
+														variant="outline"
+														onClick={() => restoreTemplate(item.id, { onSuccess: () => revealFolder(item.folder_id) })}
+														disabled={isRestoring}
+													>
+														<RefreshCcw className="size-3.5 mr-1.5" />
+														Restaurar
+													</Button>
+												</TableCell>
+											</TableRow>
+										))}
+									</TableBody>
+								</Table>
+							</div>
+						)}
+					</CollapsibleContent>
+				</Collapsible>
 			)}
 		</div>
 	)

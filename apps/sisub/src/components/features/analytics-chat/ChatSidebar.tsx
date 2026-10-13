@@ -166,7 +166,7 @@ export function ChatSidebar({ activeSessionId, onSelectSession, onNewChat }: Cha
 	return (
 		<div className="flex h-full flex-col">
 			<div className="shrink-0 p-3">
-				<Button variant="outline" size="sm" className="w-full justify-start gap-2" onClick={onNewChat}>
+				<Button variant="outline" size="sm" className="w-full justify-start" onClick={onNewChat}>
 					<MessageSquarePlus className="size-4" />
 					Novo chat
 				</Button>

@@ -4,6 +4,8 @@ import * as XLSX from "xlsx"
 import { EditableMessage } from "#/components/editable-message"
 import { Button } from "#/components/ui/button"
 import { Input } from "#/components/ui/input"
+import { InputGroup, InputGroupAddon, InputGroupInput } from "#/components/ui/input-group"
+import { Label } from "#/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 import { useMessageDraft } from "#/hooks/use-editable-message"
 import { getConferente } from "#/lib/ug/registry"
@@ -209,19 +211,12 @@ export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsM
 							type="button"
 							onClick={exportToExcel}
 							variant="outline"
-							className="gap-2 px-4 py-2 text-subheading text-foreground bg-card border-border rounded-lg hover:bg-muted/50 transition-colors"
+							className="text-foreground bg-card border-border rounded-lg hover:bg-muted/50 transition-colors"
 						>
 							<Download className="w-4 h-4" />
 							Exportar
 						</Button>
-						<Button
-							type="button"
-							onClick={onClose}
-							variant="ghost"
-							size="icon"
-							aria-label="Fechar"
-							className="text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors"
-						>
+						<Button type="button" onClick={onClose} variant="subtle" size="icon" aria-label="Fechar" className="rounded-full transition-colors">
 							<X className="w-6 h-6" />
 						</Button>
 					</div>
@@ -233,16 +228,12 @@ export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsM
 					<div className="flex-1 flex flex-col border-r border-border bg-card overflow-hidden">
 						<div className="p-4 border-b border-border bg-muted/50 flex flex-col sm:flex-row justify-between items-center gap-4">
 							<h3 className="text-subheading text-foreground">Tabela Detalhada de Ocorrências</h3>
-							<div className="relative w-full sm:w-64">
-								<Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-								<Input
-									type="text"
-									placeholder="Buscar conta..."
-									className="pl-9 pr-4 py-1.5 text-body border-border rounded-lg focus-visible:ring-ring focus-visible:border-ring bg-card text-foreground"
-									value={searchTerm}
-									onChange={(e) => setSearchTerm(e.target.value)}
-								/>
-							</div>
+							<InputGroup size="sm" className="w-full sm:w-64">
+								<InputGroupAddon>
+									<Search />
+								</InputGroupAddon>
+								<InputGroupInput type="text" placeholder="Buscar conta..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+							</InputGroup>
 						</div>
 
 						{racQuestions.length > 0 && (
@@ -350,45 +341,30 @@ export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsM
 						<div className="p-4 border-b border-border bg-card space-y-4">
 							<div className="grid grid-cols-2 gap-4">
 								<div className="space-y-1.5">
-									<label htmlFor="ug-msg-number" className="text-caption text-foreground">
-										Número da Mensagem
-									</label>
+									<Label htmlFor="ug-msg-number">Número da Mensagem</Label>
 									<Input
 										id="ug-msg-number"
 										type="text"
 										placeholder="Ex: 123"
-										className="px-3 py-1.5 text-body border-border rounded-lg focus-visible:ring-ring focus-visible:border-ring bg-card text-foreground"
+										size="sm"
 										value={messageNumber}
 										onChange={(e) => setMessageNumber(e.target.value)}
 									/>
 								</div>
 								<div className="space-y-1.5">
-									<label htmlFor="ug-msg-date" className="text-caption text-foreground">
-										Data da Mensagem
-									</label>
-									<Input
-										id="ug-msg-date"
-										type="date"
-										className="px-3 py-1.5 text-body border-border rounded-lg focus-visible:ring-ring focus-visible:border-ring bg-card text-foreground"
-										value={messageDate}
-										onChange={(e) => setMessageDate(e.target.value)}
-									/>
+									<Label htmlFor="ug-msg-date">Data da Mensagem</Label>
+									<Input id="ug-msg-date" type="date" size="sm" value={messageDate} onChange={(e) => setMessageDate(e.target.value)} />
 								</div>
 							</div>
 
 							<div className="space-y-2">
-								<label htmlFor="ug-msg-type" className="text-caption text-foreground">
-									Tipo de Mensagem
-								</label>
+								<Label htmlFor="ug-msg-type">Tipo de Mensagem</Label>
 								<Select
 									items={{ COM_PRAZO: "Ação com Prazo", SEM_PRAZO: "Ação sem Prazo", ALERTA: "Apenas Alerta" }}
 									value={messageType}
 									onValueChange={(value) => setMessageType(value as MessageType)}
 								>
-									<SelectTrigger
-										id="ug-msg-type"
-										className="w-full px-3 py-1.5 text-body border border-border rounded-lg focus:ring-2 focus:ring-ring focus:border-ring bg-card text-foreground"
-									>
+									<SelectTrigger id="ug-msg-type" size="sm" className="w-full">
 										<SelectValue />
 									</SelectTrigger>
 									<SelectContent>
@@ -400,16 +376,8 @@ export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsM
 
 								{messageType === "COM_PRAZO" && (
 									<div className="pt-2">
-										<label htmlFor="ug-msg-deadline" className="text-caption text-foreground mb-1.5 block">
-											Data Limite
-										</label>
-										<Input
-											id="ug-msg-deadline"
-											type="date"
-											className="px-3 py-1.5 text-body border-border rounded-lg focus-visible:ring-ring focus-visible:border-ring bg-card text-foreground"
-											value={deadlineDate}
-											onChange={(e) => setDeadlineDate(e.target.value)}
-										/>
+										<Label htmlFor="ug-msg-deadline">Data Limite</Label>
+										<Input id="ug-msg-deadline" type="date" size="sm" value={deadlineDate} onChange={(e) => setDeadlineDate(e.target.value)} />
 									</div>
 								)}
 							</div>

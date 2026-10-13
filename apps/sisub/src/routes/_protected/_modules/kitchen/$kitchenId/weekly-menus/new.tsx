@@ -145,7 +145,7 @@ function NewWeeklyMenuPage() {
 				{isFork && baseTemplate && (
 					<Card className="border-dashed">
 						<CardHeader className="pb-3">
-							<CardTitle className="text-sm flex items-center gap-2">
+							<CardTitle className="flex items-center gap-2">
 								<GitFork className="size-4 text-muted-foreground" />
 								Plano de origem
 							</CardTitle>
@@ -159,7 +159,7 @@ function NewWeeklyMenuPage() {
 									<p className="text-subheading">{baseTemplate.name}</p>
 									{baseTemplate.description && <p className="text-xs text-muted-foreground mt-0.5">{baseTemplate.description}</p>}
 								</div>
-								<Badge variant="outline" className="ml-auto text-xs">
+								<Badge variant="outline" className="ml-auto">
 									Global · SDAB
 								</Badge>
 							</div>

@@ -16,8 +16,13 @@
  *   - qualquer aviso do próprio `@shadcn/lint` no stderr falha — o principal é o tema que não
  *     montou: sem ele `no-unknown-classes` cai numa gramática embutida que aceita classe inventada.
  *
- * As duas últimas dependem do TEXTO das mensagens da versão fixada. Mensagem de `no-raw-colors`
- * que não casa com nenhum dos dois formatos conhecidos vira erro — ao subir a versão, o lint
+ *   - restilo de CAMPO (`Input`, `SelectTrigger`, `Combobox`, `Textarea`, `Checkbox`,
+ *     `InputGroup*`) conta à parte, como `shadcn/no-restyle:campo`. Misturado aos de botão e
+ *     badge, um restilo novo em campo se esconderia atrás de outro que saiu; separado, o app que
+ *     zerou os campos (o sucont, com baseline 0) não volta a ter nenhum.
+ *
+ * Essas regras dependem do TEXTO das mensagens da versão fixada. Mensagem de `no-raw-colors` ou
+ * de `no-restyle` que não casa com os formatos conhecidos vira erro — ao subir a versão, o lint
  * quebra alto em vez de passar a contar errado.
  *
  * Uso: `bun scripts/lint-tailwind.ts [app...] [--update]` — sem app, roda em todos.
@@ -71,7 +76,19 @@ const ruleOf = (d: Diagnostic) => d.code.replace(/^shadcn\((.+)\)$/, "shadcn/$1"
 const PALETTE = / uses the raw Tailwind palette\b| hardcodes a color\b/
 const UNDECLARED = / is not a declared theme color\b/
 /** Aviso que é dívida contável; o resto (token não declarado, formato desconhecido) é erro. */
-const isDebt = (d: Diagnostic) => d.severity === "warning" && (ruleOf(d) !== "shadcn/no-raw-colors" || (PALETTE.test(d.message) && !UNDECLARED.test(d.message)))
+const RESTYLE = /^"[^"]+" is not allowed on <([\w.]+)>/
+const FIELD = /^(Input|SelectTrigger|Combobox|Textarea|Checkbox|InputGroup\w*)$/
+const isKnownFormat = (d: Diagnostic) => {
+	if (ruleOf(d) === "shadcn/no-raw-colors") return PALETTE.test(d.message) && !UNDECLARED.test(d.message)
+	if (ruleOf(d) === "shadcn/no-restyle") return RESTYLE.test(d.message)
+	return true
+}
+const isDebt = (d: Diagnostic) => d.severity === "warning" && isKnownFormat(d)
+/** Chave do baseline: a regra, com o restilo de campo separado do resto (ver o cabeçalho). */
+const debtRule = (d: Diagnostic) => {
+	const component = RESTYLE.exec(d.message)?.[1]
+	return ruleOf(d) === "shadcn/no-restyle" && component && FIELD.test(component) ? "shadcn/no-restyle:campo" : ruleOf(d)
+}
 const format = (d: Diagnostic) => {
 	const span = d.labels[0]?.span
 	return `  ${d.filename}:${span?.line ?? 0}:${span?.column ?? 0}  ${ruleOf(d)}  ${d.message}`
@@ -116,7 +133,7 @@ for (const app of apps) {
 	}
 
 	const counts: Counts = {}
-	for (const d of warnings) counts[ruleOf(d)] = (counts[ruleOf(d)] ?? 0) + 1
+	for (const d of warnings) counts[debtRule(d)] = (counts[debtRule(d)] ?? 0) + 1
 	const baselinePath = join(ROOT, "apps", app, BASELINE_FILE)
 
 	if (update) {
@@ -134,7 +151,7 @@ for (const app of apps) {
 		const found = counts[rule] ?? 0
 		const allowed = baseline[rule] ?? 0
 		if (found > allowed) {
-			const all = warnings.filter((d) => ruleOf(d) === rule)
+			const all = warnings.filter((d) => debtRule(d) === rule)
 			// Aviso novo pode nascer fora do arquivo alterado (wrapper que passa a repassar
 			// `className` acusa nos chamadores; tema que reclassifica classe). Se os arquivos
 			// alterados não explicam o aumento inteiro, a lista é a do app.

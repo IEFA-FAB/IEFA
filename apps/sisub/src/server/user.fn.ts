@@ -26,10 +26,8 @@ import {
 	fetchMaskedCpf,
 	fetchMilitaryData,
 	fetchSisubUserData,
-	fetchUserSaram,
-	SyncUserSaramSchema,
+	fetchVisibleSaram,
 	syncUserEmail,
-	syncUserSaram,
 } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { requireUser, requireUserId } from "@/lib/auth.server"
@@ -55,8 +53,8 @@ export const fetchUserDataFn = createServerFn({ method: "GET" })
  *
  * O CPF sai MASCARADO, e a máscara é montada no banco (`core.military_masked_cpf`): o documento
  * inteiro não chega nem a este servidor. Enquanto o saram era regravável à vontade, esta fn era
- * uma consulta de CPF por SARAM; o vínculo agora é write-once e exclusivo
- * (`syncUserSaram`). O nome completo não sai: a identificação é posto e nome de guerra
+ * uma consulta de CPF por SARAM; desde 20261003100000 ele só vale VERIFICADO (`core.visible_saram`,
+ * change `saram-verified-link`). O nome completo não sai: a identificação é posto e nome de guerra
  * (`core.military_identity`, change `lgpd-military-roster-key`).
  */
 export const fetchMilitaryDataFn = createServerFn({ method: "GET" })
@@ -64,29 +62,21 @@ export const fetchMilitaryDataFn = createServerFn({ method: "GET" })
 	.handler(async (): Promise<MilitaryDataRow | null> => {
 		const userId = await requireUserId()
 		const db = getDb()
-		const saram = await fetchUserSaram(db, { userId }).catch(handleDomainError)
+		// Só o SARAM VERIFICADO (ou legacy ainda não revisado) abre o cadastro: pedido pendente,
+		// SARAM gravado fora do fluxo verificado e conta institucional não veem nada (20261003100000).
+		const saram = await fetchVisibleSaram(db, { userId }).catch(handleDomainError)
 		if (!saram) return null
 		const [row, maskedCpf] = await Promise.all([fetchMilitaryData(db, { saram }), fetchMaskedCpf(db, { saram })]).catch(handleDomainError)
 		if (!row) return null
 		return { ...row, maskedCpf }
 	})
 
+/** SARAM da conta que vale para os dados militares (verificado, ou legacy ainda não revisado). */
 export const fetchUserSaramFn = createServerFn({ method: "GET" })
 	.validator(FetchUserSaramSchema)
 	.handler(async () => {
 		const userId = await requireUserId()
-		return fetchUserSaram(getDb(), { userId }).catch(handleDomainError)
-	})
-
-/**
- * `saram` vem do formulário (input legítimo do usuário); `userId`/`email`, da sessão.
- * O vínculo é write-once e exclusivo — a regra mora em `syncUserSaram`.
- */
-export const syncUserSaramFn = createServerFn({ method: "POST" })
-	.validator(SyncUserSaramSchema)
-	.handler(async ({ data }) => {
-		const user = await requireUser()
-		return syncUserSaram(getDb(), { userId: user.id, email: user.email ?? "", saram: data.saram }).catch(handleDomainError)
+		return fetchVisibleSaram(getDb(), { userId }).catch(handleDomainError)
 	})
 
 /** Sem validator: ambos os campos vêm do JWT — o corpo enviado pelo cliente é irrelevante. */

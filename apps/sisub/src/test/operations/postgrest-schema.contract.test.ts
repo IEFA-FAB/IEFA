@@ -314,7 +314,6 @@ describeIf("seleções PostgREST × schema real", () => {
 		// próximo leitor confia demais no guard.
 		expect(Array.isArray(UNREADABLE)).toBe(true)
 		if (UNREADABLE.length > 0) {
-			// biome-ignore lint/suspicious/noConsole: a lista é o valor deste caso
 			console.info(`[schema guard] ${UNREADABLE.length} seleções fora do alcance da varredura:\n  ${UNREADABLE.join("\n  ")}`)
 		}
 	})

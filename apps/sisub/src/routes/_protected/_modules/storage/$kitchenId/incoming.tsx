@@ -75,7 +75,7 @@ function IncomingPage() {
 
 			<Card>
 				<CardHeader className="pb-2">
-					<CardTitle className="flex items-center gap-2 text-subheading">
+					<CardTitle className="flex items-center gap-2">
 						<Truck className="size-4" />
 						Pendências
 					</CardTitle>
@@ -120,7 +120,7 @@ function IncomingPage() {
 										<TableCell className="text-xs">
 											{row.referenceDate ?? "sem data"}
 											{row.daysLate > 0 && (
-												<Badge variant="outline" className="ml-2 gap-1 text-warning">
+												<Badge variant="outline" className="ml-2 text-warning">
 													<AlertTriangle className="size-3" />
 													{row.daysLate} {row.daysLate === 1 ? "dia" : "dias"} de atraso
 												</Badge>

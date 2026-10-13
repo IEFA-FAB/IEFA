@@ -30,6 +30,7 @@ function GlobalEventEditorPage() {
 			editContext={GLOBAL_CONTEXT}
 			listLink={{ to: "/global/events" }}
 			editorLink={(id) => ({ to: "/global/events/$eventId", params: { eventId: id } })}
+			printLink={(id) => ({ to: "/global/events/print/$eventId", params: { eventId: id } })}
 		/>
 	)
 }

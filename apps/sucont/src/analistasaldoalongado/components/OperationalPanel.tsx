@@ -1,22 +1,10 @@
-import {
-	AlertTriangle,
-	ArrowRight,
-	Building2,
-	ChevronDown,
-	ChevronUp,
-	DollarSign,
-	Download,
-	FileImage,
-	Filter,
-	MessageSquare,
-	Search,
-	User,
-} from "lucide-react"
+import { AlertTriangle, ArrowRight, Building2, ChevronDown, ChevronUp, DollarSign, Download, FileImage, MessageSquare, Search, User } from "lucide-react"
 import { useMemo, useState } from "react"
 import { Bar, BarChart, CartesianGrid, LabelList, Tooltip as RechartsTooltip, ResponsiveContainer, XAxis, YAxis } from "recharts"
 import { Button } from "#/components/ui/button"
 import { Combobox } from "#/components/ui/combobox"
-import { Input } from "#/components/ui/input"
+import { InputGroup, InputGroupAddon, InputGroupInput } from "#/components/ui/input-group"
+import { Label } from "#/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 import { StatTile } from "#/components/ui/stat-tile"
 import { chartChrome } from "#/lib/chart-theme"
@@ -147,23 +135,22 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 			{/* Filters */}
 			<div className="flex flex-col sm:flex-row items-center justify-between gap-4">
 				{selectedRac !== "Geral" ? (
-					<Button type="button" onClick={() => setIsConsolidatedModalOpen(true)}>
+					<Button type="button" size="sm" onClick={() => setIsConsolidatedModalOpen(true)}>
 						<MessageSquare className="w-4 h-4" />
 						Gerar Mensagem Única ({selectedRac})
 					</Button>
 				) : (
 					<div />
 				)}
-				<div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-					<div className="flex items-center gap-2 px-3 py-1.5 bg-muted/50 border border-border rounded-lg">
-						<Filter className="w-4 h-4 text-muted-foreground" />
-						<span className="text-caption text-muted-foreground">Conferente:</span>
+				<div className="flex flex-wrap items-center gap-4 w-full sm:w-auto">
+					<div className="flex items-center gap-2">
+						<Label htmlFor="operational-conferente-filter">Conferente</Label>
 						<Select
 							items={{ Geral: "Todos", ...Object.fromEntries(CONFERENTES_LIST.map((c) => [c, c])) }}
 							value={selectedConferente}
 							onValueChange={(v) => setSelectedConferente(v ?? "Geral")}
 						>
-							<SelectTrigger className="data-[size=default]:h-auto border-none bg-transparent p-0 text-caption text-action shadow-none focus-visible:ring-0">
+							<SelectTrigger id="operational-conferente-filter" size="sm">
 								<SelectValue />
 							</SelectTrigger>
 							<SelectContent>
@@ -177,17 +164,9 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 						</Select>
 					</div>
 
-					<div className="flex items-center gap-2 px-3 py-1.5 bg-muted/50 border border-border rounded-lg">
-						<Filter className="w-4 h-4 text-muted-foreground" />
-						<span className="text-caption text-muted-foreground">Questão RAC:</span>
-						<Combobox
-							value={selectedRac}
-							onValueChange={setSelectedRac}
-							items={racItems}
-							className="w-44"
-							inputClassName="h-auto cursor-text border-none bg-transparent p-0 pr-7 text-caption text-action shadow-none focus-visible:ring-0 dark:bg-transparent"
-							aria-label="Questão RAC"
-						/>
+					<div className="flex items-center gap-2">
+						<Label htmlFor="operational-rac-filter">Questão RAC</Label>
+						<Combobox id="operational-rac-filter" value={selectedRac} onValueChange={setSelectedRac} items={racItems} size="sm" className="w-44" />
 					</div>
 				</div>
 			</div>
@@ -212,7 +191,7 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 						onClick={() => exportElementToImage("chart-top10", "saldos-top10")}
 						variant="outline"
 						size="sm"
-						className="gap-2 px-3 py-1.5 text-caption text-muted-foreground bg-muted/50 hover:bg-muted/80 border-border rounded-lg transition-colors"
+						className="py-1.5 text-muted-foreground bg-muted/50 hover:bg-muted/80 border-border rounded-lg transition-colors"
 					>
 						<FileImage className="w-3.5 h-3.5" />
 						<span>Exportar Gráfico</span>
@@ -330,22 +309,23 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 							}}
 							variant="outline"
 							size="sm"
-							className="gap-2 px-3 py-1.5 text-caption text-muted-foreground bg-card hover:bg-muted/50 border-border rounded-lg transition-colors"
+							className="py-1.5 text-muted-foreground bg-card hover:bg-muted/50 border-border rounded-lg transition-colors"
 						>
 							<Download className="w-3.5 h-3.5" />
 							<span>Exportar Excel</span>
 						</Button>
 					</div>
-					<div className="relative w-full sm:w-72">
-						<Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-						<Input
+					<InputGroup className="w-full sm:w-72">
+						<InputGroupAddon>
+							<Search />
+						</InputGroupAddon>
+						<InputGroupInput
 							type="text"
 							placeholder="Buscar por código, nome ou conferente..."
-							className="pl-9 pr-4 py-2 text-body border-border rounded-lg focus-visible:ring-ring focus-visible:border-ring bg-card text-foreground"
 							value={searchTerm}
 							onChange={(e) => setSearchTerm(e.target.value)}
 						/>
-					</div>
+					</InputGroup>
 				</div>
 				<div className="overflow-x-auto">
 					<table className="w-full text-body text-left text-muted-foreground">
@@ -413,7 +393,7 @@ export function OperationalPanel({ data, onViewDetails }: OperationalPanelProps)
 											onClick={() => onViewDetails(row, selectedRac)}
 											variant="outline"
 											size="sm"
-											className="gap-1.5 px-3 py-1.5 text-caption text-action bg-muted/50 border-border rounded-lg hover:bg-muted hover:border-border transition-colors"
+											className="py-1.5 text-action bg-muted/50 border-border rounded-lg hover:bg-muted hover:border-border transition-colors"
 										>
 											Analisar
 											<ArrowRight className="w-3.5 h-3.5" />

@@ -14,8 +14,8 @@ import {
 	updateQuantityEstimateDocumentSettings,
 } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
-import { requireAuthThenRun } from "@/lib/domain-handler.server"
 import { z } from "zod"
+import { requireAuthThenRun } from "@/lib/domain-handler.server"
 
 export const fetchQuantityMemoryFn = createServerFn({ method: "GET" })
 	.validator(z.object({ quantityEstimateId: z.uuid() }))

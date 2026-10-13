@@ -382,7 +382,7 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 				description={folder?.description ?? undefined}
 				onBack={() => window.history.back()}
 			>
-				<Button type="button" variant="outline" size="sm" onClick={() => setHistoryOpen(true)} className="gap-1.5">
+				<Button type="button" variant="outline" size="sm" onClick={() => setHistoryOpen(true)}>
 					<History className="size-4" />
 					Histórico
 					{versionList.length > 0 && <span className="text-xs text-muted-foreground">({versionList.length})</span>}
@@ -390,7 +390,7 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 				<Tooltip>
 					<TooltipTrigger
 						render={
-							<Button type="button" variant="outline" size="sm" onClick={handleReview} disabled={isReviewing} className="gap-1.5">
+							<Button type="button" variant="outline" size="sm" onClick={handleReview} disabled={isReviewing}>
 								{isReviewing ? <Loader2 className="size-4 animate-spin" /> : <CircleCheck className="size-4" />}
 								Revisado
 							</Button>
@@ -426,18 +426,11 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 						</span>
 					</div>
 					<div className="flex shrink-0 gap-2">
-						<Button type="button" variant="ghost" size="sm" onClick={() => setSelectedVersionId(null)} className="gap-1.5">
+						<Button type="button" variant="ghost" size="sm" onClick={() => setSelectedVersionId(null)}>
 							<ArrowLeft className="size-4" />
 							Voltar ao atual
 						</Button>
-						<Button
-							type="button"
-							variant="outline"
-							size="sm"
-							onClick={() => setRestoreConfirmOpen(true)}
-							disabled={isRestoring || selectedIndex === 0}
-							className="gap-1.5"
-						>
+						<Button type="button" variant="outline" size="sm" onClick={() => setRestoreConfirmOpen(true)} disabled={isRestoring || selectedIndex === 0}>
 							{isRestoring ? <Loader2 className="size-4 animate-spin" /> : <RotateCcw className="size-4" />}
 							Restaurar esta versão
 						</Button>

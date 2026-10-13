@@ -131,7 +131,7 @@ function TaskCard({
 			<CardHeader className="pb-2 cursor-pointer" onClick={() => setExpanded((v) => !v)}>
 				<div className="flex items-center gap-2">
 					{expanded ? <ChevronDown className="size-4 text-muted-foreground" /> : <ChevronRight className="size-4 text-muted-foreground" />}
-					<CardTitle className="text-subheading">{task.recipeName}</CardTitle>
+					<CardTitle>{task.recipeName}</CardTitle>
 					<span className="text-xs text-muted-foreground">{task.productionDate}</span>
 					<Badge
 						variant={task.sufficient === task.total - task.blindCountLines ? "secondary" : "outline"}
@@ -179,7 +179,7 @@ function TaskCard({
 						</tbody>
 					</table>
 					<div className="flex justify-end">
-						<Button size="sm" className="gap-1.5" disabled={busy} onClick={confirm}>
+						<Button size="sm" disabled={busy} onClick={confirm}>
 							{busy ? <Spinner className="size-4" /> : <CheckCircle2 className="size-4" />}
 							Confirmar baixa (FEFO)
 						</Button>
@@ -294,7 +294,7 @@ function ProductionIssuePage() {
 
 			<Card>
 				<CardHeader className="pb-2">
-					<CardTitle className="text-subheading">Variância teórico × real (mês corrente)</CardTitle>
+					<CardTitle>Variância teórico × real (mês corrente)</CardTitle>
 				</CardHeader>
 				<CardContent>
 					{variance.length === 0 ? (

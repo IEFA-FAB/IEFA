@@ -3,6 +3,7 @@ import { ArrowUpRight, Search } from "lucide-react"
 import { useEffect } from "react"
 import { z } from "zod"
 import { usePBAC } from "@/auth/pbac"
+import { MilitaryRecordNotice } from "@/components/features/military-record/MilitaryRecordNotice"
 import { AnimatedThemeToggler } from "@/components/layout/AnimatedThemeToggler"
 import { CommandPalette, openCommandPalette, useCommandPaletteShortcut } from "@/components/layout/CommandPalette"
 import { ALL_MODULES, type GroupColor, getModulesForPermissions, type ModuleDef, type ModuleId } from "@/components/layout/sidebar/NavItems"
@@ -181,6 +182,7 @@ function HubPage() {
 
 			<div className="flex-1 overflow-y-auto">
 				<div className="mx-auto max-w-4xl px-4 py-10 space-y-10">
+					<MilitaryRecordNotice />
 					<div className="flex flex-wrap items-end justify-between gap-3">
 						<div className="space-y-1">
 							<h1 className="text-display text-foreground">
@@ -210,7 +212,7 @@ function HubPage() {
 								if (groupModules.length === 0) return null
 								return (
 									<section key={group.label}>
-										<h2 className={cn("text-xs text-label mb-3", ACCENT_CLASSES[group.color])}>{group.label}</h2>
+										<h2 className={cn("text-label mb-3", ACCENT_CLASSES[group.color])}>{group.label}</h2>
 										<div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
 											{groupModules.map((mod) => (
 												<ModuleCard key={mod.id} module={mod} color={group.color} />

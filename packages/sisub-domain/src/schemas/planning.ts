@@ -129,6 +129,8 @@ export const ReplaceDayWithTemplateSchema = z.object({
 	templateId: UuidSchema,
 	/** Efetivo (kits, no apoio) de cada refeição do cardápio de contingência — mesma regra de `ApplyEventTemplateSchema.headcounts`. */
 	headcounts: ApplyEventTemplateSchema.shape.headcounts,
+	/** Horário de cada refeição nesta troca — mesma regra de `ApplyEventTemplateSchema.slots`. */
+	slots: ApplyEventTemplateSchema.shape.slots,
 })
 export type ReplaceDayWithTemplate = z.infer<typeof ReplaceDayWithTemplateSchema>
 

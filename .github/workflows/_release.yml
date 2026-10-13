@@ -1,0 +1,268 @@
+# Reusable: release de UM app do ECS — `build` (bake + push no ECR, que varre a imagem) e, se
+# ele passar, `deploy` (rollout no ECS + smoke test). Chamado pela matriz `release` do
+# deploy.yml, uma vez por app que passou no `verify`; na aba Actions cada app aparece como
+# `release <app> / build` e `release <app> / deploy`.
+#
+# Autentica na AWS por OIDC, sem chave de longa duração. Requer as GitHub Actions Variables
+# AWS_REGION, AWS_DEPLOY_ROLE_ARN, ECR_REGISTRY, ECR_REPOSITORY_PREFIX e ECS_CLUSTER
+# (`terraform output github_actions_variables`).
+#
+# O rollback é automático: os ECS services têm deployment_circuit_breaker com rollback = true
+# (infra/modules/service/ecs.tf), então uma revisão que não estabiliza volta para a anterior.
+name: release
+
+on:
+  workflow_call:
+    inputs:
+      service:
+        description: "Chave do app no manifesto = target do docker-bake.hcl, sufixo do repo ECR e nome do serviço ECS (ex: sisub, 5s)"
+        required: true
+        type: string
+      health_url:
+        description: "URL do smoke test depois do rollout; vazia pula o smoke test"
+        required: false
+        type: string
+        default: ""
+      timeout_minutes:
+        description: "Timeout do job de build. O default cobre os apps do monorepo; o pdf (BentoPDF) passa mais (manifesto)"
+        required: false
+        type: number
+        default: 15
+      bake_attempt_timeout_minutes:
+        description: "Timeout de CADA tentativa do bake. Menor que o do job, para um travamento do buildkit virar falha e sobrar tempo para a segunda tentativa"
+        required: false
+        type: number
+        default: 8
+    secrets:
+      FARO_SOURCEMAP_API_KEY:
+        description: "Faro sourcemap upload key — vai ao build como secret do BuildKit (id FARO_SOURCEMAP_API_KEY), montado só no RUN de build do target que o declara no docker-bake.hcl"
+        required: false
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build:
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: ${{ inputs.timeout_minutes }}
+    permissions:
+      id-token: write
+      contents: read
+    # Um build por serviço de cada vez, sem cancelar. Todo build publica `:latest`, que é o
+    # que o ECS roda, e com dois runs da `main` em paralelo o build do commit mais velho podia
+    # terminar depois do mais novo e deixar `:latest` na imagem velha. A fila sozinha não
+    # ordena por commit (o build do mais novo pode pegar o grupo primeiro), por isso o passo
+    # "Decide whether to move :latest" confere a revisão antes de mover a tag. Um build
+    # pendente é substituído pelo do run seguinte, que contém o mesmo código.
+    # Sem `github.ref` no grupo porque `:latest` é um só, venha de onde vier o run.
+    concurrency:
+      group: ecr-build-${{ inputs.service }}
+      cancel-in-progress: false
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # O token do checkout fica no .git/config e viaja em qualquer artifact/log gerado
+          # depois. Este job só faz build e push pro ECR — não usa credencial de git.
+          persist-credentials: false
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: "1.4.3"
+      # Build args do bundle do cliente (`buildArgs` do manifesto) a partir das GitHub Variables,
+      # no `$GITHUB_ENV`: o docker-bake.hcl declara cada um como `variable`, e o bake lê a
+      # variável de ambiente homônima. Variável obrigatória vazia falha aqui, antes do bake.
+      - name: Resolve build args
+        env:
+          SERVICE: ${{ inputs.service }}
+          VARS_JSON: ${{ toJSON(vars) }}
+        run: bun scripts/release-build-env.ts
+      - name: Generate tag
+        id: meta
+        run: echo "tag=sha-${GITHUB_SHA::7}-${GITHUB_RUN_ID}" >> "$GITHUB_OUTPUT"
+
+      # Só move `:latest` se ele ainda não tem um commit mais novo que este (label
+      # `org.opencontainers.image.revision`, gravada abaixo). Sem isso, merges A e B em
+      # sequência com o build de B pegando a fila primeiro deixariam o de A reapontar
+      # `:latest` para o código velho, e o deploy de A o publicaria com tudo verde.
+      # A imagem com tag de SHA é publicada sempre. A regra (e o que acontece quando a
+      # leitura falha) está em `scripts/decide-latest-tag.sh`, testado sob `bash -e`.
+      - name: Decide whether to move :latest
+        id: latest
+        env:
+          IMAGE_REPO: ${{ vars.ECR_REGISTRY }}/${{ vars.ECR_REPOSITORY_PREFIX }}/${{ inputs.service }}
+          EVENT_NAME: ${{ github.event_name }}
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/decide-latest-tag.sh
+
+      # Primeira tentativa com `continue-on-error`, e uma segunda só se ela falhar. O buildkit
+      # às vezes perde o processo do passo no meio: `test -f` de um arquivo que existe travou
+      # ~3 min e saiu com `exit code: 4294967295` (run 36355268327, build-mcp), verde no rerun.
+      # O builder guarda em cache local tudo o que já passou, então a segunda tentativa refaz
+      # só o passo que caiu: para erro de verdade o custo é repetir esse passo (~20 s no
+      # `vite build` do sisub), e o job fica vermelho do mesmo jeito. O timeout por tentativa
+      # faz um travamento virar falha (e disparar a segunda) em vez de esgotar o job inteiro.
+      - name: Build and push
+        id: bake
+        continue-on-error: true
+        timeout-minutes: ${{ inputs.bake_attempt_timeout_minutes }}
+        uses: docker/bake-action@018cb6412ab401ebaa809aa5f85966b74628600f # v7.4.0
+        env: &bake-env
+          IMAGE_REPO: ${{ vars.ECR_REGISTRY }}/${{ vars.ECR_REPOSITORY_PREFIX }}/${{ inputs.service }}
+          # Secret de build, nunca build arg: o `secret = ["id=…,env=…"]` do target no
+          # docker-bake.hcl lê esta variável e o Dockerfile a monta só no RUN de build
+          # (`--mount=type=secret`). Build arg ficava no histórico da imagem, na chave
+          # de cache (gha, mode=max) e na proveniência. Target que não declara o secret
+          # não o recebe.
+          FARO_SOURCEMAP_API_KEY: ${{ secrets.FARO_SOURCEMAP_API_KEY }}
+        with: &bake-with
+          files: ./docker-bake.hcl
+          targets: ${{ inputs.service }}
+          push: true
+          # ECS task definitions pin the `:latest` tag, so pushing `:latest` is
+          # what actually gets rolled out by `--force-new-deployment`. A
+          # sha-tagged image is also pushed for traceability/rollback.
+          set: |
+            ${{ inputs.service }}.tags=${{ env.IMAGE_REPO }}:${{ steps.meta.outputs.tag }}
+            ${{ steps.latest.outputs.move != 'false' && format('{0}.tags={1}:latest', inputs.service, env.IMAGE_REPO) || '' }}
+            ${{ inputs.service }}.labels.org.opencontainers.image.revision=${{ github.sha }}
+
+      - name: Build and push (retry)
+        if: steps.bake.outcome == 'failure'
+        timeout-minutes: ${{ inputs.bake_attempt_timeout_minutes }}
+        uses: docker/bake-action@018cb6412ab401ebaa809aa5f85966b74628600f # v7.4.0
+        env: *bake-env
+        with: *bake-with
+
+      # Sem Trivy aqui: a varredura da imagem (pacotes de SO e da imagem base, que opengrep e
+      # CodeQL não enxergam) é a do próprio ECR, `scan_on_push` em todo repositório (achados no
+      # console do ECR, por imagem). O Trivy baixava cada imagem publicada do ECR para o runner,
+      # fora da AWS: ~70 MB de saída de dados por build, US$ 7 em 2026-09, para um relatório que
+      # só ia para o log e nunca bloqueava.
+
+  deploy:
+    needs: [build]
+    # Runner do GitHub (grátis em repo público): o job é quase todo espera pelo rollout do ECS
+    # (`wait services-stable`), e espera não fica mais rápida em CPU mais rápida. Versão fixada:
+    # os passos dependem do `aws` e do `curl` da imagem, e o `ubuntu-latest` troca sozinho.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      id-token: write
+      contents: read
+    # Um deploy por serviço de cada vez, sem cancelar o que está rodando. Com
+    # `cancel-in-progress: true` o run seguinte matava este no meio da espera pelo rollout:
+    # o ECS seguia, mas o rollout e o smoke test deste run ficavam sem verificação (os 21 runs
+    # `cancelled` do CI/CD entre 2026-08-18 e 2026-09-28 pararam todos aqui). Serializado, cada
+    # deploy termina verificado; o pendente é substituído pelo do run seguinte, e `:latest` já
+    # é a imagem do commit mais novo (build serializado no job `build` acima).
+    concurrency:
+      group: ecs-deploy-${{ inputs.service }}
+      cancel-in-progress: false
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Force new deployment
+        id: deploy
+        env:
+          CLUSTER: ${{ vars.ECS_CLUSTER }}
+          SERVICE: ${{ inputs.service }}
+        run: |
+          # shellcheck disable=SC2016 # as crases são literal JMESPath, não expansão do shell
+          DEPLOY_ID="$(aws ecs update-service \
+            --cluster "$CLUSTER" \
+            --service "$SERVICE" \
+            --force-new-deployment \
+            --query 'service.deployments[?status==`PRIMARY`].id | [0]' \
+            --output text)"
+          echo "deployment_id=$DEPLOY_ID" >> "$GITHUB_OUTPUT"
+          echo "Triggered deployment $DEPLOY_ID for $SERVICE on $CLUSTER"
+
+      - name: Wait for service to stabilize
+        env:
+          CLUSTER: ${{ vars.ECS_CLUSTER }}
+          SERVICE: ${{ inputs.service }}
+        run: |
+          aws ecs wait services-stable --cluster "$CLUSTER" --services "$SERVICE"
+
+      - name: Verify new revision rolled out (not rolled back)
+        env:
+          CLUSTER: ${{ vars.ECS_CLUSTER }}
+          SERVICE: ${{ inputs.service }}
+          DEPLOY_ID: ${{ steps.deploy.outputs.deployment_id }}
+        run: |
+          # `wait services-stable` can return 0 while our deployment is still
+          # IN_PROGRESS (it also returns 0 when the circuit breaker rolls back and
+          # the old tasks become stable again). A single read right after it is
+          # racy — an IN_PROGRESS deployment that goes on to COMPLETE would be
+          # misreported as a rollback. Poll the deployment's own rolloutState
+          # until it reaches a terminal state:
+          #   COMPLETED       -> new image is live, success
+          #   FAILED / gone   -> circuit breaker rolled it back, fail
+          #   IN_PROGRESS     -> keep waiting
+          for i in $(seq 1 60); do
+            STATE="$(aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" \
+              --query "services[0].deployments[?id=='$DEPLOY_ID'].rolloutState | [0]" --output text)"
+            echo "Attempt $i/60 - Deployment $DEPLOY_ID rolloutState=$STATE"
+            case "$STATE" in
+              COMPLETED)
+                echo "✅ Deployment $DEPLOY_ID completed"
+                exit 0
+                ;;
+              FAILED|None|"")
+                echo "::error::Deployment $DEPLOY_ID did not complete (state=$STATE) — the circuit breaker likely rolled it back."
+                aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" \
+                  --query 'services[0].events[0:6].message' --output text || true
+                exit 1
+                ;;
+              *)
+                sleep 10
+                ;;
+            esac
+          done
+          echo "::error::Deployment $DEPLOY_ID still not terminal after polling — treating as failure."
+          aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" \
+            --query 'services[0].events[0:6].message' --output text || true
+          exit 1
+
+      - name: Smoke test
+        if: inputs.health_url != ''
+        env:
+          HEALTH_URL: ${{ inputs.health_url }}
+          CLUSTER: ${{ vars.ECS_CLUSTER }}
+          SERVICE: ${{ inputs.service }}
+          LABEL: ${{ inputs.service }}
+        run: |
+          # Serviço escalado a zero (lever de custo — ex.: sisub-mcp com
+          # desired_count = 0 no terraform): não há target atrás do ALB e o
+          # health externo devolveria 503 para sempre. O rollout ECS já
+          # validou o deploy; pular o smoke em vez de falhar o pipeline.
+          DESIRED="$(aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" \
+            --query 'services[0].desiredCount' --output text 2>/dev/null || echo unknown)"
+          if [[ "$DESIRED" == "0" ]]; then
+            echo "⏭  service desiredCount=0 (scaled to zero) — skipping external health check"
+            exit 0
+          fi
+          for i in {1..10}; do
+            status="$(curl -fsSL --ipv4 --max-redirs 5 --connect-timeout 5 --max-time 10 -o /dev/null -w "%{http_code}" "$HEALTH_URL" || true)"
+            if [[ "${status:0:1}" == "2" ]]; then echo "✅ $LABEL health check passed"; exit 0; fi
+            echo "Attempt $i/10 - status: ${status:-(connection error)} - waiting 10s..."; sleep 10
+          done
+          echo "❌ $LABEL health check failed"; exit 1

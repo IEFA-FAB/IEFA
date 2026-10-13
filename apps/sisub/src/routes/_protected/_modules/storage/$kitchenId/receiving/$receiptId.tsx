@@ -291,7 +291,7 @@ function LotEditor({
 				<td className="py-1.5 px-2 w-40 text-xs">
 					{verdict === "dentro" && <Badge variant="secondary">na faixa</Badge>}
 					{outOfRange && (
-						<Badge variant="destructive" className="gap-1">
+						<Badge variant="destructive">
 							<Thermometer className="size-3" />
 							fora da faixa
 						</Badge>
@@ -505,7 +505,7 @@ function ItemCard({ item, editable, onSaved }: { item: ReceiptItemRow; editable:
 						)}
 					</p>
 					{editable && !addingLot && (
-						<Button size="sm" variant="outline" className="h-7 gap-1 text-xs print:hidden" onClick={() => setAddingLot(true)}>
+						<Button size="sm" variant="outline" className="h-7 text-xs print:hidden" onClick={() => setAddingLot(true)}>
 							<Plus className="size-3" />
 							Adicionar lote
 						</Button>
@@ -593,29 +593,23 @@ function ReceiptDetailPage() {
 						receipt.rejected_at ? ` · Recusado em ${new Date(receipt.rejected_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}` : ""
 					}`}
 				>
-					<Button
-						variant="ghost"
-						size="sm"
-						className="gap-1.5"
-						render={<Link to="/storage/$kitchenId/receiving" params={{ kitchenId }} />}
-						nativeButton={false}
-					>
+					<Button variant="ghost" size="sm" render={<Link to="/storage/$kitchenId/receiving" params={{ kitchenId }} />} nativeButton={false}>
 						<ArrowLeft className="size-4" />
 						Voltar
 					</Button>
-					<Button variant="outline" size="sm" className="gap-1.5" onClick={() => window.print()}>
+					<Button variant="outline" size="sm" onClick={() => window.print()}>
 						<Printer className="size-4" />
 						Termo de Recebimento
 					</Button>
 					{receipt.status === "draft" && (
-						<Button size="sm" className="gap-1.5" disabled={busy} onClick={toProvisional}>
+						<Button size="sm" disabled={busy} onClick={toProvisional}>
 							{busy ? <Spinner className="size-4" /> : <ClipboardCheck className="size-4" />}
 							Recebimento provisório
 						</Button>
 					)}
 					{/* Efetivação é única: recebimento `divergent` JÁ efetivado mostrava o botão, que sempre falhava */}
 					{(receipt.status === "provisional" || receipt.status === "divergent") && receipt.definitive_at == null && (
-						<Button size="sm" className="gap-1.5" disabled={busy} onClick={toDefinitive}>
+						<Button size="sm" disabled={busy} onClick={toDefinitive}>
 							{busy ? <Spinner className="size-4" /> : <CheckCheck className="size-4" />}
 							Efetivar definitivo
 						</Button>
@@ -716,7 +710,7 @@ function ReceiptDetailPage() {
 				<div className="flex flex-wrap items-center gap-2">
 					<span className="text-caption text-muted-foreground">Conservação exigida nesta entrega:</span>
 					{Object.entries(conservationTally).map(([cls, count]) => (
-						<Badge key={cls} variant="secondary" className="text-xs">
+						<Badge key={cls} variant="secondary">
 							{CONSERVATION_LABELS[cls as ConservationClass]} · {count} item(ns)
 						</Badge>
 					))}

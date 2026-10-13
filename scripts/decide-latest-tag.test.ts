@@ -5,7 +5,7 @@ import { join } from "node:path"
 
 /**
  * `decide-latest-tag.sh` roda sob o `bash -e` do runner (o passo "Decide whether to move
- * :latest" de `_app-build.yml`). Uma leitura que falhava derrubou todos os builds de push do
+ * :latest" de `_release.yml`). Uma leitura que falhava derrubou todos os builds de push do
  * CI/CD de 1c188c77; aqui o script roda do mesmo jeito, com `docker` e `gh` simulados.
  */
 const SCRIPT = join(import.meta.dir, "decide-latest-tag.sh")

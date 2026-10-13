@@ -32,6 +32,7 @@ function SupportMenuEditorPage() {
 			editContext={editContext}
 			listLink={{ to: "/kitchen/$kitchenId/support-menus", params: { kitchenId } }}
 			editorLink={(id) => ({ to: "/kitchen/$kitchenId/support-menus/$supportMenuId", params: { kitchenId, supportMenuId: id } })}
+			printLink={(id) => ({ to: "/kitchen/$kitchenId/support-menus/print/$supportMenuId", params: { kitchenId, supportMenuId: id } })}
 		/>
 	)
 }

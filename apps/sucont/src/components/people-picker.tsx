@@ -51,7 +51,7 @@ export function AssigneePicker({
 						type="button"
 						variant="ghost"
 						disabled={disabled}
-						className="h-auto w-full justify-end gap-2 p-0 text-right hover:bg-transparent disabled:opacity-100"
+						className="h-auto w-full justify-end p-0 text-right hover:bg-transparent disabled:opacity-100"
 						aria-label="Escolher responsáveis"
 					>
 						<AssigneeSummary value={value} selected={selected} />
@@ -108,7 +108,7 @@ function AssigneeSummary({ value, selected }: { value: AssigneeValue; selected: 
 	return (
 		<span className="flex flex-wrap justify-end gap-1">
 			{value.assignToAll && (
-				<Badge variant="muted" className="gap-1">
+				<Badge variant="muted">
 					<Users className="size-3" /> todos
 				</Badge>
 			)}
@@ -146,10 +146,10 @@ export function OperatorPicker({
 				render={
 					<Button
 						type="button"
-						variant="ghost"
+						variant="subtle"
 						size="icon-xs"
 						aria-label={`Mudar o operador da UG ${label}`}
-						className="text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover/ug:opacity-100"
+						className="opacity-0 transition-opacity focus-visible:opacity-100 group-hover/ug:opacity-100"
 					>
 						<ChevronDown className="size-3" />
 					</Button>

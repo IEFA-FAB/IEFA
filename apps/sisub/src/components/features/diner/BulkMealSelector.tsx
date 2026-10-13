@@ -85,10 +85,7 @@ export function BulkMealSelector({ targetDates, initialTemplate, onApply, onCanc
 	}
 
 	return (
-		<Card
-			className="group relative w-full h-fit bg-card text-card-foreground border border-border transition-all duration-300 hover:border-accent max-w-xl
-        "
-		>
+		<Card className="group relative w-full h-fit border border-border transition-all duration-300 hover:border-accent max-w-xl">
 			<CardHeader className="">
 				<CardTitle className="flex items-center gap-2 text-foreground">
 					<span
@@ -153,13 +150,13 @@ export function BulkMealSelector({ targetDates, initialTemplate, onApply, onCanc
 
 					{/* Presets rápidos */}
 					<div className="flex flex-wrap gap-2">
-						<Button type="button" variant="outline" size="sm" onClick={() => setAll(true)} disabled={isApplying} className="text-xs hover:bg-muted">
+						<Button type="button" variant="outline" size="sm" onClick={() => setAll(true)} disabled={isApplying} className="text-xs">
 							Todas
 						</Button>
-						<Button type="button" variant="outline" size="sm" onClick={() => setAll(false)} disabled={isApplying} className="text-xs hover:bg-muted">
+						<Button type="button" variant="outline" size="sm" onClick={() => setAll(false)} disabled={isApplying} className="text-xs">
 							Nenhuma
 						</Button>
-						<Button type="button" variant="outline" size="sm" onClick={setWorkdayPreset} disabled={isApplying} className="text-xs hover:bg-muted">
+						<Button type="button" variant="outline" size="sm" onClick={setWorkdayPreset} disabled={isApplying} className="text-xs">
 							Padrão Dias Úteis
 						</Button>
 					</div>
@@ -172,11 +169,7 @@ export function BulkMealSelector({ targetDates, initialTemplate, onApply, onCanc
 						size="sm"
 						onClick={handleCancel}
 						disabled={isApplying}
-						className="
-                    hover:bg-muted
-                    focus-visible:ring-2 focus-visible:ring-ring
-                    focus-visible:ring-offset-2 focus-visible:ring-offset-background
-                  "
+						className="focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
 					>
 						Cancelar
 					</Button>
@@ -185,12 +178,7 @@ export function BulkMealSelector({ targetDates, initialTemplate, onApply, onCanc
 						size="sm"
 						onClick={handleApply}
 						disabled={isApplying || !hasCardsToApply || selectedCount === 0}
-						className="
-                    bg-primary text-primary-foreground hover:bg-primary/90
-                    focus-visible:ring-2 focus-visible:ring-ring
-                    focus-visible:ring-offset-2 focus-visible:ring-offset-background
-                    disabled:opacity-50 disabled:cursor-not-allowed
-                  "
+						className="hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed"
 					>
 						{isApplying ? (
 							<>

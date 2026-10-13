@@ -62,7 +62,7 @@ export function ProductionEquipmentBoard({ kitchenId }: { kitchenId: number }) {
 					return (
 						<Card key={unit.id} className={cn(CONDITION_TINT[unit.condition])}>
 							<CardHeader className="pb-2">
-								<CardTitle className="flex flex-wrap items-center gap-2 text-body">
+								<CardTitle className="flex flex-wrap items-center gap-2">
 									{unit.label}
 									<Badge variant={unit.condition === "down" ? "destructive" : unit.condition === "degraded" ? "outline" : "secondary"}>
 										{CONDITION_LABEL[unit.condition]}

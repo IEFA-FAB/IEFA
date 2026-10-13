@@ -77,13 +77,9 @@ export function IngredientHistorySheet({ open, onOpenChange, versions, isLoading
 												<Badge variant={isLatest ? "default" : "outline"} className="text-xs">
 													v{version.version_number}
 												</Badge>
-												{isLatest && (
-													<Badge variant="secondary" className="text-xs">
-														atual
-													</Badge>
-												)}
+												{isLatest && <Badge variant="secondary">atual</Badge>}
 												{isSelected && (
-													<Badge variant="secondary" className="ml-auto text-xs">
+													<Badge variant="secondary" className="ml-auto">
 														visualizando
 													</Badge>
 												)}

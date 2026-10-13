@@ -159,7 +159,7 @@ function ExpiryPage() {
 				return (
 					<Card key={band}>
 						<CardHeader className="pb-2">
-							<CardTitle className="flex items-center gap-2 text-subheading">
+							<CardTitle className="flex items-center gap-2">
 								{band === "expired" ? (
 									<Trash2 className="size-4" />
 								) : band === "no_expiry" ? (
@@ -323,7 +323,7 @@ function ExpiryPage() {
 			{transferLot && (
 				<Card>
 					<CardHeader className="pb-2">
-						<CardTitle className="text-subheading">Transferir {transferLot.description}</CardTitle>
+						<CardTitle>Transferir {transferLot.description}</CardTitle>
 						<p className="text-xs text-muted-foreground">
 							Saldo do lote: {NUM.format(transferLot.balance)} {transferLot.measureUnit ?? ""} · {describeDays(transferLot.daysLeft)}
 						</p>
@@ -381,7 +381,7 @@ function ExpiryPage() {
 
 			<Card>
 				<CardHeader className="pb-2">
-					<CardTitle className="text-subheading">Antecedência do alerta</CardTitle>
+					<CardTitle>Antecedência do alerta</CardTitle>
 					<p className="text-xs text-muted-foreground">
 						Sem política, valem os defaults: resfriado {EXPIRY_DEFAULT_ALERT_DAYS.resfriado} dias, congelado {EXPIRY_DEFAULT_ALERT_DAYS.congelado}, demais{" "}
 						{EXPIRY_DEFAULT_ALERT_DAYS.outras}. A política da cozinha vence a global.

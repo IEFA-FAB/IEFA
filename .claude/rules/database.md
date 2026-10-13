@@ -105,7 +105,7 @@ O banco é um só, compartilhado por todas as branches, e a suíte da `main` tem
 em todo instante. O guard de `apps/sisub/src/test/operations/training.operations.test.ts` é
 default-deny: varre o banco vivo atrás de toda tabela com `kitchen_id`, `unit_id` ou `mess_hall_id`
 e cobra que ela esteja em `RESET_TARGET_TABLES` ou `RESET_EXCLUSIONS`. "Migration aditiva é segura"
-é falso aqui: tabela nova aplicada antes da declaração derruba o `check-sisub` de todo PR.
+é falso aqui: tabela nova aplicada antes da declaração derruba a suíte `full` da `main` a cada push.
 
 - Ordem: **declara → aplica → mergeia.** (1) PR pequeno que declara a tabela no guard (verde nos
   dois estados); (2) aplica a migration; (3) mergeia o recurso, com o teste de integração no mesmo PR.

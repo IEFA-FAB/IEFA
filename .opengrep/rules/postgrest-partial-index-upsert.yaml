@@ -146,6 +146,17 @@ rules:
           - metavariable-regex:
               metavariable: $COLS
               regex: ^["'`]\s*(?:name_key)\s*["'`]$
+      # core.saram_link_request (20261003100000: um pedido pendente por conta)
+      - patterns:
+          - pattern-either:
+              - pattern: '$DB.from($T).upsert($ROWS, {..., onConflict: $COLS, ...})'
+              - pattern: 'untypedFrom($CTX, $T, ...).upsert($ROWS, {..., onConflict: $COLS, ...})'
+          - metavariable-regex:
+              metavariable: $T
+              regex: ^["'`]saram_link_request["'`]$
+          - metavariable-regex:
+              metavariable: $COLS
+              regex: ^["'`]\s*(?:user_id)\s*["'`]$
       # core.units
       - patterns:
           - pattern-either:
@@ -157,6 +168,17 @@ rules:
           - metavariable-regex:
               metavariable: $COLS
               regex: ^["'`]\s*(?:is_training|cnpj)\s*["'`]$
+      # core.user_data (20261003100000: SARAM verificado em uma conta só)
+      - patterns:
+          - pattern-either:
+              - pattern: '$DB.from($T).upsert($ROWS, {..., onConflict: $COLS, ...})'
+              - pattern: 'untypedFrom($CTX, $T, ...).upsert($ROWS, {..., onConflict: $COLS, ...})'
+          - metavariable-regex:
+              metavariable: $T
+              regex: ^["'`]user_data["'`]$
+          - metavariable-regex:
+              metavariable: $COLS
+              regex: ^["'`]\s*(?:saram)\s*["'`]$
       # finance.empenho_rp_inscription
       - patterns:
           - pattern-either:

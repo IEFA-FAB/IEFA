@@ -31,7 +31,7 @@ function RecipesPage() {
 					<span className="sm:hidden">CSV</span>
 				</Button>
 				{canManageFolders && (
-					<Button variant="outline" size="sm" onClick={() => managerRef.current?.openFoldersDialog()} className="gap-2">
+					<Button variant="outline" size="sm" onClick={() => managerRef.current?.openFoldersDialog()}>
 						<FolderCog className="size-4" />
 						Pastas
 					</Button>

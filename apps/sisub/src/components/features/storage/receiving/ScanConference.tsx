@@ -207,7 +207,7 @@ export function ScanConference({ receiptId, lines, events, editable, scannerProp
 			{editable && (
 				<Card className="print:hidden">
 					<CardHeader className="pb-2">
-						<CardTitle className="flex items-center gap-2 text-subheading">
+						<CardTitle className="flex items-center gap-2">
 							<PackageCheck className="size-4" />
 							Conferência
 						</CardTitle>
@@ -267,7 +267,7 @@ export function ScanConference({ receiptId, lines, events, editable, scannerProp
 
 			<Card className="print:border-0 print:shadow-none">
 				<CardHeader className="pb-2">
-					<CardTitle className="text-subheading">Linhas conferidas</CardTitle>
+					<CardTitle>Linhas conferidas</CardTitle>
 				</CardHeader>
 				<CardContent className="space-y-2">
 					{lines.map((line) => {
@@ -290,24 +290,24 @@ export function ScanConference({ receiptId, lines, events, editable, scannerProp
 									</div>
 									<div className="flex items-center gap-2">
 										{done && (
-											<Badge variant="secondary" className="text-xs">
+											<Badge variant="secondary">
 												<Check className="mr-1 size-3" />
 												completo
 											</Badge>
 										)}
 										{over && (
-											<Badge variant="outline" className="text-xs text-warning">
+											<Badge variant="outline" className="text-warning">
 												a maior: {NUM.format(Math.abs(remaining))}
 											</Badge>
 										)}
 										{short && remaining != null && (
-											<Badge variant="outline" className="text-xs">
+											<Badge variant="outline">
 												falta {NUM.format(remaining)}
 												{!line.divergence_reason && " — informe o motivo na linha"}
 											</Badge>
 										)}
 										{refused && (
-											<Badge variant="outline" className="text-xs text-warning">
+											<Badge variant="outline" className="text-warning">
 												recusada
 											</Badge>
 										)}

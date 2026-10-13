@@ -80,6 +80,12 @@ const ACCESS_CHANGE_OPERATIONS = [
 	// Reparentar cozinha/refeitório muda quem os alcança por `unit`. Não escreve tabela de acesso:
 	// o log sai da operação de domínio, na mesma transação Drizzle das escritas.
 	"applyPlacesDiffFn",
+	// Vínculo de SARAM e tipo de conta de outra pessoa (20261003100000): decidem de quem são os
+	// dados militares que a conta vê e se ela come. O log sai da função SQL, na mesma transação.
+	"decideSaramRequestFn",
+	"linkUserSaramFn",
+	"unlinkUserSaramFn",
+	"setUserAccountKindFn",
 ] as const
 
 const ENVELOPE = /\b(withSensitiveAudit|withAtomicAudit)\(\s*"(\w+)"/g

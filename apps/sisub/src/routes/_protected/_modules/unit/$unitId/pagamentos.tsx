@@ -138,7 +138,7 @@ function PagamentosPage() {
 
 			<Card>
 				<CardHeader className="pb-2">
-					<CardTitle className="text-subheading">Contas a pagar</CardTitle>
+					<CardTitle>Contas a pagar</CardTitle>
 				</CardHeader>
 				<CardContent className="px-0 pb-0">
 					{openLiquidacoes.length === 0 ? (
@@ -216,7 +216,7 @@ function PagamentosPage() {
 			{averageDays.length > 0 && (
 				<Card>
 					<CardHeader className="pb-2">
-						<CardTitle className="text-subheading">Prazo médio de pagamento</CardTitle>
+						<CardTitle>Prazo médio de pagamento</CardTitle>
 					</CardHeader>
 					<CardContent>
 						<div className="divide-y divide-border/50">

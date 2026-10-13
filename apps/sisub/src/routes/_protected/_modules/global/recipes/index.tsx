@@ -41,7 +41,7 @@ function GlobalRecipesPage() {
 	return (
 		<div className="space-y-6">
 			<PageHeader title="Preparações Globais">
-				<Button variant="outline" size="sm" onClick={() => setMetricsOpen(true)} className="gap-2">
+				<Button variant="outline" size="sm" onClick={() => setMetricsOpen(true)}>
 					<Activity className="size-4" />
 					<span className="hidden sm:inline">Métricas de revisão</span>
 					<span className="sm:hidden">Métricas</span>
@@ -54,7 +54,7 @@ function GlobalRecipesPage() {
 				{/* Pastas e criação ficam juntas no header, como em Insumos (Nova Pasta + Novo Insumo). */}
 				<ButtonGroup>
 					{canManageFolders && (
-						<Button variant="outline" size="sm" onClick={() => managerRef.current?.openFoldersDialog()} className="gap-2">
+						<Button variant="outline" size="sm" onClick={() => managerRef.current?.openFoldersDialog()}>
 							<FolderCog className="size-4" />
 							Pastas
 						</Button>

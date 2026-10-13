@@ -1,4 +1,4 @@
-import { Link, useRouterState } from "@tanstack/react-router"
+import { Link, useLocation } from "@tanstack/react-router"
 import { ArrowLeft, X } from "lucide-react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
@@ -12,8 +12,8 @@ import type { FlowOrigin } from "./FlowView"
  * de passo com navegação nova, e o state não viaja junto), e some ao voltar ao fluxo ou ao fechar.
  */
 export function FlowReturn() {
-	const pathname = useRouterState({ select: (s) => s.location.pathname })
-	const incoming = useRouterState({ select: (s) => (s.location.state as { fromFlow?: FlowOrigin } | undefined)?.fromFlow })
+	const pathname = useLocation({ select: (location) => location.pathname })
+	const incoming = useLocation({ select: (location) => (location.state as { fromFlow?: FlowOrigin } | undefined)?.fromFlow })
 	const [origin, setOrigin] = useState<FlowOrigin | null>(null)
 	// Fluxo cujo atalho o usuário fechou: o `fromFlow` segue no history state da tela de chegada,
 	// e sem isto o próximo render o traria de volta.

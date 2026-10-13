@@ -3,6 +3,7 @@ import { ChevronLeft, Search } from "lucide-react"
 import { Fragment, useCallback, useEffect, useState } from "react"
 import { usePBAC } from "@/auth/pbac"
 import { FlowReturn } from "@/components/features/flows/FlowReturn"
+import { MilitaryRecordNotice } from "@/components/features/military-record/MilitaryRecordNotice"
 import { AnimatedThemeToggler } from "@/components/layout/AnimatedThemeToggler"
 import { getModuleFromPath, getModulesForPermissions, getNavItemsForPermissions, type ModuleId, type NavItem } from "@/components/layout/sidebar/NavItems"
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb"
@@ -154,7 +155,7 @@ export function AppShell() {
 						{(!isOnScopeHub || isMobile) && (
 							<>
 								<SidebarTrigger className="size-9 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors" />
-								<Separator orientation="vertical" className="mx-2 h-6 bg-border data-[orientation=vertical]:self-center" />
+								<Separator orientation="vertical" className="mx-2 h-6 data-[orientation=vertical]:self-center" />
 							</>
 						)}
 						{isMobile ? (
@@ -214,7 +215,7 @@ export function AppShell() {
 					<div className="flex shrink-0 items-center gap-2">
 						{/* No celular a sidebar vira gaveta: a busca precisa de um ponto de entrada à vista */}
 						{isMobile && (
-							<Button variant="ghost" size="icon" onClick={openCommandPalette} aria-label="Buscar página" className="text-muted-foreground">
+							<Button variant="subtle" size="icon" onClick={openCommandPalette} aria-label="Buscar página">
 								<Search className="size-4" />
 							</Button>
 						)}
@@ -229,6 +230,7 @@ export function AppShell() {
 						<main className="h-full overflow-y-auto focus:outline-none">
 							<div className="mx-auto w-full max-w-screen-2xl min-h-full px-3 py-6 sm:px-6 md:py-8">
 								<FlowReturn />
+								<MilitaryRecordNotice />
 								<Outlet />
 							</div>
 						</main>

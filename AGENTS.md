@@ -63,11 +63,18 @@ estoura a RAM das máquinas de desenvolvimento.
   Os serviços Hono (`alpha`, `api`) ainda montam `createClient` direto; isso é dívida, não padrão.
 - **Auth:** ações e mensagens de erro via `@iefa/auth-kit`; trava de login é `useLoginRateLimiter`
   de `@iefa/auth-kit/react`.
+- **Typecheck:** o script `typecheck` de todo workspace é `bun check` (type checker do Bun, port
+  do typescript-go 7.0.2). Por isso workspace não declara script `check`: ele teria precedência e
+  o typecheck sairia verde sem checar tipo (regra `workspace-check-script`). O Biome do workspace
+  roda no `lint` (`biome check`). O `check` da raiz é outro, o gate completo (`bun run check`).
+  `useRouterState({ select })` precisa de tipo de retorno anotado, e o que vem da URL sai de
+  `useLocation({ select })`: com route tree grande o `bun check` não infere o resultado (regra
+  `router-state-select-unannotated`). O pacote `typescript` continua: é o que o editor usa.
 - **tsconfig:** estender `@iefa/tsconfig/{react-app,bun-service,library}.json`; o app só declara
   `paths`. Imports `@/*` → `src/*` (o `sucont` também aceita `#/*`, legado).
 - **Arquivos gerados** não se editam à mão: `Dockerfile`, `docker-bake.hcl`,
-  `.github/paths-filter.yml` e as regiões `# >>> gerado:` do `deploy.yml` saem de
-  `apps.manifest.json` (`bun run generate:deploy`; o CI falha em drift). `routeTree.gen.ts` sai do dev server do app. `packages/database/src/generated.ts` sai de
+  `.github/paths-filter.yml` saem de `apps.manifest.json` (`bun run generate:deploy`; o CI falha
+  em drift). O `deploy.yml` lê o manifesto em tempo de execução: app novo não o edita. `routeTree.gen.ts` sai do dev server do app. `packages/database/src/generated.ts` sai de
   `db:types`.
 - **Identificador em inglês; valor de domínio na língua da norma.** Função começa por verbo,
   predicado por `is`/`has`, constante em `SCREAMING_SNAKE`. Fica em português só termo sem
@@ -109,6 +116,7 @@ Leia antes de mexer na área (o Claude Code carrega sozinho pelo caminho do arqu
 | Área | Arquivo |
 |------|---------|
 | Banco, grants, RLS, auditoria de acesso, migrations | `.claude/rules/database.md` |
+| Acesso a dados no sisub (operation, Drizzle na fn, função SQL ou supabase-js) | `.claude/rules/sisub-data-access.md` |
 | Tools de IA do chat e do MCP (`sisub-domain/agent`) | `.claude/rules/ai-tools.md` |
 | Providers de IA | `.claude/rules/ai-providers.md`, `AI-PROVIDERS.md` |
 | UI, design systems, Base UI | `.claude/rules/ui.md` |

@@ -230,7 +230,7 @@ function About() {
 
 					{/* Direção */}
 					<div className="mb-5 border border-border bg-card px-5 py-4 flex items-center gap-4">
-						<Badge variant="secondary" className="shrink-0 font-mono text-xs">
+						<Badge variant="secondary" className="shrink-0 font-mono">
 							DIR
 						</Badge>
 						<div>
@@ -249,7 +249,7 @@ function About() {
 									<div className="size-9 border border-border bg-muted flex items-center justify-center shrink-0">
 										<Icon className="h-4 w-4 text-foreground" aria-hidden="true" />
 									</div>
-									<Badge variant="secondary" className="font-mono text-xs">
+									<Badge variant="secondary" className="font-mono">
 										{sigla}
 									</Badge>
 								</div>

@@ -131,7 +131,8 @@ export async function getUnitDashboard(db: SisubDb, input: UnitDashboard): Promi
 				id: userDataInCore.id,
 				created_at: userDataInCore.createdAt,
 				email: userDataInCore.email,
-				saram: userDataInCore.saram,
+				// Só o SARAM verificado identifica a pessoa (`core.visible_saram`, 20261003100000).
+				saram: sql<string | null>`core.visible_saram(${userDataInCore.id})`,
 			})
 			.from(userDataInCore)
 			.where(inArray(userDataInCore.id, userIds))

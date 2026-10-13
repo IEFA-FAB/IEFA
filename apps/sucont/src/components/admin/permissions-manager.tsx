@@ -7,7 +7,7 @@ import { Badge } from "#/components/ui/badge"
 import { Button } from "#/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "#/components/ui/card"
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "#/components/ui/empty"
-import { Input } from "#/components/ui/input"
+import { InputGroup, InputGroupAddon, InputGroupInput } from "#/components/ui/input-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 import { Skeleton } from "#/components/ui/skeleton"
 import { toast } from "#/components/ui/toast"
@@ -207,7 +207,7 @@ function GrantsList({
 							<Badge variant={grant.module === "sucont-admin" ? "destructive" : "muted"}>{LEVEL_LABELS[grant.level] ?? `Nível ${grant.level}`}</Badge>
 							<Button
 								type="button"
-								variant="ghost"
+								variant="subtle-destructive"
 								size="sm"
 								disabled={locksSelfOut || byPolicy || revokingKey === key}
 								onClick={() => onRevoke(grant)}
@@ -220,7 +220,6 @@ function GrantsList({
 											? "Ninguém revoga a própria administração — peça a outro administrador"
 											: "Revogar acesso"
 								}
-								className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
 							>
 								{revokingKey === key ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
 								Revogar
@@ -301,9 +300,11 @@ function GrantAccessCard({ currentUserId, onGranted }: { currentUserId: string |
 				</CardDescription>
 			</CardHeader>
 			<CardContent className="flex flex-col gap-4">
-				<div className="relative">
-					<Search className="-translate-y-1/2 absolute top-1/2 left-3 size-4 text-muted-foreground" aria-hidden="true" />
-					<Input
+				<InputGroup>
+					<InputGroupAddon>
+						<Search aria-hidden="true" />
+					</InputGroupAddon>
+					<InputGroupInput
 						type="search"
 						value={email}
 						onChange={(e) => {
@@ -312,9 +313,8 @@ function GrantAccessCard({ currentUserId, onGranted }: { currentUserId: string |
 						}}
 						placeholder="Buscar por e-mail…"
 						aria-label="Buscar usuário por e-mail"
-						className="pl-9"
 					/>
-				</div>
+				</InputGroup>
 
 				{term.length >= 2 && (
 					<ul className="flex flex-col divide-y divide-border overflow-hidden rounded-lg border border-border">

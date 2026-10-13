@@ -1794,7 +1794,28 @@ export type Database = {
     }
     Functions: {
       apply_person_choice: {
-        Args: { p_changes: Json; p_person_id: number }
+        Args: { p_changes: Json; p_expected?: Json; p_person_id: number }
+        Returns: {
+          classificacao: number
+          created_at: string
+          edition_id: string
+          estado: string | null
+          hide_card: boolean
+          id: number
+          localidade: string | null
+          nome: string
+          show_card: boolean
+          show_om: boolean
+        }
+        SetofOptions: {
+          from: "*"
+          to: "person"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      call_person: {
+        Args: { p_edition_id: string; p_expected?: Json; p_person_id: number }
         Returns: {
           classificacao: number
           created_at: string
@@ -2669,6 +2690,81 @@ export type Database = {
         }
         Relationships: []
       }
+      saram_link_request: {
+        Row: {
+          claim_verified_by: string | null
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          holder_user_id: string | null
+          id: string
+          justification: string
+          kind: string
+          saram: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          claim_verified_by?: string | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          holder_user_id?: string | null
+          id?: string
+          justification: string
+          kind: string
+          saram: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          claim_verified_by?: string | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          holder_user_id?: string | null
+          id?: string
+          justification?: string
+          kind?: string
+          saram?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      saram_verification_attempt: {
+        Row: {
+          created_at: string
+          id: number
+          method: string
+          saram: string
+          succeeded: boolean
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: never
+          method: string
+          saram: string
+          succeeded: boolean
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: never
+          method?: string
+          saram?: string
+          succeeded?: boolean
+          user_id?: string
+        }
+        Relationships: []
+      }
       units: {
         Row: {
           address_bairro: string | null
@@ -2743,25 +2839,34 @@ export type Database = {
       }
       user_data: {
         Row: {
+          account_kind: string
           created_at: string
           default_mess_hall_id: number | null
           email: string
           id: string
           saram: string | null
+          saram_verified_at: string | null
+          saram_verified_by: string | null
         }
         Insert: {
+          account_kind?: string
           created_at?: string
           default_mess_hall_id?: number | null
           email: string
           id?: string
           saram?: string | null
+          saram_verified_at?: string | null
+          saram_verified_by?: string | null
         }
         Update: {
+          account_kind?: string
           created_at?: string
           default_mess_hall_id?: number | null
           email?: string
           id?: string
           saram?: string | null
+          saram_verified_at?: string | null
+          saram_verified_by?: string | null
         }
         Relationships: [
           {
@@ -3406,12 +3511,165 @@ export type Database = {
       }
     }
     Functions: {
+      admin_link_saram: {
+        Args: {
+          p_actor: string
+          p_assurance: string
+          p_expected_saram: string
+          p_operation: string
+          p_reason: string
+          p_saram: string
+          p_user: string
+        }
+        Returns: Json
+      }
+      admin_set_account_kind: {
+        Args: {
+          p_actor: string
+          p_assurance: string
+          p_expected_kind: string
+          p_kind: string
+          p_operation: string
+          p_reason: string
+          p_user: string
+        }
+        Returns: Json
+      }
+      admin_unlink_saram: {
+        Args: {
+          p_actor: string
+          p_assurance: string
+          p_expected_saram: string
+          p_operation: string
+          p_reason: string
+          p_user: string
+        }
+        Returns: Json
+      }
+      apply_institutional_account: { Args: { p_user: string }; Returns: Json }
+      apply_saram_link: {
+        Args: {
+          p_email: string
+          p_saram: string
+          p_user: string
+          p_via: string
+        }
+        Returns: Json
+      }
+      assign_saram: {
+        Args: {
+          p_email: string
+          p_saram: string
+          p_user: string
+          p_via: string
+        }
+        Returns: Json
+      }
+      claim_saram: {
+        Args: {
+          p_email: string
+          p_email_confirmed: boolean
+          p_saram: string
+          p_user: string
+        }
+        Returns: Json
+      }
+      confirm_saram_candidate: {
+        Args: {
+          p_candidate: number
+          p_cpf_suffix: string
+          p_email: string
+          p_email_confirmed: boolean
+          p_user: string
+        }
+        Returns: Json
+      }
+      decide_saram_request: {
+        Args: {
+          p_actor: string
+          p_assurance: string
+          p_decision: string
+          p_note: string
+          p_operation: string
+          p_request: string
+        }
+        Returns: Json
+      }
+      email_has_homonym_suffix: { Args: { p_email: string }; Returns: boolean }
+      email_name_key: { Args: { p_email: string }; Returns: string }
       link_own_saram: {
         Args: { p_email: string; p_saram: string; p_user: string }
         Returns: Json
       }
       military_masked_cpf: { Args: { p_saram: string }; Returns: string }
+      military_name_key: {
+        Args: { p_nome: string; p_nome_guerra: string }
+        Returns: string
+      }
       person_name_key: { Args: { p_name: string }; Returns: string }
+      request_saram_link: {
+        Args: {
+          p_email: string
+          p_email_confirmed: boolean
+          p_justification: string
+          p_saram: string
+          p_user: string
+        }
+        Returns: Json
+      }
+      saram_assert_can_link: {
+        Args: { p_proof: boolean; p_saram: string; p_user: string }
+        Returns: string
+      }
+      saram_attempt_locked_until: {
+        Args: { p_saram: string; p_user: string }
+        Returns: string
+      }
+      saram_attempts_left: { Args: { p_user: string }; Returns: number }
+      saram_email_candidates: {
+        Args: { p_email: string }
+        Returns: {
+          nome_guerra: string
+          posto: string
+          roster_id: number
+          saram: string
+          sg_org: string
+        }[]
+      }
+      saram_link_status: {
+        Args: { p_email: string; p_email_confirmed: boolean; p_user: string }
+        Returns: Json
+      }
+      saram_review_queue: { Args: never; Returns: Json }
+      set_own_account_kind: {
+        Args: {
+          p_email: string
+          p_email_confirmed: boolean
+          p_kind: string
+          p_user: string
+        }
+        Returns: Json
+      }
+      verify_saram_by_cpf: {
+        Args: {
+          p_cpf: string
+          p_email: string
+          p_email_confirmed: boolean
+          p_saram: string
+          p_user: string
+        }
+        Returns: Json
+      }
+      visible_saram: { Args: { p_user: string }; Returns: string }
+      withdraw_saram_request: {
+        Args: {
+          p_email: string
+          p_email_confirmed: boolean
+          p_request: string
+          p_user: string
+        }
+        Returns: Json
+      }
     }
     Enums: {
       [_ in never]: never
@@ -9844,6 +10102,7 @@ export type Database = {
           deleted_at: string | null
           description: string | null
           expected_monthly_occurrences: number | null
+          folder_id: string | null
           id: string
           kitchen_id: number | null
           name: string | null
@@ -9863,6 +10122,7 @@ export type Database = {
           deleted_at?: string | null
           description?: string | null
           expected_monthly_occurrences?: number | null
+          folder_id?: string | null
           id?: string
           kitchen_id?: number | null
           name?: string | null
@@ -9882,6 +10142,7 @@ export type Database = {
           deleted_at?: string | null
           description?: string | null
           expected_monthly_occurrences?: number | null
+          folder_id?: string | null
           id?: string
           kitchen_id?: number | null
           name?: string | null
@@ -9904,6 +10165,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "menu_template_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "menu_template_folder"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "menu_template_kitchen_id_fkey"
             columns: ["kitchen_id"]
             isOneToOne: false
@@ -9922,6 +10190,7 @@ export type Database = {
           menu_template_id: string
           name: string
           sort_order: number
+          source_template_id: string | null
         }
         Insert: {
           base_headcount?: number | null
@@ -9932,6 +10201,7 @@ export type Database = {
           menu_template_id: string
           name: string
           sort_order?: number
+          source_template_id?: string | null
         }
         Update: {
           base_headcount?: number | null
@@ -9942,6 +10212,7 @@ export type Database = {
           menu_template_id?: string
           name?: string
           sort_order?: number
+          source_template_id?: string | null
         }
         Relationships: [
           {
@@ -9956,6 +10227,54 @@ export type Database = {
             columns: ["menu_template_id"]
             isOneToOne: false
             referencedRelation: "menu_template"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "menu_template_event_meal_source_template_id_fkey"
+            columns: ["source_template_id"]
+            isOneToOne: false
+            referencedRelation: "menu_template"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      menu_template_folder: {
+        Row: {
+          created_at: string
+          deleted_at: string | null
+          description: string | null
+          id: string
+          name: string
+          parent_id: string | null
+          sort_order: number
+          template_type: string
+        }
+        Insert: {
+          created_at?: string
+          deleted_at?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          parent_id?: string | null
+          sort_order?: number
+          template_type: string
+        }
+        Update: {
+          created_at?: string
+          deleted_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          parent_id?: string | null
+          sort_order?: number
+          template_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "menu_template_folder_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "menu_template_folder"
             referencedColumns: ["id"]
           },
         ]

@@ -29,11 +29,14 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 
 function RootDocument() {
 	return (
-		<html lang="pt-BR">
+		// Escuro no app inteiro: o telão é escuro, e o controle roda num notebook ao lado dele,
+		// no auditório com a luz baixada. Os popups (combobox, diálogo) vão para o `body` por
+		// portal, então o tema tem de estar acima dele. O card do militar volta ao claro com `light`.
+		<html lang="pt-BR" className="dark">
 			<head>
 				<HeadContent />
 			</head>
-			<body className="min-h-screen bg-slate-950 text-white antialiased">
+			<body className="min-h-screen bg-stage-deep text-white antialiased">
 				<Outlet />
 
 				{/*
@@ -46,7 +49,7 @@ function RootDocument() {
 				*/}
 				<LegalFooterLinks
 					className="fixed bottom-2 left-3 z-40 flex items-center gap-x-3"
-					linkClassName="text-[10px] text-slate-600 transition-colors hover:text-slate-300"
+					linkClassName="text-[10px] text-white/50 transition-colors hover:text-white/80"
 				/>
 				<Toaster position="top-right" viewportClassName="dark" />
 				<Scripts />

@@ -127,3 +127,21 @@ variable "image_tag_mutability" {
   type    = string
   default = "MUTABLE"
 }
+
+variable "autoscaling_max_count" {
+  description = "Teto do autoscaling por CPU; o mínimo é o desired_count. Até o desired_count, o serviço fica fixo."
+  type        = number
+  default     = 0
+}
+
+variable "health_check_timeout_seconds" {
+  description = "Timeout de cada health check do ALB (menor que o intervalo de 15 s)."
+  type        = number
+  default     = 5
+}
+
+variable "health_check_unhealthy_threshold" {
+  description = "Falhas seguidas do health check antes de o ALB tirar a task da rotação."
+  type        = number
+  default     = 2
+}

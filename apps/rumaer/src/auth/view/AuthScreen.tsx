@@ -402,7 +402,7 @@ export function AuthScreen({
 						)}
 					</IconField>
 
-					<Button type="submit" className="h-11 w-full rounded-xl text-sm" disabled={isSubmitting}>
+					<Button type="submit" className="h-11 w-full rounded-xl" disabled={isSubmitting}>
 						{isSubmitting && <RefreshCw className="mr-2 h-4 w-4 animate-spin" />}
 						Atualizar senha
 					</Button>
@@ -445,7 +445,7 @@ export function AuthScreen({
 						)}
 					</IconField>
 
-					<Button type="submit" className="h-11 w-full rounded-xl text-sm" disabled={isSubmitting}>
+					<Button type="submit" className="h-11 w-full rounded-xl" disabled={isSubmitting}>
 						{isSubmitting && <RefreshCw className="mr-2 h-4 w-4 animate-spin" />}
 						Enviar link
 					</Button>
@@ -542,7 +542,7 @@ export function AuthScreen({
 						)}
 					</IconField>
 
-					<Button type="submit" className="mt-1 h-11 w-full rounded-xl text-sm" disabled={isSubmitting || !!registerEmailError}>
+					<Button type="submit" className="mt-1 h-11 w-full rounded-xl" disabled={isSubmitting || !!registerEmailError}>
 						{isSubmitting && <RefreshCw className="mr-2 h-4 w-4 animate-spin" />}
 						{isSubmitting ? "Criando..." : "Criar conta"}
 					</Button>
@@ -593,7 +593,7 @@ export function AuthScreen({
 										variant="ghost"
 										size="icon-xs"
 										onClick={() => setShowPassword(!showPassword)}
-										className="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+										className="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground"
 										aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
 									>
 										{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -620,7 +620,7 @@ export function AuthScreen({
 						</button>
 					</div>
 
-					<Button type="submit" className="mt-1 h-11 w-full rounded-xl text-sm" disabled={isSubmitting || isLocked || !!emailError || !!passwordError}>
+					<Button type="submit" className="mt-1 h-11 w-full rounded-xl" disabled={isSubmitting || isLocked || !!emailError || !!passwordError}>
 						{isLocked ? (
 							`Bloqueado (${retryAfter}s)`
 						) : (

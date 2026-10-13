@@ -12,6 +12,7 @@ describe("escapeTemplateLiteral", () => {
 			"((now() AT TIME ZONE 'America/Sao_Paulo'::text))::date",
 			"regexp_replace(x, '\\d+', '')",
 			"'a`b'",
+			// biome-ignore lint/suspicious/noTemplateCurlyInString: o caso é justamente o `${` literal
 			"'${nao_interpola}'",
 			"\\`${",
 			"fim com barra \\",

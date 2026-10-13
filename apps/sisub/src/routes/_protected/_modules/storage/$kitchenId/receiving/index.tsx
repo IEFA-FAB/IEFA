@@ -73,7 +73,7 @@ function ReceivingListPage() {
 
 			<Card>
 				<CardHeader className="pb-2">
-					<CardTitle className="text-subheading">Notas aguardando recebimento</CardTitle>
+					<CardTitle>Notas aguardando recebimento</CardTitle>
 				</CardHeader>
 				<CardContent>
 					{receivableNotes.length === 0 ? (
@@ -86,7 +86,7 @@ function ReceivingListPage() {
 									<Button
 										size="sm"
 										variant="outline"
-										className="h-7 text-xs gap-1.5 ml-auto shrink-0"
+										className="h-7 text-xs ml-auto shrink-0"
 										disabled={creating != null}
 										onClick={() => createFromNfe(doc.id)}
 									>
@@ -102,7 +102,7 @@ function ReceivingListPage() {
 
 			<Card>
 				<CardHeader className="pb-2">
-					<CardTitle className="text-subheading">Histórico</CardTitle>
+					<CardTitle>Histórico</CardTitle>
 				</CardHeader>
 				<CardContent>
 					{receipts.length === 0 ? (

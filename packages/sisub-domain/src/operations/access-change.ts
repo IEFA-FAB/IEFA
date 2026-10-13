@@ -107,13 +107,15 @@ export function toAccessDomainError(
 export async function runAccessFunction<T extends Record<string, unknown>>(
 	db: SisubDb,
 	call: SQL,
-	errors: Parameters<typeof toAccessDomainError>[1] = {}
+	errors: Parameters<typeof toAccessDomainError>[1] = {},
+	/** Tradutor próprio dos tokens da função (o vínculo de SARAM tem os dele); o padrão é o de acesso. */
+	translate: (error: unknown) => DomainError = (error) => toAccessDomainError(error, errors)
 ): Promise<T> {
 	let rows: unknown
 	try {
 		rows = await db.execute(sql`select ${call} as result`)
 	} catch (error) {
-		throw toAccessDomainError(error, errors)
+		throw translate(error)
 	}
 	const raw = (rows as unknown as Array<{ result: unknown }>)[0]?.result
 	// O driver devolve `jsonb` já decodificado; texto só se um parser de tipo for trocado.
