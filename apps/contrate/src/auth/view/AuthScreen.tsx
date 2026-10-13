@@ -13,8 +13,11 @@ export type { AuthView } from "@iefa/auth-kit"
 
 // Regras e textos da tela vêm de @iefa/auth-kit; aqui só o que é deste app.
 // portal e contrate têm este arquivo idêntico (cópia por contrato).
+// Nome no padrão que o scanner do inventário de cookies reconhece (`@iefa/legal-kit`).
+const STORAGE_KEY_REMEMBER_EMAIL = "fab_remember_email"
+
 const AUTH_SCREEN_CONFIG: AuthScreenConfig = {
-	rememberEmailKey: "fab_remember_email",
+	rememberEmailKey: STORAGE_KEY_REMEMBER_EMAIL,
 	messages: FAB_EMAIL_AUTH_MESSAGES,
 }
 

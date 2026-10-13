@@ -21,8 +21,11 @@ export type { AuthView } from "@iefa/auth-kit"
  *   de recuperação);
  * - nova senha salva é confirmada em banner, não em `alert`.
  */
+// Nome no padrão que o scanner do inventário de cookies reconhece (`@iefa/legal-kit`).
+const STORAGE_KEY_REMEMBER_EMAIL = "sucont_remember_email"
+
 const AUTH_SCREEN_CONFIG: AuthScreenConfig = {
-	rememberEmailKey: "sucont_remember_email",
+	rememberEmailKey: STORAGE_KEY_REMEMBER_EMAIL,
 	messages: {
 		...FAB_EMAIL_AUTH_MESSAGES,
 		emailHint: "Use seu e-mail institucional @fab.mil.br (sem caracteres especiais).",
