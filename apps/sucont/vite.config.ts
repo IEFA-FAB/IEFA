@@ -13,7 +13,6 @@ const config = defineConfig({
 	plugins: [
 		devtools(),
 		nitro({
-			rollupConfig: { external: [/^@sentry\//] },
 			// Rota Nitro só existe se estiver declarada aqui. Sem isto o arquivo em
 			// `routes/` é compilado e nunca registrado: o pedido cai no catch-all do SSR
 			// do TanStack Start, que devolve 307 para /auth — foi o que aconteceu com o
