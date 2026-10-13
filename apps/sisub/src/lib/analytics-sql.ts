@@ -290,96 +290,125 @@ function checkRelationAt(tokens: Token[], i: number, cteNames: Set<string>): str
 	return null
 }
 
+/** Funções em que `FROM` é parte da sintaxe, não relação. */
+const FUNCTIONS_WITH_FROM_ARGUMENT = new Set(["extract", "substring", "trim"])
+
+/** Etapa 1: checagens no texto (antes de tokenizar). Devolve o erro, se houver. */
+function checkRawText(normalized: string, up: string): string | null {
+	if (normalized.length > MAX_QUERY_LENGTH) return "SQL muito longa"
+
+	// Only SELECT or WITH … SELECT (CTEs)
+	if (!up.startsWith("SELECT") && !up.startsWith("WITH")) return "Apenas SELECT permitido"
+
+	if (normalized.includes(";")) return "Múltiplas instruções não são permitidas"
+
+	return findBlockedKeyword(normalized, up)
+}
+
+/** Block DML / DDL — no texto cru, de propósito conservador (inclusive dentro de string). */
+function findBlockedKeyword(normalized: string, up: string): string | null {
+	for (const kw of BLOCKED_KEYWORDS) {
+		if (kw === "$$" ? up.includes(kw) : new RegExp(`\\b${kw}\\b`, "i").test(normalized)) return `Keyword proibida: ${kw}`
+	}
+	return null
+}
+
+/** Estado da varredura de tokens. */
+type TokenScan = {
+	tokens: Token[]
+	cteNames: Set<string>
+	/** Contexto por nível de parênteses: dentro da lista de relações de um FROM? */
+	inFromList: boolean[]
+	depth: number
+}
+
+/** Etapa 2: tokeniza e varre os tokens. Devolve o erro, se houver. */
+function checkTokens(normalized: string): string | null {
+	const tokens = tokenize(normalized)
+	if (typeof tokens === "string") return tokens
+	return scanTokens({ tokens, cteNames: collectCteNames(tokens), inFromList: [false], depth: 0 })
+}
+
+function scanTokens(scan: TokenScan): string | null {
+	for (let i = 0; i < scan.tokens.length; i++) {
+		const token = scan.tokens[i]
+		// Parêntese pelo VALOR, de qualquer tipo de token (inclusive a string '(').
+		if (token.value === "(") {
+			scan.depth++
+			scan.inFromList[scan.depth] = false
+			continue
+		}
+		if (token.value === ")") {
+			scan.inFromList[scan.depth] = false
+			scan.depth = Math.max(0, scan.depth - 1)
+			continue
+		}
+		const err = token.kind === "ident" ? checkIdentToken(scan, i) : checkFromListComma(scan, i)
+		if (err) return err
+	}
+	return null
+}
+
+function checkIdentToken(scan: TokenScan, i: number): string | null {
+	const token = scan.tokens[i]
+	// Catálogo e funções de sistema: nada de pg_* nem information_schema.
+	if (token.value.startsWith("pg_") || token.value === "information_schema") {
+		return `Identificador não permitido: ${token.value}`
+	}
+
+	if (token.value === "from" || token.value === "join") return checkRelationKeyword(scan, i)
+
+	if (FROM_LIST_TERMINATORS.has(token.value)) scan.inFromList[scan.depth] = false
+
+	return checkFunctionCall(scan.tokens, i)
+}
+
+/** `FROM`/`JOIN`: confere a relação seguinte e abre a lista de relações do nível. */
+function checkRelationKeyword(scan: TokenScan, i: number): string | null {
+	const token = scan.tokens[i]
+	// `EXTRACT(x FROM y)` e `SUBSTRING(a FROM b)` usam FROM sem ser relação.
+	const opener = findOpenerFunction(scan.tokens, i)
+	if (token.value === "from" && opener && FUNCTIONS_WITH_FROM_ARGUMENT.has(opener)) return null
+	const err = checkRelationAt(scan.tokens, i + 1, scan.cteNames)
+	if (err) return err
+	scan.inFromList[scan.depth] = true
+	return null
+}
+
+/** Identificador seguido de "(": só função liberada, palavra-chave ou tipo. */
+function checkFunctionCall(tokens: Token[], i: number): string | null {
+	if (tokens[i + 1]?.value !== "(") return null
+	const token = tokens[i]
+	const prev = tokens[i - 1]
+	if (prev?.value === ".") return `Função qualificada não permitida: ${token.value}`
+	const isType = prev?.value === "::" || prev?.value === "as"
+	if (!isType && !ALLOWED_FUNCTIONS.has(token.value) && !KEYWORDS_BEFORE_PAREN.has(token.value)) {
+		return `Função não permitida: ${token.value}`
+	}
+	return null
+}
+
+/** Vírgula no nível de uma lista de relações abre outra relação. */
+function checkFromListComma(scan: TokenScan, i: number): string | null {
+	if (scan.tokens[i].value !== "," || !scan.inFromList[scan.depth]) return null
+	return checkRelationAt(scan.tokens, i + 1, scan.cteNames)
+}
+
+/** Etapa 3: todo `LIMIT n` do texto (inclusive dentro de string) até o máximo. */
+function checkLimits(normalized: string): string | null {
+	const limitMatches = [...normalized.matchAll(/\bLIMIT\s+(\d+)\b/gi)]
+	for (const [, rawLimit] of limitMatches) {
+		if (Number(rawLimit) > MAX_LIMIT) return `LIMIT máximo permitido: ${MAX_LIMIT}`
+	}
+	return null
+}
+
 export function validateSql(sql: string): { valid: boolean; error?: string } {
 	if (!sql?.trim()) return { valid: false, error: "SQL vazio" }
 
 	const normalized = sql.trim().replace(/;$/, "")
-	const up = normalized.toUpperCase()
-
-	if (normalized.length > MAX_QUERY_LENGTH) return { valid: false, error: "SQL muito longa" }
-
-	// Only SELECT or WITH … SELECT (CTEs)
-	if (!up.startsWith("SELECT") && !up.startsWith("WITH")) {
-		return { valid: false, error: "Apenas SELECT permitido" }
-	}
-
-	if (normalized.includes(";")) {
-		return { valid: false, error: "Múltiplas instruções não são permitidas" }
-	}
-
-	// Block DML / DDL — no texto cru, de propósito conservador (inclusive dentro de string).
-	for (const kw of BLOCKED_KEYWORDS) {
-		if (kw === "$$" ? up.includes(kw) : new RegExp(`\\b${kw}\\b`, "i").test(normalized)) {
-			return { valid: false, error: `Keyword proibida: ${kw}` }
-		}
-	}
-
-	const tokens = tokenize(normalized)
-	if (typeof tokens === "string") return { valid: false, error: tokens }
-
-	const cteNames = collectCteNames(tokens)
-
-	// Contexto por nível de parênteses: dentro da lista de relações de um FROM?
-	const inFromList: boolean[] = [false]
-	let depth = 0
-
-	for (let i = 0; i < tokens.length; i++) {
-		const token = tokens[i]
-		const prev = tokens[i - 1]
-
-		if (token.value === "(") {
-			depth++
-			inFromList[depth] = false
-			continue
-		}
-		if (token.value === ")") {
-			inFromList[depth] = false
-			depth = Math.max(0, depth - 1)
-			continue
-		}
-
-		if (token.kind === "ident") {
-			// Catálogo e funções de sistema: nada de pg_* nem information_schema.
-			if (token.value.startsWith("pg_") || token.value === "information_schema") {
-				return { valid: false, error: `Identificador não permitido: ${token.value}` }
-			}
-
-			if (token.value === "from" || token.value === "join") {
-				// `EXTRACT(x FROM y)` e `SUBSTRING(a FROM b)` usam FROM sem ser relação.
-				const opener = findOpenerFunction(tokens, i)
-				if (token.value === "from" && opener && (opener === "extract" || opener === "substring" || opener === "trim")) continue
-				const err = checkRelationAt(tokens, i + 1, cteNames)
-				if (err) return { valid: false, error: err }
-				inFromList[depth] = true
-				continue
-			}
-
-			if (FROM_LIST_TERMINATORS.has(token.value)) inFromList[depth] = false
-
-			if (tokens[i + 1]?.value === "(") {
-				if (prev?.value === ".") return { valid: false, error: `Função qualificada não permitida: ${token.value}` }
-				const isType = prev?.value === "::" || prev?.value === "as"
-				if (!isType && !ALLOWED_FUNCTIONS.has(token.value) && !KEYWORDS_BEFORE_PAREN.has(token.value)) {
-					return { valid: false, error: `Função não permitida: ${token.value}` }
-				}
-			}
-			continue
-		}
-
-		if (token.value === "," && inFromList[depth]) {
-			const err = checkRelationAt(tokens, i + 1, cteNames)
-			if (err) return { valid: false, error: err }
-		}
-	}
-
-	const limitMatches = [...normalized.matchAll(/\bLIMIT\s+(\d+)\b/gi)]
-	for (const [, rawLimit] of limitMatches) {
-		if (Number(rawLimit) > MAX_LIMIT) {
-			return { valid: false, error: `LIMIT máximo permitido: ${MAX_LIMIT}` }
-		}
-	}
-
-	return { valid: true }
+	const error = checkRawText(normalized, normalized.toUpperCase()) ?? checkTokens(normalized) ?? checkLimits(normalized)
+	return error === null ? { valid: true } : { valid: false, error }
 }
 
 /** Nome da função cujo "(" envolve a posição `i` no mesmo nível, se houver. */

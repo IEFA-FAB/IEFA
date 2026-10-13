@@ -179,8 +179,8 @@ describe("describeChatAction — uma descrição por tool de escrita, sem UUID",
 	})
 
 	/**
-	 * A lista de escritas vem do registro (`requiredLevel >= 2`). Tool de escrita nova sem `case`
-	 * em `describeByTool` cairia calada em "não foi possível descrever o item" em todo cartão.
+	 * A lista de escritas vem do registro (`requiredLevel >= 2`). Tool de escrita nova sem descritor
+	 * no `DESCRIBERS` (`describeByTool`) cairia calada em "não foi possível descrever o item" em todo cartão.
 	 */
 	test("toda tool que exige aprovação tem descrição, no módulo em que existe", async () => {
 		const SAMPLE_ARGS: Record<string, [scopeId: number | undefined, args: Record<string, unknown>]> = {
@@ -255,6 +255,70 @@ describe("describeChatAction — falha vira 'não foi possível descrever'", () 
 	test("sem rota, a permissão da cozinha resolvida decide", async () => {
 		const out = await describeChatAction({ toolName: "remove_menu_item", args: { itemId: ITEM_K7 } }, access("kitchen"), reader)
 		expect(out.status).toBe("described")
+	})
+})
+
+describe("describeChatAction — cada recusa e cada campo opcional, por tool", () => {
+	const unavailable = { status: "unavailable" }
+	const describeAs = (module: ChatModule, toolName: string, args: Record<string, unknown>, scopeId?: number, deny: string[] = []) =>
+		describeChatAction({ toolName, args }, access(module, scopeId, deny), reader)
+
+	test("create_recipe e update_recipe exigem leitura no global", async () => {
+		expect(await describeAs("global", "create_recipe", { name: "Pudim" }, undefined, ["global"])).toEqual(unavailable)
+		expect(await describeAs("global", "update_recipe", { recipeId: RECIPE_GLOBAL, name: "x" }, undefined, ["global"])).toEqual(unavailable)
+	})
+
+	test("create_recipe com todos os campos", async () => {
+		const out = await describeAs("global", "create_recipe", { name: "Pudim", preparationTime: 40, cookingFactor: 1.2 })
+		expect(values(out)).toBe("Receita nova (catálogo global): Pudim | Tempo de preparo: 40 min | Fator de cocção: 1.2")
+	})
+
+	test("update_recipe: receita de cozinha ou inexistente não é descrita; campos opcionais", async () => {
+		expect(await describeAs("global", "update_recipe", { recipeId: RECIPE_K7, name: "x" })).toEqual(unavailable)
+		expect(await describeAs("global", "update_recipe", { recipeId: MISSING, name: "x" })).toEqual(unavailable)
+		const out = await describeAs("global", "update_recipe", { recipeId: RECIPE_GLOBAL, preparationTime: 15, cookingFactor: 0.8 })
+		expect(values(out)).toBe("Receita: Arroz carreteiro | Tempo de preparo: 15 min | Fator de cocção: 0.8")
+	})
+
+	test("create_daily_menu: cozinha fora da rota, refeição de outra cozinha, refeição inexistente; sem efetivo", async () => {
+		expect(await describeAs("kitchen", "create_daily_menu", { kitchenId: 8, date: "2026-10-12", mealTypeId: MEAL_ALMOCO }, 7)).toEqual(unavailable)
+		expect(await describeAs("kitchen", "create_daily_menu", { kitchenId: 8, date: "2026-10-12", mealTypeId: MEAL_JANTAR }, 8)).toEqual(unavailable)
+		expect(await describeAs("kitchen", "create_daily_menu", { kitchenId: 7, date: "2026-10-12", mealTypeId: MISSING }, 7)).toEqual(unavailable)
+		const out = await describeAs("kitchen", "create_daily_menu", { kitchenId: 7, date: "2026-10-12", mealTypeId: MEAL_JANTAR }, 7)
+		expect(values(out)).toBe("Cardápio novo: 12/10/2026 · Jantar · Cozinha do GAP-SJ")
+	})
+
+	test("add_menu_item: cardápio inexistente ou de outra cozinha; receita da própria cozinha vale", async () => {
+		expect(await describeAs("kitchen", "add_menu_item", { dailyMenuId: MISSING, recipeId: RECIPE_GLOBAL }, 7)).toEqual(unavailable)
+		expect(await describeAs("kitchen", "add_menu_item", { dailyMenuId: MENU_K8, recipeId: RECIPE_GLOBAL }, 7)).toEqual(unavailable)
+		expect(await describeAs("kitchen", "add_menu_item", { dailyMenuId: MENU_K7, recipeId: MISSING }, 7)).toEqual(unavailable)
+		const out = await describeAs("kitchen", "add_menu_item", { dailyMenuId: MENU_K7, recipeId: RECIPE_K7 }, 7)
+		expect(values(out)).toBe("Receita: Feijoada da casa | Cardápio: 12/10/2026 · Almoço · Cozinha do GAP-SJ")
+	})
+
+	test("update_menu_headcount: efetivo atual vazio aparece como a definir", async () => {
+		const out = await describeAs("kitchen", "update_menu_headcount", { menuId: MENU_K8, forecastedHeadcount: 30 }, 8)
+		expect(values(out)).toBe("Cardápio: 12/10/2026 · Jantar · Cozinha 8 | Comensais previstos: a definir → 30")
+	})
+
+	test("apply_template: template inexistente, cozinha fora da rota, refeição de outra cozinha", async () => {
+		const base = { templateId: TEMPLATE_GLOBAL, kitchenId: 8, targetDates: ["2026-10-12"], startDayOfWeek: 1 }
+		expect(await describeAs("kitchen", "apply_template", { ...base, templateId: MISSING }, 8)).toEqual(unavailable)
+		expect(await describeAs("kitchen", "apply_template", base, 7)).toEqual(unavailable)
+		expect(await describeAs("kitchen", "apply_template", { ...base, headcounts: [{ mealTypeId: MEAL_JANTAR, headcount: 10 }] }, 8)).toEqual(unavailable)
+		expect(await describeAs("kitchen", "apply_template", { ...base, headcounts: [{ mealTypeId: MISSING, headcount: 10 }] }, 8)).toEqual(unavailable)
+	})
+
+	test("apply_template: data única no singular e sem linha de efetivo quando não há efetivo", async () => {
+		const out = await describeAs("kitchen", "apply_template", { templateId: TEMPLATE_GLOBAL, kitchenId: 8, targetDates: ["2026-10-12"], startDayOfWeek: 7 }, 8)
+		expect(values(out)).toBe("Template: Semana padrão SDAB | Cozinha: Cozinha 8 | Data (só dias vazios): 12/10/2026 | Dia inicial do template: Domingo")
+	})
+
+	test("update_quantity_estimate_status: sem permissão na OM ou anexo inexistente", async () => {
+		expect(await describeAs("unit", "update_quantity_estimate_status", { quantityEstimateId: ESTIMATE_U3, status: "completed" }, 3, ["unit:3"])).toEqual(
+			unavailable
+		)
+		expect(await describeAs("unit", "update_quantity_estimate_status", { quantityEstimateId: MISSING, status: "completed" }, 3)).toEqual(unavailable)
 	})
 })
 

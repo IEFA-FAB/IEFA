@@ -152,136 +152,168 @@ function isRecipeVisibleFrom(recipe: { kitchenId: number | null }, kitchenId: nu
 }
 
 /**
- * `parsed` é a saída do `parseArgs` da própria tool (via registro); o tipo de cada `case` é o
- * que aquele `parseArgs` devolve.
+ * `parsed` é a saída do `parseArgs` da própria tool (via registro); o tipo que cada descritor
+ * assume é o que aquele `parseArgs` devolve.
  */
+type ToolDescriber = (parsed: Record<string, unknown>, access: ChatActionAccess, reader: ChatActionReader) => Promise<ChatActionDescription>
+
+async function describeCreateRecipe(parsed: Record<string, unknown>, access: ChatActionAccess): Promise<ChatActionDescription> {
+	const args = parsed as CreateRecipeArgs
+	if (!access.hasReadPermission("global")) return UNAVAILABLE
+	return buildDescription([
+		{ label: "Receita nova (catálogo global)", value: formatText(args.name) },
+		args.preparationTime != null ? { label: "Tempo de preparo", value: `${args.preparationTime} min` } : null,
+		args.cookingFactor != null ? { label: "Fator de cocção", value: String(args.cookingFactor) } : null,
+	])
+}
+
+async function describeUpdateRecipe(parsed: Record<string, unknown>, access: ChatActionAccess, reader: ChatActionReader): Promise<ChatActionDescription> {
+	const args = parsed as UpdateRecipeArgs
+	if (!access.hasReadPermission("global")) return UNAVAILABLE
+	const recipe = await reader.findRecipe(args.recipeId)
+	// A tool só altera receita global; descrever a de uma cozinha seria mostrar o que ela não toca.
+	if (!recipe || recipe.kitchenId !== null) return UNAVAILABLE
+	return buildDescription([
+		{ label: "Receita", value: formatText(recipe.name) },
+		args.name !== undefined ? { label: "Novo nome", value: formatText(args.name) } : null,
+		args.preparationTime != null ? { label: "Tempo de preparo", value: `${args.preparationTime} min` } : null,
+		args.cookingFactor != null ? { label: "Fator de cocção", value: String(args.cookingFactor) } : null,
+	])
+}
+
+async function describeCreateDailyMenu(parsed: Record<string, unknown>, access: ChatActionAccess, reader: ChatActionReader): Promise<ChatActionDescription> {
+	const args = parsed as UpsertDailyMenu
+	if (!isKitchenVisible(access, args.kitchenId)) return UNAVAILABLE
+	const [kitchen, mealTypes] = await Promise.all([reader.findKitchen(args.kitchenId), reader.findMealTypes([args.mealTypeId])])
+	const mealType = mealTypes.get(args.mealTypeId)
+	if (!kitchen || !mealType) return UNAVAILABLE
+	if (mealType.kitchenId !== null && mealType.kitchenId !== args.kitchenId) return UNAVAILABLE
+	return buildDescription([
+		{
+			label: "Cardápio novo",
+			value: [formatDate(args.serviceDate), formatText(mealType.name, "refeição sem nome"), formatText(kitchen.name, "cozinha sem nome")].join(" · "),
+		},
+		args.forecastedHeadcount != null ? { label: "Comensais previstos", value: String(args.forecastedHeadcount) } : null,
+	])
+}
+
+async function describeAddMenuItem(parsed: Record<string, unknown>, access: ChatActionAccess, reader: ChatActionReader): Promise<ChatActionDescription> {
+	const args = parsed as AddMenuItemArgs
+	// Em sequência, de propósito: a receita só é lida depois de o cardápio passar no crivo de
+	// escopo e PBAC — a descrição não lê nada que a tela não mostraria.
+	const menu = await reader.findDailyMenu(args.dailyMenuId)
+	if (!menu || !isKitchenVisible(access, menu.kitchenId)) return UNAVAILABLE
+	const recipe = await reader.findRecipe(args.recipeId)
+	if (!recipe || !isRecipeVisibleFrom(recipe, menu.kitchenId)) return UNAVAILABLE
+	return buildDescription([
+		{ label: "Receita", value: formatText(recipe.name) },
+		{ label: "Cardápio", value: formatMenu(menu) },
+	])
+}
+
+async function describeRemoveMenuItem(parsed: Record<string, unknown>, access: ChatActionAccess, reader: ChatActionReader): Promise<ChatActionDescription> {
+	const args = parsed as RemoveMenuItemArgs
+	const item = await reader.findMenuItem(args.itemId)
+	if (!item?.menu || !isKitchenVisible(access, item.menu.kitchenId)) return UNAVAILABLE
+	return buildDescription([
+		{ label: "Item", value: formatText(item.recipeName, "item sem nome") },
+		{ label: "Cardápio", value: formatMenu(item.menu) },
+	])
+}
+
+async function describeUpdateMenuHeadcount(
+	parsed: Record<string, unknown>,
+	access: ChatActionAccess,
+	reader: ChatActionReader
+): Promise<ChatActionDescription> {
+	const args = parsed as UpdateMenuHeadcountArgs
+	const menu = await reader.findDailyMenu(args.menuId)
+	if (!menu || !isKitchenVisible(access, menu.kitchenId)) return UNAVAILABLE
+	const current = menu.forecastedHeadcount == null ? "a definir" : String(menu.forecastedHeadcount)
+	return buildDescription([
+		{ label: "Cardápio", value: formatMenu(menu) },
+		{ label: "Comensais previstos", value: `${current} → ${args.forecastedHeadcount}` },
+	])
+}
+
+/** Linhas "refeição: efetivo" do template; `null` quando algum tipo de refeição não serve à cozinha. */
+function formatHeadcountLines(
+	headcounts: NonNullable<AgentApplyTemplate["headcounts"]>,
+	mealTypes: ReadonlyMap<string, MealTypeView>,
+	kitchenId: number
+): string[] | null {
+	const headcountLines: string[] = []
+	for (const entry of headcounts) {
+		const mealType = mealTypes.get(entry.mealTypeId)
+		if (!mealType || (mealType.kitchenId !== null && mealType.kitchenId !== kitchenId)) return null
+		headcountLines.push(`${formatText(mealType.name, "refeição sem nome")}: ${entry.headcount ?? "a definir"}`)
+	}
+	return headcountLines
+}
+
+async function describeApplyTemplate(parsed: Record<string, unknown>, access: ChatActionAccess, reader: ChatActionReader): Promise<ChatActionDescription> {
+	const args = parsed as AgentApplyTemplate
+	if (!isKitchenVisible(access, args.kitchenId)) return UNAVAILABLE
+	const headcounts = args.headcounts ?? []
+	const [template, kitchen, mealTypes] = await Promise.all([
+		reader.findTemplate(args.templateId),
+		reader.findKitchen(args.kitchenId),
+		reader.findMealTypes([...new Set(headcounts.map((entry) => entry.mealTypeId))]),
+	])
+	if (!template || !kitchen) return UNAVAILABLE
+	if (template.kitchenId !== null && template.kitchenId !== args.kitchenId) return UNAVAILABLE
+
+	const dates = [...new Set(args.targetDates)].toSorted()
+	const headcountLines = formatHeadcountLines(headcounts, mealTypes, args.kitchenId)
+	if (headcountLines === null) return UNAVAILABLE
+	return buildDescription([
+		{ label: "Template", value: formatText(template.name) },
+		{ label: "Cozinha", value: formatText(kitchen.name, "cozinha sem nome") },
+		{ label: dates.length === 1 ? "Data (só dias vazios)" : `${dates.length} datas (só dias vazios)`, value: dates.map(formatDate).join(", ") },
+		// Mesmo rótulo e mesmo valor do campo do `ApplyTemplateDialog`: o dia da semana em que cai
+		// o dia 1 do template — as datas nesse dia recebem o dia 1, e os demais seguem a ordem
+		// dele (`applyTemplate`). Não é "o dia do template da primeira data".
+		{ label: "Dia inicial do template", value: formatWeekday(args.startDayOfWeek) },
+		headcountLines.length > 0 ? { label: "Efetivo por refeição", value: headcountLines.join("; ") } : null,
+	])
+}
+
+async function describeUpdateQuantityEstimateStatus(
+	parsed: Record<string, unknown>,
+	access: ChatActionAccess,
+	reader: ChatActionReader
+): Promise<ChatActionDescription> {
+	const args = parsed as AgentUpdateQuantityEstimateStatus
+	const estimate = await reader.findQuantityEstimate(args.quantityEstimateId)
+	if (!estimate || !isUnitVisible(access, estimate.unitId)) return UNAVAILABLE
+	return buildDescription([
+		{ label: "Anexo quantitativo", value: formatText(estimate.title, "sem título") },
+		{ label: "OM", value: formatText(estimate.unitName, "OM sem nome") },
+		{ label: "Status", value: `${formatStatus(estimate.status)} → ${formatStatus(args.status)}` },
+	])
+}
+
+/** Tool de escrita → descritor. `Map`, não objeto: nome de tool não pode cair em `Object.prototype`. */
+const DESCRIBERS = new Map<string, ToolDescriber>([
+	["create_recipe", describeCreateRecipe],
+	["update_recipe", describeUpdateRecipe],
+	["create_daily_menu", describeCreateDailyMenu],
+	["add_menu_item", describeAddMenuItem],
+	["remove_menu_item", describeRemoveMenuItem],
+	["update_menu_headcount", describeUpdateMenuHeadcount],
+	["apply_template", describeApplyTemplate],
+	["update_quantity_estimate_status", describeUpdateQuantityEstimateStatus],
+])
+
+/** Tool sem descritor (não é de escrita, ou ainda não descrita) vira `unavailable`. */
 async function describeByTool(
 	toolName: string,
 	parsed: Record<string, unknown>,
 	access: ChatActionAccess,
 	reader: ChatActionReader
 ): Promise<ChatActionDescription> {
-	switch (toolName) {
-		case "create_recipe": {
-			const args = parsed as CreateRecipeArgs
-			if (!access.hasReadPermission("global")) return UNAVAILABLE
-			return buildDescription([
-				{ label: "Receita nova (catálogo global)", value: formatText(args.name) },
-				args.preparationTime != null ? { label: "Tempo de preparo", value: `${args.preparationTime} min` } : null,
-				args.cookingFactor != null ? { label: "Fator de cocção", value: String(args.cookingFactor) } : null,
-			])
-		}
-
-		case "update_recipe": {
-			const args = parsed as UpdateRecipeArgs
-			if (!access.hasReadPermission("global")) return UNAVAILABLE
-			const recipe = await reader.findRecipe(args.recipeId)
-			// A tool só altera receita global; descrever a de uma cozinha seria mostrar o que ela não toca.
-			if (!recipe || recipe.kitchenId !== null) return UNAVAILABLE
-			return buildDescription([
-				{ label: "Receita", value: formatText(recipe.name) },
-				args.name !== undefined ? { label: "Novo nome", value: formatText(args.name) } : null,
-				args.preparationTime != null ? { label: "Tempo de preparo", value: `${args.preparationTime} min` } : null,
-				args.cookingFactor != null ? { label: "Fator de cocção", value: String(args.cookingFactor) } : null,
-			])
-		}
-
-		case "create_daily_menu": {
-			const args = parsed as UpsertDailyMenu
-			if (!isKitchenVisible(access, args.kitchenId)) return UNAVAILABLE
-			const [kitchen, mealTypes] = await Promise.all([reader.findKitchen(args.kitchenId), reader.findMealTypes([args.mealTypeId])])
-			const mealType = mealTypes.get(args.mealTypeId)
-			if (!kitchen || !mealType) return UNAVAILABLE
-			if (mealType.kitchenId !== null && mealType.kitchenId !== args.kitchenId) return UNAVAILABLE
-			return buildDescription([
-				{
-					label: "Cardápio novo",
-					value: [formatDate(args.serviceDate), formatText(mealType.name, "refeição sem nome"), formatText(kitchen.name, "cozinha sem nome")].join(" · "),
-				},
-				args.forecastedHeadcount != null ? { label: "Comensais previstos", value: String(args.forecastedHeadcount) } : null,
-			])
-		}
-
-		case "add_menu_item": {
-			const args = parsed as AddMenuItemArgs
-			// Em sequência, de propósito: a receita só é lida depois de o cardápio passar no crivo de
-			// escopo e PBAC — a descrição não lê nada que a tela não mostraria.
-			const menu = await reader.findDailyMenu(args.dailyMenuId)
-			if (!menu || !isKitchenVisible(access, menu.kitchenId)) return UNAVAILABLE
-			const recipe = await reader.findRecipe(args.recipeId)
-			if (!recipe || !isRecipeVisibleFrom(recipe, menu.kitchenId)) return UNAVAILABLE
-			return buildDescription([
-				{ label: "Receita", value: formatText(recipe.name) },
-				{ label: "Cardápio", value: formatMenu(menu) },
-			])
-		}
-
-		case "remove_menu_item": {
-			const args = parsed as RemoveMenuItemArgs
-			const item = await reader.findMenuItem(args.itemId)
-			if (!item?.menu || !isKitchenVisible(access, item.menu.kitchenId)) return UNAVAILABLE
-			return buildDescription([
-				{ label: "Item", value: formatText(item.recipeName, "item sem nome") },
-				{ label: "Cardápio", value: formatMenu(item.menu) },
-			])
-		}
-
-		case "update_menu_headcount": {
-			const args = parsed as UpdateMenuHeadcountArgs
-			const menu = await reader.findDailyMenu(args.menuId)
-			if (!menu || !isKitchenVisible(access, menu.kitchenId)) return UNAVAILABLE
-			const current = menu.forecastedHeadcount == null ? "a definir" : String(menu.forecastedHeadcount)
-			return buildDescription([
-				{ label: "Cardápio", value: formatMenu(menu) },
-				{ label: "Comensais previstos", value: `${current} → ${args.forecastedHeadcount}` },
-			])
-		}
-
-		case "apply_template": {
-			const args = parsed as AgentApplyTemplate
-			if (!isKitchenVisible(access, args.kitchenId)) return UNAVAILABLE
-			const headcounts = args.headcounts ?? []
-			const [template, kitchen, mealTypes] = await Promise.all([
-				reader.findTemplate(args.templateId),
-				reader.findKitchen(args.kitchenId),
-				reader.findMealTypes([...new Set(headcounts.map((entry) => entry.mealTypeId))]),
-			])
-			if (!template || !kitchen) return UNAVAILABLE
-			if (template.kitchenId !== null && template.kitchenId !== args.kitchenId) return UNAVAILABLE
-
-			const dates = [...new Set(args.targetDates)].toSorted()
-			const headcountLines: string[] = []
-			for (const entry of headcounts) {
-				const mealType = mealTypes.get(entry.mealTypeId)
-				if (!mealType || (mealType.kitchenId !== null && mealType.kitchenId !== args.kitchenId)) return UNAVAILABLE
-				headcountLines.push(`${formatText(mealType.name, "refeição sem nome")}: ${entry.headcount ?? "a definir"}`)
-			}
-			return buildDescription([
-				{ label: "Template", value: formatText(template.name) },
-				{ label: "Cozinha", value: formatText(kitchen.name, "cozinha sem nome") },
-				{ label: dates.length === 1 ? "Data (só dias vazios)" : `${dates.length} datas (só dias vazios)`, value: dates.map(formatDate).join(", ") },
-				// Mesmo rótulo e mesmo valor do campo do `ApplyTemplateDialog`: o dia da semana em que cai
-				// o dia 1 do template — as datas nesse dia recebem o dia 1, e os demais seguem a ordem
-				// dele (`applyTemplate`). Não é "o dia do template da primeira data".
-				{ label: "Dia inicial do template", value: formatWeekday(args.startDayOfWeek) },
-				headcountLines.length > 0 ? { label: "Efetivo por refeição", value: headcountLines.join("; ") } : null,
-			])
-		}
-
-		case "update_quantity_estimate_status": {
-			const args = parsed as AgentUpdateQuantityEstimateStatus
-			const estimate = await reader.findQuantityEstimate(args.quantityEstimateId)
-			if (!estimate || !isUnitVisible(access, estimate.unitId)) return UNAVAILABLE
-			return buildDescription([
-				{ label: "Anexo quantitativo", value: formatText(estimate.title, "sem título") },
-				{ label: "OM", value: formatText(estimate.unitName, "OM sem nome") },
-				{ label: "Status", value: `${formatStatus(estimate.status)} → ${formatStatus(args.status)}` },
-			])
-		}
-
-		default:
-			return UNAVAILABLE
-	}
+	const describe = DESCRIBERS.get(toolName)
+	return describe ? describe(parsed, access, reader) : UNAVAILABLE
 }
 
 /**
