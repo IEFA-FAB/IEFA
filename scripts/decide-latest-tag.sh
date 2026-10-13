@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Decide se o build publica também `:latest` (passo "Decide whether to move :latest" de
-# `.github/workflows/_app-build.yml`). Escreve `move=true|false` em `$GITHUB_OUTPUT`.
+# `.github/workflows/_release.yml`). Escreve `move=true|false` em `$GITHUB_OUTPUT`.
 #
 # Só segura `:latest` quando ele já tem um commit MAIS NOVO que este build (`behind`): dois runs
 # da `main` em paralelo não podem deixar a imagem velha em `:latest`. Em qualquer outro caso

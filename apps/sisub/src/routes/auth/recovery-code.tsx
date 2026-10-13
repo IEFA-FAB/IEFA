@@ -135,7 +135,7 @@ function RecoveryCodePage() {
 						size="sm"
 						nativeButton={false}
 						render={
-							<Link to="/auth/challenge" search={{ redirect: "/hub" }} className="gap-1.5">
+							<Link to="/auth/challenge" search={{ redirect: "/hub" }}>
 								<ArrowLeft className="size-3.5" aria-hidden />
 								Voltar ao código do aplicativo
 							</Link>

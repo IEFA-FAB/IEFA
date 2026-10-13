@@ -1,10 +1,10 @@
 export const constants = {
 	WIDTH: 500,
-	MAPCOLOR: "#ffffff",
-	STROKE_COLOR: "#000000",
+	// Cores lidas do tema (styles.css): o mapa só aparece no telão.
+	MAPCOLOR: "var(--color-map-land)",
+	STROKE_COLOR: "var(--color-stage)",
 	STROKE_WIDTH: 0.5,
-	HOVERCOLOR: "#303030",
-	SELECTED_COLOR: "#ff0000",
+	SELECTED_COLOR: "var(--color-info)",
 }
 
 export const stateCode = [

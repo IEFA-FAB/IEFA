@@ -61,7 +61,7 @@ function McpKeysPage() {
 			{/* Info card */}
 			<Card className="border-dashed bg-muted/30">
 				<CardHeader className="pb-2">
-					<CardTitle className="text-subheading flex items-center gap-2">
+					<CardTitle className="flex items-center gap-2">
 						<Terminal className="size-4 text-muted-foreground" />
 						Como usar
 					</CardTitle>
@@ -96,7 +96,7 @@ function McpKeysPage() {
 						</span>
 					)}
 				</p>
-				<Button size="sm" onClick={() => setCreateOpen(true)} className="gap-2">
+				<Button size="sm" onClick={() => setCreateOpen(true)}>
 					<Plus className="size-4" />
 					Nova Chave
 				</Button>
@@ -118,7 +118,7 @@ function McpKeysPage() {
 						<KeyRound className="size-10 text-muted-foreground/40 mb-3" />
 						<p className="text-subheading text-muted-foreground">Nenhuma chave cadastrada</p>
 						<p className="text-xs text-muted-foreground/70 mt-1">Crie uma chave para usar o sisub-mcp com Claude ou Cursor.</p>
-						<Button size="sm" variant="outline" onClick={() => setCreateOpen(true)} className="mt-4 gap-2">
+						<Button size="sm" variant="outline" onClick={() => setCreateOpen(true)} className="mt-4">
 							<Plus className="size-4" />
 							Nova Chave
 						</Button>
@@ -202,12 +202,10 @@ function KeyItem({ apiKey }: KeyItemProps) {
 								{expiry.isExpired ? "Vencida" : "Ativa"}
 							</Badge>
 						) : (
-							<Badge variant="secondary" className="text-xs">
-								Revogada
-							</Badge>
+							<Badge variant="secondary">Revogada</Badge>
 						)}
 						{apiKey.is_active && expiry.isNear && (
-							<Badge variant="warning" className="text-xs gap-1">
+							<Badge variant="warning">
 								<CalendarClock className="size-3" />
 								{expiry.days === 1 ? "Vence amanhã" : `Vence em ${expiry.days} dias`}
 							</Badge>
@@ -230,15 +228,7 @@ function KeyItem({ apiKey }: KeyItemProps) {
 								<AlertDialogTrigger
 									render={
 										<TooltipTrigger
-											render={
-												<Button
-													variant="ghost"
-													size="icon"
-													className="size-8 text-muted-foreground hover:text-foreground"
-													aria-label="Revogar chave"
-													disabled={isRevoking}
-												/>
-											}
+											render={<Button variant="subtle-destructive" size="icon" className="size-8" aria-label="Revogar chave" disabled={isRevoking} />}
 										/>
 									}
 								>
@@ -437,7 +427,7 @@ function CreateKeyDialog({ open, onOpenChange, onKeyCreated }: CreateKeyDialogPr
 									<Button type="button" variant="ghost" onClick={handleClose} disabled={createMutation.isPending}>
 										Cancelar
 									</Button>
-									<Button type="submit" disabled={!canSubmit || createMutation.isPending || isSubmitting} className="gap-2">
+									<Button type="submit" disabled={!canSubmit || createMutation.isPending || isSubmitting}>
 										{createMutation.isPending || isSubmitting ? (
 											<>
 												<Loader2 className="size-4 animate-spin" />
@@ -538,7 +528,7 @@ function RevealKeyDialog({ created, onClose }: RevealKeyDialogProps) {
 					<Button variant="ghost" onClick={() => handleOpenChange(false)}>
 						Fechar
 					</Button>
-					<Button onClick={handleCopy} className="gap-2">
+					<Button onClick={handleCopy}>
 						{copied ? (
 							<>
 								<Check className="size-4" />

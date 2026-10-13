@@ -11,25 +11,27 @@ export type Escolha = {
 /**
  * Quadro de vagas para projeção — alto contraste, legível à distância.
  *
- * Com `emphasizeAvailable` (militar chamado, ainda sem anunciar) as OM completas
- * ficam apagadas: o quadro passa a responder "para onde ainda dá para ir".
+ * Com `emphasizeAvailable` (militar chamado, ainda sem anunciar) o título passa a
+ * "Vagas Disponíveis" e conta as vagas abertas. Nenhuma OM sai apagada: não há teto, e o
+ * militar pode escolher uma OM que já completou.
  */
 export function VacancyBoard({ data, emphasizeAvailable = false }: { data: Escolha[]; emphasizeAvailable?: boolean }) {
 	const totalVagas = data.reduce((acc, e) => acc + e.total, 0)
-	const totalChosen = data.reduce((acc, e) => acc + Math.min(e.chosen, e.total), 0)
+	// Sem teto de vagas, uma OM pode passar do total: o placar soma todos os confirmados, e
+	// "restantes" conta só as vagas ainda abertas de cada OM.
+	const totalChosen = data.reduce((acc, e) => acc + e.chosen, 0)
+	const openVagas = data.reduce((acc, e) => acc + Math.max(0, e.total - e.chosen), 0)
 
 	return (
 		<div className="flex h-full flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] shadow-2xl backdrop-blur-sm">
 			<div className="flex items-baseline justify-between border-b border-white/10 px-7 py-4">
 				<h2 className="text-3xl font-bold tracking-wide text-white/95">{emphasizeAvailable ? "Vagas Disponíveis" : "Quadro de Vagas"}</h2>
-				<span className="font-mono text-lg text-white/55">
-					{emphasizeAvailable ? `${totalVagas - totalChosen} restantes` : `${totalChosen}/${totalVagas} preenchidas`}
-				</span>
+				<span className="font-mono text-lg text-white/55">{emphasizeAvailable ? `${openVagas} restantes` : `${totalChosen}/${totalVagas} preenchidas`}</span>
 			</div>
 
 			<div className="min-h-0 flex-1 overflow-hidden">
 				<table className="h-full w-full">
-					<thead className="bg-slate-950/85 backdrop-blur">
+					<thead className="bg-stage-deep/85 backdrop-blur">
 						<tr className="text-white/45">
 							<th className="px-7 py-2.5 text-left text-sm font-semibold uppercase tracking-widest">OM</th>
 							<th className="px-2 py-2.5 text-center text-sm font-semibold uppercase tracking-widest">Escolhidos</th>
@@ -43,20 +45,13 @@ export function VacancyBoard({ data, emphasizeAvailable = false }: { data: Escol
 							const empty = e.chosen === 0
 							const pct = e.total > 0 ? Math.min(100, (e.chosen / e.total) * 100) : 0
 							return (
-								<tr
-									key={e.id}
-									className={cn(
-										"border-b border-white/5 transition-all duration-300",
-										full ? "bg-amber-400/[0.07]" : "hover:bg-white/[0.03]",
-										emphasizeAvailable && full && "opacity-40"
-									)}
-								>
+								<tr key={e.id} className={cn("border-b border-white/5 transition-all duration-300", full ? "bg-warning/7" : "hover:bg-white/[0.03]")}>
 									<td className="px-7 py-1">
 										<div className="flex items-center gap-4">
-											<span className={cn("whitespace-nowrap text-2xl font-black tracking-tight", full ? "text-amber-300" : "text-white")}>{e.OM}</span>
+											<span className={cn("whitespace-nowrap text-2xl font-black tracking-tight", full ? "text-warning" : "text-white")}>{e.OM}</span>
 											<div className="hidden h-2 w-24 overflow-hidden rounded-full bg-white/10 md:block">
 												<div
-													className={cn("h-full rounded-full transition-all", full ? "bg-amber-400" : empty ? "bg-white/20" : "bg-emerald-400")}
+													className={cn("h-full rounded-full transition-all", full ? "bg-warning" : empty ? "bg-white/20" : "bg-success")}
 													style={{ width: `${pct}%` }}
 												/>
 											</div>
@@ -68,10 +63,10 @@ export function VacancyBoard({ data, emphasizeAvailable = false }: { data: Escol
 										<span
 											className={cn(
 												"inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-base font-semibold",
-												full ? "bg-amber-400/15 text-amber-300" : empty ? "bg-white/5 text-white/45" : "bg-emerald-400/15 text-emerald-300"
+												full ? "bg-warning/15 text-warning" : empty ? "bg-white/5 text-white/45" : "bg-success/15 text-success"
 											)}
 										>
-											<span className={cn("size-2.5 rounded-full", full ? "bg-amber-400" : empty ? "bg-white/30" : "bg-emerald-400")} />
+											<span className={cn("size-2.5 rounded-full", full ? "bg-warning" : empty ? "bg-white/30" : "bg-success")} />
 											{full ? "Completa" : empty ? "Aberta" : "Parcial"}
 										</span>
 									</td>

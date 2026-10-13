@@ -3,8 +3,8 @@
  *
  * Auth posture preserved from the original server functions: these take no
  * UserContext — the server fns derive the user id from the session and pass it in
- * (self-only). `syncUserSaram` carries its own invariant (write-once + exclusive):
- * the caller is always the account owner, but what it may write is decided here.
+ * (self-only). O vínculo do SARAM é decidido no banco (`saram-link.ts`, 20261003100000): o
+ * chamador é sempre o dono da conta, e o número só vale verificado.
  *
  * NOTA: o contrato devolvido é camelCase (`saram`, `nmGuerra`, `dataAtualizacao`…), então usamos
  * `db.select` com aliases explícitos — o mapper `toWire` (camel→snake) corromperia essas chaves.
@@ -20,6 +20,7 @@ import { and, eq, ne, sql } from "drizzle-orm"
 import type { FetchMilitaryData, FetchUserData, FetchUserSaram, SyncUserEmail, SyncUserSaram } from "../schemas/user.ts"
 import { DomainError } from "../types/errors.ts"
 import { driverFailure, runQuery, unwrapPgError } from "../utils/index.ts"
+import { claimSaram, type SaramLinkOutcome } from "./saram-link.ts"
 
 /**
  * `sisub.user_data` tem UNIQUE(email) (constraint `user_data_email_key`) além da
@@ -139,69 +140,25 @@ export async function fetchUserSaram(db: SisubDb, input: FetchUserSaram): Promis
 }
 
 /**
- * Vincula o SARAM à conta — pelo próprio usuário, e uma vez só.
+ * O formulário de SARAM digitado (perfil e primeiro acesso do sisub).
  *
- * O vínculo decide de quem são os dados militares que a conta enxerga (nome, posto, OM).
- * Livre para reescrever, ele virava enumeração: o usuário gravava o saram de outra
- * pessoa, lia os dados dela, trocava de novo — um por um, sem limite (LGPD). Por isso:
+ * Até 20261003100000 o número digitado era gravado (write-once e exclusivo, mas "quem pede
+ * primeiro leva"): nada conferia que o SARAM era da pessoa da conta. Agora a gravação passa por
+ * `core.claim_saram` (`saram-link.ts`), a MESMA regra do sucont:
  *
- *   - write-once: um saram que JÁ LOCALIZA um cadastro militar não muda por aqui — só o
- *     mesmo valor passa (reenvio do formulário é idempotente). Trocar ou limpar exige o
- *     administrador; limpar e regravar seria a mesma troca em dois passos. O saram que
- *     não localiza cadastro nenhum (erro de digitação) segue corrigível: ele não revelou
- *     nada, e travá-lo deixaria a conta sem saída;
- *   - exclusivo: um saram já vinculado a OUTRA conta é recusado. Sem isso, a segunda
- *     conta leria os dados da primeira pessoa.
+ *   - o número é o candidato único da chave do e-mail institucional → vincula por `email`;
+ *   - qualquer outro → vira pedido de vínculo (ou contestação) para o administrador, e a conta
+ *     não vê dado militar até a decisão;
+ *   - conta com vínculo não troca por aqui (`SARAM_LOCKED`), e conta institucional não tem SARAM.
  *
- * As duas checagens são leitura-antes-da-escrita; duas contas disputando o mesmo saram no
- * mesmo instante escapariam da segunda — o índice único parcial da migration
- * `20260921160410` (`user_data_saram_uniq` desde o lote 6, onde existe) fecha essa corrida no
- * banco.
+ * O e-mail da sessão é sincronizado antes (a linha de `core.user_data` nasce aqui no primeiro
+ * acesso). Vazio não limpa nada: desvincular é do administrador.
  */
-export async function syncUserSaram(db: SisubDb, input: SyncUserSaram) {
+export async function syncUserSaram(db: SisubDb, input: SyncUserSaram & { emailConfirmed: boolean }): Promise<SaramLinkOutcome | null> {
 	const requested = input.saram.trim()
-
-	// Checar e gravar numa transação só, com lock por saram: duas contas reivindicando o
-	// MESMO número ao mesmo tempo passavam as duas pela checagem de "já vinculado" antes de
-	// qualquer uma gravar. O índice único que fecharia isso no banco não existe enquanto
-	// houver duplicata antiga em `core.user_data` (migration 20260921160410), então a
-	// serialização fica aqui — e vale com ou sem o índice.
-	await db.transaction(async (tx) => {
-		if (requested.length > 0) {
-			await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`saram:${requested}`}))`)
-		}
-
-		const current = await fetchUserSaram(tx, { userId: input.userId })
-		const changes = (current ?? "") !== requested
-
-		if (changes && current != null && (await fetchMilitaryData(tx, { saram: current })) != null) {
-			throw new DomainError(
-				"SARAM_LOCKED",
-				"O SARAM já está vinculado à sua conta e não pode ser alterado por aqui. Para corrigi-lo, procure o administrador do sistema."
-			)
-		}
-
-		if (changes && requested.length > 0) {
-			const taken = await runQuery("FETCH_FAILED", () =>
-				tx
-					.select({ id: userDataInCore.id })
-					.from(userDataInCore)
-					.where(and(eq(userDataInCore.saram, requested), ne(userDataInCore.id, input.userId)))
-					.limit(1)
-			)
-			if (taken.length > 0) {
-				throw new DomainError("SARAM_TAKEN", "Este SARAM já está vinculado a outra conta. Se ele é seu, procure o administrador do sistema.")
-			}
-		}
-
-		// Sem mudança, só o email é sincronizado — o saram nem entra no payload. Vazio grava
-		// `null`: string em branco não é um vínculo.
-		await upsertUserDataReclaimingEmail(tx, {
-			id: input.userId,
-			email: input.email,
-			...(changes ? { saram: requested.length > 0 ? requested : null } : {}),
-		})
-	})
+	await upsertUserDataReclaimingEmail(db, { id: input.userId, email: input.email })
+	if (requested.length === 0) return null
+	return claimSaram(db, { userId: input.userId, email: input.email.trim() || null, emailConfirmed: input.emailConfirmed }, requested)
 }
 
 export async function syncUserEmail(db: SisubDb, input: SyncUserEmail) {

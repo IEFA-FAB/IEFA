@@ -32,6 +32,11 @@ target-group level while sharing the one network + ALB + cluster in `foundation/
 
 ## Apply order
 
+Terraform version: `infra/.terraform-version` (read by CI and by tfenv). Every stack's
+`required_version` matches it. Provider versions come from the committed
+`.terraform.lock.hcl`: CI runs `init -lockfile=readonly`, and Dependabot proposes the bumps,
+for all stacks at once. A new stack copies an existing lock file.
+
 ```bash
 # 1. State backend (once per account)
 cd infra/bootstrap && terraform init && terraform apply
@@ -206,13 +211,13 @@ required reviewers on that environment.
 
 **Known overlap with `deploy.yml`:** a single push that changes both
 `infra/<service>/**` and that app's code starts two rollouts of the same ECS
-service — Terraform registers a new task definition revision while `_app-deploy.yml`
-issues its own `update-service --force-new-deployment`. ECS converges on the later
-one, but the deploy job polls a specific deployment id and can report the
-superseded one as a rollback, failing the run even though the service is healthy.
-Re-run the deploy job. Serializing them is not worth a shared concurrency group:
-`_app-deploy.yml` uses `cancel-in-progress: true`, which would kill an apply
-mid-flight and strand the state lock.
+service — Terraform registers a new task definition revision while the `deploy` job
+of `_release.yml` issues its own `update-service --force-new-deployment`. ECS
+converges on the later one, but the deploy job polls a specific deployment id and
+can report the superseded one as a rollback, failing the run even though the service
+is healthy. Re-run the deploy job. A shared concurrency group would serialize them,
+but the deploy would then wait for whole applies of unrelated stacks; the overlap is
+rare enough that the rerun is cheaper.
 
 ## Routing
 
@@ -228,8 +233,8 @@ of a single service via its target group, but not multi-service routing).
   zero-downtime regardless, because `deployment_minimum_healthy_percent = 100`
   starts the replacement task before stopping the old one. A second task only buys
   survival of a Spot reclamation or an AZ failure, and it costs twice: Fargate
-  hours *and* a second public IPv4. `sisub` and `portal` set `desired_count = 2` in
-  their tfvars; everything else runs one task.
+  hours *and* a second public IPv4. `sisub` and `portal` run two tasks (`sisub` in its
+  `sizing.auto.tfvars`, `portal` in its tfvars); everything else runs one.
 - **Spot by default** (`fargate_on_demand_base = 0`): cheapest, but a Spot
   reclamation can drop every task of a service at once. For user-facing SSR apps
   set `fargate_on_demand_base = 1` in the service tfvars to pin one on-demand task.
@@ -244,6 +249,56 @@ of a single service via its target group, but not multi-service routing).
   set `image_tag_mutability = "IMMUTABLE"` and pin `image_tag` to a git sha.
 - **No NAT**: tasks get public IPs (egress via IGW). Cheaper than NAT, but every
   task carries a public IPv4; SGs only allow inbound from the ALB.
+
+### Sizing e autoscaling (versionados)
+
+CPU, memória, número de tasks e teto do autoscaling ficam em
+`infra/<stack>/sizing.auto.tfvars`, no git (exceção explícita no `.gitignore`). O
+arquivo sobrepõe o `terraform.tfvars` que o CI monta do segredo `TF_TFVARS_JSON`, então
+mudança de tamanho passa por PR e aparece no `terraform-plan`. Hoje: `sisub` (2 × 0,25 vCPU /
+1 GB, até 6 tasks) e `alpha` (1 × 0,5 vCPU / 1 GB, até 3).
+
+Todo serviço tem um scalable target do Application Auto Scaling, e é ele que diz quantas
+tasks rodam: o Terraform ignora o `desired_count` do serviço depois da criação. Sem
+`autoscaling_max_count` (ou com ele igual ao `desired_count`), mínimo = máximo e o serviço
+fica fixo. Acima disso, uma política de target tracking por CPU (padrão 40%) sobe tasks
+depois de ~3 min acima do alvo e desce depois de ~15 min abaixo, até o `desired_count`. Só
+CPU: o RSS do Bun não volta depois de um pico, e uma política de memória não deixaria descer.
+
+**Escala rápida, sem PR** (evento previsto, incidente). Sobe o mínimo na hora:
+
+```bash
+aws application-autoscaling register-scalable-target --region sa-east-1 \
+  --service-namespace ecs --scalable-dimension ecs:service:DesiredCount \
+  --resource-id service/iefa-prod-cluster/sisub --min-capacity 4 --max-capacity 8
+```
+
+O próximo `terraform apply` do stack (qualquer merge em `infra/sisub/**` ou
+`infra/modules/**`) volta os limites ao arquivo. Para durar, suba `desired_count` e
+`autoscaling_max_count` no `sizing.auto.tfvars`: o apply move os limites e o ECS ajusta as
+tasks sem redeploy. Para voltar ao tamanho antigo, reverta o PR do arquivo: trocar CPU ou
+memória troca a task definition, e o rollout é sem queda
+(`deployment_minimum_healthy_percent = 100`).
+
+### Avaliado e não feito (2026-10)
+
+Para não repetir a análise. Números da conta de setembro/2026; medição no PR #618.
+
+- **Anotado para depois — NAT numa EC2 mínima** (fck-nat, t4g.nano em Auto Scaling group).
+  As tasks iriam para subnet privada, sem IP público: ~US$ 40–50/mês a menos (IP público foi
+  US$ 57,65 em setembro). O custo é operar a instância (atualizar a AMI, acompanhar o ASG), e
+  toda saída para a internet (Supabase, Bedrock, compras.gov.br) passa por ela. NAT Gateway
+  gerenciado sairia ~US$ 68/mês, mais caro que os IPs; IPv6 puro não serve, porque o
+  compras.gov.br só fala IPv4.
+- **Anotado para depois — Fargate ARM (Graviton).** −20% no preço por vCPU e GB. As imagens Bun
+  de produção são JS puro (nenhum addon nativo) sobre `oven/bun`, que é multi-arch. Se for
+  feito, tudo ARM de uma vez (nunca misto), depois de uma semana com um serviço de teste.
+- **Descartado — pdf como site estático.** O BentoPDF roda com o nginx que o próprio projeto
+  define (rotas sem extensão, redirects, `.wasm.gz` com `Content-Encoding`, CSP gerado no
+  build); reproduzir isso no CloudFront não paga os ~US$ 8,50/mês.
+- **Descartado — Parameter Store no lugar do Secrets Manager.** ~US$ 4,40/mês, e o ECS só lê
+  chave de dentro de um JSON no Secrets Manager: a troca quebraria cada segredo em vários
+  parâmetros.
 
 ### Where the money goes
 

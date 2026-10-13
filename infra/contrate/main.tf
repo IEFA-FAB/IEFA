@@ -3,7 +3,7 @@
 # stack and instantiates the reusable `service` module.
 
 terraform {
-  required_version = ">= 1.10.0"
+  required_version = ">= 1.16.0"
 
   required_providers {
     aws = {
@@ -56,6 +56,7 @@ module "service" {
   alb_security_group_id   = local.f.alb_security_group_id
   tasks_security_group_id = local.f.tasks_security_group_id
   cluster_id              = local.f.ecs_cluster_id
+  cluster_name            = local.f.ecs_cluster_name
   execution_role_arn      = local.f.task_execution_role_arn
   task_role_arn           = local.task_role_arn
   alb_dns_name            = local.f.alb_dns_name

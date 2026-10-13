@@ -12,14 +12,9 @@ paths:
 
 ## O que roda onde
 
-| Workflow | Quando | Gate |
-|----------|--------|------|
-| `pr-check.yml` | PR | format + `turbo run lint typecheck test --affected` + `build` dos afetados (sem segredo; arquivo global alterado roda tudo) |
-| `security.yml` | PR, push na main, semanal | opengrep (ERROR bloqueia), `bun audit` crítico, drift do manifesto, headers; CodeQL/Trivy só reportam |
-| `integration.yml` | todo PR, push na main, dispatch; `changes` usa o escopo sisub do `paths-filter.yml` | PR: `gate` (`test:integration:gate` transacional + `audit:rls`, fila por PR, check obrigatório). Main e dispatch: `gate` a cada commit + `full` (suíte inteira, monitor, trava global do banco) |
-| `commit-lint.yml` | PR | título do PR (e subject do commit único) no commitlint |
-| `deploy.yml` (`CI/CD`) | push na main | `changes` → `check-<app>` → `build-<app>` → `deploy-<app>` por app (paths-filter); sem integração |
-| `terraform-plan/apply` | PR / push em `infra/**` | plan com role de PR; apply só na main |
+Em `.github/workflows/README.md`: o que roda em cada evento, em que runner e com que credencial.
+É a fonte única; mudou runner ou workflow, atualize lá. Label novo da Blacksmith entra no
+`.github/actionlint.yaml`.
 
 ## Armadilhas conhecidas
 
@@ -36,7 +31,8 @@ paths:
   `gh workflow run "sisub integration (real db)" --ref <branch>`. O que mais a derruba é o guard
   de reset de treino (`training.operations.test.ts`): siga a ordem declara → aplica → mergeia de
   `.claude/rules/database.md`.
-- **Check vermelho deixa build/deploy `skipped`, não `failed`.** Depois de mergear, confira o run do
+- **App vermelho no `verify` fica fora do `release`, sem aparecer como `failed`.** A tabela no
+  resumo do `verify` diz qual app e qual tarefa caíram. Depois de mergear, confira o run do
   `CI/CD` pelo SHA (`git merge-base --is-ancestor <seu_sha> <sha_do_run>`). Build e deploy correm
   um por serviço de cada vez, sem cancelar o que já roda (`:latest` é um só); com três merges em
   sequência, o do meio fica pendente e é substituído pelo seguinte, e o run dele sai `cancelled`.
@@ -50,11 +46,11 @@ paths:
   mostra `cancelled` como `fail` e só lista check já registrado: confira o workflow pelo SHA.
 - **Pacote novo em `packages/`** entra no manifesto e no `package.json`; `bun run generate:deploy`
   cuida das linhas `COPY` do Dockerfile. Sem isso o `warm-deps` quebra o build de todos os apps.
-- **App novo** entra no `apps.manifest.json`; `bun run generate:deploy` escreve, além do
-  Dockerfile, do bake e do paths-filter, as regiões `# >>> gerado:` do `deploy.yml` (input
-  `force_*`, outputs e "Resolve outputs" do `changes`, condição do `warm-deps`). Os jobs
-  `check/build/deploy-<app>` continuam à mão; `scripts/generate-deploy-artifacts.test.ts` falha
-  se o app não tiver o `deploy-<app>`.
+- **App novo** é uma entrada no `apps.manifest.json` (com `healthUrlVar`, e `check` se as
+  tarefas não forem lint, typecheck e test do workspace) e `bun run generate:deploy`, que escreve
+  o Dockerfile, o bake e o paths-filter. O `deploy.yml` não muda: o `plan` e o `verify` leem o
+  manifesto (`scripts/release-plan.ts`, `scripts/release-verify.ts`), e o
+  `release-verify.test.ts` falha se o manifesto pedir tarefa que o workspace não tem.
 - **PR do Dependabot e de fork** não recebem segredo: o `gate` pula (verde) e a integração deles
   roda no push da `main`. Para validar antes, dispare o workflow numa branch-cópia.
 

@@ -57,8 +57,7 @@ export function UnitRoleGroups({ grants, now = Date.now(), className }: { grants
 		<ul className={cn("flex flex-wrap items-center gap-x-4 gap-y-1.5", className)}>
 			{groups.map((group) => (
 				<li key={group.unitId ?? "global"} className="flex flex-wrap items-center gap-1">
-					{/* `text-label` fora do `cn`: o tailwind-merge o lê como cor de texto e o descarta diante de `text-foreground`. */}
-					<span className={`text-label mr-0.5 ${group.unitId === null ? "text-foreground" : "text-muted-foreground"}`}>
+					<span className={cn("text-label mr-0.5", group.unitId === null ? "text-foreground" : "text-muted-foreground")}>
 						{group.unitId === null ? "Global" : (group.unitCode ?? `OM ${group.unitId}`)}
 					</span>
 					{group.grants.map((grant) => (

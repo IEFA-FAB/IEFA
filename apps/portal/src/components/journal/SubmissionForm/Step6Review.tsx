@@ -1,6 +1,7 @@
 // Step 6: Review and Submit
 
 import { Globe, Group, Page } from "iconoir-react"
+import { Alert } from "@/components/ui/alert"
 import { useSubmissionForm } from "./SubmissionForm"
 
 const ARTICLE_TYPE_LABELS: Record<string, string> = {
@@ -112,12 +113,12 @@ export function Step6Review() {
 				</div>
 			</div>
 
-			<div className="p-4 bg-yellow-50 dark:bg-yellow-950 rounded-lg border border-yellow-200 dark:border-yellow-900">
-				<p className="text-sm text-yellow-900 dark:text-yellow-100">
+			<Alert variant="warning" role="note">
+				<p>
 					<strong>Atenção:</strong> Ao clicar em "Submeter Artigo", você confirma que todos os dados estão corretos e que o manuscrito está pronto para revisão
 					por pares.
 				</p>
-			</div>
+			</Alert>
 		</div>
 	)
 }

@@ -95,7 +95,7 @@ function ProcurementIndexPage() {
 							<CardHeader className="pb-2">
 								<div className="flex items-start justify-between gap-2">
 									<div className="flex-1 min-w-0">
-										<CardTitle className="text-base flex items-center gap-2">
+										<CardTitle className="flex items-center gap-2">
 											<FileText className="size-4 text-muted-foreground shrink-0" aria-hidden="true" />
 											{quantityEstimate.title}
 										</CardTitle>

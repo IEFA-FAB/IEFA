@@ -8,8 +8,7 @@ aws_region           = "sa-east-1"
 service_name      = "alpha"
 docker_target     = "alpha"
 container_port    = 8000
-cpu               = 512
-memory            = 1024
+# cpu, memory, desired_count e autoscaling: em sizing.auto.tfvars (versionado), não aqui.
 health_check_path = "/health"
 listener_priority = 130
 

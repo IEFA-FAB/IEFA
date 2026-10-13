@@ -647,12 +647,7 @@ function AuditorPage() {
 									</>
 								)}
 							</div>
-							<Button
-								variant="link"
-								size="sm"
-								onClick={() => setPersistOutcome(null)}
-								className="text-label text-muted-foreground hover:text-foreground no-underline"
-							>
+							<Button variant="link" size="sm" onClick={() => setPersistOutcome(null)} className="text-muted-foreground hover:text-foreground no-underline">
 								Fechar
 							</Button>
 						</div>

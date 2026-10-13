@@ -1,3 +1,4 @@
+import { isSaramUnverified } from "@iefa/database/saram-link"
 import { createFileRoute } from "@tanstack/react-router"
 import { RefreshCw, Settings, UtensilsCrossed } from "lucide-react"
 import { lazy, memo, Suspense, useCallback, useMemo, useRef, useState } from "react"
@@ -7,9 +8,11 @@ import { DayCardSkeleton } from "@/components/features/diner/DayCardSkeleton"
 import { DefaultMessHallSelector } from "@/components/features/diner/DefaultMessHallSelector"
 import SimplifiedMilitaryStats from "@/components/features/diner/SimplifiedMilitaryStats"
 import { UnifiedStatusToasts } from "@/components/features/diner/UnifiedStatusToasts"
+import { InstitutionalAccountNotice, UnverifiedSaramHint } from "@/components/features/military-record/DinerAccountNotices"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Button } from "@/components/ui/button"
 import { NEAR_DATE_THRESHOLD } from "@/constants/meal"
+import { useSaramStatus } from "@/hooks/business/useUserSaram"
 import { useArranchamento } from "@/hooks/data/useArranchamento"
 import { useDailyMenuContent } from "@/hooks/data/useDailyMenuContent"
 import { useMessHalls } from "@/hooks/data/useMessHalls"
@@ -66,6 +69,11 @@ function ArranchamentoPage() {
 
 	// Mapeia ID <-> CODE para falar com os Selectors (que operam por "code")
 	const { messHalls } = useMessHalls()
+
+	// Conta de seção não arrancha (o banco recusa); conta pessoal sem vínculo verificado arrancha
+	// normal, com lembrete discreto (change `saram-verified-link`).
+	const { data: saramStatus } = useSaramStatus()
+	const isInstitutional = saramStatus?.accountKind === "institucional"
 
 	// Derived state (No useMemo - React Compiler handles this)
 	const defaultMessHallCode = (() => {
@@ -438,6 +446,15 @@ function ArranchamentoPage() {
      Render
      ============================ */
 
+	if (isInstitutional) {
+		return (
+			<div className="space-y-6">
+				<PageHeader title="Arranchamento" />
+				<InstitutionalAccountNotice what="arranchamento" />
+			</div>
+		)
+	}
+
 	return (
 		<div className="space-y-6">
 			<PageHeader
@@ -500,6 +517,8 @@ function ArranchamentoPage() {
 					autoHideSuccessMs={6000}
 				/>
 			</div>
+
+			{isSaramUnverified(saramStatus) && <UnverifiedSaramHint />}
 
 			{/* Status rápido */}
 			<SimplifiedMilitaryStats selections={selections} dates={dates} isLoading={isRefetching} />

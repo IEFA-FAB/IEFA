@@ -412,7 +412,7 @@ function ResetPasswordPage() {
 						)}
 					</div>
 
-					<Button type="submit" className="w-full gap-2" disabled={isSubmitting || !!passwordErr || !!confirmErr || !newPassword || !confirm}>
+					<Button type="submit" className="w-full" disabled={isSubmitting || !!passwordErr || !!confirmErr || !newPassword || !confirm}>
 						{isSubmitting ? (
 							<>
 								<Loader2 className="size-4 animate-spin" aria-hidden /> Atualizando...

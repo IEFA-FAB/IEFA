@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "lint": "biome check .",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "bun check",
     "test": "bun test --no-env-file"
   },
   "exports": {
@@ -21,8 +21,8 @@
     "./untrusted": "./src/untrusted.ts"
   },
   "dependencies": {
-    "@aws-sdk/client-bedrock-runtime": "^3.1136.0",
-    "@langchain/openai": "^1.5.13",
+    "@aws-sdk/client-bedrock-runtime": "^3.1149.0",
+    "@langchain/openai": "^1.6.2",
     "@tanstack/ai": "^0.63.0",
     "@tanstack/ai-anthropic": "^0.19.3",
     "@tanstack/ai-gemini": "^0.34.1",

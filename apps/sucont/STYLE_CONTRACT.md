@@ -87,6 +87,25 @@ Mesma ordem de prioridade do sisub:
   o Base UI, e o `placeholder` do trigger só aparece com `null`.
 - **`onValueChange` entrega `string | null`.** Mapear o `null` para o sentinela de
   "sem filtro" da tela (`"TODOS"`, `"Geral"`, `"all"`), não para `""`.
+- **Densidade é `size`, não `className`.** `Input`, `SelectTrigger`, `Combobox` e
+  `InputGroup` aceitam `size="default"` (h-9) ou `size="sm"` (h-8), exposto em
+  `data-size`. Campo e seletor da mesma faixa de controles usam o mesmo `size`; não
+  existe degrau menor que o `sm`. O `size` nativo do `<input>` (largura em
+  caracteres) fica fora do tipo. Nos campos de digitação (`Input`, `Combobox`,
+  `InputGroup`) a fonte é 16px no mobile e `text-sm` a partir de `md`, nos dois
+  tamanhos: abaixo de 16px o iOS dá zoom ao focar.
+- **Somente leitura é o atributo `readOnly`.** `Input`, `Textarea` e `InputGroup` se
+  pintam sozinhos (`read-only:not-disabled:`): fundo `muted`, borda tracejada,
+  cursor padrão. O campo continua focável por Tab, com o anel do tema, e
+  selecionável. Desabilitado segue com a opacidade do `disabled:` e nunca fica
+  tracejado. Não se pinta somente leitura por `className`.
+- **Ícone ou ação dentro do campo é `InputGroup`** (`InputGroupAddon`,
+  `InputGroupInput`, `InputGroupTextarea`, `InputGroupButton`, `InputGroupText`):
+  busca com lupa, senha com "mostrar", chat com "enviar". O grupo desenha borda,
+  fundo e foco; o anel acende quando o foco está no CAMPO
+  (`has-[[data-slot=input-group-control]:focus-visible]`), e o `InputGroupButton`
+  tem anel próprio, sem acender o grupo junto. Ícone posicionado com `absolute`
+  sobre um `Input` com `pl-9` não é mais o padrão.
 - **Não deve** ser sobreposto no call site com `className` que substitua por
   completo sua cor ou formato. Se o visual se repete, muda-se o CVA.
 - **Polimorfismo:** o Base UI usa a prop `render`, não `asChild`. Link com cara de
@@ -237,6 +256,11 @@ cada uma desenhava à mão:
 | Aviso de estado (nada a cobrar, conta fora do escopo, só leitura, painel faltando) | `Alert` (`success` / `warning` / `info` / default) | `<p>` e `<div>` com `bg-*/10 border-*/30` escritos no lugar, um deles com disco de 80px e `border-4 border-white` |
 | Filtro de conteúdo | `Label` + `Select` com trigger PADRÃO, ou `SegmentedControl` | `SelectTrigger` com `rounded-none border-0 border-l` colado a botões `tech-blue`; `rounded-full` sem borda; N botões de conferente pintados por estado |
 | Botão de ação (copiar, analisar, ver) | `Button` com `variant` | `variant="ghost"` + `className="bg-tech-blue text-white … shadow-lg"` — o primitivo usado só para desligar o primitivo |
+| Ação secundária discreta (fechar, limpar, voltar) e remover item de lista | `Button` `variant="subtle"` / `"subtle-destructive"` | `variant="ghost"` + `className="text-muted-foreground hover:text-foreground"` (ou `hover:text-destructive`) |
+| Respiro entre ícone e texto do botão | o `size` do `Button` | `gap-*` no `className` |
+| Voltar (à lista, ao login, às unidades) | `Button` `variant="subtle"` `size="sm"` com `ArrowLeft` | link de texto `h-auto p-0` com `text-label`, `text-caption` ou cor de marca no hover; cada tela com uma fonte |
+| Ação sobre o documento ou o resultado (Imprimir, Exportar, Copiar, Baixar) | `Button` `variant="outline"` `size="sm"` com ícone | botão-texto `h-auto p-0` ou com `text-subheading`/`font-mono` próprios |
+| Tipografia de botão | a do `size` do `Button` | `text-label`, `text-caption`, `text-hint`, `font-mono`, `uppercase` no `className`: mesma função com cinco fontes diferentes |
 
 - **`StatTile` pinta o VALOR, não a superfície.** `status` é o único eixo de cor.
   Indicador com fundo colorido inteiro compete com o `Alert` do lado.
@@ -474,6 +498,27 @@ Verificação: `scripts/migrate-typography.mjs` é idempotente — rodá-lo de n
 árvore migrada não muda nada. O `bun run harness:shot` confirma a casca nos dois
 temas.
 
+**Zerados em 2026-10-12** — a dívida de **campos** (change `sucont-form-fields`, PRs #616, #617,
+#619, #620 e #621).
+
+| O que era | Volume | Onde foi parar |
+|-----------|--------|----------------|
+| Restilos em `Input`/`SelectTrigger`/`Combobox`/`Textarea` via `className` | ~520 | `size`, `readOnly`, `aria-invalid` e `InputGroup` (§4.2) |
+| Receitas do mesmo grupo de 4 campos da mensagem (nº, data, tipo, prazo) | 4, em 5 telas | `size="sm"` em todas |
+| Cores de foco (`action`, `tech-cyan`, `tech-blue`, além do `ring`) | 4 | `ring` do primitivo |
+| Campos embutidos sem foco visível (busca do hub, chat, filtros em pílula) | 5 | `InputGroup`: o foco do campo acende o grupo |
+| Fundos de campo só no tema claro (`bg-card`, `bg-muted/50`) | ~40 | `bg-background` no claro, `input/30` no escuro, no primitivo |
+| `<textarea>` nativo em formulário | 5 | `Textarea` |
+| Pílula sem borda como filtro | 3 | `Label` + seletor `size="sm"` (§4.7) |
+| `inputClassName` no `Combobox` | 1 prop | Removida |
+
+**Regra:** campo não recebe aparência por `className`, só layout (largura, margem, `flex-1`,
+altura de área de texto). O lint de Tailwind conta o restilo de campo (`Input`, `SelectTrigger`,
+`Combobox`, `Textarea`, `Checkbox`, `InputGroup*`) à parte, como `shadcn/no-restyle:campo`, e o
+baseline do sucont não tem essa chave: teto zero, então qualquer restilo novo em campo reprova o
+lint. O `no-restyle` restante caiu de 801 para 275 com essa migração; o que sobra é de botão,
+badge e casca.
+
 ### Exceções permitidas, com o motivo
 
 O que sobrou **não é dívida**: são casos em que a regra geral não se aplica. Estão
@@ -483,8 +528,9 @@ listados para que ninguém os "corrija" de novo.
 |------|------|---------|
 | `<input type="file">` nativo | `components/ui/file-dropzone.tsx`, e só ali | O primitivo `Input` é text-like; o campo é `sr-only` e o alvo de clique é o `<label>`. Fora do primitivo é dívida, e o teste de contrato reprova |
 | `<input type="checkbox">` nativo | "Lembrar e-mail" no login | Mesma razão — o primitivo não cobre |
-| 12 `<input>` nativos | `plataforma-doc/fab-document.tsx` | Campos inline dentro de um ofício A4 (`w-[210mm]`, tamanho em `pt`, sem borda). O primitivo traz `h-9`, borda e sombra: transformaria o ofício num formulário. Todos têm `focus-visible:ring-ring` |
-| 3 `<input>` nativos | cabeçalho de `subitens-genericos` | Design de sublinhado (`bg-transparent border-b`, sem padding). Já têm `focus:border-fab-gold` |
+| 12 `<input>` e 5 `<textarea>` nativos | `plataforma-doc/fab-document.tsx` | Campos inline dentro de um ofício A4 (`w-[210mm]`, tamanho em `pt`, sem borda). O primitivo traz `h-9`, borda e sombra: transformaria o ofício num formulário. Todos têm o anel do tema só no teclado (`focus-visible:ring-3 ring-ring/50`, sem o contorno do navegador) |
+| `<input type="radio">` nativo | candidatos do vínculo SARAM em `military-record.tsx` | Não há primitivo de grupo de opções no app; o rádio fica dentro de um `<label>` com borda que marca a escolha (`has-checked:`) |
+| `<textarea>` nativo | `editable-message.tsx` e a pré-visualização do `SiafiMessageModal` | Superfície de texto da mensagem, que ocupa o painel inteiro com fonte própria. Os dois têm anel `focus-visible:` com a cor `ring` |
 | `<button>` nativo | tabs/segmentos, cards clicáveis inteiros, véus `inset-0` de clique-fora, `motion.button` | O primitivo brigaria com o layout, ou (no caso do Framer Motion) com o encadeamento de ref/animação. **Todos receberam `focus-visible:ring-[3px] focus-visible:ring-ring/50`** |
 | `backdrop-blur` | véu de modal, barra fixa/sticky, tooltip de gráfico | Há sobreposição real de conteúdo — é o caso que §6 admite |
 | `rounded-[2px]` | seta do `Tooltip` | Detalhe de forma de uma seta de 10px, não radius de superfície |
@@ -512,7 +558,7 @@ com hex literal.
 | `font-medium`/`semibold`/`bold` SEM tamanho na mesma `className` | 150 | Ênfase em linha, herdando o tamanho do pai. Mapeá-las mecanicamente para um nível semântico MUDARIA o tamanho — `.text-subheading` é 0.875rem, e várias vivem dentro de blocos `.text-caption`. Cada uma exige decidir se é `<strong>`, `.text-subheading` ou nada |
 | Painéis ainda montados à mão | ~40 | `bg-card … rounded-xl border border-border` escrito no lugar de `<Card>`. Já têm a MESMA aparência que o primitivo; a migração é de forma, não de pixel |
 | Primitivo `Table` | 16 tabelas cruas | O cabeçalho já está normalizado (linha acima), então a divergência VISÍVEL foi fechada; falta a estrutural. Migrar exige lidar com ordenação, `colSpan` e célula composta, uma a uma e com a tela na frente |
-| Patterns `field.tsx` / `item.tsx` | inexistentes | O sisub os tem; enquanto não existirem aqui, formulário e lista seguem a composição atual — mas não se cria uma terceira convenção |
+| Patterns `field.tsx` / `item.tsx` | inexistentes | O sisub os tem; enquanto não existirem aqui, formulário e lista seguem a composição atual — mas não se cria uma terceira convenção. O `InputGroup` (§4.2) foi o primeiro pattern do sisub a vir para cá, portado com o raio e as alturas do sucont; `field.tsx` e `item.tsx` seguem faltando |
 
 O que NÃO é dívida na coluna acima: os 22 `font-*`, 9 `uppercase` e 4 `tracking-*`
 do `plataforma-doc/fab-document.tsx`. É um ofício A4 com tamanhos em `pt` — a

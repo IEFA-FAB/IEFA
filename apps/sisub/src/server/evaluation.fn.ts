@@ -11,10 +11,10 @@
 
 import { fetchEvalConfig, fetchEvaluationForUser, SubmitEvaluationSchema, submitEvaluation, UpsertEvalConfigSchema, upsertEvalConfig } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
-import { requireAuthThenRun } from "@/lib/domain-handler.server"
 import { requireAuth, requireUserId } from "@/lib/auth.server"
 import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
+import { requireAuthThenRun } from "@/lib/domain-handler.server"
 import type { EvalConfig, EvaluationResult } from "@/types/domain/admin"
 
 /**

@@ -137,7 +137,7 @@ function StockDashboardPage() {
 			{label && (
 				<Card className="print:border-0 print:shadow-none">
 					<CardHeader className="pb-2 print:hidden">
-						<CardTitle className="text-subheading">Etiqueta do lote</CardTitle>
+						<CardTitle>Etiqueta do lote</CardTitle>
 					</CardHeader>
 					<CardContent className="space-y-2">
 						<LotLabelSheet lots={[label]} width="58mm" />
@@ -193,7 +193,7 @@ function StockDashboardPage() {
 
 			<Card>
 				<CardHeader className="pb-2">
-					<CardTitle className="text-subheading">Saldo por item</CardTitle>
+					<CardTitle>Saldo por item</CardTitle>
 				</CardHeader>
 				<CardContent className="px-0 pb-0">
 					{balance.length === 0 ? (
@@ -249,7 +249,7 @@ function StockDashboardPage() {
 
 			<Card>
 				<CardHeader className="pb-2">
-					<CardTitle className="text-subheading">Movimentos recentes</CardTitle>
+					<CardTitle>Movimentos recentes</CardTitle>
 				</CardHeader>
 				<CardContent>
 					{movements.length === 0 ? (

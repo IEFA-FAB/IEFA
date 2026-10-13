@@ -74,9 +74,7 @@ function WeeklyMenusPage() {
 							<div className="flex items-center gap-2 mb-3">
 								<CalendarDays className="size-4 text-muted-foreground" />
 								<h2 className="text-subheading">Planos Globais da SDAB</h2>
-								<Badge variant="outline" className="text-xs">
-									Somente leitura · disponíveis para adaptar
-								</Badge>
+								<Badge variant="outline">Somente leitura · disponíveis para adaptar</Badge>
 							</div>
 							<div className="rounded-md border">
 								<Table>
@@ -94,7 +92,7 @@ function WeeklyMenusPage() {
 												<TableCell className="text-subheading">{template.name}</TableCell>
 												<TableCell className="text-sm text-muted-foreground">{template.description || "—"}</TableCell>
 												<TableCell className="text-center">
-													<Badge variant="secondary" className="font-mono text-xs">
+													<Badge variant="secondary" className="font-mono">
 														{template.recipe_count || 0}
 													</Badge>
 												</TableCell>
@@ -130,9 +128,7 @@ function WeeklyMenusPage() {
 						<div className="flex items-center justify-between mb-3">
 							<div className="flex items-center gap-2">
 								<h2 className="text-subheading">Cardápios Semanais Locais</h2>
-								<Badge variant="default" className="text-xs">
-									Esta Cozinha
-								</Badge>
+								<Badge variant="default">Esta Cozinha</Badge>
 							</div>
 						</div>
 
@@ -177,7 +173,7 @@ function WeeklyMenusPage() {
 												<TableCell className="text-subheading">{template.name}</TableCell>
 												<TableCell>
 													{template.base_template_id ? (
-														<Badge variant="secondary" className="text-xs gap-1 font-normal">
+														<Badge variant="secondary" className="font-normal">
 															<GitFork className="size-3" />
 															Adaptado da SDAB
 														</Badge>
@@ -186,7 +182,7 @@ function WeeklyMenusPage() {
 													)}
 												</TableCell>
 												<TableCell className="text-center">
-													<Badge variant="secondary" className="font-mono text-xs">
+													<Badge variant="secondary" className="font-mono">
 														{template.recipe_count || 0}
 													</Badge>
 												</TableCell>

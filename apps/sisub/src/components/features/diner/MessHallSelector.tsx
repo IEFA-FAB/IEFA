@@ -88,7 +88,7 @@ export const MessHallSelector = memo<MessHallSelectorProps>(
 
 			if (hasDefault) {
 				badges.push(
-					<Badge key="default" variant="secondary" className="text-xs">
+					<Badge key="default" variant="secondary">
 						Padrão
 					</Badge>
 				)
@@ -96,7 +96,7 @@ export const MessHallSelector = memo<MessHallSelectorProps>(
 
 			if (classes.isInvalid) {
 				badges.push(
-					<Badge key="invalid" variant="destructive" className="text-xs">
+					<Badge key="invalid" variant="destructive">
 						Inválido
 					</Badge>
 				)

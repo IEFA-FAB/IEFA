@@ -1,5 +1,5 @@
 {
-  "shadcn/no-arbitrary-values": 52,
-  "shadcn/no-raw-colors": 201,
-  "shadcn/no-restyle": 250
+  "shadcn/no-arbitrary-values": 51,
+  "shadcn/no-restyle": 139,
+  "shadcn/no-restyle:campo": 28
 }

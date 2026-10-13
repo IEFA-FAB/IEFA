@@ -2,9 +2,10 @@ import type { EditScope, SetSnackClassification } from "@iefa/sisub-domain"
 import { getBrasiliaToday } from "@iefa/sisub-domain/civil-date"
 import { MAX_EVENT_MEALS } from "@iefa/sisub-domain/schemas"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { type LinkOptions, useNavigate } from "@tanstack/react-router"
-import { AlertTriangle, CalendarPlus, GitFork, ListChecks, Loader2, Plus, Save, Users } from "lucide-react"
+import { Link, type LinkOptions, useNavigate } from "@tanstack/react-router"
+import { AlertTriangle, CalendarPlus, Copy, GitFork, Layers, ListChecks, Loader2, Plus, Printer, Save, Users } from "lucide-react"
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react"
+import { AddModelMealDialog } from "@/components/features/local/planning/AddModelMealDialog"
 import { ApplyEventDialog } from "@/components/features/local/planning/ApplyEventDialog"
 import { EventMealCard } from "@/components/features/local/planning/EventMealCard"
 import { EventMealDialog } from "@/components/features/local/planning/EventMealDialog"
@@ -25,11 +26,13 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { toast } from "@/components/ui/toast"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useTemplateRecipeVersions } from "@/hooks/business/useTemplateRecipeVersions"
 import { mealTypesQueryOptions } from "@/hooks/data/useMealTypes"
 import { useRecipes } from "@/hooks/data/useRecipes"
 import { useSetSnackClassification, useSnackMealType } from "@/hooks/data/useSnackRequests"
-import { useSaveTemplateEdit, useTemplate } from "@/hooks/data/useTemplates"
+import { useDuplicateTemplateAsVariant, useTemplateFolders } from "@/hooks/data/useTemplateFolders"
+import { useMenuTemplates, useSaveTemplateEdit, useTemplate } from "@/hooks/data/useTemplates"
 import {
 	applyHeadcountToEventMeals,
 	countEventMealHeadcountTargets,
@@ -38,6 +41,7 @@ import {
 	eventDraftFrom,
 	eventItemsPayload,
 	eventMealsPayload,
+	mealsFromModel,
 	moveEventMeal,
 	newEventMeal,
 	newSupportKitMeal,
@@ -63,6 +67,7 @@ import {
 } from "@/lib/occasion-menu"
 import { queryKeys } from "@/lib/query-keys"
 import { replaceRecipeVersions } from "@/lib/recipe-versions"
+import { catalogFolderPath } from "@/lib/template-catalog-tree"
 import type { TemplateItemDraft } from "@/types/domain/planning"
 
 /**
@@ -166,9 +171,11 @@ interface OccasionMenuEditorProps {
 	listLink: LinkOptions
 	/** Editor de outro template no mesmo contexto — usado quando o salvamento cria a cópia local. */
 	editorLink: (templateId: string) => LinkOptions
+	/** Folha impressa (PDF/DOCX) deste template no mesmo contexto. */
+	printLink: (templateId: string) => LinkOptions
 }
 
-export function OccasionMenuEditor({ templateId, templateType, editContext, listLink, editorLink }: OccasionMenuEditorProps) {
+export function OccasionMenuEditor({ templateId, templateType, editContext, listLink, editorLink, printLink }: OccasionMenuEditorProps) {
 	const navigate = useNavigate()
 	const copy = OCCASION_MENU_COPY[templateType]
 	const isSupportMenu = templateType === "apoio"
@@ -231,6 +238,7 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 	const [highlightedKey, setHighlightedKey] = useState<string | null>(null)
 	const [headcountOpen, setHeadcountOpen] = useState(false)
 	const [applyOpen, setApplyOpen] = useState(false)
+	const [modelMealOpen, setModelMealOpen] = useState(false)
 	/** Refeição do evento no diálogo: nova (ainda fora do rascunho) ou existente. */
 	// `open` à parte do conteúdo: fechar mantém refeição e modo até a animação terminar — sem
 	// isso o título trocava para "Editar refeição" enquanto o diálogo de uma NOVA saía da tela.
@@ -260,6 +268,22 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 		}),
 		[name, description, occurrences, isSupportMenu, allowAbsolutes]
 	)
+
+	// Modelo global de evento é uma variante: uma refeição. Outra opção é outro modelo na pasta.
+	const isGlobalEvent = editContext.scope === "global" && templateType === "event"
+	// Evento da cozinha monta-se com refeições de modelos (composição, não herança).
+	const canAddModelMeal = editContext.scope === "kitchen" && templateType === "event" && !willFork
+	const { mutate: duplicateVariant, isPending: isDuplicating } = useDuplicateTemplateAsVariant()
+	// Procedência das refeições: o nome e a pasta do modelo de onde vieram.
+	const { data: scopeTemplates } = useMenuTemplates(kitchenId)
+	const { data: folders } = useTemplateFolders(kitchenId !== null ? templateType : null)
+	const originLabel = (sourceTemplateId: string | null | undefined) => {
+		if (!sourceTemplateId) return null
+		const source = scopeTemplates?.find((t) => t.id === sourceTemplateId)
+		if (!source) return "modelo removido"
+		const path = source.kitchen_id == null ? catalogFolderPath(folders, source.folder_id) : null
+		return path ? `${path} · ${source.name}` : (source.name ?? "modelo")
+	}
 
 	const payloadItems = useMemo(() => eventItemsPayload(items, eventMeals, { allowItemHeadcount: allowMealAbsolutes }), [items, eventMeals, allowMealAbsolutes])
 	const payloadEventMeals = useMemo(() => eventMealsPayload(eventMeals, { allowBase: allowMealAbsolutes }), [eventMeals, allowMealAbsolutes])
@@ -303,15 +327,20 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 	 * Depois que o conteúdo foi gravado (e o template existe com o id definitivo — o fork cria
 	 * outro), grava a classificação de lanche se ela mudou. A falha é avisada pelo hook e deixa o
 	 * editor com alteração pendente, para o guarda de saída e o próximo salvamento cobrarem.
+	 * `onDone` roda quando o gravado está completo (conteúdo + classificação) — não roda se a
+	 * classificação falhar: a folha sairia com a classificação velha.
 	 */
 	const persistSnackClassification = useCallback(
-		(saved: {
-			id: string
-			contentSignature: string
-			snackSignature: string
-			snackPayload: SetSnackClassification["classification"]
-			itemsSignature: string
-		}) => {
+		(
+			saved: {
+				id: string
+				contentSignature: string
+				snackSignature: string
+				snackPayload: SetSnackClassification["classification"]
+				itemsSignature: string
+			},
+			onDone?: () => void
+		) => {
 			savedItemsSignatureRef.current = saved.itemsSignature
 			// Id diferente = o salvamento caiu numa CÓPIA da cozinha (fork novo OU fork que já
 			// existia). Escrever a classificação do template aberto ali sobrescreveria a do
@@ -324,10 +353,12 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 				if (isSupportMenu && saved.snackSignature !== savedSnackSignatureRef.current) {
 					toast.info("A cópia da cozinha mantém a própria classificação de padrão de lanche — ajuste-a na cópia, se precisar.")
 				}
+				onDone?.()
 				return
 			}
 			if (!isSupportMenu || saved.snackSignature === savedSnackSignatureRef.current) {
 				queryClient.invalidateQueries({ queryKey: queryKeys.snackRequests.standardEnergy(saved.id) })
+				onDone?.()
 				return
 			}
 			setSnackClassification(
@@ -335,6 +366,7 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 				{
 					onSuccess: () => {
 						savedSnackSignatureRef.current = saved.snackSignature
+						onDone?.()
 					},
 					// Marca o editor como pendente (assinatura que nunca casa) para o guarda de saída
 					// e o próximo salvamento cobrarem a classificação que não foi gravada.
@@ -548,8 +580,26 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 		setSelectedKeys((prev) => new Set([...prev].filter((key) => !items.some((i) => i.meal_type_id === meal.id && menuItemKey(i) === key))))
 	}
 
-	const handleSave = () => {
-		if (!name.trim()) return
+	const handleAddFromModel = (model: Parameters<typeof mealsFromModel>[0]) => {
+		const added = mealsFromModel(model, "event")
+		if (added.meals.length === 0) {
+			toast.info("Esse modelo ainda não tem refeição.")
+			return
+		}
+		if (eventMeals.length + added.meals.length > MAX_EVENT_MEALS) {
+			toast.error(`Um evento tem no máximo ${MAX_EVENT_MEALS} refeições.`)
+			return
+		}
+		dispatch({ type: "SET_EVENT_CONTENT", meals: [...eventMeals, ...added.meals], items: [...items, ...added.items] })
+		toast.success(`${added.meals.length === 1 ? "Refeição acrescentada" : `${added.meals.length} refeições acrescentadas`}. Informe o efetivo desta cozinha.`)
+	}
+
+	/** `afterSave`: o que fazer com o id gravado (o do fork, se houve) — no lugar de trocar a rota para o editor dele. */
+	const handleSave = (afterSave?: (savedId: string) => void) => {
+		if (!name.trim()) {
+			toast.error(`Dê um nome ${copy.article === "o" ? "ao" : "à"} ${copy.noun} antes de salvar.`)
+			return
+		}
 		if (hasSnackIssues) {
 			toast.error("Corrija os campos do padrão de lanche antes de salvar.")
 			return
@@ -572,9 +622,12 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 				onSuccess: (result) => {
 					setSaveStatus("saved")
 					savedSignatureRef.current = contentSignature
-					persistSnackClassification({ id: result?.template?.id ?? templateId, contentSignature, snackSignature, snackPayload, itemsSignature })
 					const savedId = result?.template?.id
-					if (savedId && savedId !== templateId) {
+					persistSnackClassification(
+						{ id: savedId ?? templateId, contentSignature, snackSignature, snackPayload, itemsSignature },
+						afterSave ? () => afterSave(savedId ?? templateId) : undefined
+					)
+					if (!afterSave && savedId && savedId !== templateId) {
 						navigate({ ...editorLink(savedId), replace: true })
 					}
 				},
@@ -630,6 +683,17 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 	}
 
 	const namePlaceholder = copy.namePlaceholder.split(",")[0]
+	// Mesmo critério do "Duplicar como variante": o que está na tela ainda não foi gravado.
+	const hasPendingChanges = contentSignature !== savedSignatureRef.current
+	/**
+	 * Com edição pendente, salva e só então abre a folha. No fork, a rota do editor passa antes para
+	 * a cópia (como no Salvar): voltar da folha reabriria o modelo global, e salvar ali gravaria o
+	 * conteúdo do global por cima da cópia.
+	 */
+	const printAfterSave = (savedId: string) => {
+		if (savedId === templateId) return void navigate(printLink(savedId))
+		void navigate({ ...editorLink(savedId), replace: true }).then(() => navigate(printLink(savedId)))
+	}
 	// Padrão de lanche: a refeição nova nasce no horário de sistema (o diálogo trava o horário e não oferece outro).
 	const openNewMeal = () => setMealDialog({ meal: newEventMeal("", isSnackStandard ? (snackMealType?.id ?? "") : "", templateType), isNew: true, open: true })
 	/** Ligar o padrão de lanche leva as refeições para o horário de sistema, como o servidor fará. */
@@ -644,8 +708,42 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 		<div className="space-y-6">
 			<PageHeader title={`Editar ${copy.singular}`} onBack={() => navigate(listLink)}>
 				<div className="flex items-center gap-2">
-					<AutoSaveStatus status={saveStatus} onRetry={handleSave} />
+					<AutoSaveStatus status={saveStatus} onRetry={() => handleSave()} />
 					<RecipeVersionUpdateButton outdated={outdated} onApply={handleUpdateVersions} />
+					{/* A folha lê o que está GRAVADO: com edição pendente, o clique salva antes e abre a folha do
+					    que foi gravado. Link de verdade, para abrir em outra aba quando não há pendência. */}
+					<Tooltip>
+						<TooltipTrigger
+							render={
+								<Button
+									nativeButton={false}
+									type="button"
+									variant="outline"
+									size="sm"
+									render={
+										<Link
+											{...printLink(templateId)}
+											onClick={(e) => {
+												if (!hasPendingChanges) return
+												e.preventDefault()
+												handleSave(printAfterSave)
+											}}
+										>
+											<Printer className="size-4 sm:mr-2" />
+											<span className="hidden sm:inline">Imprimir</span>
+										</Link>
+									}
+								/>
+							}
+						></TooltipTrigger>
+						<TooltipContent>
+							{!hasPendingChanges
+								? `Imprimir / baixar PDF ${copy.article === "o" ? "do" : "da"} ${copy.noun}`
+								: willFork
+									? "Salvar a cópia desta cozinha e imprimir"
+									: "Salvar e imprimir / baixar PDF"}
+						</TooltipContent>
+					</Tooltip>
 					{/* Aplicar é materializar no calendário de UMA cozinha — não existe no catálogo.
 						    Padrão de lanche não entra por aqui: a produção dele nasce do aceite do pedido, e
 						    nele o número do item é porções por KIT, não efetivo do dia. */}
@@ -655,10 +753,23 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 							Aplicar ao Calendário
 						</Button>
 					)}
+					{editContext.scope === "global" && (
+						<Button
+							variant="outline"
+							size="sm"
+							// A variante sai do que está GRAVADO: com edição ainda não salva, ela não levaria o que está na tela.
+							disabled={isDuplicating || contentSignature !== savedSignatureRef.current}
+							title={contentSignature !== savedSignatureRef.current ? "Espere o salvamento automático para duplicar." : undefined}
+							onClick={() => duplicateVariant(templateId, { onSuccess: (created) => navigate(editorLink(created.id)) })}
+						>
+							<Copy className="size-4 mr-2" />
+							Duplicar como variante
+						</Button>
+					)}
 					<Button type="button" variant="outline" size="sm" onClick={() => navigate(listLink)}>
 						Cancelar
 					</Button>
-					<Button size="sm" disabled={isSaving || !name.trim()} onClick={handleSave}>
+					<Button size="sm" disabled={isSaving || !name.trim()} onClick={() => handleSave()}>
 						{isSaving ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Save className="size-4 mr-2" />}
 						Salvar
 					</Button>
@@ -803,17 +914,36 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 						<ListChecks className="size-4 sm:mr-2" />
 						<span className="hidden sm:inline">{selectionMode ? "Sair da seleção" : "Selecionar"}</span>
 					</Button>
-					<Button
-						type="button"
-						size="sm"
-						// Teto do schema: a refeição a mais faria o servidor recusar o cardápio inteiro.
-						disabled={eventMeals.length >= MAX_EVENT_MEALS}
-						onClick={openNewMeal}
-					>
-						<Plus />
-						Nova refeição
-					</Button>
+					{canAddModelMeal && (
+						<Button type="button" size="sm" variant="outline" disabled={eventMeals.length >= MAX_EVENT_MEALS} onClick={() => setModelMealOpen(true)}>
+							<Layers />
+							Refeição de um modelo
+						</Button>
+					)}
+					{/* Modelo global de evento tem uma refeição: outra opção é outro modelo ("Duplicar como variante"). */}
+					{!(isGlobalEvent && eventMeals.length >= 1) && (
+						<Button
+							type="button"
+							size="sm"
+							// Teto do schema: a refeição a mais faria o servidor recusar o cardápio inteiro.
+							disabled={eventMeals.length >= MAX_EVENT_MEALS}
+							onClick={openNewMeal}
+						>
+							<Plus />
+							Nova refeição
+						</Button>
+					)}
 				</div>
+				{isGlobalEvent && eventMeals.length > 1 && (
+					<Alert variant="destructive">
+						<AlertTriangle className="size-4" />
+						<AlertTitle>Modelo com mais de uma refeição</AlertTitle>
+						<AlertDescription>
+							Modelo global de evento é uma opção de um formato só. Deixe aqui uma refeição e crie as outras como modelos nas pastas delas; sem isso, o
+							salvamento é recusado.
+						</AlertDescription>
+					</Alert>
+				)}
 
 				{/* Refeições do cardápio: cada uma com a própria composição */}
 				{eventMeals.length > 0 ? (
@@ -826,6 +956,7 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 									key={meal.id}
 									meal={meal}
 									mealTypeName={slotName(meal.meal_type_id)}
+									originLabel={kitchenId !== null ? originLabel(meal.source_template_id) : null}
 									items={boardItems}
 									isFirst={index === 0}
 									isLast={index === eventMeals.length - 1}
@@ -879,6 +1010,8 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 				allowBase={allowMealAbsolutes}
 				// Padrão de lanche: o horário é o de sistema, fixado pelo servidor ao salvar.
 				lockedSlotName={isSnackStandard ? (snackMealType?.name ?? SNACK_MEAL_TYPE_NAME) : null}
+				// No modelo global o horário é sugestão: a cozinha escolhe ao aplicar ou montar.
+				isSuggestedSlot={editContext.scope === "global" && !isSnackStandard}
 			/>
 
 			<MenuHeadcountDialog
@@ -915,6 +1048,16 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 				onSelect={handleSelectRecipes}
 				multiSelect
 			/>
+
+			{canAddModelMeal && kitchenId !== null && (
+				<AddModelMealDialog
+					open={modelMealOpen}
+					onOpenChange={setModelMealOpen}
+					kitchenId={kitchenId}
+					currentTemplateId={templateId}
+					onPick={handleAddFromModel}
+				/>
+			)}
 
 			{kitchenId !== null && (
 				<ApplyEventDialog

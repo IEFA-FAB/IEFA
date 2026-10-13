@@ -66,7 +66,7 @@ function UasgInfoPanel({ uasg }: { uasg: string }) {
 				<CardHeader>
 					<div className="flex items-center gap-2">
 						<ShieldCheck className="size-4 text-muted-foreground" aria-hidden="true" />
-						<CardTitle className="text-base">Dados da UASG no Compras.gov.br</CardTitle>
+						<CardTitle>Dados da UASG no Compras.gov.br</CardTitle>
 					</div>
 					<CardDescription>Consultando dados da UASG {uasg}…</CardDescription>
 				</CardHeader>
@@ -90,7 +90,7 @@ function UasgInfoPanel({ uasg }: { uasg: string }) {
 				<CardHeader>
 					<div className="flex items-center gap-2">
 						<ShieldCheck className="size-4 text-destructive" aria-hidden="true" />
-						<CardTitle className="text-base">Dados da UASG no Compras.gov.br</CardTitle>
+						<CardTitle>Dados da UASG no Compras.gov.br</CardTitle>
 					</div>
 					<CardDescription className="text-destructive">
 						Não foi possível consultar a UASG {uasg}: {error?.message}
@@ -106,7 +106,7 @@ function UasgInfoPanel({ uasg }: { uasg: string }) {
 				<CardHeader>
 					<div className="flex items-center gap-2">
 						<ShieldCheck className="size-4 text-muted-foreground" aria-hidden="true" />
-						<CardTitle className="text-base">Dados da UASG no Compras.gov.br</CardTitle>
+						<CardTitle>Dados da UASG no Compras.gov.br</CardTitle>
 					</div>
 					<CardDescription>Nenhuma UASG ativa encontrada para o código {uasg}.</CardDescription>
 				</CardHeader>
@@ -126,7 +126,7 @@ function UasgInfoCard({ data }: { data: UasgInfo }) {
 				<div className="flex items-start justify-between gap-2">
 					<div className="flex items-center gap-2">
 						<ShieldCheck className="size-4 text-muted-foreground" aria-hidden="true" />
-						<CardTitle className="text-base">Dados da UASG no Compras.gov.br</CardTitle>
+						<CardTitle>Dados da UASG no Compras.gov.br</CardTitle>
 					</div>
 					<div className="flex items-center gap-2 shrink-0">
 						{data.statusUasg ? <Badge variant="success">Ativa</Badge> : <Badge variant="destructive">Inativa</Badge>}
@@ -243,7 +243,7 @@ function UnitSettingsForm({ unitId, defaultValues }: { unitId: number; defaultVa
 				<CardHeader>
 					<div className="flex items-center gap-2">
 						<Building2 className="size-4 text-muted-foreground" aria-hidden="true" />
-						<CardTitle className="text-base">Dados de Licitação</CardTitle>
+						<CardTitle>Dados de Licitação</CardTitle>
 					</div>
 					<CardDescription>Informações utilizadas na licitação e na busca de ARPs no Compras.gov.br.</CardDescription>
 				</CardHeader>
@@ -288,7 +288,7 @@ function UnitSettingsForm({ unitId, defaultValues }: { unitId: number; defaultVa
 				<CardHeader>
 					<div className="flex items-center gap-2">
 						<MapPin className="size-4 text-muted-foreground" aria-hidden="true" />
-						<CardTitle className="text-base">Endereço da Unidade</CardTitle>
+						<CardTitle>Endereço da Unidade</CardTitle>
 					</div>
 					<CardDescription>Endereço oficial da unidade, utilizado nos documentos de licitação e correspondências.</CardDescription>
 				</CardHeader>

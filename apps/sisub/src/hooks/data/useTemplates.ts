@@ -221,8 +221,8 @@ export function useRestoreTemplate() {
 export function useApplyEventTemplate() {
 	const queryClient = useQueryClient()
 	return useMutation({
-		mutationFn: ({ templateId, kitchenId, dates, headcounts }: ApplyEventTemplate) =>
-			applyEventTemplateFn({ data: { templateId, kitchenId, dates, headcounts } }),
+		mutationFn: ({ templateId, kitchenId, dates, headcounts, slots }: ApplyEventTemplate) =>
+			applyEventTemplateFn({ data: { templateId, kitchenId, dates, headcounts, slots } }),
 		onSuccess: (result) => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.dailyMenus.all() })
 			queryClient.invalidateQueries({ queryKey: queryKeys.planning.all() })

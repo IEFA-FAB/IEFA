@@ -10,6 +10,11 @@ const alertVariants = cva(
 			variant: {
 				default: "bg-card text-card-foreground",
 				destructive: "text-destructive bg-card *:data-[slot=alert-description]:text-destructive/90 *:[svg]:text-current",
+				// Pede ação sem ser erro (vínculo a confirmar, prazo): tint do token, texto legível.
+				warning: "bg-warning/10 border-warning/40 text-foreground *:[svg]:text-warning",
+				// Acompanhamento ou estado neutro que merece destaque (pedido em análise).
+				info: "bg-info/10 border-info/30 text-foreground *:[svg]:text-info",
+				success: "bg-success/10 border-success/30 text-foreground *:[svg]:text-success",
 			},
 		},
 		defaultVariants: {

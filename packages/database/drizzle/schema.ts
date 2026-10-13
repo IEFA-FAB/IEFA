@@ -578,29 +578,6 @@ export const supplyOrderItemInProcurement = procurement.table("supply_order_item
 	check("supply_order_item_ordered_qty_check", sql`ordered_qty > (0)::numeric`),
 ]);
 
-export const userDataInCore = core.table("user_data", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	email: text().notNull(),
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	defaultMessHallId: bigint("default_mess_hall_id", { mode: "number" }),
-	saram: text(),
-}, (table) => [
-	index("user_data_default_mess_hall_id_fk_idx").using("btree", table.defaultMessHallId.asc().nullsLast()),
-	index("user_data_saram_idx").using("btree", table.saram.asc().nullsLast()),
-	foreignKey({
-			columns: [table.defaultMessHallId],
-			foreignColumns: [messHallsInKitchen.id],
-			name: "user_data_default_mess_hall_id_fkey"
-		}),
-	foreignKey({
-			columns: [table.id],
-			foreignColumns: [usersInAuth.id],
-			name: "user_data_id_fkey"
-		}),
-	unique("user_data_email_key").on(table.email),
-]);
-
 export const nfeItemInInventory = inventory.table("nfe_item", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	nfeDocumentId: uuid("nfe_document_id").notNull(),
@@ -742,8 +719,10 @@ export const menuTemplateEventMealInKitchen = kitchen.table("menu_template_event
 	sortOrder: smallint("sort_order").default(0).notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	baseHeadcount: integer("base_headcount"),
+	sourceTemplateId: uuid("source_template_id"),
 }, (table) => [
 	index("menu_template_event_meal_meal_type_id_fk_idx").using("btree", table.mealTypeId.asc().nullsLast()),
+	index("menu_template_event_meal_source_template_id_fk_idx").using("btree", table.sourceTemplateId.asc().nullsLast()),
 	index("menu_template_event_meal_template_idx").using("btree", table.menuTemplateId.asc().nullsLast(), table.sortOrder.asc().nullsLast()),
 	foreignKey({
 			columns: [table.mealTypeId],
@@ -755,6 +734,11 @@ export const menuTemplateEventMealInKitchen = kitchen.table("menu_template_event
 			foreignColumns: [menuTemplateInKitchen.id],
 			name: "menu_template_event_meal_menu_template_id_fkey"
 		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.sourceTemplateId],
+			foreignColumns: [menuTemplateInKitchen.id],
+			name: "menu_template_event_meal_source_template_id_fkey"
+		}).onDelete("set null"),
 	check("menu_template_event_meal_base_headcount_check", sql`(base_headcount IS NULL) OR (base_headcount > 0)`),
 	check("menu_template_event_meal_groups_is_array", sql`jsonb_typeof(groups) = 'array'::text`),
 	check("menu_template_event_meal_name_not_blank", sql`btrim(name) <> ''::text`),
@@ -2573,6 +2557,58 @@ export const ingredientReviewInKitchen = kitchen.table("ingredient_review", {
 		}).onDelete("cascade"),
 ]);
 
+export const menuTemplateInKitchen = kitchen.table("menu_template", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	name: text(),
+	description: text(),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	kitchenId: bigint("kitchen_id", { mode: "number" }),
+	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
+	baseTemplateId: uuid("base_template_id"),
+	templateType: text("template_type").default('weekly').notNull(),
+	expectedMonthlyOccurrences: smallint("expected_monthly_occurrences"),
+	snackFamily: text("snack_family"),
+	snackClass: text("snack_class"),
+	snackVariant: text("snack_variant"),
+	requiresGalley: boolean("requires_galley").default(false).notNull(),
+	requiresOven: boolean("requires_oven").default(false).notNull(),
+	reviewedAt: date("reviewed_at"),
+	shelfLifeHours: smallint("shelf_life_hours"),
+	orderable: boolean().default(false).notNull(),
+	folderId: uuid("folder_id"),
+}, (table) => [
+	index("menu_template_base_template_id_fk_idx").using("btree", table.baseTemplateId.asc().nullsLast()),
+	index("menu_template_folder_id_fk_idx").using("btree", table.folderId.asc().nullsLast()),
+	uniqueIndex("menu_template_folder_model_name").using("btree", sql`folder_id`, sql`lower(btrim(name))`).where(sql`((folder_id IS NOT NULL) AND (deleted_at IS NULL))`),
+	index("menu_template_kitchen_id_fk_idx").using("btree", table.kitchenId.asc().nullsLast()),
+	index("menu_template_kitchen_lineage_idx").using("btree", table.kitchenId.asc().nullsLast(), table.baseTemplateId.asc().nullsLast()).where(sql`((base_template_id IS NOT NULL) AND (deleted_at IS NULL))`),
+	foreignKey({
+			columns: [table.baseTemplateId],
+			foreignColumns: [table.id],
+			name: "menu_template_base_template_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.folderId],
+			foreignColumns: [menuTemplateFolderInKitchen.id],
+			name: "menu_template_folder_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.kitchenId],
+			foreignColumns: [kitchenInKitchen.id],
+			name: "menu_template_kitchen_id_fkey"
+		}),
+	check("menu_template_expected_monthly_occurrences_check", sql`(expected_monthly_occurrences IS NULL) OR (expected_monthly_occurrences > 0)`),
+	check("menu_template_global_without_occurrences", sql`(kitchen_id IS NOT NULL) OR (expected_monthly_occurrences IS NULL)`),
+	check("menu_template_shelf_life_hours_check", sql`(shelf_life_hours IS NULL) OR ((shelf_life_hours >= 1) AND (shelf_life_hours <= 720))`),
+	check("menu_template_snack_apoio_class_check", sql`(snack_family IS DISTINCT FROM 'apoio'::text) OR (snack_class = ANY (ARRAY['A'::text, 'B'::text]))`),
+	check("menu_template_snack_class_check", sql`(snack_class IS NULL) OR (snack_class = ANY (ARRAY['A'::text, 'B'::text, 'C'::text]))`),
+	check("menu_template_snack_complete_check", sql`((snack_family IS NULL) AND (snack_class IS NULL) AND (snack_variant IS NULL) AND (orderable = false)) OR ((snack_family IS NOT NULL) AND (snack_class IS NOT NULL) AND (snack_variant IS NOT NULL) AND (template_type = 'apoio'::text))`),
+	check("menu_template_snack_family_check", sql`(snack_family IS NULL) OR (snack_family = ANY (ARRAY['bordo'::text, 'apoio'::text]))`),
+	check("menu_template_snack_variant_check", sql`(snack_variant IS NULL) OR (snack_variant = ANY (ARRAY['lanche'::text, 'refeicao'::text]))`),
+	check("menu_template_template_type_check", sql`template_type = ANY (ARRAY['weekly'::text, 'event'::text, 'apoio'::text])`),
+]);
+
 export const menuItemsInKitchen = kitchen.table("menu_items", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
@@ -2637,50 +2673,6 @@ export const menuItemsInKitchen = kitchen.table("menu_items", {
 	check("menu_items_execution_review_needs_add", sql`(execution_reviewed_at IS NULL) OR (added_in_execution_at IS NOT NULL)`),
 	check("menu_items_origin_template_type_check", sql`origin_template_type = ANY (ARRAY['weekly'::text, 'event'::text, 'apoio'::text])`),
 	check("menu_items_recommended_proportion_range", sql`(recommended_proportion IS NULL) OR ((recommended_proportion >= (0)::numeric) AND (recommended_proportion <= (1000)::numeric))`),
-]);
-
-export const menuTemplateInKitchen = kitchen.table("menu_template", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	name: text(),
-	description: text(),
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	kitchenId: bigint("kitchen_id", { mode: "number" }),
-	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
-	baseTemplateId: uuid("base_template_id"),
-	templateType: text("template_type").default('weekly').notNull(),
-	expectedMonthlyOccurrences: smallint("expected_monthly_occurrences"),
-	snackFamily: text("snack_family"),
-	snackClass: text("snack_class"),
-	snackVariant: text("snack_variant"),
-	requiresGalley: boolean("requires_galley").default(false).notNull(),
-	requiresOven: boolean("requires_oven").default(false).notNull(),
-	reviewedAt: date("reviewed_at"),
-	shelfLifeHours: smallint("shelf_life_hours"),
-	orderable: boolean().default(false).notNull(),
-}, (table) => [
-	index("menu_template_base_template_id_fk_idx").using("btree", table.baseTemplateId.asc().nullsLast()),
-	index("menu_template_kitchen_id_fk_idx").using("btree", table.kitchenId.asc().nullsLast()),
-	index("menu_template_kitchen_lineage_idx").using("btree", table.kitchenId.asc().nullsLast(), table.baseTemplateId.asc().nullsLast()).where(sql`((base_template_id IS NOT NULL) AND (deleted_at IS NULL))`),
-	foreignKey({
-			columns: [table.baseTemplateId],
-			foreignColumns: [table.id],
-			name: "menu_template_base_template_id_fkey"
-		}),
-	foreignKey({
-			columns: [table.kitchenId],
-			foreignColumns: [kitchenInKitchen.id],
-			name: "menu_template_kitchen_id_fkey"
-		}),
-	check("menu_template_expected_monthly_occurrences_check", sql`(expected_monthly_occurrences IS NULL) OR (expected_monthly_occurrences > 0)`),
-	check("menu_template_global_without_occurrences", sql`(kitchen_id IS NOT NULL) OR (expected_monthly_occurrences IS NULL)`),
-	check("menu_template_shelf_life_hours_check", sql`(shelf_life_hours IS NULL) OR ((shelf_life_hours >= 1) AND (shelf_life_hours <= 720))`),
-	check("menu_template_snack_apoio_class_check", sql`(snack_family IS DISTINCT FROM 'apoio'::text) OR (snack_class = ANY (ARRAY['A'::text, 'B'::text]))`),
-	check("menu_template_snack_class_check", sql`(snack_class IS NULL) OR (snack_class = ANY (ARRAY['A'::text, 'B'::text, 'C'::text]))`),
-	check("menu_template_snack_complete_check", sql`((snack_family IS NULL) AND (snack_class IS NULL) AND (snack_variant IS NULL) AND (orderable = false)) OR ((snack_family IS NOT NULL) AND (snack_class IS NOT NULL) AND (snack_variant IS NOT NULL) AND (template_type = 'apoio'::text))`),
-	check("menu_template_snack_family_check", sql`(snack_family IS NULL) OR (snack_family = ANY (ARRAY['bordo'::text, 'apoio'::text]))`),
-	check("menu_template_snack_variant_check", sql`(snack_variant IS NULL) OR (snack_variant = ANY (ARRAY['lanche'::text, 'refeicao'::text]))`),
-	check("menu_template_template_type_check", sql`template_type = ANY (ARRAY['weekly'::text, 'event'::text, 'apoio'::text])`),
 ]);
 
 export const frozenPreparationInKitchen = kitchen.table("frozen_preparation", {
@@ -4322,6 +4314,28 @@ export const reconciliationDecisionInFinance = finance.table("reconciliation_dec
 	check("reconciliation_decision_documento_tipo_check", sql`documento_tipo = ANY (ARRAY['ne'::text, 'ns'::text, 'ob'::text])`),
 ]);
 
+export const menuTemplateFolderInKitchen = kitchen.table("menu_template_folder", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	templateType: text("template_type").notNull(),
+	parentId: uuid("parent_id"),
+	name: text().notNull(),
+	description: text(),
+	sortOrder: smallint("sort_order").default(0).notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
+}, (table) => [
+	index("menu_template_folder_parent_id_fk_idx").using("btree", table.parentId.asc().nullsLast()),
+	uniqueIndex("menu_template_folder_sibling_name").using("btree", sql`template_type`, sql`COALESCE(parent_id, '00000000-0000-0000-0000-000000000000'::uui`, sql`lower(btrim(name))`).where(sql`(deleted_at IS NULL)`),
+	foreignKey({
+			columns: [table.parentId],
+			foreignColumns: [table.id],
+			name: "menu_template_folder_parent_id_fkey"
+		}),
+	check("menu_template_folder_name_check", sql`(length(btrim(name)) >= 1) AND (length(btrim(name)) <= 120)`),
+	check("menu_template_folder_not_own_parent", sql`parent_id IS DISTINCT FROM id`),
+	check("menu_template_folder_template_type_check", sql`template_type = ANY (ARRAY['event'::text, 'apoio'::text])`),
+]);
+
 export const recipesInKitchen = kitchen.table("recipes", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	version: smallint().notNull(),
@@ -4549,6 +4563,37 @@ export const stockIssueRequestInInventory = inventory.table("stock_issue_request
 	check("stock_issue_request_status_check", sql`status = ANY (ARRAY['open'::text, 'closed'::text, 'closed_unexplained'::text])`),
 ]);
 
+export const userDataInCore = core.table("user_data", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	email: text().notNull(),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	defaultMessHallId: bigint("default_mess_hall_id", { mode: "number" }),
+	saram: text(),
+	accountKind: text("account_kind").default('pessoal').notNull(),
+	saramVerifiedBy: text("saram_verified_by"),
+	saramVerifiedAt: timestamp("saram_verified_at", { withTimezone: true, mode: 'string' }),
+}, (table) => [
+	index("user_data_default_mess_hall_id_fk_idx").using("btree", table.defaultMessHallId.asc().nullsLast()),
+	index("user_data_saram_idx").using("btree", table.saram.asc().nullsLast()),
+	uniqueIndex("user_data_saram_verified_uniq").using("btree", table.saram.asc().nullsLast()).where(sql`(saram_verified_by = ANY (ARRAY['email'::text, 'cpf'::text, 'admin'::text]))`),
+	foreignKey({
+			columns: [table.defaultMessHallId],
+			foreignColumns: [messHallsInKitchen.id],
+			name: "user_data_default_mess_hall_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.id],
+			foreignColumns: [usersInAuth.id],
+			name: "user_data_id_fkey"
+		}),
+	unique("user_data_email_key").on(table.email),
+	check("user_data_account_kind_check", sql`account_kind = ANY (ARRAY['pessoal'::text, 'institucional'::text])`),
+	check("user_data_institutional_without_saram", sql`(account_kind = 'pessoal'::text) OR (saram IS NULL)`),
+	check("user_data_saram_verification_needs_saram", sql`(saram_verified_by IS NULL) OR (saram IS NOT NULL)`),
+	check("user_data_saram_verified_by_check", sql`saram_verified_by = ANY (ARRAY['email'::text, 'cpf'::text, 'admin'::text, 'legacy'::text])`),
+]);
+
 export const trainingResetLogInKitchen = kitchen.table("training_reset_log", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	actorId: uuid("actor_id").notNull(),
@@ -4570,6 +4615,68 @@ export const superAdminControllerInKitchen = kitchen.table("super_admin_controll
 	active: boolean(),
 	value: text(),
 });
+
+export const saramLinkRequestInCore = core.table("saram_link_request", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	userId: uuid("user_id").notNull(),
+	kind: text().notNull(),
+	saram: text().notNull(),
+	justification: text().notNull(),
+	holderUserId: uuid("holder_user_id"),
+	claimVerifiedBy: text("claim_verified_by"),
+	status: text().default('pending').notNull(),
+	decidedBy: uuid("decided_by"),
+	decidedAt: timestamp("decided_at", { withTimezone: true, mode: 'string' }),
+	decisionNote: text("decision_note"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("saram_link_request_decided_by_idx").using("btree", table.decidedBy.asc().nullsLast()),
+	index("saram_link_request_holder_user_idx").using("btree", table.holderUserId.asc().nullsLast()),
+	uniqueIndex("saram_link_request_one_pending_uniq").using("btree", table.userId.asc().nullsLast()).where(sql`(status = 'pending'::text)`),
+	index("saram_link_request_saram_idx").using("btree", table.saram.asc().nullsLast()),
+	index("saram_link_request_user_created_idx").using("btree", table.userId.asc().nullsLast(), table.createdAt.desc().nullsFirst()),
+	foreignKey({
+			columns: [table.decidedBy],
+			foreignColumns: [usersInAuth.id],
+			name: "saram_link_request_decided_by_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.holderUserId],
+			foreignColumns: [usersInAuth.id],
+			name: "saram_link_request_holder_user_id_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.userId],
+			foreignColumns: [usersInAuth.id],
+			name: "saram_link_request_user_id_fkey"
+		}).onDelete("cascade"),
+	check("saram_link_request_claim_check", sql`claim_verified_by = ANY (ARRAY['email'::text, 'cpf'::text])`),
+	check("saram_link_request_decided_check", sql`(status = 'pending'::text) = (decided_at IS NULL)`),
+	check("saram_link_request_justification_check", sql`(char_length(btrim(justification)) >= 10) AND (char_length(btrim(justification)) <= 1000)`),
+	check("saram_link_request_kind_check", sql`kind = ANY (ARRAY['link'::text, 'dispute'::text])`),
+	check("saram_link_request_saram_check", sql`saram ~ '^[0-9]{6,7}$'::text`),
+	check("saram_link_request_status_check", sql`status = ANY (ARRAY['pending'::text, 'approved'::text, 'rejected'::text, 'withdrawn'::text])`),
+]);
+
+export const saramVerificationAttemptInCore = core.table("saram_verification_attempt", {
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	id: bigint({ mode: "number" }).primaryKey().generatedAlwaysAsIdentity({ name: "core.saram_verification_attempt_id_seq", startWith: 1, increment: 1, minValue: 1, maxValue: 9223372036854775807, cache: 1 }),
+	userId: uuid("user_id").notNull(),
+	saram: text().notNull(),
+	method: text().notNull(),
+	succeeded: boolean().notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("saram_verification_attempt_saram_idx").using("btree", table.saram.asc().nullsLast(), table.createdAt.desc().nullsFirst()),
+	index("saram_verification_attempt_user_idx").using("btree", table.userId.asc().nullsLast(), table.createdAt.desc().nullsFirst()),
+	foreignKey({
+			columns: [table.userId],
+			foreignColumns: [usersInAuth.id],
+			name: "saram_verification_attempt_user_id_fkey"
+		}).onDelete("cascade"),
+	check("saram_verification_attempt_method_check", sql`method = ANY (ARRAY['cpf'::text, 'cpf_suffix'::text])`),
+]);
 
 export const userPermissionsInAccessControl = accessControl.table("user_permissions", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
@@ -4652,6 +4759,7 @@ export const userMilitaryDataInCore = core.table("user_military_data", {
 	id: bigint({ mode: "number" }).primaryKey().generatedByDefaultAsIdentity({ name: "core.user_military_data_id_seq", startWith: 1, increment: 1, minValue: 1, maxValue: 9223372036854775807, cache: 1 }),
 }, (table) => [
 	index("user_military_data_dataAtualizacao_idx").using("btree", table.dataAtualizacao.asc().nullsLast()),
+	index("user_military_data_name_key_idx").using("btree", sql`core.military_name_key("nmGuerra", "nmPessoa")`),
 	index("user_military_data_nrOrdem_idx").using("btree", table.nrOrdem.asc().nullsLast()),
 	unique("user_military_data_nrCpf_key").on(table.nrCpf),
 ]);
@@ -5703,7 +5811,7 @@ export const vStockBalanceInInventory = inventory.view("v_stock_balance", {	// Y
 
 export const vUserIdentityInCore = core.view("v_user_identity", {	id: uuid(),
 	displayName: text("display_name"),
-}).with({"securityInvoker":true}).as(sql`SELECT ud.id, CASE WHEN NULLIF(btrim((COALESCE(mi.posto, ''::text) || ' '::text) || COALESCE(mi.nome_guerra, ''::text)), ''::text) IS NOT NULL THEN btrim((COALESCE(mi.posto, ''::text) || ' '::text) || initcap(COALESCE(mi.nome_guerra, ''::text))) ELSE ud.email END AS display_name FROM core.user_data ud LEFT JOIN core.military_identity mi ON mi.saram = ud.saram`);
+}).with({"securityInvoker":true}).as(sql`SELECT ud.id, CASE WHEN NULLIF(btrim((COALESCE(mi.posto, ''::text) || ' '::text) || COALESCE(mi.nome_guerra, ''::text)), ''::text) IS NOT NULL THEN btrim((COALESCE(mi.posto, ''::text) || ' '::text) || initcap(COALESCE(mi.nome_guerra, ''::text))) ELSE ud.email END AS display_name FROM core.user_data ud LEFT JOIN core.military_identity mi ON mi.saram = ud.saram AND ud.account_kind = 'pessoal'::text AND ((ud.saram_verified_by = ANY (ARRAY['email'::text, 'cpf'::text, 'admin'::text])) OR ud.saram_verified_by = 'legacy'::text AND NOT (EXISTS ( SELECT 1 FROM core.user_data o WHERE o.saram = ud.saram AND o.id <> ud.id AND (o.saram_verified_by = ANY (ARRAY['email'::text, 'cpf'::text, 'admin'::text])))))`);
 
 export const vLotExpiryInInventory = inventory.view("v_lot_expiry", {	lotId: uuid("lot_id"),
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations

@@ -79,7 +79,7 @@ export function PurchaseItemsManager({ ingredientId, ingredientName, ingredientH
 					</div>
 					<p className="text-caption text-muted-foreground">Especificações de aquisição (CATMAT) deste insumo.</p>
 				</div>
-				<Button size="sm" onClick={() => cards.open("new")} className="gap-2 shrink-0">
+				<Button size="sm" onClick={() => cards.open("new")} className="shrink-0">
 					<PackagePlus className="size-4" />
 					Novo Item
 				</Button>

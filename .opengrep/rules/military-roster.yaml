@@ -17,7 +17,10 @@
 #   - `apps/sisub/src/test/operations-fixtures.ts`: semeia o espelho nos testes de integração; o CPF é
 #     NOT NULL e UNIQUE na tabela, e o valor é sintético;
 #   - `packages/database/src/{core,sisub}.ts`: exportam o tipo da linha crua (`UserMilitaryData`) ao
-#     lado do da view.
+#     lado do da view;
+#   - `packages/database/src/saram-link.sql-contract.test.ts`: lê o TEXTO da migration do vínculo de
+#     SARAM verificado (20261003100000), cujas funções usam o nome completo (chave do e-mail) e o CPF
+#     (conferência) dentro do banco, e cita os campos para provar que o estado não os publica.
 #
 # Linha de comentário não é acusada: comentário explica por que o campo NÃO é lido. Tipos gerados
 # (`generated.ts`, `drizzle/`) e os tipos-ponte até o `db:types` (`packages/database/src/pending-*`)
@@ -60,6 +63,7 @@ rules:
         - "apps/api/src/api/routes.auth.test.ts"
         - "apps/api/tests/integration/routes.integration.test.ts"
         - "apps/sisub/src/test/operations-fixtures.ts"
+        - "packages/database/src/saram-link.sql-contract.test.ts"
     patterns:
       - pattern-regex: \b(?:nrCpf|nmPessoa|nr_cpf|nm_pessoa)\b
       - pattern-not-regex: (?m)^\s*(?://|/\*|\*).*$

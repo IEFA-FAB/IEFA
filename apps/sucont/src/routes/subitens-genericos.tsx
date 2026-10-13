@@ -36,6 +36,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#
 import { StatTile } from "#/components/ui/stat-tile"
 import { useMessageDrafts } from "#/hooks/use-editable-message"
 import { formatCurrency } from "#/lib/analista/types"
+import { addDays, todayInBrasilia } from "#/lib/brasilia"
 import { chartChrome } from "#/lib/chart-theme"
 import { blocoFundamentacao, FUNDAMENTO_CONTA_GENERICA } from "#/lib/normas"
 import { AIAssistant } from "#/subitens/components/AIAssistant"
@@ -62,6 +63,13 @@ const ANALYSIS_NOTES = [
 		text: "As ocorrências são agregadas por UG, ODS e órgão superior, com curva de Pareto para mostrar onde está a concentração.",
 	},
 ] as const
+
+/**
+ * Prazo padrão da mensagem: cinco dias a partir de hoje em Brasília. O campo mostra esse valor
+ * quando ninguém escolheu outro, e o texto da mensagem lê o mesmo, para tela e mensagem não
+ * divergirem (o `toISOString()` dava o dia seguinte depois das 21h).
+ */
+const defaultDeadline = () => addDays(todayInBrasilia(), 5)
 
 export const Route = createFileRoute("/subitens-genericos")({
 	// A divisão exigida sai do catálogo (`sucontTools`), pelo `internalPath`.
@@ -274,9 +282,9 @@ function SubitensGenericos() {
 	const drafts = useMessageDrafts()
 	const [activeTab, setActiveTab] = useState<"messages" | "dashboard">("messages")
 
-	const [reportDate, setReportDate] = useState<string>(new Date().toISOString().split("T")[0])
+	const [reportDate, setReportDate] = useState<string>(todayInBrasilia())
 	const [msgNumber, setMsgNumber] = useState<string>("___")
-	const [msgDate, setMsgDate] = useState<string>(new Date().toISOString().split("T")[0])
+	const [msgDate, setMsgDate] = useState<string>(todayInBrasilia())
 
 	const [ugConfigs, setUgConfigs] = useState<
 		Record<string, { messageType: "com_prazo" | "sem_prazo" | "alerta"; deadlineDate: string; msgNumber: string; msgDate: string }>
@@ -318,7 +326,7 @@ function SubitensGenericos() {
 			[ug]: {
 				...(prev[ug] || {
 					messageType: "sem_prazo",
-					deadlineDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+					deadlineDate: defaultDeadline(),
 					msgNumber,
 					msgDate,
 				}),
@@ -333,7 +341,7 @@ function SubitensGenericos() {
 			[racId]: {
 				...(prev[racId] || {
 					messageType: "sem_prazo",
-					deadlineDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+					deadlineDate: defaultDeadline(),
 					msgNumber,
 					msgDate,
 				}),
@@ -344,15 +352,15 @@ function SubitensGenericos() {
 
 	const getDeadlineText = (ug: string) => {
 		const config = ugConfigs[ug]
-		if (config?.messageType !== "com_prazo" || !config.deadlineDate) return ""
-		const [year, month, day] = config.deadlineDate.split("-")
+		if (config?.messageType !== "com_prazo") return ""
+		const [year, month, day] = (config.deadlineDate || defaultDeadline()).split("-")
 		return `${day}/${month}/${year}`
 	}
 
 	const getRacDeadlineText = (racId: string) => {
 		const config = racConfigs[racId]
-		if (config?.messageType !== "com_prazo" || !config.deadlineDate) return ""
-		const [year, month, day] = config.deadlineDate.split("-")
+		if (config?.messageType !== "com_prazo") return ""
+		const [year, month, day] = (config.deadlineDate || defaultDeadline()).split("-")
 		return `${day}/${month}/${year}`
 	}
 
@@ -869,7 +877,7 @@ function SubitensGenericos() {
 																					value={ugConfig.msgNumber}
 																					onChange={(e) => updateUgConfig(group.ug, "msgNumber", e.target.value)}
 																					placeholder="___"
-																					className="font-mono"
+																					size="sm"
 																				/>
 																			</div>
 																			<div className="flex flex-col gap-2">
@@ -881,7 +889,7 @@ function SubitensGenericos() {
 																					type="date"
 																					value={ugConfig.msgDate}
 																					onChange={(e) => updateUgConfig(group.ug, "msgDate", e.target.value)}
-																					className="font-mono"
+																					size="sm"
 																				/>
 																			</div>
 																		</div>
@@ -896,7 +904,7 @@ function SubitensGenericos() {
 																					value={ugConfig.messageType}
 																					onValueChange={(value) => updateUgConfig(group.ug, "messageType", value as "com_prazo" | "sem_prazo" | "alerta")}
 																				>
-																					<SelectTrigger id={`ug-msg-type-${idx}`} className="w-full">
+																					<SelectTrigger id={`ug-msg-type-${idx}`} size="sm" className="w-full">
 																						<SelectValue />
 																					</SelectTrigger>
 																					<SelectContent>
@@ -922,9 +930,9 @@ function SubitensGenericos() {
 																							<Input
 																								id={`ug-deadline-${idx}`}
 																								type="date"
-																								value={ugConfig.deadlineDate || new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]}
+																								value={ugConfig.deadlineDate || defaultDeadline()}
 																								onChange={(e) => updateUgConfig(group.ug, "deadlineDate", e.target.value)}
-																								className="font-mono"
+																								size="sm"
 																							/>
 																						</div>
 																					</motion.div>
@@ -1044,7 +1052,7 @@ function SubitensGenericos() {
 																					value={racConfig.msgNumber}
 																					onChange={(e) => updateRacConfig(racId, "msgNumber", e.target.value)}
 																					placeholder="___"
-																					className="font-mono"
+																					size="sm"
 																				/>
 																			</div>
 																			<div className="flex flex-col gap-2">
@@ -1056,7 +1064,7 @@ function SubitensGenericos() {
 																					type="date"
 																					value={racConfig.msgDate}
 																					onChange={(e) => updateRacConfig(racId, "msgDate", e.target.value)}
-																					className="font-mono"
+																					size="sm"
 																				/>
 																			</div>
 																		</div>
@@ -1071,7 +1079,7 @@ function SubitensGenericos() {
 																					value={racConfig.messageType}
 																					onValueChange={(value) => updateRacConfig(racId, "messageType", value as "com_prazo" | "sem_prazo" | "alerta")}
 																				>
-																					<SelectTrigger id={`rac-msg-type-${idx}`} className="w-full">
+																					<SelectTrigger id={`rac-msg-type-${idx}`} size="sm" className="w-full">
 																						<SelectValue />
 																					</SelectTrigger>
 																					<SelectContent>
@@ -1097,9 +1105,9 @@ function SubitensGenericos() {
 																							<Input
 																								id={`rac-deadline-${idx}`}
 																								type="date"
-																								value={racConfig.deadlineDate || new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]}
+																								value={racConfig.deadlineDate || defaultDeadline()}
 																								onChange={(e) => updateRacConfig(racId, "deadlineDate", e.target.value)}
-																								className="font-mono"
+																								size="sm"
 																							/>
 																						</div>
 																					</motion.div>

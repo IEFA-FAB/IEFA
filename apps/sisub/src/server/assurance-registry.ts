@@ -724,6 +724,36 @@ export const ASSURANCE_REGISTRY = {
 	cancelSupplyOrderFn: { require: "none" },
 	linkSupplyOrderEmpenhoFn: { require: "none" },
 
+	// ── saram-admin.fn.ts (vínculo de SARAM e tipo de conta de outra pessoa: identidade, auditada
+	// na mesma transação pela função SQL — 20261003100000)
+	decideSaramRequestFn: {
+		require: "fresh",
+		reason: "Esta operação decide o vínculo de SARAM de outra pessoa.",
+		authorization: [{ kind: "permission", module: "admin", level: 2 }],
+	},
+	linkUserSaramFn: {
+		require: "fresh",
+		reason: "Esta operação vincula um SARAM à conta de outra pessoa.",
+		authorization: [{ kind: "permission", module: "admin", level: 2 }],
+	},
+	unlinkUserSaramFn: {
+		require: "fresh",
+		reason: "Esta operação desvincula o SARAM da conta de outra pessoa.",
+		authorization: [{ kind: "permission", module: "admin", level: 2 }],
+	},
+	setUserAccountKindFn: {
+		require: "fresh",
+		reason: "Esta operação muda o tipo de conta (pessoal ou institucional) de outra pessoa.",
+		authorization: [{ kind: "permission", module: "admin", level: 2 }],
+	},
+
+	// ── saram-link.fn.ts (a própria conta; a conferência é do banco)
+	confirmSaramCandidateFn: { require: "none" },
+	verifySaramByCpfFn: { require: "none" },
+	requestSaramLinkFn: { require: "none" },
+	withdrawSaramRequestFn: { require: "none" },
+	setOwnAccountKindFn: { require: "none" },
+
 	// ── snack-requests.fn.ts (pedido de lanche de bordo/apoio — não é operação financeira nem de acesso)
 	setSnackClassificationFn: { require: "none" },
 	createSnackRequestFn: { require: "none" },
@@ -744,6 +774,15 @@ export const ASSURANCE_REGISTRY = {
 	restoreTemplateFn: { require: "none" },
 	applyEventTemplateFn: { require: "none" },
 	applyTemplateFn: { require: "none" },
+	composeOccasionMenuFn: { require: "none" },
+	duplicateTemplateAsVariantFn: { require: "none" },
+
+	// ── template-folders.fn.ts (organização do catálogo global; nenhuma regra deriva da pasta)
+	createTemplateFolderFn: { require: "none" },
+	updateTemplateFolderFn: { require: "none" },
+	moveTemplateFolderFn: { require: "none" },
+	deleteTemplateFolderFn: { require: "none" },
+	setTemplateFolderFn: { require: "none" },
 
 	// ── training.fn.ts
 	resetTrainingScopeFn: {
@@ -756,7 +795,6 @@ export const ASSURANCE_REGISTRY = {
 	updateUnitSettingsFn: { require: "none" },
 
 	// ── user.fn.ts
-	syncUserSaramFn: { require: "none" },
 	syncUserEmailFn: { require: "none" },
 
 	// ── workforce.fn.ts

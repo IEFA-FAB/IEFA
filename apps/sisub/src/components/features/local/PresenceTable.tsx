@@ -196,7 +196,7 @@ export default function PresenceTable({ arranchamentos, presences, users, milita
 								return (
 									<>
 										{/* Main Row */}
-										<TableRow key={rowKey} className="cursor-pointer hover:bg-muted/50" onClick={() => toggleOpen(rowKey)}>
+										<TableRow key={rowKey} className="cursor-pointer" onClick={() => toggleOpen(rowKey)}>
 											<TableCell>
 												{isOpen ? (
 													<ChevronDown className="size-4 text-muted-foreground" aria-hidden="true" />
@@ -258,7 +258,7 @@ export default function PresenceTable({ arranchamentos, presences, users, milita
 																	({record.arranchados_count + record.extras.length} pessoas total)
 																</span>
 															</h3>
-															<Button variant="outline" size="sm" onClick={() => handleCopyCsv(record)} className="gap-2">
+															<Button variant="outline" size="sm" onClick={() => handleCopyCsv(record)}>
 																<Copy className="size-4" />
 																Copiar CSV
 															</Button>

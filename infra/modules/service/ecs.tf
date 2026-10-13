@@ -114,5 +114,12 @@ resource "aws_ecs_service" "this" {
     rollback = true
   }
 
+  # O número de tasks é do scalable target (autoscaling.tf), que todo serviço tem: o
+  # `desired_count` acima só vale na criação. Sem isto, um apply depois do autoscaling ter
+  # subido tasks voltaria o serviço ao mínimo e, com o `force_new_deployment`, recriaria todas.
+  lifecycle {
+    ignore_changes = [desired_count]
+  }
+
   depends_on = [aws_lb_listener_rule.this]
 }

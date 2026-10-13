@@ -108,7 +108,7 @@ export function ActiveSessionsCard({ data, isLoading, isSigningOut, onSignOutOth
 									<Monitor className="size-4" aria-hidden />
 								</ItemMedia>
 								<ItemContent>
-									<ItemTitle className="flex items-center gap-2">
+									<ItemTitle className="flex items-center">
 										{describeUserAgent(session.userAgent)}
 										{session.isCurrent && <Badge variant="success">Este dispositivo</Badge>}
 										{session.aal === "aal2" && <Badge variant="outline">Verificada em duas etapas</Badge>}

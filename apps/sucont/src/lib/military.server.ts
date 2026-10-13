@@ -12,6 +12,7 @@
  * Nunca importe no cliente: usa o client service-role.
  */
 
+import { visibleSaramOf } from "@iefa/database/saram-link"
 import { getCoreClient } from "#/lib/supabase.server"
 
 export type MilitaryIdentity = {
@@ -45,4 +46,47 @@ export async function fetchMilitaryIdentities(sarams: readonly string[]): Promis
 /** Atalho de um SARAM só — a confirmação do diálogo de primeiro acesso. */
 export async function fetchMilitaryIdentity(saram: string): Promise<MilitaryIdentity | null> {
 	return (await fetchMilitaryIdentities([saram])).get(saram) ?? null
+}
+
+/**
+ * O SARAM que identifica cada conta (change `saram-verified-link`): só o vínculo verificado, ou o
+ * antigo (`legacy`) sem o mesmo SARAM verificado em outra conta — a regra de `core.visible_saram`,
+ * aplicada em lote. A coluna crua não serve: um SARAM digitado por outra pessoa, ainda sem
+ * verificação, rotularia a conta com o posto e o nome de guerra do dono.
+ */
+export async function fetchVisibleSarams(userIds: readonly string[]): Promise<Map<string, string | null>> {
+	const ids = [...new Set(userIds)]
+	if (ids.length === 0) return new Map()
+	const { data, error } = await getCoreClient().from("user_data").select("id, saram, saram_verified_by, account_kind").in("id", ids)
+	if (error) throw new Error(error.message)
+	return resolveVisibleSarams(data ?? [])
+}
+
+type LinkRow = { id: string; saram: string | null; saram_verified_by: string | null; account_kind: string | null }
+
+/**
+ * Mesma regra sobre linhas já lidas (quem já leu `core.user_data` não relê). Só os vínculos antigos
+ * pedem uma consulta a mais: há o mesmo SARAM verificado em outra conta?
+ *
+ * A regra existe em SQL (`core.visible_saram`) e aqui (`visibleSaramOf`) porque o sucont lê pelo
+ * client tipado; uma função SQL em lote tiraria a cópia (pendência registrada no PR da FASE 2).
+ */
+export async function resolveVisibleSarams(rows: readonly LinkRow[]): Promise<Map<string, string | null>> {
+	const legacy = [...new Set(rows.flatMap((r) => (r.saram_verified_by === "legacy" && r.saram ? [r.saram] : [])))]
+	const verifiedHolders = new Map<string, Set<string>>()
+	if (legacy.length > 0) {
+		const { data: holders, error } = await getCoreClient()
+			.from("user_data")
+			.select("id, saram")
+			.in("saram", legacy)
+			.in("saram_verified_by", ["email", "cpf", "admin"])
+		if (error) throw new Error(error.message)
+		for (const h of holders ?? []) {
+			if (!h.saram) continue
+			const set = verifiedHolders.get(h.saram) ?? new Set<string>()
+			set.add(h.id)
+			verifiedHolders.set(h.saram, set)
+		}
+	}
+	return new Map(rows.map((r) => [r.id, visibleSaramOf(r, (saram) => [...(verifiedHolders.get(saram) ?? [])].some((holder) => holder !== r.id))]))
 }

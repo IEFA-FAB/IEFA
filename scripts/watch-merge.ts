@@ -7,8 +7,10 @@
  *
  * Lê o commit do merge, os runs dele na `main` e, no `CI/CD`, os jobs de cada app. Aplica as
  * leituras que o ci.md pede e que se erravam à mão:
- *   - check ou build vermelho deixa o deploy `skipped`, não `failed`: app com check/build
- *     verde e deploy `skipped` é bloqueio, não "nada a fazer"; tudo `skipped` é app sem mudança;
+ *   - o `verify` vermelho tira o app do `release` sem job `failed` dele: o `verify` conta como
+ *     um grupo próprio, e vermelho é falha (a tabela no resumo do job diz qual app);
+ *   - build vermelho deixa o deploy `skipped`, não `failed`: app com build verde e deploy
+ *     `skipped` é bloqueio, não "nada a fazer"; tudo `skipped` é app sem mudança;
  *   - a integração se lê pelos jobs `gate` e `full suite (monitor)`, não pelo run (o `full` tem
  *     `continue-on-error`, e o run sai `success` com ele vermelho);
  *   - `cancelled` (deploy na fila `ecs-deploy-<app>`, integração na trava, `security` com
@@ -23,16 +25,30 @@
 export type Job = { name: string; conclusion: string | null; status: string }
 export type AppState = "deployed" | "checked" | "unchanged" | "blocked" | "failed" | "cancelled" | "running"
 
-const JOB_RE = /^(check|build|deploy)-([\w-]+?)(?: \/ .*)?$/
+type Stage = "check" | "build" | "deploy"
+
+/**
+ * App e etapa de um job do CI/CD: `release <app> / build|deploy` (matriz do ECS), `build-docs` e
+ * `deploy-docs` (site estático) e o `verify`, que vale como o grupo `verify`. Os nomes antigos
+ * (`check-<app>`, `build-<app> / build`) continuam lidos para runs de antes da matriz.
+ */
+export function stageOf(name: string): [string, Stage] | undefined {
+	const release = /^release ([\w-]+) \/ (build|deploy)$/.exec(name)
+	if (release) return [release[1] as string, release[2] as Stage]
+	if (name === "verify") return ["verify", "check"]
+	const legacy = /^(check|build|deploy)-([\w-]+?)(?: \/ .*)?$/.exec(name)
+	if (legacy) return [legacy[2] as string, legacy[1] as Stage]
+	return undefined
+}
 const BAD = new Set(["failure", "timed_out", "startup_failure", "action_required"])
 
-/** Estado de cada app no run do CI/CD, a partir dos jobs `check-<app>`, `build-<app>` e `deploy-<app>`. */
+/** Estado de cada app (e do `verify`) no run do CI/CD, a partir dos jobs dele (`stageOf`). */
 export function classifyDeployJobs(jobs: readonly Job[]): Map<string, AppState> {
-	const byApp = new Map<string, Partial<Record<"check" | "build" | "deploy", Job>>>()
+	const byApp = new Map<string, Partial<Record<Stage, Job>>>()
 	for (const job of jobs) {
-		const match = JOB_RE.exec(job.name)
+		const match = stageOf(job.name)
 		if (!match) continue
-		const [, stage, app] = match as unknown as [string, "check" | "build" | "deploy", string]
+		const [app, stage] = match
 		byApp.set(app, { ...byApp.get(app), [stage]: job })
 	}
 	const states = new Map<string, AppState>()
@@ -42,7 +58,7 @@ export function classifyDeployJobs(jobs: readonly Job[]): Map<string, AppState> 
 		else if (all.some((job) => BAD.has(job.conclusion ?? ""))) states.set(app, "failed")
 		else if (all.some((job) => job.conclusion === "cancelled")) states.set(app, "cancelled")
 		else if (stages.deploy?.conclusion === "success") states.set(app, "deployed")
-		// Só check (`check-packages`): não há o que publicar, vale o resultado do check.
+		// Só check (o `verify`): não há o que publicar, vale o resultado do check.
 		else if (!stages.build && !stages.deploy && stages.check?.conclusion === "success") states.set(app, "checked")
 		else if (all.every((job) => job.conclusion === "skipped")) states.set(app, "unchanged")
 		else states.set(app, "blocked")
