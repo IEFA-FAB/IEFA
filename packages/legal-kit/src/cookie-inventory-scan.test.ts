@@ -298,3 +298,17 @@ describe("propagação dentro do módulo", () => {
 		).toEqual(["apps/a/src/x.ts"])
 	})
 })
+
+describe("chave declarada no próprio app", () => {
+	const keysOf = (source: string) => [...collectStorageKeys(new Map([["apps/a/src/AuthScreen.tsx", source]]), []).keys()]
+
+	test("propriedade de configuração com nome de chave conta, mesmo sem API de armazenamento no arquivo", () => {
+		// A tela entrega a chave ao hook do auth-kit, que a grava por variável: sem esta forma,
+		// renomear a constante tirava a chave do inventário sem erro nenhum.
+		expect(keysOf('const CONFIG = {\n\trememberEmailKey: "app_remember_email",\n}')).toEqual(["app_remember_email"])
+	})
+
+	test("propriedade comum terminada em key não conta", () => {
+		expect(keysOf('const CONFIG = { queryKey: "lista", sortKey: "nome" }')).toEqual([])
+	})
+})

@@ -29,6 +29,12 @@ export type PackageManifest = {
 const DECLARATION = /\b(?:const|let)\s+([A-Za-z_][A-Za-z0-9_]*(?:STORAGE_KEY|LS_KEY|COOKIE_NAME|REMEMBER_KEY|_KEY|PERSIST_KEY)[A-Za-z0-9_]*)\s*=\s*"([^"]+)"/g
 /** Nomes de constante que não servem a outra coisa senão chave de armazenamento. */
 const STORAGE_ONLY_NAME = /^(?:LS_[A-Z0-9_]*|[A-Z0-9_]*(?:STORAGE_KEY|COOKIE_NAME|PERSIST_KEY|REMEMBER_KEY|REMEMBER_EMAIL))$/
+/**
+ * Propriedade de configuração com nome de chave de armazenamento (a `rememberEmailKey` do
+ * `AuthScreenConfig`; sem exemplo literal aqui, este arquivo também é varrido): é
+ * como o app entrega a chave a um hook de package que a grava por variável, sem literal.
+ */
+const STORAGE_ONLY_PROPERTY = /\b[a-z][A-Za-z0-9]*(?:StorageKey|EmailKey|PersistKey|CookieName)\s*:\s*"([^"]+)"/g
 /** Literal usado direto numa chamada de armazenamento, sem passar por constante. */
 const INLINE = /(?:localStorage|sessionStorage)\.(?:get|set|remove)Item\(\s*"([^"]+)"/g
 /**
@@ -86,6 +92,7 @@ function findKeys(file: string, source: string): KeyHit[] {
 	// Nome que só existe para chave de armazenamento vale em qualquer arquivo: o
 	// `LS_TABLE_SETTINGS_KEY` do pregoeiro mora num arquivo de tipos, longe da chamada.
 	for (const match of source.matchAll(DECLARATION)) if (STORAGE_ONLY_NAME.test(match[1] as string)) add(match[2], match.index)
+	for (const match of source.matchAll(STORAGE_ONLY_PROPERTY)) add(match[1], match.index)
 
 	// Só declarações em arquivo que de fato fala com o navegador: sem esse filtro,
 	// toda constante terminada em `_KEY` (chave de query, id de coluna) entraria.
