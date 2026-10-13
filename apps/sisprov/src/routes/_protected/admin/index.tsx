@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
-import { KeyRound } from "lucide-react"
+import { KeyRound, Warehouse } from "lucide-react"
 import { useSisprovAccess } from "@/auth/pbac"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { ModuleFoundation } from "@/components/ModuleFoundation"
@@ -18,6 +18,10 @@ function AdminPage() {
 				description="SDAB: grupos de demanda e enxovais, curvas de tamanhos, períodos de planejamento, aprovação de OF e acessos."
 			>
 				{/* A tela nunca oferece o que a política nega: o botão só existe para quem gerencia acessos. */}
+				<Button size="sm" variant="outline" nativeButton={false} render={<Link to="/stock" />}>
+					<Warehouse className="size-4" />
+					Locais de estoque
+				</Button>
 				{canManage && (
 					<Button size="sm" variant="outline" nativeButton={false} render={<Link to="/admin/permissoes" />}>
 						<KeyRound className="size-4" />
@@ -27,7 +31,7 @@ function AdminPage() {
 			</PageHeader>
 			<ModuleFoundation
 				title="Módulo em fundação"
-				description="O que já existe: a concessão de acessos aos papéis do SISPROV (Permissões). A gestão sistêmica chega nos próximos changes."
+				description="O que já existe: a concessão de acessos aos papéis do SISPROV (Permissões) e os locais de estoque, com nível, abastecedor e endereçamento (Locais de estoque). A gestão sistêmica chega nos próximos changes."
 				upcoming={[
 					{ title: "Catálogo de fardamento", description: "Famílias, variantes, grade de tamanhos e vínculo com o RUMAER.", change: "sisprov-catalog" },
 					{

@@ -12,7 +12,7 @@
 import { handlingUnitInputSchema, POSITION_KINDS, type PositionKind, positionInputSchema } from "@iefa/sisprov-domain/inventory"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
-import { assertAddressed, requireStockAt, stockDbMessage } from "@/lib/stock-auth.server"
+import { assertAddressed, requireStockAt, requireStockOrAdminAt, stockDbMessage } from "@/lib/stock-auth.server"
 import { getCoreReadClient, getInventoryClient } from "@/lib/supabase.server"
 
 export type PositionView = {
@@ -33,7 +33,7 @@ export type PositionView = {
 export const listPositionsFn = createServerFn({ method: "GET" })
 	.validator(z.object({ locationId: z.number().int().positive() }))
 	.handler(async ({ data }): Promise<PositionView[]> => {
-		await requireStockAt(1, data.locationId)
+		await requireStockOrAdminAt(1, data.locationId)
 		const { data: rows, error } = await getInventoryClient()
 			.from("storage_position")
 			.select("id, parent_id, kind, code, address, aisle, rack_type, picking_sequence, holds_stock, last_counted_at, updated_at")
@@ -60,7 +60,7 @@ export const listPositionsFn = createServerFn({ method: "GET" })
 export const createPositionFn = createServerFn({ method: "POST" })
 	.validator(positionInputSchema)
 	.handler(async ({ data }): Promise<{ id: number }> => {
-		const { ctx, location } = await requireStockAt(3, data.locationId)
+		const { ctx, location } = await requireStockOrAdminAt(3, data.locationId)
 		assertAddressed(location)
 		const { data: created, error } = await getInventoryClient()
 			.from("storage_position")
@@ -102,7 +102,7 @@ export const updatePositionFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }): Promise<{ ok: true }> => {
-		await requireStockAt(3, data.locationId)
+		await requireStockOrAdminAt(3, data.locationId)
 		const { data: updated, error } = await getInventoryClient()
 			.from("storage_position")
 			.update({ code: data.code.toUpperCase(), aisle: data.aisle, rack_type: data.rackType || null, picking_sequence: data.pickingSequence })
@@ -122,7 +122,7 @@ export const updatePositionFn = createServerFn({ method: "POST" })
 export const deactivatePositionFn = createServerFn({ method: "POST" })
 	.validator(z.object({ locationId: z.number().int().positive(), positionId: z.number().int().positive() }))
 	.handler(async ({ data }): Promise<{ ok: true }> => {
-		await requireStockAt(3, data.locationId)
+		await requireStockOrAdminAt(3, data.locationId)
 		const { data: updated, error } = await getInventoryClient()
 			.from("storage_position")
 			.update({ deleted_at: new Date().toISOString() })
@@ -153,7 +153,7 @@ export type LotView = {
 export const listLocationLotsFn = createServerFn({ method: "GET" })
 	.validator(z.object({ locationId: z.number().int().positive(), pendingOnly: z.boolean().default(false) }))
 	.handler(async ({ data }): Promise<LotView[]> => {
-		await requireStockAt(1, data.locationId)
+		await requireStockOrAdminAt(1, data.locationId)
 		const inv = getInventoryClient()
 		let query = inv
 			.from("v_lot_expiry")
@@ -256,7 +256,7 @@ export type HandlingUnitView = {
 export const listHandlingUnitsFn = createServerFn({ method: "GET" })
 	.validator(z.object({ locationId: z.number().int().positive() }))
 	.handler(async ({ data }): Promise<HandlingUnitView[]> => {
-		await requireStockAt(1, data.locationId)
+		await requireStockOrAdminAt(1, data.locationId)
 		const inv = getInventoryClient()
 		const { data: rows, error } = await inv
 			.from("handling_unit")

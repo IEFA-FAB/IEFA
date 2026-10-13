@@ -205,23 +205,24 @@ Depósito de grande porte não acha nada por "prateleira do fundo". O legado end
 
 - A posição filha é de tipo mais fundo que a mãe, no mesmo local; a raiz pode ser de qualquer tipo (almoxarifado pequeno começa na estante).
 - `code` é o segmento ("E05"); `address` é o caminho inteiro ("D1-S2-E05-P3"), mantido pelo banco e único no local. É o que vai na etiqueta e na lista de separação.
-- `picking_sequence` ordena a separação (o legado tinha `sequenciaSeparacao` na estante); `last_counted_at` é a última conferência da posição, gravada quando a contagem que a cobriu é aprovada.
-- Só prateleira e escaninho guardam estoque. Posição com estoque (dela ou de baixo) não se desativa.
+- `picking_sequence` ordena a separação (o legado tinha `sequenciaSeparacao` na estante); `last_counted_at` é a última conferência da posição, gravada na aprovação da contagem para as posições ativas onde estão os lotes contados.
+- Só prateleira e escaninho guardam estoque. Posição com estoque, ou com posição ativa dentro, não se desativa; local com endereço ativo não desliga o endereçamento; o local de cozinha não é endereçado (CHECK).
 
 **Lote endereçado** — `stock_lot.position_id`: posição que guarda estoque, do mesmo local. Lote recebido num local endereçado nasce sem posição e fica **pendente de endereçamento** (o "guia pendente de localização" do legado) até alguém guardá-lo. O lote derivado (aberto, fracionado, descongelado) herda a posição do lote de origem; o lote transferido chega pendente no destino.
 
 **Unidade de movimentação** — `inventory.handling_unit`:
 - `pallet` com código GIAI; `box` (volume) com SSCC de 18 dígitos e dígito verificador GS1, ligada a um lote, com quantidade, peso e categoria da caixa;
 - a caixa pode estar num pallet (aí a posição é a do pallet) ou solta numa posição;
-- código único por tipo enquanto a unidade estiver aberta.
+- código único por tipo enquanto a unidade estiver aberta; a caixa não troca de lote.
+- **Lote encaixotado é localizado pelas caixas:** a posição do lote acompanha as caixas abertas (a da caixa ou a do pallet dela), e com caixas em posições diferentes vale a primeira da rota de separação. Mover o lote com caixa aberta é recusado: move-se a caixa ou o pallet. Assim a separação tem uma fonte só, `stock_lot.position_id`.
 
 **Movimentação entre posições** — `inventory.move_to_position` move lote ou unidade e grava `inventory.position_move` (append-only, como o ledger). Mover não muda saldo, custo nem lote: o ledger não registra, e o fechamento mensal não vê. Mover um pallet move as caixas dele.
 
-**Contagem por posição** — escopo `position` em `open_inventory_count`: os lotes da subárvore da posição. A aprovação da contagem grava `last_counted_at` nas posições dos lotes contados.
+**Contagem por posição** — fica para as telas de contagem do depósito. A contagem do ledger é por item no local; um escopo por subárvore compararia a quantidade da posição com o saldo do local inteiro e lançaria perda do que está em outra prateleira. Por posição, a contagem tem de ser por lote, e isso entra com aquelas telas.
 
-**Separação** — `inventory.picking_list` (+ linhas), numerada por local e ano. `create_picking_list` recebe itens e quantidades, aloca FEFO entre os lotes alocáveis (fora de quarentena e de validade) e ordena as linhas pela ordem de separação da posição e pelo endereço. A lista é o roteiro de quem separa: não move estoque; a saída ou a transferência que ela sustenta é que move.
+**Separação** — `inventory.picking_list` (+ linhas), numerada por local e ano. `create_picking_list` recebe itens e quantidades (o mesmo item em duas linhas soma), aloca entre os lotes alocáveis (fora de quarentena e de validade) na mesma ordem da saída (`usar primeiro`, validade, entrada) e ordena as linhas pela ordem de separação da posição e pelo endereço. A lista é o roteiro de quem separa: não move estoque; a saída ou a transferência que ela sustenta é que move.
 
-**Permissão** — cadastro de posições e configuração do local: `storage` nível 3 no local (ou `sisprov-admin` 2 para criar local). Endereçar, mover, unidades e separação: `storage` nível 2. Leitura: nível 1.
+**Permissão** — cadastro de posições e configuração do local: `storage` nível 3 no local, ou `sisprov-admin` 2 na cobertura da OM do local (a SDAB cria o local e o configura sem precisar de `storage`). Endereçar, mover, unidades e separação: `storage` nível 2. Leitura: nível 1. A lista de abastecedores possíveis (locais de nível menor, da rede inteira, porque o depósito central é da SDAB) é só de quem configura local.
 
 **Reset de treino** — `handling_unit`, `position_move` e `picking_list` entram no reset pelos locais do escopo de treino; `storage_position` é estrutura e fica em `RESET_EXCLUSIONS`, como o próprio local.
 

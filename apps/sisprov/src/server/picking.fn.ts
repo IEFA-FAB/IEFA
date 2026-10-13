@@ -9,7 +9,7 @@
 import { pickingLinesSchema } from "@iefa/sisprov-domain/inventory"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
-import { assertAddressed, requireStockAt, stockDbMessage } from "@/lib/stock-auth.server"
+import { assertAddressed, requireStockAt, requireStockOrAdminAt, stockDbMessage } from "@/lib/stock-auth.server"
 import { getCoreReadClient, getInventoryClient } from "@/lib/supabase.server"
 
 export type PickingListSummary = {
@@ -24,7 +24,7 @@ export type PickingListSummary = {
 export const listPickingListsFn = createServerFn({ method: "GET" })
 	.validator(z.object({ locationId: z.number().int().positive() }))
 	.handler(async ({ data }): Promise<PickingListSummary[]> => {
-		await requireStockAt(1, data.locationId)
+		await requireStockOrAdminAt(1, data.locationId)
 		const { data: rows, error } = await getInventoryClient()
 			.from("picking_list")
 			.select("id, year, number, status, reference, created_at")
@@ -55,7 +55,7 @@ export type PickingLineView = {
 export const fetchPickingListFn = createServerFn({ method: "GET" })
 	.validator(z.object({ locationId: z.number().int().positive(), listId: z.uuid() }))
 	.handler(async ({ data }): Promise<{ list: PickingListSummary; lines: PickingLineView[] }> => {
-		await requireStockAt(1, data.locationId)
+		await requireStockOrAdminAt(1, data.locationId)
 		const inv = getInventoryClient()
 		const { data: list, error } = await inv
 			.from("picking_list")

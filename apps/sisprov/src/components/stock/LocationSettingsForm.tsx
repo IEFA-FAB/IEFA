@@ -1,4 +1,4 @@
-import { canSupply, STOCK_LEVEL_LABELS, STOCK_LEVELS, type StockLevel } from "@iefa/sisprov-domain/inventory"
+import { isValidSupplierLevel, STOCK_LEVEL_LABELS, STOCK_LEVELS, type StockLevel } from "@iefa/sisprov-domain/inventory"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
@@ -73,7 +73,7 @@ export function LocationSettingsForm({ location, onDone }: { location?: StockLoc
 		onError: (e) => toast.error(e instanceof Error ? e.message : "Erro ao salvar"),
 	})
 
-	const supplierOptions = (suppliers.data ?? []).filter((s) => s.id !== location?.id && canSupply(s.level as StockLevel, level))
+	const supplierOptions = (suppliers.data ?? []).filter((s) => s.id !== location?.id && isValidSupplierLevel(s.level as StockLevel, level))
 
 	return (
 		<form

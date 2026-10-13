@@ -2,14 +2,14 @@ import { describe, expect, test } from "bun:test"
 import {
 	allowedChildKinds,
 	buildAddress,
-	canNest,
-	canSupply,
 	flattenPositionTree,
 	handlingUnitInputSchema,
-	holdsStock,
+	isStorageKind,
 	isValidGln,
 	isValidGs1Key,
+	isValidNesting,
 	isValidSscc,
+	isValidSupplierLevel,
 	type PositionRow,
 	positionInputSchema,
 	stockLocationSettingsSchema,
@@ -17,12 +17,12 @@ import {
 
 describe("níveis e abastecedor", () => {
 	test("só nível menor abastece; o nível 1 não tem abastecedor", () => {
-		expect(canSupply(1, 2)).toBe(true)
-		expect(canSupply(1, 3)).toBe(true)
-		expect(canSupply(2, 3)).toBe(true)
-		expect(canSupply(2, 2)).toBe(false)
-		expect(canSupply(3, 2)).toBe(false)
-		expect(canSupply(1, 1)).toBe(false)
+		expect(isValidSupplierLevel(1, 2)).toBe(true)
+		expect(isValidSupplierLevel(1, 3)).toBe(true)
+		expect(isValidSupplierLevel(2, 3)).toBe(true)
+		expect(isValidSupplierLevel(2, 2)).toBe(false)
+		expect(isValidSupplierLevel(3, 2)).toBe(false)
+		expect(isValidSupplierLevel(1, 1)).toBe(false)
 	})
 
 	test("o schema recusa abastecedor no depósito central e GLN com verificador errado", () => {
@@ -37,18 +37,18 @@ describe("níveis e abastecedor", () => {
 
 describe("posições", () => {
 	test("a filha é mais funda que a mãe; a raiz é livre", () => {
-		expect(canNest(null, "shelf")).toBe(true)
-		expect(canNest("rack", "shelf")).toBe(true)
-		expect(canNest("shelf", "rack")).toBe(false)
-		expect(canNest("shelf", "shelf")).toBe(false)
+		expect(isValidNesting(null, "shelf")).toBe(true)
+		expect(isValidNesting("rack", "shelf")).toBe(true)
+		expect(isValidNesting("shelf", "rack")).toBe(false)
+		expect(isValidNesting("shelf", "shelf")).toBe(false)
 		expect(allowedChildKinds("rack")).toEqual(["shelf", "bin"])
 		expect(allowedChildKinds("bin")).toEqual([])
 	})
 
 	test("só prateleira e escaninho guardam estoque", () => {
-		expect(holdsStock("shelf")).toBe(true)
-		expect(holdsStock("bin")).toBe(true)
-		expect(holdsStock("rack")).toBe(false)
+		expect(isStorageKind("shelf")).toBe(true)
+		expect(isStorageKind("bin")).toBe(true)
+		expect(isStorageKind("rack")).toBe(false)
 	})
 
 	test("o endereço é o caminho", () => {

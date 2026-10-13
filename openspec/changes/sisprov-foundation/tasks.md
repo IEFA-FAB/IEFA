@@ -11,7 +11,7 @@
 ### 1b. Níveis e endereçamento (mesma migration)
 
 - [x] 1b.1 [database] `stock_location`: `level` 1/2/3, `supplied_by_location_id` com guarda de nível, `receives_direct`, `gln` (GS1), `uses_positions`
-- [x] 1b.2 [database] `storage_position` em árvore com endereço derivado, `stock_lot.position_id`, `handling_unit` (pallet GIAI, caixa SSCC), `position_move` append-only, `picking_list` (+ linhas), `move_to_position`, `create_picking_list`, `close_picking_list`, escopo de contagem `position` e `last_counted_at`
+- [x] 1b.2 [database] `storage_position` em árvore com endereço derivado, `stock_lot.position_id`, `handling_unit` (pallet GIAI, caixa SSCC), `position_move` append-only, `picking_list` (+ linhas), `move_to_position`, `create_picking_list`, `close_picking_list`, posição do lote pelas caixas e `last_counted_at` dos lotes contados
 - [x] 1b.3 [sisub-domain] Reset de treino: `position_move`, `picking_list`, `handling_unit`; `storage_position` em `RESET_EXCLUSIONS`
 - [x] 1b.4 [sisprov-domain] `inventory/addressing`: níveis, tipos de posição, endereço, chaves GS1, árvore e schemas, com testes
 - [x] 1b.5 [sisprov] Locais (criar, configurar com conferência de versão), endereços, lotes (guardar, mover, pendentes), pallets e caixas, separação
@@ -53,6 +53,8 @@
 - [ ] 6.3 [root] `/code-review` com os achados publicados no PR
 
 ## Changes seguintes
+
+`sisprov-depot-operations`: telas de recebimento, contagem (por lote, com escopo por posição) e saída do depósito endereçado, etiqueta impressa.
 
 `sisprov-inventory-package`: a lógica pura do estoque (`stock-math`, `count-math`, `issue-variance`, `receipt-lots`, `receiving-*`, `nfe-*`, `inventory-vocabulary`, `replenishment`) muda de `@iefa/sisub-domain` para `@iefa/sisprov-domain/inventory`, com os utilitários comuns antes, sem mudança de comportamento (design D15).
 

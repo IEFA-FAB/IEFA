@@ -4,10 +4,10 @@
  * opera um local passa por aqui, nunca por `requireStock` sozinho, que só diz "tem o módulo".
  */
 
-import { fetchUnitSupportGraph, type UserContext } from "@iefa/pbac"
+import { fetchUnitSupportGraph, hasPermission, type UnitSupportEdge, type UserContext } from "@iefa/pbac"
 import { forbidden } from "@iefa/pbac/start"
-import { PermissionDeniedError, requireStockLocation } from "@iefa/sisprov-domain"
-import { requireStock } from "@/lib/auth.server"
+import { PermissionDeniedError, requireSisprovAdmin as requireSisprovAdminFor, requireStockLocation, SISPROV_ADMIN_MODULE } from "@iefa/sisprov-domain"
+import { requireSisprovApp, requireStock } from "@/lib/auth.server"
 import { getCoreReadClient, getInventoryClient } from "@/lib/supabase.server"
 
 export type StockLocationRow = {
@@ -25,7 +25,7 @@ export type StockLocationRow = {
 	deleted_at: string | null
 }
 
-const LOCATION_COLUMNS =
+export const LOCATION_COLUMNS =
 	"id, unit_id, kitchen_id, level, supplied_by_location_id, receives_direct, gln, uses_positions, name, supply_classes, updated_at, deleted_at"
 
 export async function readStockLocation(locationId: number): Promise<StockLocationRow> {
@@ -48,6 +48,45 @@ export async function requireStockAt(level: 1 | 2 | 3, locationId: number): Prom
 		throw error
 	}
 	return { ctx, location }
+}
+
+/** A SDAB administra a OM? `sisprov-admin` 2 global, ou escopado numa OM que cobre esta pela hierarquia de apoio. */
+export function hasAdminCoverage(ctx: UserContext, unitId: number, graph: readonly UnitSupportEdge[]): boolean {
+	if (!hasPermission(ctx.permissions, SISPROV_ADMIN_MODULE, 2)) return false
+	try {
+		requireSisprovAdminFor(ctx, 2, { unitId, supportGraph: graph })
+		return true
+	} catch (error) {
+		if (error instanceof PermissionDeniedError) return false
+		throw error
+	}
+}
+
+/**
+ * Como `requireStockAt`, mas também passa a SDAB com cobertura da OM do local (`sisprov-admin` 2):
+ * é ela que cria o local e monta os endereços, mesmo sem operar o estoque. Para ler o local, a
+ * configuração e o cadastro de posições; operar (guardar, mover, separar) continua sendo `storage`.
+ */
+export async function requireStockOrAdminAt(
+	level: 1 | 2 | 3,
+	locationId: number
+): Promise<{ ctx: UserContext; location: StockLocationRow; graph: UnitSupportEdge[]; isAdmin: boolean; hasStock: (level: 1 | 2 | 3) => boolean }> {
+	const ctx = await requireSisprovApp()
+	const location = await readStockLocation(locationId)
+	const graph = await fetchUnitSupportGraph(getCoreReadClient())
+	const target = { id: location.id, unitId: location.unit_id, kitchenId: location.kitchen_id }
+	const hasStock = (minLevel: 1 | 2 | 3) => {
+		try {
+			requireStockLocation(ctx, minLevel, target, graph)
+			return true
+		} catch (error) {
+			if (error instanceof PermissionDeniedError) return false
+			throw error
+		}
+	}
+	const isAdmin = hasAdminCoverage(ctx, location.unit_id, graph)
+	if (!isAdmin && !hasStock(level)) forbidden("Seu acesso não alcança este local de estoque.")
+	return { ctx, location, graph, isAdmin, hasStock }
 }
 
 /** O local precisa ser endereçado para posição, unidade e separação. */

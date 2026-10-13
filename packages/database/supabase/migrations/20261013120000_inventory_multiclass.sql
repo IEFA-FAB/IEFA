@@ -138,6 +138,8 @@ create table inventory.stock_location (
   updated_at timestamptz not null default now(),
   deleted_at timestamptz,
   constraint stock_location_kitchen_level check (kitchen_id is null or level = 3),
+  -- a cozinha opera pelo texto de `stock_lot.location`; endereçamento é de depósito e almoxarifado
+  constraint stock_location_kitchen_not_addressed check (kitchen_id is null or not uses_positions),
   constraint stock_location_level1_no_supplier check (level <> 1 or supplied_by_location_id is null),
   constraint stock_location_not_self_supplied check (supplied_by_location_id is distinct from id)
 );
@@ -171,6 +173,11 @@ begin
         using errcode = '23514';
     end if;
   end if;
+  if tg_op = 'UPDATE' and old.uses_positions and not new.uses_positions
+     and exists (select 1 from inventory.storage_position p where p.location_id = new.id and p.deleted_at is null) then
+    raise exception 'STOCK_LOCATION_ADDRESSED: desative os endereços do local antes de desligar o endereçamento'
+      using errcode = '23514';
+  end if;
   if tg_op = 'UPDATE' and new.level is distinct from old.level then
     select string_agg(c.name, ', ') into v_conflict
       from inventory.stock_location c
@@ -185,7 +192,7 @@ end;
 $$;
 
 create trigger stock_location_supply_guard
-  before insert or update of level, supplied_by_location_id on inventory.stock_location
+  before insert or update of level, supplied_by_location_id, uses_positions on inventory.stock_location
   for each row execute function inventory.stock_location_supply_guard();
 
 alter table inventory.stock_location enable row level security;
@@ -647,6 +654,14 @@ declare
   v_location inventory.stock_location;
   v_parent inventory.storage_position;
 begin
+  -- só a última conferência (ou o carimbo) mudou: nada a revalidar. A aprovação da contagem grava
+  -- `last_counted_at` e não pode cair porque a mãe foi desativada depois.
+  if tg_op = 'UPDATE'
+     and (new.parent_id, new.kind, new.code, new.location_id, new.deleted_at, new.aisle, new.rack_type, new.picking_sequence)
+         is not distinct from (old.parent_id, old.kind, old.code, old.location_id, old.deleted_at, old.aisle, old.rack_type, old.picking_sequence)
+     and new.address is not distinct from old.address then
+    return new;
+  end if;
   if tg_op = 'UPDATE' and new.location_id <> old.location_id then
     raise exception 'POSITION_LOCATION_IMMUTABLE: a posição não muda de local de estoque' using errcode = '23514';
   end if;
@@ -698,9 +713,10 @@ language plpgsql
 set search_path = ''
 as $$
 begin
-  -- `code = code` (e não só `updated_at`): é a coluna do gatilho, então a cascada desce até a folha
+  -- `address = ''`: força o guard a recalcular o endereço da filha a partir da mãe; `code = code`
+  -- dispara o gatilho de cascata dela, que desce até a folha
   update inventory.storage_position
-     set code = code
+     set address = '', code = code
    where parent_id = new.id and deleted_at is null;
   return null;
 end;
@@ -754,6 +770,9 @@ declare
 begin
   if tg_op = 'UPDATE' and new.location_id <> old.location_id then
     raise exception 'HANDLING_UNIT_LOCATION_IMMUTABLE: a unidade não muda de local; transfira o lote' using errcode = '23514';
+  end if;
+  if tg_op = 'UPDATE' and new.lot_id is distinct from old.lot_id then
+    raise exception 'HANDLING_UNIT_LOT_IMMUTABLE: a caixa não troca de lote; feche e cadastre outra' using errcode = '23514';
   end if;
   select * into v_location from inventory.stock_location where id = new.location_id;
   if v_location.id is null or not v_location.uses_positions then
@@ -842,6 +861,10 @@ begin
     if v_lot.id is null then
       raise exception 'Lote não encontrado' using errcode = 'P0002';
     end if;
+    -- lote encaixotado é localizado pelas caixas: mover o lote deixaria as caixas para trás
+    if exists (select 1 from inventory.handling_unit u where u.lot_id = p_lot_id and u.closed_at is null) then
+      raise exception 'MOVE_LOT_IN_BOXES: o lote está em caixas; mova as caixas ou o pallet' using errcode = '22023';
+    end if;
     if v_lot.position_id is not distinct from p_to_position_id then
       raise exception 'MOVE_SAME_POSITION: o lote já está nesta posição' using errcode = '22023';
     end if;
@@ -875,6 +898,54 @@ begin
   return v_move_id;
 end;
 $$;
+
+-- Lote encaixotado: a posição dele acompanha as caixas abertas (a da caixa, ou a do pallet em que
+-- ela está). Caixas espalhadas em mais de uma posição: vale a primeira da rota de separação, onde
+-- quem separa começa; a aba de pallets e caixas mostra o resto. Sem caixa posicionada, o lote fica
+-- como está. Uma fonte só para a separação: `stock_lot.position_id`.
+create function inventory.sync_lot_position_from_boxes(p_lot_id uuid)
+returns void
+language plpgsql
+set search_path = ''
+as $$
+declare
+  v_position bigint;
+begin
+  select p.id into v_position
+    from inventory.handling_unit b
+    left join inventory.handling_unit pallet on pallet.id = b.parent_id
+    join inventory.storage_position p on p.id = coalesce(b.position_id, pallet.position_id)
+   where b.lot_id = p_lot_id and b.kind = 'box' and b.closed_at is null and p.deleted_at is null
+   order by p.picking_sequence nulls last, p.address
+   limit 1;
+  if v_position is not null then
+    update inventory.stock_lot set position_id = v_position where id = p_lot_id and position_id is distinct from v_position;
+  end if;
+end;
+$$;
+
+create function inventory.handling_unit_sync_lot_position()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+declare
+  v_lot uuid;
+begin
+  if new.kind = 'box' then
+    perform inventory.sync_lot_position_from_boxes(new.lot_id);
+  else
+    for v_lot in select distinct b.lot_id from inventory.handling_unit b where b.parent_id = new.id and b.closed_at is null loop
+      perform inventory.sync_lot_position_from_boxes(v_lot);
+    end loop;
+  end if;
+  return null;
+end;
+$$;
+
+create trigger handling_unit_sync_lot_position
+  after insert or update of position_id, parent_id, closed_at on inventory.handling_unit
+  for each row execute function inventory.handling_unit_sync_lot_position();
 
 -- Lista de separação: FEFO entre os lotes alocáveis (fora de quarentena, dentro da validade,
 -- com saldo), linhas na ordem de separação das posições; o que não há vira linha de falta.
@@ -913,12 +984,23 @@ begin
   values (p_location_id, v_year, v_number, nullif(btrim(coalesce(p_reference, '')), ''), p_user)
   returning id into v_list_id;
 
-  for v_line in select * from jsonb_array_elements(p_lines) loop
+  if exists (
+    select 1 from jsonb_array_elements(p_lines) as x
+     where (x->>'item_id') is null or (x->>'quantity') is null or (x->>'quantity')::numeric <= 0
+  ) then
+    raise exception 'PICKING_LINE_INVALID: cada linha precisa de item_id e quantidade positiva' using errcode = '22023';
+  end if;
+
+  -- o mesmo item pedido em duas linhas soma: alocar as duas contra o saldo inteiro do lote
+  -- prometeria duas vezes a mesma mercadoria
+  for v_line in
+    select jsonb_build_object('item_id', x->>'item_id', 'quantity', sum((x->>'quantity')::numeric))
+      from jsonb_array_elements(p_lines) as x
+     group by x->>'item_id'
+     order by min(x->>'item_id')
+  loop
     v_item := (v_line->>'item_id')::uuid;
     v_wanted := (v_line->>'quantity')::numeric;
-    if v_item is null or v_wanted is null or v_wanted <= 0 then
-      raise exception 'PICKING_LINE_INVALID: cada linha precisa de item_id e quantidade positiva' using errcode = '22023';
-    end if;
     for v_lot in
       select l.id, l.position_id, inventory.lot_balance(l.id) as balance
         from inventory.stock_lot l
@@ -927,7 +1009,13 @@ begin
          and l.item_id = v_item
          and l.quarantined_at is null
          and (l.expiry_date is null or l.expiry_date >= v_today)
-       order by l.expiry_date nulls last, l.use_first desc, l.received_at, p.picking_sequence nulls last, p.address nulls last, l.id
+       -- a mesma ordem da saída (`issue_stock`): "usar primeiro", validade, entrada; depois a rota
+       order by l.use_first desc,
+                coalesce(l.expiry_date, (l.received_at at time zone 'America/Sao_Paulo')::date) asc,
+                l.received_at asc,
+                p.picking_sequence nulls last,
+                p.address nulls last,
+                l.id
     loop
       exit when v_wanted <= 0;
       continue when v_lot.balance <= 0;
@@ -972,11 +1060,6 @@ begin
   end if;
 end;
 $$;
-
--- Contagem por posição: escopo novo.
-alter table inventory.inventory_count drop constraint inventory_count_scope_check;
-alter table inventory.inventory_count add constraint inventory_count_scope_check
-  check (scope in ('full', 'conservation_class', 'location', 'position', 'item_list', 'menu_cycle'));
 
 -- ----------------------------------------------------------------------------
 -- (6) Funções recriadas sobre (local, item), a partir das definições vigentes em 13/10/2026.
@@ -1327,15 +1410,16 @@ begin
          pending_production_waiver = v_waiver_note
    where id = p_count_id;
 
-  -- última conferência das posições que guardam os itens contados (endereçamento, D18)
+  -- última conferência das posições ativas onde estão os lotes CONTADOS (endereçamento, D18)
   update inventory.storage_position p
      set last_counted_at = now()
-   where p.id in (
-     select l.position_id
-       from inventory.stock_lot l
-       join inventory.count_scope_item s on s.item_id = l.item_id and s.count_id = any (v_chain)
-      where l.location_id = v_count.location_id and l.position_id is not null
-   );
+   where p.deleted_at is null
+     and p.id in (
+       select l.position_id
+         from inventory.inventory_count_entry e
+         join inventory.stock_lot l on l.id = e.lot_id
+        where e.count_id = any (v_chain) and l.position_id is not null
+     );
 
   return query select v_adjustment_id, v_lines, v_value;
 end;
@@ -1771,12 +1855,11 @@ begin
                 and pi.deleted_at is null and pi.conservation_class is not null
               limit 1
            )) as conservation_class,
-           l.location,
-           l.position_id
+           l.location
       from inventory.stock_lot l
      where l.location_id = p_location_id
     union
-    select distinct m.item_id, null::text, null::text, null::bigint
+    select distinct m.item_id, null::text, null::text
       from inventory.stock_movement m
      where m.location_id = p_location_id
   ),
@@ -1786,20 +1869,6 @@ begin
      where case p_scope
              when 'full' then true
              when 'conservation_class' then c.conservation_class is not distinct from v_class
-             -- endereçamento (D18): os itens com lote na subárvore da posição
-             when 'position' then c.position_id in (
-               with recursive subtree as (
-                 select sp.id
-                   from inventory.storage_position sp
-                  where sp.id = (p_scope_params->>'position_id')::bigint and sp.location_id = p_location_id
-                 union all
-                 select child.id
-                   from inventory.storage_position child
-                   join subtree on child.parent_id = subtree.id
-                  where child.deleted_at is null
-               )
-               select id from subtree
-             )
              when 'location' then c.location is not distinct from v_location
              when 'item_list' then c.item_id::text = any (
                select jsonb_array_elements_text(coalesce(p_scope_params->'item_ids', '[]'::jsonb))

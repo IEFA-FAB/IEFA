@@ -11,12 +11,13 @@
  */
 
 import { fetchUnitSupportGraph, hasPermission } from "@iefa/pbac"
-import { PermissionDeniedError, requireSisprovAdmin as requireSisprovAdminFor, requireStockLocation, SISPROV_ADMIN_MODULE } from "@iefa/sisprov-domain"
+import { forbidden } from "@iefa/pbac/start"
+import { PermissionDeniedError, requireStockLocation, SISPROV_ADMIN_MODULE } from "@iefa/sisprov-domain"
 import { type StockLevel, stockLocationSettingsSchema } from "@iefa/sisprov-domain/inventory"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
-import { requireSisprovAdmin, requireStock } from "@/lib/auth.server"
-import { readStockLocation, requireStockAt, type StockLocationRow, stockDbMessage } from "@/lib/stock-auth.server"
+import { requireSisprovAdmin, requireSisprovApp } from "@/lib/auth.server"
+import { hasAdminCoverage, LOCATION_COLUMNS, requireStockOrAdminAt, type StockLocationRow, stockDbMessage } from "@/lib/stock-auth.server"
 import { getCoreReadClient, getInventoryClient } from "@/lib/supabase.server"
 
 export type StockLocationView = {
@@ -69,23 +70,11 @@ async function toViews(rows: readonly StockLocationRow[]): Promise<StockLocation
 	}))
 }
 
-/** A SDAB administra este local? `sisprov-admin` 2 global, ou escopado numa OM que cobre a do local. */
-function administersUnit(ctx: Parameters<typeof requireSisprovAdminFor>[0], unitId: number, graph: Awaited<ReturnType<typeof fetchUnitSupportGraph>>): boolean {
-	try {
-		requireSisprovAdminFor(ctx, 2, { unitId, supportGraph: graph })
-		return true
-	} catch (error) {
-		if (error instanceof PermissionDeniedError) return false
-		throw error
-	}
-}
+;("id, unit_id, kitchen_id, level, supplied_by_location_id, receives_direct, gln, uses_positions, name, supply_classes, updated_at, deleted_at")
 
-const LOCATION_COLUMNS =
-	"id, unit_id, kitchen_id, level, supplied_by_location_id, receives_direct, gln, uses_positions, name, supply_classes, updated_at, deleted_at"
-
-/** Locais que o `storage` do usuário alcança, por nível e nome. */
+/** Locais que o `storage` do usuário alcança, e os das OMs que a SDAB dele administra; por nível e nome. */
 export const listMyStockLocationsFn = createServerFn({ method: "GET" }).handler(async (): Promise<StockLocationView[]> => {
-	const ctx = await requireStock(1)
+	const ctx = await requireSisprovApp()
 	const graph = await fetchUnitSupportGraph(getCoreReadClient())
 
 	const { data: locations, error } = await getInventoryClient()
@@ -97,6 +86,7 @@ export const listMyStockLocationsFn = createServerFn({ method: "GET" }).handler(
 	if (error) throw new Error(`Erro ao ler os locais de estoque: ${error.message}`)
 
 	const reachable = ((locations ?? []) as StockLocationRow[]).filter((location) => {
+		if (hasAdminCoverage(ctx, location.unit_id, graph)) return true
 		try {
 			requireStockLocation(ctx, 1, { id: location.id, unitId: location.unit_id, kitchenId: location.kitchen_id }, graph)
 			return true
@@ -112,27 +102,21 @@ export const listMyStockLocationsFn = createServerFn({ method: "GET" }).handler(
 export const fetchStockLocationFn = createServerFn({ method: "GET" })
 	.validator(z.object({ locationId: z.number().int().positive() }))
 	.handler(async ({ data }): Promise<StockLocationView & { canOperate: boolean; canManage: boolean }> => {
-		const { ctx, location } = await requireStockAt(1, data.locationId)
-		const target = { id: location.id, unitId: location.unit_id, kitchenId: location.kitchen_id }
-		const graph = await fetchUnitSupportGraph(getCoreReadClient())
-		const allows = (level: 2 | 3) => {
-			try {
-				requireStockLocation(ctx, level, target, graph)
-				return true
-			} catch {
-				return false
-			}
-		}
+		const { location, isAdmin, hasStock } = await requireStockOrAdminAt(1, data.locationId)
 		const [view] = await toViews([location])
-		const isAdmin = hasPermission(ctx.permissions, SISPROV_ADMIN_MODULE, 2) && administersUnit(ctx, location.unit_id, graph)
-		return { ...(view as StockLocationView), canOperate: allows(2), canManage: allows(3) || isAdmin }
+		return { ...(view as StockLocationView), canOperate: hasStock(2), canManage: hasStock(3) || isAdmin }
 	})
 
 /** Locais que podem abastecer um de nível `level` (nível menor, ativos). */
 export const listSupplierCandidatesFn = createServerFn({ method: "GET" })
 	.validator(z.object({ level: z.union([z.literal(2), z.literal(3)]) }))
 	.handler(async ({ data }): Promise<Array<{ id: number; name: string; level: number }>> => {
-		await requireStock(1)
+		// Só quem configura local: gestor de estoque (nível 3) ou SDAB. A lista é da rede inteira de
+		// propósito: o abastecedor costuma ser de outra OM (o depósito central é da SDAB).
+		const ctx = await requireSisprovApp()
+		if (!hasPermission(ctx.permissions, "storage", 3) && !hasPermission(ctx.permissions, SISPROV_ADMIN_MODULE, 2)) {
+			forbidden("Só quem configura local de estoque escolhe abastecedor.")
+		}
 		const { data: rows, error } = await getInventoryClient()
 			.from("stock_location")
 			.select("id, name, level")
@@ -153,7 +137,7 @@ export const createStockLocationFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }): Promise<{ id: number }> => {
 		const ctx = await requireSisprovAdmin(2)
 		const graph = await fetchUnitSupportGraph(getCoreReadClient())
-		if (!administersUnit(ctx, data.unitId, graph)) throw new Error("A OM do local está fora da sua cobertura de administração.")
+		if (!hasAdminCoverage(ctx, data.unitId, graph)) throw new Error("A OM do local está fora da sua cobertura de administração.")
 		const { data: created, error } = await getInventoryClient()
 			.from("stock_location")
 			.insert({
@@ -179,12 +163,8 @@ export const createStockLocationFn = createServerFn({ method: "POST" })
 export const updateStockLocationFn = createServerFn({ method: "POST" })
 	.validator(z.intersection(stockLocationSettingsSchema, z.object({ locationId: z.number().int().positive(), seenUpdatedAt: z.string().min(1) })))
 	.handler(async ({ data }): Promise<{ updatedAt: string }> => {
-		const location = await readStockLocation(data.locationId)
 		// gestor do local (storage 3) ou SDAB (sisprov-admin 2) na cobertura da OM do local
-		const ctx = await requireStock(1)
-		const isAdmin =
-			hasPermission(ctx.permissions, SISPROV_ADMIN_MODULE, 2) && administersUnit(ctx, location.unit_id, await fetchUnitSupportGraph(getCoreReadClient()))
-		if (!isAdmin) await requireStockAt(3, data.locationId)
+		const { location } = await requireStockOrAdminAt(3, data.locationId)
 		if (location.kitchen_id !== null && data.level !== 3) throw new Error("O local de cozinha é sempre nível 3.")
 
 		const { data: updated, error } = await getInventoryClient()
@@ -213,6 +193,6 @@ export const listAdministeredUnitsFn = createServerFn({ method: "GET" }).handler
 		const graph = await fetchUnitSupportGraph(core)
 		const { data, error } = await core.from("units").select("id, code, display_name").order("code").limit(1000)
 		if (error) throw new Error(`Erro ao listar as OMs: ${error.message}`)
-		return (data ?? []).filter((unit) => administersUnit(ctx, unit.id, graph)).map((unit) => ({ id: unit.id, code: unit.code, name: unit.display_name }))
+		return (data ?? []).filter((unit) => hasAdminCoverage(ctx, unit.id, graph)).map((unit) => ({ id: unit.id, code: unit.code, name: unit.display_name }))
 	}
 )

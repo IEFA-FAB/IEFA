@@ -23,7 +23,7 @@ export const STOCK_LEVEL_LABELS: Record<StockLevel, string> = {
 }
 
 /** O abastecedor é de nível ESTRITAMENTE menor; o nível 1 não tem abastecedor. */
-export function canSupply(supplierLevel: StockLevel, level: StockLevel): boolean {
+export function isValidSupplierLevel(supplierLevel: StockLevel, level: StockLevel): boolean {
 	return level !== 1 && supplierLevel < level
 }
 
@@ -46,18 +46,18 @@ export function positionKindRank(kind: PositionKind): number {
 }
 
 /** Só prateleira e escaninho guardam estoque. */
-export function holdsStock(kind: PositionKind): boolean {
+export function isStorageKind(kind: PositionKind): boolean {
 	return kind === "shelf" || kind === "bin"
 }
 
 /** A filha é de tipo mais fundo que a mãe; a raiz pode ser de qualquer tipo. */
-export function canNest(parentKind: PositionKind | null, childKind: PositionKind): boolean {
+export function isValidNesting(parentKind: PositionKind | null, childKind: PositionKind): boolean {
 	return parentKind === null || positionKindRank(parentKind) < positionKindRank(childKind)
 }
 
 /** Tipos que a tela oferece para uma posição nova dentro de `parentKind` (ou na raiz). */
 export function allowedChildKinds(parentKind: PositionKind | null): PositionKind[] {
-	return POSITION_KINDS.filter((kind) => canNest(parentKind, kind))
+	return POSITION_KINDS.filter((kind) => isValidNesting(parentKind, kind))
 }
 
 /** Segmento do endereço: letras e dígitos, até 12 (o CHECK de `storage_position.code`). */
