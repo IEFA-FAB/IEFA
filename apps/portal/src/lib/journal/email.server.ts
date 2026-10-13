@@ -11,8 +11,7 @@
  */
 
 import { LEGAL_CONTACT_EMAIL } from "@iefa/legal-kit/contact"
-import { createClient } from "@supabase/supabase-js"
-import { envServer } from "@/lib/env.server"
+import { getJournalServerClient } from "@/lib/supabase.server"
 import { renderHtmlTemplate, renderSubjectTemplate } from "./email-render"
 
 /**
@@ -22,13 +21,6 @@ import { renderHtmlTemplate, renderSubjectTemplate } from "./email-render"
  * e-mail era pulado sem log.
  */
 export type TemplateName = "new_submission" | "review_invitation" | "decision_accept" | "decision_reject" | "revision_requested"
-
-function journalDb() {
-	return createClient(envServer.VITE_IEFA_SUPABASE_URL, envServer.IEFA_SUPABASE_SECRET_KEY, {
-		db: { schema: "journal" },
-		auth: { persistSession: false },
-	})
-}
 
 // Defaults apontam para endereços que existem. O anterior remetia de
 // `no-reply@iefa.fab.mil.br` e linkava `iefa.fab.mil.br` — nenhum dos dois é host
@@ -56,7 +48,7 @@ export async function sendJournalEmail(input: SendJournalEmailInput): Promise<bo
 		if (!apiKey) return false // sem provider — silenciosamente pula (in-app cobre)
 		if (!input.to) return false
 
-		const { data: template } = await journalDb()
+		const { data: template } = await getJournalServerClient()
 			.from("email_templates")
 			.select("subject_pt, subject_en, body_pt, body_en")
 			.eq("name", input.template)
