@@ -28,6 +28,7 @@ import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { withSensitiveAudit } from "@/lib/audit.server"
 import { publicDbMessage } from "@/lib/db-error-message"
+import { readAllPages } from "@/lib/read-all-pages"
 import { selectColumns } from "@/lib/select-columns"
 import { getServerClient } from "@/lib/supabase.server"
 import { requireUnitScope } from "@/lib/unit-auth.server"
@@ -118,19 +119,25 @@ function toCreditLineSnapshot(row: BudgetCreditDbRow): CreditLineSnapshot & { id
  */
 async function fetchClassifiedEmpenhos(unitId: number): Promise<ClassifiedEmpenhoEntry[]> {
 	const fin = finance()
-	const [{ data: rows, error }, { data: vigentes, error: vigenteError }] = await Promise.all([
-		fin
-			.from("empenho")
-			.select("id, data_empenho, status, nd, ptres, fonte, issuer_ug, exercicio, empenho_event(tipo, valor, data)")
-			.eq("unit_id", unitId)
-			.order("data_empenho", { ascending: false })
-			.limit(2000),
-		fin.from("v_empenho_vigente").select("empenho_id, valor_vigente").eq("unit_id", unitId).limit(2000),
+	// Paginado: o `.limit(2000)` de antes não passava do teto de 1000 do PostgREST, e a view
+	// sem ordem cortava linhas ao acaso — NE fora do corte entrava com valor vigente 0.
+	const [rows, vigentes] = await Promise.all([
+		readAllPages("os empenhos", (from, to) =>
+			fin
+				.from("empenho")
+				.select("id, data_empenho, status, nd, ptres, fonte, issuer_ug, exercicio, empenho_event(tipo, valor, data)")
+				.eq("unit_id", unitId)
+				// `id` desempata: página sem ordem por chave única repete e pula linhas
+				.order("data_empenho", { ascending: false })
+				.order("id")
+				.range(from, to)
+		),
+		readAllPages("o valor vigente dos empenhos", (from, to) =>
+			fin.from("v_empenho_vigente").select("empenho_id, valor_vigente").eq("unit_id", unitId).order("empenho_id").range(from, to)
+		),
 	])
-	if (error) throw new Error(`Erro ao consultar empenhos: ${publicDbMessage(error)}`)
-	if (vigenteError) throw new Error(`Erro ao consultar o valor vigente dos empenhos: ${publicDbMessage(vigenteError)}`)
-	const vigenteById = new Map((vigentes ?? []).map((row) => [row.empenho_id, Number(row.valor_vigente)]))
-	return (rows ?? []).map((row) => ({
+	const vigenteById = new Map(vigentes.map((row) => [row.empenho_id, Number(row.valor_vigente)]))
+	return rows.map((row) => ({
 		id: row.id,
 		dataEmpenho: row.data_empenho,
 		status: row.status,
@@ -145,13 +152,10 @@ async function fetchClassifiedEmpenhos(unitId: number): Promise<ClassifiedEmpenh
 }
 
 async function fetchCreditNoteEntries(unitId: number): Promise<CreditNoteEntry[]> {
-	const { data, error } = await finance()
-		.from("credit_note")
-		.select("kind, amount, issued_on, beneficiary_ug, nd, ptres, fonte")
-		.eq("unit_id", unitId)
-		.limit(2000)
-	if (error) throw new Error(`Erro ao consultar notas de crédito: ${publicDbMessage(error)}`)
-	return (data ?? []).map((row) => ({
+	const data = await readAllPages("as notas de crédito", (from, to) =>
+		finance().from("credit_note").select("kind, amount, issued_on, beneficiary_ug, nd, ptres, fonte").eq("unit_id", unitId).order("id").range(from, to)
+	)
+	return data.map((row) => ({
 		tipo: row.kind,
 		valor: Number(row.amount),
 		dataEmissao: row.issued_on,
