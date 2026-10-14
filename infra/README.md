@@ -19,9 +19,13 @@ infra/
                     GitHub OIDC deploy role. Apply before any service.
   modules/service/  Reusable module: ECR + secret + task def + ECS service +
                     target group + host listener rule + task-SG ingress.
-  <service>/        One thin stack per service — portal, sisub, api, rumaer,
-                    forms, 5s, alpha, sisub-mcp, pdf. main.tf/variables.tf are
-                    identical; the service definition is in terraform.tfvars.
+  <service>/        One thin stack per ECS service — portal, sisub, api, rumaer,
+                    forms, 5s, alpha, sisub-mcp, pdf, sucont, contrate,
+                    assignment-selection. Same body everywhere; the service
+                    definition is in terraform.tfvars. Where stacks diverge (extra
+                    module knobs, portal's ai.tf) is listed in the header of each
+                    main.tf.
+  docs-static/      S3 + CloudFront for the docs app (not an ECS service).
   scripts/          put-secret.sh, deploy-service.sh
 ```
 

@@ -1,6 +1,15 @@
-# Per-service stack. Identical across every service — the service definition
-# comes from terraform.tfvars. Reads shared platform outputs from the foundation
-# stack and instantiates the reusable `service` module.
+# Stack de um serviço ECS. O corpo é o mesmo em todos (5s, alpha, api,
+# assignment-selection, contrate, forms, pdf, portal, rumaer, sisub, sisub-mcp, sucont):
+# lê a foundation pelo remote state e instancia `../modules/service`. Quem é o serviço
+# (nome, porta, hosts, segredos) vem do terraform.tfvars, que o CI monta do segredo
+# TF_TFVARS_JSON; o que é versionado (tamanho, drenagem) vem do sizing.auto.tfvars.
+#
+# Onde divergem: só estes stacks repassam o knob ao módulo, os demais ficam no default dele.
+#   - autoscaling_max_count: alpha, sisub;
+#   - health_check_timeout_seconds e health_check_unhealthy_threshold: sisub;
+#   - deregistration_delay (SSE longo): alpha, portal, sisub, sisub-mcp, sucont;
+#   - portal tem ai.tf, que soma a config de IA versionada ao environment_variables.
+# Knob novo do módulo entra no variables.tf e no main.tf de cada stack que o usa, e aqui.
 
 terraform {
   required_version = ">= 1.16.0"
