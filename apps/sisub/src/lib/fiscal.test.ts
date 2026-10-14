@@ -82,7 +82,7 @@ describe("createScanCache", () => {
 		expect(cache.has(dinner, UUID)).toBe(false)
 	})
 
-	test("a chave também separa data e rancho", () => {
+	test("a chave também separa data e refeitório", () => {
 		const cache = createScanCache()
 		cache.mark(lunch, UUID)
 		expect(cache.has({ ...lunch, date: "2026-07-07" }, UUID)).toBe(false)
