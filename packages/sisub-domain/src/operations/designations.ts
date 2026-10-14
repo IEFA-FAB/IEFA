@@ -72,12 +72,22 @@ export const DESIGNATION_SOURCE_LABELS: Record<DesignationSource, string> = {
 export type ReceiptStage = "provisional" | "definitive"
 
 /**
- * Quem pode designar ali mesmo ("Designar agora"): `unit:2` na unidade COMPRADORA da cozinha,
- * que é onde a designação mora e onde `inventory.designations_covering` procura. Regra única
- * do painel "A caminho" e da tela do recebimento.
+ * O conjunto efetivo sem os allows SEM escopo; os denies ficam todos. Designação é ato da OM: quem
+ * designa e quem é designado tem acesso escopado nela, e o acesso global (sem escopo) é suporte e
+ * administração, não lotação na OM. O deny, de qualquer origem ou escopo, continua tirando a pessoa.
+ */
+function scopedAccessOnly(permissions: UserPermission[]): UserPermission[] {
+	return permissions.filter((p) => p.level <= 0 || p.unit_id !== null || p.kitchen_id !== null || p.mess_hall_id !== null)
+}
+
+/**
+ * Quem pode designar ali mesmo ("Designar agora"): `unit:2` ESCOPADO na unidade COMPRADORA da
+ * cozinha, que é onde a designação mora e onde `inventory.designations_covering` procura. Regra
+ * única do painel "A caminho", da tela do recebimento e da lista de quem pode designar na trava
+ * de segregação. `unit:2` global não conta (ver `scopedAccessOnly`).
  */
 export function canDesignateInUnit(permissions: UserContext["permissions"], purchaseUnitId: number | null): boolean {
-	return purchaseUnitId != null && hasPermission(permissions, "unit", 2, { type: "unit", id: purchaseUnitId })
+	return purchaseUnitId != null && hasPermission(scopedAccessOnly(permissions), "unit", 2, { type: "unit", id: purchaseUnitId })
 }
 
 /**
@@ -247,17 +257,15 @@ export interface DesignationCandidate {
  * quem não entra no sisub não daria a ninguém como assinar o termo aqui — e aceitar qualquer UUID
  * deixaria a tela designar usuário de outra OM.
  *
- * A regra é a dos guards, sobre o conjunto EFETIVO do `@iefa/pbac` (`resolveEffectivePermissions`
- * + `hasPermission`): as duas origens (grant inline e statement de política anexada), deny de
- * qualquer origem precedendo o allow, e permissão sem escopo valendo para qualquer OM. Uma regra
- * própria em SQL divergia: quem tinha acesso só por política não aparecia, e quem tinha deny
- * aparecia.
+ * A resolução é a do `@iefa/pbac` (`resolveEffectivePermissions` + `hasPermission`): as duas
+ * origens (grant inline e statement de política anexada) e o deny de qualquer origem ou escopo
+ * precedendo o allow. Uma regra própria em SQL divergia: quem tinha acesso só por política não
+ * aparecia, e quem tinha deny aparecia. Diferente dos guards, o allow SEM escopo não torna ninguém
+ * candidato: designação é ato da OM, e acesso global é suporte e administração (`scopedAccessOnly`).
  */
 export function isDesignationCandidate(permissions: UserPermission[], unitId: number, kitchenIds: readonly number[]): boolean {
-	return (
-		hasPermission(permissions, "unit", 1, { type: "unit", id: unitId }) ||
-		kitchenIds.some((id) => hasPermission(permissions, "storage", 1, { type: "kitchen", id }))
-	)
+	const scoped = scopedAccessOnly(permissions)
+	return hasPermission(scoped, "unit", 1, { type: "unit", id: unitId }) || kitchenIds.some((id) => hasPermission(scoped, "storage", 1, { type: "kitchen", id }))
 }
 
 async function loadUnitKitchenIds(db: SisubDb, unitId: number): Promise<number[]> {
@@ -277,8 +285,9 @@ interface UnitAccessPerson {
 }
 
 /**
- * Quem tem algum allow de `unit` ou `storage` que alcança a OM, com o conjunto efetivo desses dois
- * módulos já resolvido pelo `@iefa/pbac`.
+ * Quem tem algum allow ESCOPADO de `unit` ou `storage` na OM ou numa cozinha dela, com o conjunto
+ * efetivo desses dois módulos já resolvido pelo `@iefa/pbac`. Só allow global não traz a pessoa
+ * (ver `scopedAccessOnly`); as linhas sem escopo entram para os denies globais valerem.
  *
  * Lê as duas origens (`user_permissions` e `user_policy_attachment` → `policy` viva →
  * `policy_statement`), com o prazo das duas, e só as linhas que podem decidir `hasPermission` com
@@ -318,7 +327,10 @@ async function loadUnitAccess(db: SisubDb, unitId: number): Promise<{ kitchenIds
 					from relevant r
 					left join core.user_data u on u.id = r.user_id
 					left join core.military_identity m on m.saram = core.visible_saram(u.id)
-					where r.user_id in (select user_id from relevant where level >= 1)
+					where r.user_id in (
+						select user_id from relevant
+						where level >= 1 and (unit_id is not null or kitchen_id is not null or mess_hall_id is not null)
+					)
 				`),
 			{ prefix: "Erro ao ler quem tem acesso à OM" }
 		) as unknown as Promise<Row[]>,

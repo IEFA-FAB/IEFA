@@ -144,9 +144,16 @@ describe("canDesignateInUnit", () => {
 		expect(canDesignateInUnit([perm(7, 1)], 7)).toBe(false)
 		expect(canDesignateInUnit([perm(7)], null)).toBe(false)
 	})
+
+	test("unit:2 global não designa; deny global ou na OM tira quem tem o escopado", () => {
+		expect(canDesignateInUnit([perm(null)], 7)).toBe(false)
+		expect(canDesignateInUnit(resolveEffectivePermissions([perm(7)], [perm(null, 0)]), 7)).toBe(false)
+		expect(canDesignateInUnit(resolveEffectivePermissions([perm(7)], [perm(7, 0)]), 7)).toBe(false)
+		expect(canDesignateInUnit(resolveEffectivePermissions([], [perm(7)]), 7)).toBe(true)
+	})
 })
 
-describe("isDesignationCandidate (mesma regra do pbac)", () => {
+describe("isDesignationCandidate (resolução do pbac, só acesso escopado na OM)", () => {
 	const grant = (module: "unit" | "storage", level: number, scope: { unit?: number; kitchen?: number } = {}): UserPermission => ({
 		module,
 		level,
@@ -163,20 +170,25 @@ describe("isDesignationCandidate (mesma regra do pbac)", () => {
 		expect(isDesignationCandidate(effective([grant("storage", 2, { kitchen: 9 })]), 7, [3])).toBe(false)
 	})
 
-	test("acesso só por política anexada conta", () => {
+	test("acesso escopado só por política anexada conta", () => {
 		expect(isDesignationCandidate(effective([], [grant("storage", 1, { kitchen: 3 })]), 7, [3])).toBe(true)
+		expect(isDesignationCandidate(effective([], [grant("unit", 1, { unit: 7 })]), 7, [])).toBe(true)
 	})
 
 	test("deny de qualquer origem precede o allow", () => {
 		expect(isDesignationCandidate(effective([grant("storage", 0, { kitchen: 3 })], [grant("storage", 2, { kitchen: 3 })]), 7, [3])).toBe(false)
 		expect(isDesignationCandidate(effective([grant("unit", 2, { unit: 7 })], [grant("unit", 0)]), 7, [])).toBe(false)
-		// Deny escopado recorta o allow sem escopo só naquele escopo.
-		expect(isDesignationCandidate(effective([grant("storage", 1)], [grant("storage", 0, { kitchen: 3 })]), 7, [3])).toBe(false)
-		expect(isDesignationCandidate(effective([grant("storage", 1)], [grant("storage", 0, { kitchen: 3 })]), 7, [3, 4])).toBe(true)
+		// Escopado na OM + deny global: fora.
+		expect(isDesignationCandidate(effective([grant("storage", 1, { kitchen: 3 })], [grant("storage", 0)]), 7, [3])).toBe(false)
+		// Deny numa cozinha não tira quem opera outra cozinha da OM.
+		expect(isDesignationCandidate(effective([grant("storage", 1, { kitchen: 4 })], [grant("storage", 0, { kitchen: 3 })]), 7, [3, 4])).toBe(true)
 	})
 
-	test("allow sem escopo vale para qualquer OM, como nos guards", () => {
-		expect(isDesignationCandidate(effective([grant("unit", 1)]), 7, [])).toBe(true)
+	test("allow sem escopo (acesso global) não torna ninguém candidato", () => {
+		expect(isDesignationCandidate(effective([grant("unit", 2)]), 7, [])).toBe(false)
+		expect(isDesignationCandidate(effective([grant("storage", 3)], [grant("unit", 1)]), 7, [3])).toBe(false)
+		// Global + escopado na OM: o escopado basta.
+		expect(isDesignationCandidate(effective([grant("unit", 2), grant("storage", 1, { kitchen: 3 })]), 7, [3])).toBe(true)
 	})
 
 	test("só comensal não é candidato", () => {
