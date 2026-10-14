@@ -12,3 +12,10 @@ memory = 1024
 # preço). O autoscaling sobe até 3 quando a média de CPU passa de 40%.
 desired_count         = 1
 autoscaling_max_count = 3
+
+# Deploy e scale-in esperam o turno em andamento terminar. O chat do contrate
+# (/api/v1/chats/:id/messages/stream, SSE) tem teto de 180 s (TURN_TIMEOUT_MS em
+# apps/alpha/src/api/chats.ts); o ChatRADA, de 60 s. Com os 30 s do default, o ALB cortava o
+# turno no meio e o usuário via o stream morrer sem mensagem de erro. Na reclamação de Spot o
+# teto real é o aviso de 2 min da AWS, não este valor.
+deregistration_delay = 180

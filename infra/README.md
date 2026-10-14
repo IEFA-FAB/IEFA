@@ -279,6 +279,12 @@ arquivo sobrepõe o `terraform.tfvars` que o CI monta do segredo `TF_TFVARS_JSON
 mudança de tamanho passa por PR e aparece no `terraform-plan`. Hoje: `sisub` (2 × 0,25 vCPU /
 1 GB, até 6 tasks) e `alpha` (1 × 0,5 vCPU / 1 GB, até 3).
 
+O mesmo arquivo guarda o `deregistration_delay` dos serviços com SSE longo: quanto o ALB
+espera as requisições em andamento de uma task que sai de rotação antes de cortá-las. O
+default do módulo é 30 s; `sisub`, `portal` e `sisub-mcp` usam 90 s, `alpha` 180 s e
+`sucont` 300 s (o teto do stream mais longo de cada um). O custo é o deploy desses serviços
+esperar até esse tempo pela task antiga.
+
 Todo serviço tem um scalable target do Application Auto Scaling, e é ele que diz quantas
 tasks rodam: o Terraform ignora o `desired_count` do serviço depois da criação. Sem
 `autoscaling_max_count` (ou com ele igual ao `desired_count`), mínimo = máximo e o serviço

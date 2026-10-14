@@ -133,3 +133,9 @@ variable "autoscaling_max_count" {
   type        = number
   default     = 0
 }
+
+variable "deregistration_delay" {
+  description = "Segundos que o ALB espera as requisições em andamento (streams SSE) de uma task que sai de rotação. O valor fica no sizing.auto.tfvars."
+  type        = number
+  default     = 30
+}

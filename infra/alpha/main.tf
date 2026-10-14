@@ -85,6 +85,7 @@ module "service" {
   fargate_on_demand_weight = var.fargate_on_demand_weight
   assign_public_ip         = var.assign_public_ip
   enable_cloudwatch_logs   = var.enable_cloudwatch_logs
+  deregistration_delay     = var.deregistration_delay
 
   cloudwatch_log_retention_days = var.cloudwatch_log_retention_days
   image_tag_mutability          = var.image_tag_mutability
