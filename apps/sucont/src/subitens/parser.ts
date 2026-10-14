@@ -4,6 +4,38 @@
 import * as XLSX from "xlsx"
 import type { ProcessedData, UgGroup } from "#/subitens/types"
 
+/**
+ * Código genérico na conta corrente: 99 ou 999 isolados (sem dígito colado dos dois lados).
+ * Igual ao upstream (sucontsubitem, src/App.tsx), que dá como exemplos "99, 999, P99, /99".
+ *
+ * O que a norma diz (conferido em 2026-10-14):
+ * - Subitem 99 é o residual "Outros…" do elemento (339030.99 Outros Materiais de Consumo,
+ *   339039.99, 449052.99). Subitem é facultativo (Port. Interministerial 163/2001, art. 3º
+ *   §5º); a tabela >CONCONTA do SIAFI consolidada pela 8ª ICFEx traz os residuais:
+ *   https://www.educacao.ufrj.br/wp-content/uploads/2024/02/Plano_de_Contas_SIAFI.pdf
+ * - 96 não é genérico: é pagamento antecipado (transitório, com prazo de regularização),
+ *   e por isso fica de fora:
+ *   https://www.ufmg.br/proplan/wp-content/uploads/2023/04/Pilulas-do-Conhecimento-Suprimento-de-Fundos-Orientacoes-Gerais-e-Regularizacao-de-Inconsistencias.pdf
+ * - 999 NÃO é subitem (subitem tem dois dígitos): é o favorecido genérico do tipo de conta
+ *   corrente 002 "CNPJ, CPF, UG, IG OU 999", gravado como "P + Favorecido" (Macrofunção
+ *   02.12.13, item 3.2.5.2):
+ *   https://www.ufmg.br/proplan/wp-content/uploads/MACROFUN%C3%87%C3%83O-021213-ROTINA-PARA-EMISS%C3%83O-DE-NOTA-DE-EMPENHO.pdf
+ *   É ele que a 02.03.18 item 5.1 manda evitar no encerramento:
+ *   https://proad.ifes.edu.br/images/stories/020318_-_ENCERRAMENTO_DO_EXERC%C3%8DCIO.pdf
+ *
+ * Formato da conta corrente: em estoque (115610100) o c/c é ISF + subitem, e o SIAFI exibe
+ * "P 04", "P 99" ("TOTAL COM ISF P - PERMANENTE"), conforme o balancete por conta corrente
+ * do POP HC-UFTM SCONT.006 v3, figuras 25 a 27:
+ * https://www.gov.br/hubrasil/pt-br/hospitais-universitarios/regiao-sudeste/hc-uftm/documentos/procedimentos-e-rotinas-operacionais-padrao/pops/POP.HCUFTM.SCONT.006ConciliacaodosSaldosdoSistemadeControledeEstoquescomoSistemadeAdministracaoFinanceiraversao3.pdf
+ * Esse formato, com ou sem espaço, a regex já pega. O que NÃO dá para afirmar sem uma
+ * planilha real do relatório "ACOMPANHAMENTO CONTÁBIL - SUCONT-3.1" é quais contas
+ * contábeis ele traz e, portanto, quais tipos de c/c chegam aqui. Consequências que ficam
+ * em aberto, por isso a regex não mudou:
+ * - c/c com o subitem colado a outros dígitos (NDD de 8 dígitos "33903099", NE + subitem)
+ *   não é marcado;
+ * - "999" e "P999" são marcados junto com o subitem 99, embora sejam favorecido genérico,
+ *   outro problema (o texto da mensagem já cita a 02.03.18 por isso).
+ */
 export const GENERIC_SUBITEM_REGEX = /(^|\D)(99|999)($|\D)/
 
 interface ReportColumns {

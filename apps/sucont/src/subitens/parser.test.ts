@@ -116,4 +116,17 @@ describe("GENERIC_SUBITEM_REGEX", () => {
 	])("%p → %p", (value, expected) => {
 		expect(GENERIC_SUBITEM_REGEX.test(value)).toBe(expected)
 	})
+
+	// Formatos documentados (fontes no comentário da regex). Os dois últimos travam limites
+	// conhecidos, não acertos: mudar exige saber quais contas o relatório traz.
+	it.each([
+		["P 99", true, "estoque: ISF + subitem, como o SIAFI exibe"],
+		["P99", true, "estoque: ISF + subitem sem espaço"],
+		["P 04", false, "estoque: subitem específico"],
+		["P 96", false, "pagamento antecipado é transitório, não genérico"],
+		["P999", true, "favorecido genérico do tipo 002 (02.03.18), marcado junto"],
+		["33903099", false, "limite: subitem 99 colado à natureza de despesa não é visto"],
+	])("%p → %p (%s)", (value, expected) => {
+		expect(GENERIC_SUBITEM_REGEX.test(value)).toBe(expected)
+	})
 })
