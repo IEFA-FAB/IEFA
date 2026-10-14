@@ -336,10 +336,8 @@ function ArranchamentoPage() {
 			}
 
 			setSuccess(`Refeitório padrão "${defaultMessHallCode}" aplicado a ${cardsWithoutMessHall.length} ${labelCard(cardsWithoutMessHall.length)}!`)
-			setIsApplyingDefaultMessHall(false)
 		} catch (_err) {
 			setError("Erro ao aplicar refeitório padrão. Tente novamente.")
-			setIsApplyingDefaultMessHall(false)
 		}
 	}
 
@@ -426,6 +424,8 @@ function ArranchamentoPage() {
 		}
 	}
 
+	// O flag "aplicando" é só daqui: destrava o botão quando persistir, aplicar e recarregar
+	// terminam (antes, applyDefaultMessHallToAll o soltava no meio e permitia duplo clique).
 	const handleApplyDefault = async () => {
 		setIsApplyingDefaultMessHall(true)
 		try {
@@ -434,8 +434,9 @@ function ArranchamentoPage() {
 
 			// Refaz fetch (default + arranchamentos) para refletir tudo da fonte de verdade
 			await loadExistingArranchamentos()
-			setIsApplyingDefaultMessHall(false)
 		} catch {
+			// persistDefaultMessHallId e applyDefaultMessHallToAll mostram o próprio erro; o refetch do React Query não lança.
+		} finally {
 			setIsApplyingDefaultMessHall(false)
 		}
 	}
