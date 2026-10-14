@@ -7,14 +7,21 @@ resource "aws_lb_target_group" "this" {
   deregistration_delay = var.deregistration_delay
 
   health_check {
-    enabled             = true
+    enabled = true
+    # 2 sucessos (o mínimo do ALB) × 15 s: a task nova entra em rotação ~30 s depois de
+    # responder, folgado dentro do grace period de 120 s, e o deploy não fica esperando.
+    # 15 s, e não os 30 s do default, é o meio-termo entre detectar task presa rápido e
+    # não encher o processo de sondas (cada serviço é sondado de cada nó do ALB).
     healthy_threshold   = 2
     unhealthy_threshold = var.health_check_unhealthy_threshold
     interval            = 15
     timeout             = var.health_check_timeout_seconds
-    matcher             = "200-399"
-    path                = var.health_check_path
-    protocol            = "HTTP"
+    # Só 200. Com "200-399", um redirect (guard de auth, barra final, host canônico)
+    # passava por saudável sem o servidor ter rodado a checagem do /health. Cada app
+    # responde 200 direto, sem redirect, e 503 quando reprova (memória, pool preso).
+    matcher  = "200"
+    path     = var.health_check_path
+    protocol = "HTTP"
   }
 }
 
