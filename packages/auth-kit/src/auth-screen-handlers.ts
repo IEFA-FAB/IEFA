@@ -47,7 +47,10 @@ export interface AuthScreenConfig {
 	emailPattern?: RegExp
 	/** Reconhece credencial recusada na mensagem do `signIn`. Default: `DEFAULT_INVALID_CREDENTIALS_PATTERN`. */
 	invalidCredentialsPattern?: RegExp
-	/** Trocar de aba limpa o banner de erro e o de sucesso. Default: `false`. */
+	/**
+	 * Trocar de aba limpa o banner de erro e o de sucesso. Default: `false`.
+	 * Com `true`, ligue também `signUpSuccessAfterTabSwitch`: sem ele o "Conta criada!" é apagado.
+	 */
 	clearFeedbackOnTabSwitch?: boolean
 	/**
 	 * Depois do cadastro, a mensagem de sucesso é gravada DEPOIS de voltar à aba de

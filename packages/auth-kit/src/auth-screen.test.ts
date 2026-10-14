@@ -20,6 +20,7 @@ import {
 	shouldRedirectAuthenticated,
 	syncRememberedEmailOnToggle,
 } from "./auth-screen.ts"
+import { getAuthErrorMessage, INVALID_CREDENTIALS_MESSAGE } from "./errors.ts"
 
 function memoryStorage(initial: Record<string, string> = {}) {
 	const store = new Map(Object.entries(initial))
@@ -120,30 +121,26 @@ describe("getErrorMessage", () => {
 })
 
 describe("describeSignInFailure", () => {
-	const SUCONT_PATTERN = /e-mail ou senha incorretos|invalid login credentials/i
-	test("padrão default casa 'Invalid login credentials'", () => {
-		expect(describeSignInFailure(new Error("Invalid login credentials"), DEFAULT_INVALID_CREDENTIALS_PATTERN, M)).toEqual({
+	test("padrão default casa a mensagem que o `signIn` do kit lança", () => {
+		expect(describeSignInFailure(new Error(INVALID_CREDENTIALS_MESSAGE), DEFAULT_INVALID_CREDENTIALS_PATTERN, M)).toEqual({
 			field: "password",
 			message: M.invalidCredentials,
 		})
 	})
-	test("padrão default casa 'Email ou senha incorretos'", () => {
-		expect(describeSignInFailure(new Error("Email ou senha incorretos"), DEFAULT_INVALID_CREDENTIALS_PATTERN, M).field).toBe("password")
+	test("padrão default casa a recusa de qualquer caminho do `signIn` do kit (code e frase)", () => {
+		for (const error of [{ code: "invalid_credentials", message: "x" }, { message: "Invalid login credentials" }]) {
+			expect(describeSignInFailure(new Error(getAuthErrorMessage(error)), DEFAULT_INVALID_CREDENTIALS_PATTERN, M).field).toBe("password")
+		}
 	})
-	// Comportamento preservado: o `signIn` do kit lança "E-mail ou senha incorretos" (com hífen),
-	// que o padrão default não reconhece — a mensagem vai para o banner.
-	test("padrão default NÃO casa 'E-mail ou senha incorretos'", () => {
-		expect(describeSignInFailure(new Error("E-mail ou senha incorretos"), DEFAULT_INVALID_CREDENTIALS_PATTERN, M)).toEqual({
+	test("padrão default casa 'Invalid login credentials' sem caixa", () => {
+		expect(describeSignInFailure(new Error("Invalid login credentials"), DEFAULT_INVALID_CREDENTIALS_PATTERN, M).field).toBe("password")
+		expect(describeSignInFailure(new Error("INVALID LOGIN CREDENTIALS"), DEFAULT_INVALID_CREDENTIALS_PATTERN, M).field).toBe("password")
+	})
+	test("outra recusa do GoTrue continua no banner", () => {
+		expect(describeSignInFailure(new Error("Confirme seu e-mail antes de entrar"), DEFAULT_INVALID_CREDENTIALS_PATTERN, M)).toEqual({
 			field: "form",
-			message: "E-mail ou senha incorretos",
+			message: "Confirme seu e-mail antes de entrar",
 		})
-	})
-	test("padrão default é sensível a caixa", () => {
-		expect(describeSignInFailure(new Error("invalid login credentials"), DEFAULT_INVALID_CREDENTIALS_PATTERN, M).field).toBe("form")
-	})
-	test("padrão do sucont casa com hífen e sem caixa", () => {
-		expect(describeSignInFailure(new Error("E-mail ou senha incorretos"), SUCONT_PATTERN, M).field).toBe("password")
-		expect(describeSignInFailure(new Error("INVALID LOGIN CREDENTIALS"), SUCONT_PATTERN, M).field).toBe("password")
 	})
 	test("não-Error vira 'Erro desconhecido' no banner", () => {
 		expect(describeSignInFailure(42, DEFAULT_INVALID_CREDENTIALS_PATTERN, M)).toEqual({ field: "form", message: M.unknownError })

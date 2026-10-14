@@ -9,6 +9,7 @@ import {
 	createAuthScreenHandlers,
 	resolveAuthScreenConfig,
 } from "./auth-screen-handlers.ts"
+import { INVALID_CREDENTIALS_MESSAGE } from "./errors.ts"
 
 /** Registra cada efeito, na ordem, como "nome(valor)". */
 function harness(opts: { state?: Partial<AuthScreenHandlerState>; config?: Partial<AuthScreenConfig>; actions?: Partial<AuthScreenActions> } = {}) {
@@ -216,13 +217,25 @@ describe("handleLogin", () => {
 		await handlers.handleLogin(submit)
 		expect(log.slice(-3)).toEqual(["onFailure()", 'setError("Confirme seu e-mail antes de entrar")', "setIsSubmitting(false)"])
 	})
-	test("padrão de credencial do app é respeitado", async () => {
+	test("config default reconhece a recusa que o `signIn` do kit lança", async () => {
 		const { log, handlers } = harness({
-			config: { invalidCredentialsPattern: /e-mail ou senha incorretos/i },
 			state: { loginEmail: "a@fab.mil.br", loginPassword: "pw" },
 			actions: {
 				signIn: async () => {
-					throw new Error("E-mail ou senha incorretos")
+					throw new Error(INVALID_CREDENTIALS_MESSAGE)
+				},
+			},
+		})
+		await handlers.handleLogin(submit)
+		expect(log.slice(-3)).toEqual(["onFailure()", `setPasswordError(${JSON.stringify(M.invalidCredentials)})`, "setIsSubmitting(false)"])
+	})
+	test("padrão de credencial do app é respeitado", async () => {
+		const { log, handlers } = harness({
+			config: { invalidCredentialsPattern: /acesso negado/i },
+			state: { loginEmail: "a@fab.mil.br", loginPassword: "pw" },
+			actions: {
+				signIn: async () => {
+					throw new Error("Acesso negado")
 				},
 			},
 		})
@@ -268,8 +281,9 @@ describe("cadastro", () => {
 			"setIsSubmitting(false)",
 		])
 	})
-	// rumaer: switchTab limpa o feedback depois da mensagem — ela some. Comportamento preservado.
-	test("sucesso com limpeza na troca de aba e mensagem antes: a mensagem é apagada (rumaer)", async () => {
+	// Combinação que nenhum app deve usar: switchTab limpa o feedback depois da mensagem e ela
+	// some. Quem limpa na troca de aba liga também `signUpSuccessAfterTabSwitch`.
+	test("sucesso com limpeza na troca de aba e mensagem antes: a mensagem é apagada", async () => {
 		const { log, handlers } = harness({ state: { registerData: valid }, config: { clearFeedbackOnTabSwitch: true } })
 		await handlers.handleRegister(submit)
 		const success = log.indexOf(`setSuccessMessage(${JSON.stringify(M.signUpSuccess)})`)
@@ -277,7 +291,7 @@ describe("cadastro", () => {
 		expect(success).toBeGreaterThan(-1)
 		expect(cleared).toBeGreaterThan(success)
 	})
-	test("sucesso: mensagem DEPOIS de trocar de aba (sucont)", async () => {
+	test("sucesso: mensagem DEPOIS de trocar de aba (sucont, rumaer)", async () => {
 		const { log, handlers } = harness({ state: { registerData: valid }, config: { clearFeedbackOnTabSwitch: true, signUpSuccessAfterTabSwitch: true } })
 		await handlers.handleRegister(submit)
 		expect(log.slice(4)).toEqual([

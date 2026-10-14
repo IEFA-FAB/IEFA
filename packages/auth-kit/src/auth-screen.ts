@@ -9,7 +9,7 @@
  * não decide o comportamento de nenhum app, só deixa de repeti-lo.
  */
 
-import { normalizeEmail } from "./errors.ts"
+import { INVALID_CREDENTIALS_MESSAGE, normalizeEmail } from "./errors.ts"
 import { safeRedirect } from "./redirect.ts"
 
 /**
@@ -22,12 +22,21 @@ import { safeRedirect } from "./redirect.ts"
  */
 export const FAB_INSTITUTIONAL_EMAIL_PATTERN = /^[a-zA-Z0-9]+(?:[._-][a-zA-Z0-9]+)*@fab\.mil\.br$/
 
+/** Escapa o texto para entrar literal numa `RegExp`. */
+function escapeRegExp(text: string): string {
+	return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+}
+
 /**
  * Reconhece credencial inválida na mensagem que o `signIn` lança.
- * Equivale ao `msg.includes("Email ou senha incorretos") || msg.includes("Invalid login credentials")`
- * que as cópias do portal, contrate, rumaer e forms faziam: sensível a caixa e sem hífen.
+ *
+ * O `signIn` de `createAuthActions` traduz a recusa para `INVALID_CREDENTIALS_MESSAGE`; o
+ * padrão sai dessa constante, e não de uma cópia do texto, porque a cópia antiga
+ * ("Email ou senha incorretos", sem hífen) nunca casou com o que o kit lança e o erro de
+ * campo não aparecia. A frase em inglês do GoTrue fica para `signIn` que não traduz.
+ * Sem caixa: a mensagem é texto de provider, não identificador.
  */
-export const DEFAULT_INVALID_CREDENTIALS_PATTERN = /Email ou senha incorretos|Invalid login credentials/
+export const DEFAULT_INVALID_CREDENTIALS_PATTERN = new RegExp(`${escapeRegExp(INVALID_CREDENTIALS_MESSAGE)}|invalid login credentials`, "i")
 
 export type AuthView = "auth" | "forgot" | "reset"
 export type AuthTab = "login" | "register"

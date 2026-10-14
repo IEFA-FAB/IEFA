@@ -13,7 +13,7 @@ export type { AuthView } from "@iefa/auth-kit"
 
 /**
  * Regras da tela vêm de @iefa/auth-kit; aqui o que é deste app:
- * - textos com "e-mail" e credencial recusada reconhecida sem caixa e com hífen;
+ * - textos com "e-mail";
  * - trocar entre login e cadastro limpa os banners, e a mensagem de conta criada
  *   é gravada depois dessa troca para sobreviver na aba de login;
  * - quem já está autenticado só é redirecionado a partir da view de login (não
@@ -34,7 +34,6 @@ const AUTH_SCREEN_CONFIG: AuthScreenConfig = {
 		signUpSuccess: "Conta criada! Verifique seu e-mail para confirmar.",
 		forgotFallback: "Erro ao enviar e-mail.",
 	},
-	invalidCredentialsPattern: /e-mail ou senha incorretos|invalid login credentials/i,
 	clearFeedbackOnTabSwitch: true,
 	signUpSuccessAfterTabSwitch: true,
 	redirectOnlyFromAuthView: true,
