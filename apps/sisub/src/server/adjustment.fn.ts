@@ -229,6 +229,11 @@ export const fetchStockSettingsFn = createServerFn({ method: "GET" })
 		await requireStorageForKitchen(1, data.kitchenId)
 		const { data: row, error: rowError } = await inventory().from("kitchen_stock_settings").select("*").eq("kitchen_id", data.kitchenId).maybeSingle()
 		if (rowError) throw new Error(`Erro ao carregar a configuração de estoque da cozinha: ${publicDbMessage(rowError)}`)
+		// Cozinha sem linha usa os mesmos valores que o banco aplica: os DEFAULT de
+		// `inventory.kitchen_stock_settings` e a linha literal de `inventory.kitchen_settings()`
+		// (migration 20260917160000_inventory_operable_core.sql, ~29-37 e ~54), mais o coalesce
+		// de tolerância de saída em 20260926217000_execution_never_blocks.sql. Mudar um sem os
+		// outros faz a tela mostrar um limite e o banco aplicar outro.
 		return {
 			segregation: (row?.segregation ?? "dual") as "strict" | "dual",
 			adjustmentApprovalValue: Number(row?.adjustment_approval_value ?? 500),

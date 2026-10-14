@@ -54,6 +54,12 @@ function create() {
 			connect_timeout: isDev ? 30 : 5, // s — falha rápido em vez de pendurar o SSR
 			idle_timeout: 30, // s — devolve conexão ociosa ao pooler
 			max_lifetime: 60 * 30, // s — recicla conexão a cada 30 min
+			// Por task, não por serviço: no pico são 10 × `autoscaling_max_count`
+			// (`infra/sisub/sizing.auto.tfvars`, hoje 6 → 60 conexões) no mesmo transaction
+			// pooler do Supabase em que entram o checkpointer do alpha (10 por task, até 3) e o
+			// sisub-mcp (10 por task). Pooler esgotado deixa o request esperando conexão, o
+			// sintoma do 504 de 2026-09-13; subir este número ou o teto do autoscaling exige
+			// refazer essa soma contra o limite do pooler.
 			max: 10,
 		},
 		onReset: (error) => {
