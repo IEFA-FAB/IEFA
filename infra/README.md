@@ -227,6 +227,27 @@ certificate (`certificate_arn`) + optionally `route53_zone_id`. With no cert/hos
 the ALB serves HTTP and returns 404 for everything (fine for a bring-up smoke test
 of a single service via its target group, but not multi-service routing).
 
+### Remover ou recriar o ALB
+
+O ALB tem `enable_deletion_protection = true` (`foundation/alb.tf`): ele é de todos os
+serviços, e os CNAMEs dos hosts (`*.iefa.com.br`, `app.previsaosisub.com.br`) apontam para o
+DNS dele à mão, no Registro.br. Um ALB novo tem outro DNS, e todo app fica fora do ar até o
+CNAME dele ser trocado. Com a proteção, `destroy` ou mudança que force replace (`name`,
+`internal`) falha no apply. Se for preciso de propósito:
+
+1. Liste os hosts de cada stack (`hosts` no `TF_TFVARS_JSON`) e anote
+   `terraform output alb_dns_name` da foundation. Combine a janela: todos os apps caem.
+2. PR só com `enable_deletion_protection = false`. O apply da foundation muda o atributo no
+   lugar, sem recriar nada.
+3. PR com a mudança que recria (ou `terraform destroy` local, com os stacks de serviço
+   destruídos antes). O apply da foundation recria ALB e listeners; as listener rules dos
+   serviços somem junto com o listener antigo. Depois,
+   `gh workflow run terraform-apply.yml -f stacks=all` para cada stack recriar a rule no
+   listener novo (ele lê o `listener_arn` novo do remote state).
+4. Troque no Registro.br o CNAME de cada host para o `alb_dns_name` novo e confira
+   `curl -sI https://<host>/health` de cada um (200).
+5. PR devolvendo `enable_deletion_protection = true`.
+
 ## Cost / reliability knobs
 
 - **One task per service by default** (`desired_count = 1`). Deploys stay

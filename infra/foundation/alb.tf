@@ -5,7 +5,13 @@ resource "aws_lb" "this" {
   security_groups    = [aws_security_group.alb.id]
   subnets            = [for subnet in aws_subnet.public : subnet.id]
 
-  enable_deletion_protection = false
+  # Um ALB só para todos os serviços: recriá-lo derruba todos os apps de uma vez e troca o
+  # DNS dele, e os CNAMEs de cada host (*.iefa.com.br, app.previsaosisub.com.br) estão no
+  # Registro.br, à mão, fora do Terraform (ver apps/pdf/README.md). Com a proteção, um
+  # `destroy` ou uma mudança que force replace (nome, `internal`) falha no apply em vez de
+  # apagar o balanceador. Para remover de propósito: PR com `false`, apply, e só então o
+  # destroy/replace (passo a passo no README de infra/).
+  enable_deletion_protection = true
   idle_timeout               = 60
 
   # Header com nome inválido (fora de [A-Za-z0-9-], ex.: `x_forwarded_for`) é
