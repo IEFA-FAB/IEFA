@@ -5,6 +5,16 @@ const BASE_URL = COMPRAS_BASE_URL
 const ENDPOINT = "/modulo-pesquisa-preco/1_consultarMaterial" as const
 const PAGE_SIZE = 500
 const TIMEOUT_MS = 30_000
+/**
+ * Tentativas no total, não retentativas: 3 chamadas, com esperas de 1 s e 3 s entre elas.
+ *
+ * Diferente de `workers/compras-sync/client.ts` de propósito, e um não deve ser "alinhado"
+ * pelo outro sem saber: aqui quem espera é um request HTTP (`api/routes/price-research.ts`)
+ * atrás do ALB, então o backoff é curto e sem `Retry-After`; o sync é job em segundo plano e
+ * pode esperar até 60 s por tentativa. Aqui também toda resposta não-2xx é retentada (400 e
+ * 404 inclusive), enquanto o sync retenta só a lista dele, que inclui 400 porque o
+ * ComprasGov devolve 400 sob sobrecarga.
+ */
 const MAX_RETRIES = 3
 /**
  * Cap de páginas buscadas por item CATMAT.
@@ -42,7 +52,7 @@ async function fetchPaginaMaterial(catmatCode: number, params: ConsultaPrecoPara
 	for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
 		try {
 			if (attempt > 0) {
-				// Backoff: 1s, 3s, 7s
+				// Backoff 2^attempt − 1: 1 s antes da 2ª tentativa e 3 s antes da 3ª. Não há 4ª.
 				await new Promise((r) => setTimeout(r, (2 ** attempt - 1) * 1_000))
 			}
 			const res = await fetch(url, {

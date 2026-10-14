@@ -183,16 +183,24 @@ comprasAdminRoutes
 			.then((syncId) => console.log(`[compras-admin] Sync manual #${syncId} concluída`))
 			.catch((err) => console.error("[compras-admin] Sync manual falhou:", err))
 
+		// A sync roda solta (sem `await`), e o `sync_id` só existe depois que o `claimSync` dela
+		// insere a linha em `integration_sync_log`. Os 200 ms são a folga para esse insert
+		// chegar antes da leitura abaixo; se não chegar, a resposta sai com `sync_id: null` e a
+		// sync segue normalmente (o `GET /sync/latest` a mostra). Mesmo desenho do PNCP
+		// (`pncp-pca-admin.ts`).
 		await new Promise((resolve) => setTimeout(resolve, 200))
 
+		// Só interessa a execução AINDA viva: sem o filtro de status, uma corrida perdida
+		// devolveria o id de um sync manual antigo e já finalizado como se fosse o recém-criado.
 		const { data: latest } = await supabase
 			.from("integration_sync_log")
 			.select("id")
 			.eq("source", SYNC_SOURCES.comprasGov)
 			.eq("triggered_by", "manual")
+			.eq("status", "running")
 			.order("started_at", { ascending: false })
 			.limit(1)
-			.single()
+			.maybeSingle()
 
 		return c.json({ sync_id: latest?.id ?? null, message: "Sync iniciada em background" }, 202)
 	})
