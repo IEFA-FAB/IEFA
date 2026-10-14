@@ -1,0 +1,74 @@
+##
+# Client Supabase com a secret key (service_role) montado à mão, fora do `@iefa/supabase-kit`.
+#
+# Nasceu de um bug que já aconteceu (#625): os dois streams de chat do sisub
+# (`routes/api/analytics/stream.post.ts` e `routes/api/module-chat/stream.post.ts`) montavam o
+# próprio `createServerClient(url, SISUB_SUPABASE_SECRET_KEY, { cookies })` para o `getUser()` e um
+# `createClient(url, SISUB_SUPABASE_SECRET_KEY)` para os dados. Dois defeitos de uma vez:
+#
+#   - sem os deadlines de fetch do kit, uma consulta presa segurava a requisição até o ALB
+#     derrubá-la com 502, sem erro nenhum no app;
+#   - o client de auth com a service key é o mesmo defeito de `auth-client-secret-key`: qualquer
+#     query feita por engano através dele roda como service_role e passa por cima da RLS.
+#
+# O portal tinha o mesmo padrão em `favorites.fn.ts` e `journal/email.server.ts` (#628).
+#
+# Caminho certo: `createServiceRoleClient` do kit para dados (os getters de cada app, como
+# `getKitchenClient` no sisub) e `createSsrAuthClient`/`createCookieAuthClient` com a publishable
+# key para a sessão (`requireSisubUser` nas rotas Nitro do sisub).
+#
+# Fora do escopo, e por quê:
+#   - `packages/supabase-kit/**`: é onde o client é montado de propósito.
+#   - `apps/alpha/**`, `apps/api/**`: serviços Hono que ainda montam `createClient` direto. Dívida
+#     declarada no AGENTS.md, não padrão; sai daqui quando migrarem para o kit.
+#   - `apps/sisub-mcp/**`: serviço Bun (MCP SDK, sem TanStack Start) na mesma situação dos Hono.
+#     Dívida registrada aqui; sai daqui quando `getDataClient` passar a usar o kit.
+#   - testes, e2e e helpers de teste (`src/test/**`): montam o client de seed contra o banco de
+#     teste, fora de requisição.
+#
+# Casos de teste: `__fixtures__/supabase-client-outside-kit.ts` (opengrep test --config
+# .opengrep/rules/supabase-client-outside-kit.yaml .opengrep/rules/__fixtures__/supabase-client-outside-kit.ts).
+#
+# Regras compatíveis com Opengrep e Semgrep (mesma sintaxe).
+##
+rules:
+  - id: supabase-secret-client-outside-kit
+    languages: [typescript]
+    severity: ERROR
+    message: >-
+      Client Supabase montado à mão com a secret key (service_role). Fora do `@iefa/supabase-kit`
+      ele não tem os deadlines de fetch (consulta presa vira 502 no ALB) e, se for o client de
+      sessão, uma query feita por engano através dele roda como service_role e passa por cima da
+      RLS. Dados: `createServiceRoleClient` (ou o getter do app, como `getKitchenClient`). Sessão:
+      `createSsrAuthClient`/`createCookieAuthClient` com a publishable key (no sisub,
+      `requireSisubUser` nas rotas Nitro).
+    paths:
+      include:
+        - "apps/**"
+      exclude:
+        - "apps/alpha/**"
+        - "apps/api/**"
+        - "apps/sisub-mcp/**"
+        - "**/*.test.ts"
+        - "**/*.test.tsx"
+        - "**/e2e/**"
+        - "**/src/test/**"
+    # A chave por nome: `envServer.SISUB_SUPABASE_SECRET_KEY`, `requireEnv("…_SECRET_KEY")`,
+    # `process.env.API_SUPABASE_SERVICE_ROLE_KEY`, `serviceRoleKey`. A publishable/anon não casa.
+    # O import ancora o `createClient` no supabase-js: o do Sanity e o do openapi-fetch têm o
+    # mesmo nome e outra assinatura.
+    patterns:
+      - pattern-either:
+          - patterns:
+              - pattern-inside: |
+                  import { createServerClient } from "@supabase/ssr"
+                  ...
+              - pattern: createServerClient($URL, $K, ...)
+          - patterns:
+              - pattern-inside: |
+                  import { createClient } from "@supabase/supabase-js"
+                  ...
+              - pattern: createClient($URL, $K, ...)
+      - metavariable-regex:
+          metavariable: $K
+          regex: '(?i).*(SECRET_?KEY|SERVICE_?ROLE)'
