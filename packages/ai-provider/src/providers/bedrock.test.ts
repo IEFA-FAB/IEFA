@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import type { ConverseStreamOutput } from "@aws-sdk/client-bedrock-runtime"
-import { withFallbackChain } from "../fallback.js"
+import { chat } from "@tanstack/ai"
 import { createAdapter } from "../index.js"
 import { createBedrockChat } from "./bedrock.js"
 
@@ -183,37 +183,123 @@ describe("bedrock adapter — chatStream, evento a evento", () => {
 	})
 
 	// Resposta cortada por max_tokens no meio do argumento. Um TOOL_CALL_END com `{}` faria o
-	// engine executar a tool sem argumento; o run tem de acabar em RUN_ERROR, sem TOOL_CALL_END
-	// e sem RUN_FINISHED, ignorando o que o provider ainda mandar.
-	it("input de tool truncado encerra o run com RUN_ERROR, sem TOOL_CALL_END nem RUN_FINISHED", async () => {
-		const errs: string[] = []
+	// engine executar a tool sem argumento. O bloco fecha como resultado de erro, no fim do
+	// stream (quando o stopReason já chegou), e o run segue até o RUN_FINISHED com o uso.
+	it("input de tool truncado por max_tokens fecha como output-error, com a causa, e o run termina normal", async () => {
+		const errs: { msg: string; meta: Record<string, unknown> }[] = []
 		const { out } = await run(
 			[
-				{ contentBlockStart: { start: { toolUse: { toolUseId: "b", name: "busca" } }, contentBlockIndex: 0 } },
-				{ contentBlockDelta: { delta: { toolUse: { input: '{"quebrado":' } }, contentBlockIndex: 0 } },
-				{ contentBlockStop: { contentBlockIndex: 0 } },
+				{ contentBlockDelta: { delta: { text: "Vou buscar" }, contentBlockIndex: 0 } },
+				{ contentBlockStart: { start: { toolUse: { toolUseId: "b", name: "busca" } }, contentBlockIndex: 1 } },
+				{ contentBlockDelta: { delta: { toolUse: { input: '{"quebrado":' } }, contentBlockIndex: 1 } },
+				{ contentBlockStop: { contentBlockIndex: 1 } },
 				{ messageStop: { stopReason: "max_tokens" } },
-				{ contentBlockStart: { start: { toolUse: { toolUseId: "c", name: "outra" } }, contentBlockIndex: 1 } },
+				{ metadata: { usage: { inputTokens: 10, outputTokens: 4096, totalTokens: 4106 } } },
 			],
-			{ logger: { errors: (msg: string) => errs.push(msg) } }
+			{ logger: { errors: (msg: string, meta: Record<string, unknown>) => errs.push({ msg, meta }) } }
 		)
-		expect(out.map((e) => e.type)).toEqual(["RUN_STARTED", "TOOL_CALL_START", "TOOL_CALL_ARGS", "RUN_ERROR"])
-		expect(out.at(-1)).toMatchObject({ code: "tool-call-args-invalid", model: "model-x" })
-		expect(String(out.at(-1)?.message)).toContain('"busca"')
-		expect(errs).toEqual(["bedrock.chatStream tool-args JSON inválido"])
+		expect(out.map((e) => e.type)).toEqual([
+			"RUN_STARTED",
+			"TEXT_MESSAGE_START",
+			"TEXT_MESSAGE_CONTENT",
+			"TOOL_CALL_START",
+			"TOOL_CALL_ARGS",
+			"TOOL_CALL_END",
+			"TEXT_MESSAGE_END",
+			"RUN_FINISHED",
+		])
+		const end = out.find((e) => e.type === "TOOL_CALL_END")
+		expect(end).toMatchObject({ toolCallId: "b", toolName: "busca", state: "output-error", metadata: { tanstack: { state: "output-error" } } })
+		expect(end?.input).toBeUndefined()
+		expect(JSON.parse(String(end?.result)).error).toContain("limite de tokens")
+		// O uso do corte chega ao RUN_FINISHED: é dele que o teto de consumo tira a conta.
+		expect(out.at(-1)).toMatchObject({ finishReason: "tool_calls", usage: { totalTokens: 4106 } })
+		expect(errs).toEqual([
+			{
+				msg: "bedrock.chatStream tool-args JSON inválido",
+				meta: { source: "bedrock.chatStream", toolName: "busca", argsLength: 12, stopReason: "max_tokens" },
+			},
+		])
 	})
 
-	it("RUN_ERROR de argumento truncado passa pela cadeia de reserva sem trocar de provider", async () => {
-		const primary = fakeClient([
+	it("JSON inválido sem max_tokens: mensagem neutra, sem afirmar corte", async () => {
+		const { out } = await run([
 			{ contentBlockStart: { start: { toolUse: { toolUseId: "b", name: "busca" } }, contentBlockIndex: 0 } },
-			{ contentBlockDelta: { delta: { toolUse: { input: '{"q":' } }, contentBlockIndex: 0 } },
+			{ contentBlockDelta: { delta: { toolUse: { input: "{q: 1}" } }, contentBlockIndex: 0 } },
 			{ contentBlockStop: { contentBlockIndex: 0 } },
-		] as unknown as ConverseStreamOutput[])
-		const reserve = fakeClient([])
-		const chain = withFallbackChain(createBedrockChat("model-a", "us-east-1", primary.client), createBedrockChat("model-b", "us-east-1", reserve.client))
-		const out = await collect(chain.chatStream(opts({ messages: [{ role: "user", content: "x" }] })))
-		expect(out.map((e) => e.type)).toEqual(["RUN_STARTED", "TOOL_CALL_START", "TOOL_CALL_ARGS", "RUN_ERROR"])
-		expect(reserve.sent).toHaveLength(0)
+			{ messageStop: { stopReason: "tool_use" } },
+		])
+		const error = JSON.parse(String(out.find((e) => e.type === "TOOL_CALL_END")?.result)).error as string
+		expect(error).toContain("não formam um JSON válido")
+		expect(error).not.toContain("limite")
+	})
+
+	it("tool call sem contentBlockStop fecha no fim do stream", async () => {
+		const { out } = await run([
+			{ contentBlockStart: { start: { toolUse: { toolUseId: "a", name: "x" } }, contentBlockIndex: 0 } },
+			{ contentBlockDelta: { delta: { toolUse: { input: '{"q":1}' } }, contentBlockIndex: 0 } },
+			{ contentBlockStart: { start: { toolUse: { toolUseId: "b", name: "y" } }, contentBlockIndex: 1 } },
+			{ contentBlockDelta: { delta: { toolUse: { input: '{"q":' } }, contentBlockIndex: 1 } },
+		])
+		expect(out.filter((e) => e.type === "TOOL_CALL_END").map((e) => [e.toolCallId, e.input, e.state])).toEqual([
+			["a", { q: 1 }, undefined],
+			["b", undefined, "output-error"],
+		])
+	})
+
+	// Pelo engine de verdade: a implementação que fechava com `{}` executava a tool, e a que
+	// encerrava com RUN_ERROR não fazia a segunda chamada. Este teste falha nas duas.
+	it("no chat() do @tanstack/ai, a tool não executa e o modelo recebe o erro e responde no mesmo run", async () => {
+		const streams = [
+			[
+				{ contentBlockStart: { start: { toolUse: { toolUseId: "t1", name: "busca" } }, contentBlockIndex: 0 } },
+				{ contentBlockDelta: { delta: { toolUse: { input: '{"q":' } }, contentBlockIndex: 0 } },
+				{ contentBlockStop: { contentBlockIndex: 0 } },
+				{ messageStop: { stopReason: "max_tokens" } },
+			],
+			[{ contentBlockDelta: { delta: { text: "Refiz com menos." }, contentBlockIndex: 0 } }, { messageStop: { stopReason: "end_turn" } }],
+		]
+		const sent: { messages: { role: string; content: Record<string, unknown>[] }[] }[] = []
+		const client = {
+			send: async (command: { input: (typeof sent)[number] }) => {
+				sent.push(command.input)
+				const events = streams[sent.length - 1] ?? []
+				return {
+					stream: (async function* () {
+						for (const ev of events) yield ev
+					})(),
+				}
+			},
+			// biome-ignore lint/suspicious/noExplicitAny: cliente falso para teste
+		} as any
+		const executed: unknown[] = []
+		const tool = {
+			name: "busca",
+			description: "busca",
+			inputSchema: { type: "object", properties: { q: { type: "string" } } },
+			execute: async (args: unknown) => {
+				executed.push(args)
+				return { ok: true }
+			},
+		}
+
+		const chunks = await collect(
+			chat({
+				adapter: createBedrockChat("model-x", "us-east-1", client),
+				messages: [{ role: "user", content: "busque" }],
+				// biome-ignore lint/suspicious/noExplicitAny: tool mínima para o engine
+				tools: [tool as any],
+			})
+		)
+
+		expect(executed).toEqual([])
+		expect(sent).toHaveLength(2)
+		const blocks = sent[1].messages.flatMap((m) => m.content) as { toolResult?: { toolUseId: string; content: { text: string }[] } }[]
+		const toolResult = blocks.find((block) => block.toolResult)?.toolResult
+		expect(toolResult?.toolUseId).toBe("t1")
+		expect(toolResult?.content[0].text).toContain("limite de tokens")
+		expect(chunks.some((c) => c.type === "RUN_ERROR")).toBe(false)
+		expect(chunks.filter((c) => c.type === "TEXT_MESSAGE_CONTENT").map((c) => c.delta)).toEqual(["Refiz com menos."])
 	})
 
 	it("delta e fim de bloco sem tool aberta no índice não emitem nada; bloco fechado sai do mapa", async () => {
@@ -234,7 +320,7 @@ describe("bedrock adapter — chatStream, evento a evento", () => {
 			{ contentBlockStart: { start: { toolUse: { toolUseId: "a", name: "x" } }, contentBlockIndex: 1 } },
 			{ contentBlockDelta: { delta: { text: "", toolUse: { input: "{}" } }, contentBlockIndex: 1 } },
 		])
-		expect(out.map((e) => e.type)).toEqual(["RUN_STARTED", "TOOL_CALL_START", "TOOL_CALL_ARGS", "RUN_FINISHED"])
+		expect(out.map((e) => e.type)).toEqual(["RUN_STARTED", "TOOL_CALL_START", "TOOL_CALL_ARGS", "TOOL_CALL_END", "RUN_FINISHED"])
 	})
 
 	it("início de bloco de texto (sem toolUse) não emite nada", async () => {
