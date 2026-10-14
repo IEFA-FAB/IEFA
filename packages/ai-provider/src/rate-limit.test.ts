@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import {
+	ABORTED_OUTPUT_ALLOWANCE_TOKENS,
 	enforceRequestRateLimit,
 	estimatePromptTokens,
 	RateLimitError,
@@ -317,5 +318,74 @@ describe("withRateLimit", () => {
 		}
 
 		expect(store.snapshot("user-1")).toMatchObject({ tokensToday: 300, tokensTodayForKey: 300, tokensThisMinute: 300 })
+	})
+})
+
+describe("withRateLimit — chamada que não termina", () => {
+	const prompt = { messages: [{ role: "user", content: "z".repeat(4000) }] }
+
+	function adapterFailing(error: Error, chunks: Record<string, unknown>[] = []) {
+		return {
+			kind: "text" as const,
+			name: "fake",
+			model: "fake",
+			chatStream: async function* (_options: never) {
+				for (const chunk of chunks) yield chunk
+				throw error
+			},
+			structuredOutput: async (_options: never): Promise<{ data: unknown; rawText: string }> => {
+				throw error
+			},
+		}
+	}
+
+	test("structuredOutput cobra o prompt de `chatOptions` antes da chamada", async () => {
+		const store = new RateLimitStore()
+		const wrapped = withRateLimit(adapterFailing(new Error("ValidationException")), { key: "user-1", config: { tokensPerDay: 1_000_000 }, store })
+
+		await expect(wrapped.structuredOutput({ chatOptions: prompt, outputSchema: {} } as never)).rejects.toThrow("ValidationException")
+
+		// Erro que não é abort: fica só o prompt, sem presumir saída.
+		expect(store.snapshot("user-1").tokensTodayForKey).toBe(estimatePromptTokens(prompt))
+	})
+
+	test("structuredOutput abortada cobra o maxTokens pedido além do prompt", async () => {
+		const store = new RateLimitStore()
+		const wrapped = withRateLimit(adapterFailing(new Error("Request aborted")), { key: "user-1", config: { tokensPerDay: 1_000_000 }, store })
+		const abortController = new AbortController()
+		abortController.abort()
+
+		await expect(
+			wrapped.structuredOutput({ chatOptions: { ...prompt, abortController, modelOptions: { maxTokens: 8000 } }, outputSchema: {} } as never)
+		).rejects.toThrow("Request aborted")
+
+		expect(store.snapshot("user-1").tokensTodayForKey).toBe(estimatePromptTokens(prompt) + 8000)
+	})
+
+	test("structuredOutput abortada sem maxTokens cobra a saída presumida", async () => {
+		const store = new RateLimitStore()
+		const wrapped = withRateLimit(adapterFailing(new Error("Request aborted")), { key: "user-1", config: { tokensPerDay: 1_000_000 }, store })
+		const abortController = new AbortController()
+		abortController.abort()
+
+		await expect(wrapped.structuredOutput({ chatOptions: { ...prompt, abortController }, outputSchema: {} } as never)).rejects.toThrow()
+
+		expect(store.snapshot("user-1").tokensTodayForKey).toBe(estimatePromptTokens(prompt) + ABORTED_OUTPUT_ALLOWANCE_TOKENS)
+	})
+
+	test("chatStream que cai depois de gerar conteúdo cobra a saída que passou", async () => {
+		const store = new RateLimitStore()
+		const chunks = [{ type: "RUN_STARTED" }, { type: "TEXT_MESSAGE_CONTENT", delta: "a".repeat(400) }, { type: "TOOL_CALL_ARGS", delta: "b".repeat(400) }]
+		const wrapped = withRateLimit(adapterFailing(new Error("quebrou"), chunks), { key: "user-1", config: { tokensPerDay: 1_000_000 }, store })
+
+		await expect(
+			(async () => {
+				for await (const _ of wrapped.chatStream(prompt as never)) {
+					// consome até o erro
+				}
+			})()
+		).rejects.toThrow("quebrou")
+
+		expect(store.snapshot("user-1").tokensTodayForKey).toBe(estimatePromptTokens(prompt) + 200)
 	})
 })

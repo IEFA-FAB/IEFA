@@ -299,6 +299,34 @@ function settleCharge(store: RateLimitStore, key: string, charge: Charge, actual
 	else store.refundTokens(key, -delta, charge.chargedAt)
 }
 
+/**
+ * Saída presumida de uma `structuredOutput` ABORTADA quando a chamada não pediu `maxTokens`.
+ *
+ * Abortada, a chamada não devolve `usage`, mas o provider fatura a saída gerada até o corte.
+ * Sem cobrança nenhuma, o prazo virava atalho: a geração cortada saía quase de graça para o
+ * teto e continuava cara na fatura. Não há como medir a saída de uma chamada não-stream, então
+ * a conta é conservadora: o `maxTokens` pedido, ou este valor, que é a ordem de grandeza do que
+ * um modelo da casa gera em ~50 s (o prazo das server functions do sucont) a dezenas de tokens
+ * por segundo. Erra para mais de propósito: quem esgota o teto assim está batendo no prazo.
+ */
+export const ABORTED_OUTPUT_ALLOWANCE_TOKENS = 4_096
+
+function isAborted(options: unknown): boolean {
+	return (options as { abortController?: AbortController } | undefined)?.abortController?.signal.aborted === true
+}
+
+function abortedOutputAllowance(options: unknown): number {
+	const maxTokens = (options as { modelOptions?: { maxTokens?: unknown } } | undefined)?.modelOptions?.maxTokens
+	return typeof maxTokens === "number" && maxTokens > 0 ? maxTokens : ABORTED_OUTPUT_ALLOWANCE_TOKENS
+}
+
+/** Caracteres de conteúdo GERADO num evento do stream (texto, raciocínio, argumento de tool). */
+function generatedChars(chunk: unknown): number {
+	const { type, delta } = (chunk ?? {}) as { type?: unknown; delta?: unknown }
+	if (typeof delta !== "string") return 0
+	return type === "TEXT_MESSAGE_CONTENT" || type === "TOOL_CALL_ARGS" || type === "REASONING_MESSAGE_CONTENT" ? delta.length : 0
+}
+
 export interface WithRateLimitOptions {
 	/** Chave do teto por usuário — o id do usuário autenticado. */
 	key: string
@@ -337,15 +365,38 @@ export function withRateLimit<
 			}
 
 			const charge = chargeEstimate(store, key, options)
-			for await (const chunk of adapter.chatStream(options)) {
-				if ((chunk as { type?: string }).type === "RUN_FINISHED") settleCharge(store, key, charge, totalTokensOf(chunk))
-				yield chunk
+			let settled = false
+			let outputChars = 0
+			try {
+				for await (const chunk of adapter.chatStream(options)) {
+					if ((chunk as { type?: string }).type === "RUN_FINISHED") {
+						settleCharge(store, key, charge, totalTokensOf(chunk))
+						settled = true
+					}
+					outputChars += generatedChars(chunk)
+					yield chunk
+				}
+			} finally {
+				// Run que não chegou ao RUN_FINISHED (aba fechada, abort, erro do provider): sem
+				// `usage`, a saída que já passou por aqui foi faturada e entra no teto, à mesma
+				// régua de ~4 caracteres por token da estimativa. É piso, não conta exata.
+				if (!settled && outputChars > 0) store.recordTokens(key, Math.ceil(outputChars / 4))
 			}
 		},
 		structuredOutput: async (options: never) => {
 			store.checkTokenBudgets(key, config)
-			const charge = chargeEstimate(store, key, options)
-			const result = await adapter.structuredOutput(options)
+			// O prompt está em `chatOptions`; estimar sobre `options` cobrava zero antes da chamada.
+			const chatOptions = (options as { chatOptions?: unknown }).chatOptions
+			const charge = chargeEstimate(store, key, chatOptions)
+			let result: Awaited<ReturnType<TAdapter["structuredOutput"]>>
+			try {
+				result = (await adapter.structuredOutput(options)) as typeof result
+			} catch (error) {
+				// Abortada (prazo ou cliente que foi embora), a saída gerada até o corte foi faturada
+				// sem `usage`. Ver `ABORTED_OUTPUT_ALLOWANCE_TOKENS`.
+				if (isAborted(chatOptions)) store.recordTokens(key, abortedOutputAllowance(chatOptions))
+				throw error
+			}
 			settleCharge(store, key, charge, totalTokensOf(result))
 			return result
 		},
