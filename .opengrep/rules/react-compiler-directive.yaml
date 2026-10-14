@@ -1,0 +1,119 @@
+##
+# `"use no memo"` onde o React Compiler não lê: a diretiva vira uma string solta, e o opt-out que
+# o autor achou que tinha não existe.
+#
+# Nasceu de um bug que já aconteceu (#630). O compiler só honra a diretiva no PRÓLOGO: primeira
+# instrução do corpo de um componente ou hook (ou do módulo). Em qualquer outro lugar ela é uma
+# expressão sem efeito:
+#
+#   - `IngredientsTreeManager` tinha `;("use no memo")` depois de cinco declarações. O Biome
+#     formata a diretiva fora do prólogo assim, com `;(…)`, justamente porque ela deixou de ser
+#     diretiva. O compiler memoizava o componente, e o objeto mutável do `useVirtualizer`, de
+#     identidade estável, congelava a lista no scroll;
+#   - 13 handlers do sisub (`handleApply`, `onSubmit` do formulário, `onSelect` em JSX, callbacks
+#     de `useCallback`/`useEffect`, um IIFE dentro do scanner do fiscal) começavam com
+#     `"use no memo"`. Função aninhada não é compilada à parte: a diretiva ali não desliga nada, e
+#     a leitura do código dizia o contrário.
+#
+# O que conta como prólogo válido: `function Componente()`/`function useHook()`, `const Componente
+# = () => {…}`/`const useHook = …` (nome em PascalCase ou `use` + maiúscula), e a função passada
+# direto a `memo`/`forwardRef`. Comentário antes da diretiva não a tira do prólogo.
+#
+# Duas regras porque são dois defeitos de forma diferente:
+#   - `react-directive-not-first`: a diretiva depois de outra instrução do mesmo bloco (inclusive
+#     depois dos imports, no módulo). Basta olhar a instrução IMEDIATAMENTE anterior: se há
+#     alguma, a diretiva não é a primeira. Com `$S; ... "use no memo";` o motor estourava o tempo
+#     nos `index.ts` de mil re-exports. `go_deeper_stmt: false` mantém as duas no mesmo bloco.
+#   - `react-directive-in-non-component`: a diretiva como primeira instrução de uma função que não
+#     é componente nem hook. A função com nome é casada pelo nome (o motor dá nome também a
+#     `const x = () => {…}` e a `onSubmit: async () => {…}`); a anônima, pela posição (argumento
+#     de chamada que não seja `memo`/`forwardRef`, atributo JSX, IIFE, atribuição, `return`), com
+#     um regex que confere que o texto casado É a função e que a diretiva abre o corpo dela, e não
+#     o de uma função lá dentro.
+#
+# Por que opengrep e não um teste estrutural: o `typescript` do repo é o 7 (port em Go), sem a API
+# de AST (`createSourceFile`) do 5, e nenhum workspace declara parser de JS. Os padrões acima casam
+# os 14 sítios que o #630 removeu e nenhuma diretiva válida do repo (conferido contra a `main` com o
+# #630 aplicado). Limites conhecidos (deixam passar, não acusam errado): `function (…)` anônima com
+# parâmetro desestruturado, arrow anônima com tipo de retorno que contenha `=` e parênteses
+# aninhados em mais de três níveis nos parâmetros.
+#
+# Casos de teste: `__fixtures__/react-compiler-directive.tsx` (opengrep test --config
+# .opengrep/rules/react-compiler-directive.yaml .opengrep/rules/__fixtures__/react-compiler-directive.tsx).
+#
+# Regras compatíveis com Opengrep e Semgrep (mesma sintaxe).
+##
+rules:
+  - id: react-directive-not-first
+    languages: [typescript]
+    severity: ERROR
+    message: >-
+      `"use no memo"` depois de outra instrução não é diretiva: é uma string solta, e o React
+      Compiler continua compilando o componente. A diretiva só vale como PRIMEIRA instrução do
+      corpo do componente/hook (ou do módulo); comentário antes dela pode. Se o Biome a formatou
+      como `;("use no memo")`, é esse o sinal.
+    paths:
+      include:
+        - "apps/**/*.ts"
+        - "apps/**/*.tsx"
+        - "packages/**/*.ts"
+        - "packages/**/*.tsx"
+      exclude:
+        - "**/*.test.ts"
+        - "**/*.test.tsx"
+    options:
+      go_deeper_stmt: false
+    patterns:
+      - pattern-inside: |
+          $S;
+          "use no memo";
+      - pattern: '"use no memo";'
+
+  - id: react-directive-in-non-component
+    languages: [typescript]
+    severity: ERROR
+    message: >-
+      `"use no memo"` numa função que não é componente nem hook (handler, callback de
+      `useCallback`/`useEffect`, `onSubmit`, IIFE). O React Compiler não compila função aninhada à
+      parte, então a diretiva aqui não desliga nada. Para tirar o componente do compiler, ponha a
+      diretiva como primeira instrução do COMPONENTE (ou do hook) e diga o motivo num comentário;
+      se não há motivo, apague-a.
+    paths:
+      include:
+        - "apps/**/*.ts"
+        - "apps/**/*.tsx"
+        - "packages/**/*.ts"
+        - "packages/**/*.tsx"
+      exclude:
+        - "**/*.test.ts"
+        - "**/*.test.tsx"
+    options:
+      # `const x = () => {…}` fica só com o ramo da função nomeada; sem isto `$X = $F` também a
+      # casaria, e o mesmo sítio sairia duas vezes.
+      vardef_assign: false
+    pattern-either:
+      # Função nomeada (declaração, ou `const nome = () => {…}`, que o motor trata igual) cujo nome
+      # não é de componente (PascalCase) nem de hook (`use` + maiúscula/dígito).
+      - patterns:
+          - pattern: 'function $N(...) { "use no memo"; ... }'
+          - metavariable-regex:
+              metavariable: $N
+              regex: '^(?!use[A-Z0-9]|[A-Z])'
+      # Função anônima pela posição. O regex sobre o texto de `$F` exige que `$F` SEJA a função
+      # (parâmetros com parênteses balanceados, ou um identificador, e logo o `=>`) e que a
+      # diretiva abra o corpo dela, e não o de outra função lá dentro.
+      - patterns:
+          - pattern-either:
+              - patterns:
+                  - pattern: '$CALLEE(..., $F, ...)'
+                  - metavariable-regex:
+                      metavariable: $CALLEE
+                      regex: '^(?!(React\.)?(memo|forwardRef)$)'
+              - pattern: '<$EL $ATTR={$F} />'
+              - pattern: '$F(...)'
+              - pattern: '$X = $F'
+              - pattern: 'return $F'
+          - metavariable-regex:
+              metavariable: $F
+              regex: '^\(?\s*(?:async\s*)?(?:function\b[^{]*|(?:\((?:[^()]|\((?:[^()]|\([^()]*\))*\))*\)|[A-Za-z_$][\w$]*)\s*(?::[^=]*?)?=>\s*)\{\s*(?:(?://[^\n]*|/\*[\s\S]*?\*/)\s*)*["'']use no memo["'']'
+          - focus-metavariable: $F
