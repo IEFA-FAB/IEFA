@@ -144,6 +144,29 @@ describe("validateSql", () => {
 		expect(validateSql("SELECT * FROM (units u JOIN mess_halls m ON m.unit_id = u.id) LIMIT 5")).toEqual({ valid: true })
 	})
 
+	test("parêntese dentro de literal não muda o nível (bypass da lista de relações e do FROM de função)", () => {
+		// `'('` descia um nível e `')'` fechava a lista do FROM: a vírgula seguinte não era conferida
+		expect(validateSql("SELECT * FROM units u JOIN kitchen k ON k.display_name = '(', auth.users a")).toEqual({
+			valid: false,
+			error: "Tabela não permitida: users",
+		})
+		expect(validateSql("SELECT * FROM units u JOIN kitchen k ON k.display_name = ')', auth.users a")).toEqual({
+			valid: false,
+			error: "Tabela não permitida: users",
+		})
+		// o `)` casava com o literal e o FROM da relação passava por argumento do `trim`
+		expect(validateSql("SELECT trim('(') FROM auth.users")).toEqual({ valid: false, error: "Tabela não permitida: users" })
+		expect(validateSql("SELECT substring(display_name FROM ')') FROM core.user_data")).toEqual({
+			valid: false,
+			error: "Tabela não permitida: user_data",
+		})
+		// literal `'::'` não faz da chamada seguinte um tipo
+		expect(validateSql("SELECT '::' dblink('x') FROM units")).toEqual({ valid: false, error: "Função não permitida: dblink" })
+		// literal com parêntese continua aceito onde é só valor
+		expect(validateSql("SELECT * FROM units u, kitchen k WHERE k.display_name = '(' OR u.display_name = ')' LIMIT 5")).toEqual({ valid: true })
+		expect(validateSql("SELECT trim('(' FROM display_name), count(*) AS \"(\" FROM units GROUP BY 1")).toEqual({ valid: true })
+	})
+
 	test("aceita rótulo entre aspas com acento e as funções de data comuns", () => {
 		expect(validateSql("SELECT count(*) AS \"Total de refeições\" FROM meal_presences WHERE date >= now() - interval '7 days'")).toEqual({
 			valid: true,

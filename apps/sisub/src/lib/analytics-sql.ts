@@ -177,6 +177,14 @@ const BLOCKED_KEYWORDS = [
 type Token = { kind: "ident" | "string" | "number" | "punct"; value: string }
 
 /**
+ * Sintaxe é só token de pontuação. O token de string guarda o conteúdo sem aspas e o identificador
+ * entre aspas guarda o nome: ler pelo valor fazia `'('` e `"("` abrirem nível de parênteses.
+ */
+function isPunct(token: Token | undefined, value: string): boolean {
+	return token?.kind === "punct" && token.value === value
+}
+
+/**
  * Tokenizador mínimo. Recusa (retorna string de erro) o que abriria ambiguidade entre o que
  * o validador lê e o que o Postgres executa: comentário, dollar-quoting, string com escape
  * (E'…', U&'…') e identificador entre aspas com caractere fora de [A-Za-z0-9_].
@@ -254,7 +262,7 @@ function collectCteNames(tokens: Token[]): Set<string> {
 	const names = new Set<string>()
 	for (let i = 0; i + 2 < tokens.length; i++) {
 		const [a, b, c] = [tokens[i], tokens[i + 1], tokens[i + 2]]
-		if (a.kind === "ident" && b.kind === "ident" && b.value === "as" && c.value === "(") {
+		if (a.kind === "ident" && b.kind === "ident" && b.value === "as" && isPunct(c, "(")) {
 			const prev = tokens[i - 1]
 			if (prev && (prev.value === "with" || prev.value === ",")) names.add(a.value)
 		}
@@ -266,12 +274,12 @@ function collectCteNames(tokens: Token[]): Set<string> {
 function checkRelationAt(tokens: Token[], i: number, cteNames: Set<string>): string | null {
 	const first = tokens[i]
 	if (!first) return "Relação ausente"
-	if (first.value === "(") {
+	if (isPunct(first, "(")) {
 		// `FROM (SELECT …)` é subquery, validada pelo resto da varredura. Mas `FROM (a JOIN b …)`
 		// é JOIN entre parênteses: a PRIMEIRA relação de dentro não vem depois de FROM/JOIN
 		// nenhum, e passava sem conferência (`FROM (auth.users u CROSS JOIN units x)`).
 		let j = i
-		while (tokens[j]?.value === "(") j++
+		while (isPunct(tokens[j], "(")) j++
 		const inner = tokens[j]?.value
 		if (inner === "select" || inner === "with" || inner === "values") return null
 		return checkRelationAt(tokens, j, cteNames)
@@ -332,13 +340,15 @@ function checkTokens(normalized: string): string | null {
 function scanTokens(scan: TokenScan): string | null {
 	for (let i = 0; i < scan.tokens.length; i++) {
 		const token = scan.tokens[i]
-		// Parêntese pelo VALOR, de qualquer tipo de token (inclusive a string '(').
-		if (token.value === "(") {
+		// Parêntese só de pontuação: o literal `'('` (ou `')'`) não muda o nível. Contado pelo
+		// valor, `ON m.x = '(', auth.users a` descia um nível e a vírgula da lista de relações
+		// deixava de ser conferida.
+		if (isPunct(token, "(")) {
 			scan.depth++
 			scan.inFromList[scan.depth] = false
 			continue
 		}
-		if (token.value === ")") {
+		if (isPunct(token, ")")) {
 			scan.inFromList[scan.depth] = false
 			scan.depth = Math.max(0, scan.depth - 1)
 			continue
@@ -381,7 +391,8 @@ function checkFunctionCall(tokens: Token[], i: number): string | null {
 	const token = tokens[i]
 	const prev = tokens[i - 1]
 	if (prev?.value === ".") return `Função qualificada não permitida: ${token.value}`
-	const isType = prev?.value === "::" || prev?.value === "as"
+	// Tipo depois de `::` ou `AS` de verdade: o literal `'::'` antes de `f(` não isenta a função.
+	const isType = isPunct(prev, "::") || (prev?.kind === "ident" && prev.value === "as")
 	if (!isType && !ALLOWED_FUNCTIONS.has(token.value) && !KEYWORDS_BEFORE_PAREN.has(token.value)) {
 		return `Função não permitida: ${token.value}`
 	}
@@ -411,13 +422,17 @@ export function validateSql(sql: string): { valid: boolean; error?: string } {
 	return error === null ? { valid: true } : { valid: false, error }
 }
 
-/** Nome da função cujo "(" envolve a posição `i` no mesmo nível, se houver. */
+/**
+ * Nome da função cujo "(" envolve a posição `i` no mesmo nível, se houver. Só parêntese de
+ * pontuação: pelo valor, `trim('(') FROM auth.users` casava o `)` com o literal e o FROM da
+ * relação passava por argumento do `trim`.
+ */
 function findOpenerFunction(tokens: Token[], i: number): string | null {
 	let depth = 0
 	for (let j = i - 1; j >= 0; j--) {
-		const v = tokens[j].value
-		if (v === ")") depth++
-		else if (v === "(") {
+		const token = tokens[j]
+		if (isPunct(token, ")")) depth++
+		else if (isPunct(token, "(")) {
 			if (depth === 0) return tokens[j - 1]?.kind === "ident" ? tokens[j - 1].value : null
 			depth--
 		}
