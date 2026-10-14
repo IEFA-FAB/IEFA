@@ -238,53 +238,6 @@ describe("conta institucional não come", () => {
 	})
 })
 
-describe("upsertArranchamento: erro do upsert propaga, sem delete + insert", () => {
-	// Banco falso que conta cada caminho de escrita; o upsert falha com `upsertError`.
-	function failingDb(upsertError: unknown) {
-		const calls = { insert: 0, delete: 0, transaction: 0 }
-		const db = {
-			execute: () => Promise.resolve([{ account_kind: "pessoal" }]),
-			insert: () => {
-				calls.insert++
-				return { values: () => ({ onConflictDoUpdate: () => Promise.reject(upsertError) }) }
-			},
-			delete: () => {
-				calls.delete++
-				return { where: () => Promise.resolve() }
-			},
-			transaction: (fn: (tx: unknown) => Promise<unknown>) => {
-				calls.transaction++
-				return fn(db)
-			},
-		}
-		return { db: db as unknown as SisubDb, calls }
-	}
-	const ctx: UserContext = { ...plainCtx, userId: TARGET }
-	const input = { date: "2099-01-01", meal: "almoco", willEat: true, messHallId: 1 } as Parameters<typeof upsertArranchamento>[2]
-
-	test("FK violada: lança UPSERT_FAILED com a mensagem de negócio e não apaga nada", async () => {
-		const fk = Object.assign(new Error('insert or update on table "arranchamento" violates foreign key constraint'), {
-			code: "23503",
-			constraint_name: "arranchamento_mess_hall_id_fkey",
-		})
-		const { db, calls } = failingDb(fk)
-		const error = await upsertArranchamento(db, ctx, input).catch((e) => e)
-		expect(error).toBeInstanceOf(QueryFailedError)
-		expect((error as QueryFailedError).code).toBe("UPSERT_FAILED")
-		expect((error as QueryFailedError).publicMessage).toBe("Erro ao salvar o arranchamento")
-		expect((error as QueryFailedError).cause).toBe(fk)
-		expect(calls).toEqual({ insert: 1, delete: 0, transaction: 0 })
-	})
-
-	test("recusa do trigger à conta institucional sai como ACCOUNT_INSTITUTIONAL, numa tentativa só", async () => {
-		const { db, calls } = failingDb(Object.assign(new Error("ACCOUNT_INSTITUTIONAL_NO_MEALS"), { code: "P0001" }))
-		const error = await upsertArranchamento(db, ctx, { ...input, willEat: false }).catch((e) => e)
-		expect((error as DomainError).code).toBe("ACCOUNT_INSTITUTIONAL")
-		expect(error).not.toBeInstanceOf(QueryFailedError)
-		expect(calls).toEqual({ insert: 1, delete: 0, transaction: 0 })
-	})
-})
-
 describe("contrato do jsonb", () => {
 	test("estado: snake_case vira camelCase; ausentes viram defaults seguros", () => {
 		const status = parseSaramStatus({

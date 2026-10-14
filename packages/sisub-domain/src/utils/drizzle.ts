@@ -95,6 +95,11 @@ export interface RunQueryOptions {
 	prefix?: string
 	/** Inclui o `.code` do erro Postgres entre colchetes (ex.: "[23505]") — útil em violações de constraint. */
 	includeCode?: boolean
+	/**
+	 * Tradução de um erro do banco num `DomainError` específico (ex.: o token de um `RAISE`).
+	 * Devolver `undefined` cai no tratamento padrão (`code` + `prefix`).
+	 */
+	mapError?: (e: unknown) => DomainError | undefined
 }
 
 /**
@@ -160,6 +165,8 @@ export async function runQuery<T>(code: string, op: () => Promise<T>, opts?: Run
 		return await op()
 	} catch (e) {
 		if (e instanceof DomainError) throw e
+		const mapped = opts?.mapError?.(e)
+		if (mapped) throw mapped
 		if (!opts?.prefix) throw new QueryFailedError(code, describeDriverError(e), GENERIC_DB_ERROR_MESSAGE, e)
 		// Com prefixo o código fica no lugar documentado — `"<prefix> [<pgcode>]: …"` —
 		// e só quando `includeCode` pede. Daí o `withCode: false`: quem escolhe é o opts.
@@ -168,6 +175,53 @@ export async function runQuery<T>(code: string, op: () => Promise<T>, opts?: Run
 		// O prefixo é texto de negócio escrito aqui no código — é o que o cliente lê. O resto
 		// (SQL, parâmetros, motivo do driver) fica no log.
 		throw new QueryFailedError(code, `${opts.prefix}${codeSeg}: ${describeDriverError(e, false)}`, `${opts.prefix}${codeSeg}`, e)
+	}
+}
+
+/**
+ * Códigos de falha de CONEXÃO: a query não chegou ao banco, ou a resposta não voltou.
+ *
+ * - postgres-js: `CONNECT_TIMEOUT` (o `connect_timeout` do `db.server.ts`, 5 s em produção) e
+ *   `CONNECTION_*` (socket fechado, pool encerrado pelo reset do `postgres-pool.ts`; o handle
+ *   estável já aponta para o pool novo).
+ * - Node: socket derrubado no caminho até o pooler.
+ * - SQLSTATE classe 08 (connection exception) e 57P01–57P03 (servidor reiniciando).
+ *
+ * Fora, de propósito: `QUERY_DEADLINE` (45 s; repetir estoura os 60 s do ALB), `57014`
+ * (`statement_timeout`: a query rodou e foi lenta, repetir dobra a carga) e qualquer erro de
+ * dado ou permissão.
+ */
+const TRANSIENT_CONNECTION_CODES: ReadonlySet<string> = new Set([
+	"CONNECT_TIMEOUT",
+	"CONNECTION_CLOSED",
+	"CONNECTION_ENDED",
+	"CONNECTION_DESTROYED",
+	"ECONNRESET",
+	"ECONNREFUSED",
+	"EPIPE",
+	"ETIMEDOUT",
+	"57P01",
+	"57P02",
+	"57P03",
+])
+
+/** A falha foi de conexão (ver {@link TRANSIENT_CONNECTION_CODES}), não do que a query pediu? */
+export function isTransientConnectionError(e: unknown): boolean {
+	const code = unwrapPgError(e).code
+	if (!code) return false
+	return TRANSIENT_CONNECTION_CODES.has(code) || code.startsWith("08")
+}
+
+/**
+ * Roda `op` e, se falhar por conexão, repete UMA vez. Só para escrita idempotente (upsert por
+ * chave única, delete por chave): o statement pode ter sido aplicado antes de a conexão cair.
+ */
+export async function retryOnceOnTransientConnectionError<T>(op: () => Promise<T>): Promise<T> {
+	try {
+		return await op()
+	} catch (e) {
+		if (!isTransientConnectionError(e)) throw e
+		return await op()
 	}
 }
 
