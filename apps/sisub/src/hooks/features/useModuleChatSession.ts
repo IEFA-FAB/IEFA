@@ -2,6 +2,7 @@ import type { UIMessage } from "@tanstack/ai-client"
 import { fetchServerSentEvents, useChat } from "@tanstack/ai-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useCreateModuleChatSession, useModuleChatMessages, useSaveModuleChatMessage } from "@/hooks/data/useModuleChatHistory"
+import { useLatest } from "@/hooks/ui/useLatest"
 import {
 	CLOSED_TURN,
 	collectTurnRecord,
@@ -93,10 +94,6 @@ export function useModuleChatSession({ sessionId, module, scopeId, onSessionCrea
 	// ── Tool calls map (display data from DB load) ──────────────────────────────
 
 	const [toolCallsMap, setToolCallsMap] = useState<Map<string, ToolCall[]>>(new Map())
-	const toolCallsMapRef = useRef(toolCallsMap)
-	useEffect(() => {
-		toolCallsMapRef.current = toolCallsMap
-	}, [toolCallsMap])
 
 	// ── useChat ───────────────────────────────────────────────────────────────
 
@@ -118,8 +115,7 @@ export function useModuleChatSession({ sessionId, module, scopeId, onSessionCrea
 		body,
 	})
 
-	const uiMessagesRef = useRef<UIMessage[]>([])
-	uiMessagesRef.current = uiMessages
+	const uiMessagesRef = useLatest<UIMessage[]>(uiMessages)
 
 	const hasUndecidedAction = hasAwaitingApproval(uiMessages)
 	const awaitingApproval = !isLoading && (pendingInterrupts.length > 0 || resuming || hasUndecidedAction)
@@ -211,7 +207,7 @@ export function useModuleChatSession({ sessionId, module, scopeId, onSessionCrea
 		if (prev.length > 0 && prev.length > loadedMessages.length) return
 
 		restoreFromHistory(loadedMessages)
-	}, [sessionId, loadedMessages, isLoading, setMessages, awaitingApproval, clear, restoreFromHistory])
+	}, [sessionId, loadedMessages, isLoading, setMessages, awaitingApproval, clear, restoreFromHistory, uiMessagesRef])
 
 	// ── Derived messages ──────────────────────────────────────────────────────
 
@@ -230,7 +226,7 @@ export function useModuleChatSession({ sessionId, module, scopeId, onSessionCrea
 		.filter((m) => m.role === "user" || m.role === "assistant")
 		.map((m, i) => {
 			const streamingToolCalls = extractToolCalls(m.parts)
-			const storedToolCalls = toolCallsMapRef.current.get(m.id)
+			const storedToolCalls = toolCallsMap.get(m.id)
 			return {
 				id: m.id,
 				role: m.role as "user" | "assistant",

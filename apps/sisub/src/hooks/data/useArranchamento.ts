@@ -4,6 +4,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useAuth } from "@/hooks/auth/useAuth"
+import { useIsClient } from "@/hooks/ui/useIsClient"
 import type { DayMeals } from "@/lib/meal"
 import { queryKeys } from "@/lib/query-keys"
 import {
@@ -110,7 +111,7 @@ export const useArranchamento = (): ArranchamentoHook => {
 	const { user } = useAuth()
 	const queryClient = useQueryClient()
 
-	const [isClient, setIsClient] = useState(false)
+	const isClient = useIsClient()
 
 	const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null)
 	const successTimerRef = useRef<NodeJS.Timeout | null>(null)
@@ -393,9 +394,6 @@ export const useArranchamento = (): ArranchamentoHook => {
 			if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
 		}
 	}, [pendingChanges, savePendingChanges])
-
-	// Client-side hydration
-	useEffect(() => setIsClient(true), [])
 
 	// Cleanup
 	useEffect(() => {

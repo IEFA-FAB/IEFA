@@ -36,6 +36,7 @@ import { mealTypesQueryOptions } from "@/hooks/data/useMealTypes"
 import { useRecipes } from "@/hooks/data/useRecipes"
 import { useSnackMealType } from "@/hooks/data/useSnackRequests"
 import { useTemplate } from "@/hooks/data/useTemplates"
+import { useIsClient } from "@/hooks/ui/useIsClient"
 import { buildPreparationEntries, type CardapioPrintOptions, describeAllergens, type PreparationEntry } from "@/lib/cardapio-print"
 import { OCCASION_MENU_COPY, type OccasionMenuType, SNACK_MEAL_TYPE_NAME } from "@/lib/occasion-menu"
 import { buildOccasionPrintMeals, OCCASION_PRINT_TITLE, type OccasionPrintMeal, occasionPrintSubtitle } from "@/lib/occasion-print"
@@ -120,8 +121,7 @@ export function OccasionMenuPrint({ templateId, templateType, scope, date, onDat
 	const printBlocked = isOccasionPrintBlocked({ ingredientsPending, mealTypesPending, isSupportMenu, snackMealTypePending, templateFetching })
 
 	// A cópia de impressão só existe no cliente — createPortal exige `document`.
-	const [mounted, setMounted] = useState(false)
-	useEffect(() => setMounted(true), [])
+	const mounted = useIsClient()
 
 	if (isLoading) {
 		return (

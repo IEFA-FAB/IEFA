@@ -15,6 +15,7 @@ import { useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import type { SaramLinkApi } from "@/hooks/business/useUserSaram"
+import { useLatest } from "@/hooks/ui/useLatest"
 import { MilitaryRecordNoticeView } from "./MilitaryRecordNotice"
 import { MilitaryRecordPanel } from "./MilitaryRecordPanel"
 
@@ -157,14 +158,11 @@ function makePreviewApi(get: () => SaramStatus, set: (s: SaramStatus) => void): 
 export default function SaramPreview({ initial }: { initial: string }) {
 	const [name, setName] = useState(initial in SARAM_PREVIEW_STATES ? initial : "suggestion")
 	const [status, setStatus] = useState<SaramStatus>(() => (SARAM_PREVIEW_STATES[name] ?? SARAM_PREVIEW_STATES.suggestion)())
-	const ref = { current: status }
-	const api = makePreviewApi(
-		() => ref.current,
-		(next) => {
-			ref.current = next
-			setStatus(next)
-		}
-	)
+	const statusRef = useLatest(status)
+	// O compiler vê a ref passando por uma função no render, mas o getter só roda dentro das ações
+	// simuladas, depois da pausa, com o estado novo já confirmado na tela.
+	// react-doctor-disable-next-line react-hooks-js/refs -- getter lido fora do render
+	const api = makePreviewApi(() => statusRef.current, setStatus)
 
 	return (
 		<div className="flex flex-col gap-6">

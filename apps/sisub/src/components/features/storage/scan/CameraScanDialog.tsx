@@ -1,6 +1,7 @@
 import { Loader2, X } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
+import { useLatest } from "@/hooks/ui/useLatest"
 
 /**
  * Leitura por câmera — alternativa ao leitor USB (celular na câmara, notebook
@@ -37,8 +38,7 @@ export function CameraScanDialog({ onScan, onClose }: CameraScanDialogProps) {
 	const videoRef = useRef<HTMLVideoElement>(null)
 	// `onScan` costuma ser uma arrow criada no render do pai: mantê-la na lista
 	// de dependências parava e repedia a câmera a cada tecla digitada na tela.
-	const onScanRef = useRef(onScan)
-	onScanRef.current = onScan
+	const onScanRef = useLatest(onScan)
 	const [status, setStatus] = useState<"starting" | "scanning" | "error">("starting")
 	const [message, setMessage] = useState("Abrindo a câmera…")
 
@@ -57,7 +57,10 @@ export function CameraScanDialog({ onScan, onClose }: CameraScanDialogProps) {
 				if (stopped) return
 				video.srcObject = stream
 				await video.play()
+				if (stopped) return
 			} catch {
+				// Fechado durante a espera: não há mais tela para avisar.
+				if (stopped) return
 				setStatus("error")
 				setMessage("Não foi possível abrir a câmera — verifique a permissão do navegador ou use o leitor USB")
 				return
@@ -97,6 +100,7 @@ export function CameraScanDialog({ onScan, onClose }: CameraScanDialogProps) {
 					if (result && !stopped) onScanRef.current(result.getText())
 				})
 			} catch {
+				if (stopped) return
 				setStatus("error")
 				setMessage("Este navegador não consegue ler pela câmera — use o leitor USB")
 			}
@@ -109,7 +113,7 @@ export function CameraScanDialog({ onScan, onClose }: CameraScanDialogProps) {
 			zxingControls?.stop?.()
 			for (const track of stream?.getTracks() ?? []) track.stop()
 		}
-	}, [])
+	}, [onScanRef])
 
 	return (
 		<div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-black/80 p-4">

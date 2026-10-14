@@ -39,6 +39,7 @@ import {
 } from "@/hooks/data/useQuantityEstimate"
 import { useSegmentationOverview } from "@/hooks/data/useSegments"
 import { useMenuTemplates } from "@/hooks/data/useTemplates"
+import { useLatest } from "@/hooks/ui/useLatest"
 import { downloadCsv } from "@/lib/csv"
 import { annexItemUnit, buildAnnexCsv, buildDraftAnnexRows } from "@/lib/quantity-estimate-annex"
 import { quantityEstimateItemToNeed } from "@/lib/quantity-estimate-utils"
@@ -178,10 +179,8 @@ function NewQuantityEstimatePage() {
 	// O save da descrição é debounced em 800ms; sem estes refs o timer gravaria os
 	// preços/itens do render em que a tecla foi digitada, regredindo no banco um
 	// preço aplicado dentro da janela (modal ou pesquisa em lote).
-	const priceOverridesRef = useRef(priceOverrides)
-	priceOverridesRef.current = priceOverrides
-	const savedItemsRef = useRef(savedItems)
-	savedItemsRef.current = savedItems
+	const priceOverridesRef = useLatest(priceOverrides)
+	const savedItemsRef = useLatest(savedItems)
 
 	// Criar draft se ainda não existe
 	useEffect(() => {

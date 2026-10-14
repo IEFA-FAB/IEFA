@@ -17,6 +17,7 @@
  */
 
 import { useEffect, useRef } from "react"
+import { useLatest } from "@/hooks/ui/useLatest"
 import { type BurstConfig, type BurstState, closeOnIdle, EMPTY_BURST, feedKey, isStale } from "@/lib/scanner-burst"
 
 export type ScannerTiming = BurstConfig
@@ -49,8 +50,7 @@ interface UseGlobalBarcodeCaptureOptions {
 export function useGlobalBarcodeCapture({ onScan, timing = DEFAULT_TIMING, enabled = true }: UseGlobalBarcodeCaptureOptions) {
 	const stateRef = useRef<BurstState>(EMPTY_BURST)
 	const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-	const onScanRef = useRef(onScan)
-	onScanRef.current = onScan
+	const onScanRef = useLatest(onScan)
 	// `timing` também por ref, e pelo mesmo motivo que `onScan`: todo ponto de
 	// chamada monta o objeto no render (`{...scannerPropsFrom(profile)}`), então
 	// a identidade muda a cada render. Com ele nas dependências o listener era
@@ -60,8 +60,7 @@ export function useGlobalBarcodeCapture({ onScan, timing = DEFAULT_TIMING, enabl
 	//
 	// Pela ref, recalibrar o leitor passa a valer na tecla seguinte — que é o
 	// que se quer — sem derrubar a captura.
-	const timingRef = useRef(timing)
-	timingRef.current = timing
+	const timingRef = useLatest(timing)
 
 	useEffect(() => {
 		if (!enabled) return
@@ -120,5 +119,5 @@ export function useGlobalBarcodeCapture({ onScan, timing = DEFAULT_TIMING, enabl
 			clearTimer()
 			stateRef.current = EMPTY_BURST
 		}
-	}, [enabled])
+	}, [enabled, onScanRef, timingRef])
 }

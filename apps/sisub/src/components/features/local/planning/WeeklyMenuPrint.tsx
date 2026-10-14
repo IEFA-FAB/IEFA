@@ -44,6 +44,7 @@ import { useTemplateRecipeVersions } from "@/hooks/business/useTemplateRecipeVer
 import { useMealTypeGroups } from "@/hooks/data/useMenuGroups"
 import { useRecipes } from "@/hooks/data/useRecipes"
 import { useTemplate } from "@/hooks/data/useTemplates"
+import { useIsClient } from "@/hooks/ui/useIsClient"
 import {
 	buildPreparationEntries,
 	type CardapioPrintOptions,
@@ -141,8 +142,7 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 	const originIds = useMemo(() => [...new Set(printedItems.flatMap((i) => (i.recipe_origin?.id ? [i.recipe_origin.id] : [])))], [printedItems])
 	const { digestsById, pending: ingredientsPending, isError: digestsError, retry: retryDigests } = usePreparationDigests(originIds, options.ingredients)
 	// A cópia de impressão só existe no cliente — createPortal exige `document`.
-	const [mounted, setMounted] = useState(false)
-	useEffect(() => setMounted(true), [])
+	const mounted = useIsClient()
 
 	useEffect(() => {
 		setHeader(loadHeader(storageScope, organizationName))

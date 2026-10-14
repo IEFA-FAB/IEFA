@@ -2,9 +2,10 @@ import type { SnackRequestDetail } from "@iefa/sisub-domain"
 import type { SnackClass } from "@iefa/sisub-domain/utils"
 import { formatDuration } from "@iefa/sisub-domain/utils"
 import { Printer } from "lucide-react"
-import { type ReactNode, useEffect, useState } from "react"
+import type { ReactNode } from "react"
 import { createPortal } from "react-dom"
 import { Button } from "@/components/ui/button"
+import { useIsClient } from "@/hooks/ui/useIsClient"
 import { formatCurrency, formatDateTime, PREFERENCE_LABELS } from "./snack-format"
 
 /**
@@ -18,8 +19,7 @@ import { formatCurrency, formatDateTime, PREFERENCE_LABELS } from "./snack-forma
  */
 export function SnackRequestPrintButton({ request }: { request: SnackRequestDetail }) {
 	// createPortal exige `document` — só no cliente.
-	const [mounted, setMounted] = useState(false)
-	useEffect(() => setMounted(true), [])
+	const mounted = useIsClient()
 
 	return (
 		<>

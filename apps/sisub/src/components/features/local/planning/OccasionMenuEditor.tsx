@@ -55,6 +55,7 @@ import { useRecipes } from "@/hooks/data/useRecipes"
 import { useSetSnackClassification, useSnackMealType } from "@/hooks/data/useSnackRequests"
 import { useDuplicateTemplateAsVariant, useTemplateFolders } from "@/hooks/data/useTemplateFolders"
 import { useMenuTemplates, useSaveTemplateEdit, useTemplate } from "@/hooks/data/useTemplates"
+import { useLatest } from "@/hooks/ui/useLatest"
 import {
 	applyHeadcountToEventMeals,
 	countEventMealHeadcountTargets,
@@ -270,8 +271,7 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 	const itemsSignature = JSON.stringify(items)
 	const savedItemsSignatureRef = useRef<string | null>(null)
 	// Lida pelo guarda de saída no momento da navegação, não na renderização.
-	const contentSignatureRef = useRef(contentSignature)
-	contentSignatureRef.current = contentSignature
+	const contentSignatureRef = useLatest(contentSignature)
 
 	const updates = useMemo(
 		() => buildOccasionUpdates({ name, description, occurrences, isSupportMenu, allowAbsolutes }),

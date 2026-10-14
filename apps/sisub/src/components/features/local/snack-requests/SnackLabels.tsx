@@ -7,6 +7,7 @@ import { createPortal } from "react-dom"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { snackLabelQueryOptions } from "@/hooks/data/useSnackRequests"
+import { useIsClient } from "@/hooks/ui/useIsClient"
 import { audienceLabel, FAMILY_LABELS, formatDateTime, lineKits, VARIANT_LABELS } from "./format"
 import { SnackLoadError } from "./SnackBadges"
 
@@ -139,8 +140,7 @@ export function SnackLabelsDialog({ open, onOpenChange, requests, title }: Snack
 	const withoutSample = requests.filter((r) => !r.sample_collected_at).length
 
 	// A cópia de impressão só existe no cliente — createPortal exige `document`.
-	const [mounted, setMounted] = useState(false)
-	useEffect(() => setMounted(true), [])
+	const mounted = useIsClient()
 
 	// Fabricação do pedido sem amostra: a hora desta impressão, congelada na abertura para não
 	// mudar de uma renderização para a outra (a etiqueta na tela é a que sai na folha).

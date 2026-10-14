@@ -1,8 +1,9 @@
 import { Link } from "@tanstack/react-router"
 import { ArrowLeft, Printer } from "lucide-react"
-import { type ReactNode, useEffect, useState } from "react"
+import type { ReactNode } from "react"
 import { createPortal } from "react-dom"
 import { Button } from "@/components/ui/button"
+import { useIsClient } from "@/hooks/ui/useIsClient"
 
 /**
  * Folha imprimível dos documentos do anexo. Mesma técnica da Ficha Técnica
@@ -12,8 +13,7 @@ import { Button } from "@/components/ui/button"
  */
 export function PrintSheet({ back, toolbar, children }: { back: { unitId: string; quantityEstimateId: string }; toolbar?: ReactNode; children: ReactNode }) {
 	// A cópia de impressão só existe no cliente — createPortal exige `document`.
-	const [mounted, setMounted] = useState(false)
-	useEffect(() => setMounted(true), [])
+	const mounted = useIsClient()
 
 	return (
 		<div>

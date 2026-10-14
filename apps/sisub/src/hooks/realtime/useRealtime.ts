@@ -2,6 +2,7 @@ import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js"
 import { useQueryClient } from "@tanstack/react-query"
 import { useEffect, useRef } from "react"
 import { toast } from "@/components/ui/toast"
+import { useLatest } from "@/hooks/ui/useLatest"
 import supabase from "@/lib/supabase"
 
 /**
@@ -37,8 +38,7 @@ export function useRealtimeSubscription(options: {
 	// cada render) e `onUpdate` como arrow. Na dependência do efeito, cada render derrubava e
 	// recriava o canal — e o `channel()` do supabase-js devolve o canal de mesmo tópico que
 	// ainda está fechando.
-	const latest = useRef(options)
-	latest.current = options
+	const latest = useLatest(options)
 
 	const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -87,5 +87,5 @@ export function useRealtimeSubscription(options: {
 			timerRef.current = null
 			supabase.removeChannel(channel)
 		}
-	}, [queryClient, table, schema, event, filter])
+	}, [queryClient, table, schema, event, filter, latest])
 }

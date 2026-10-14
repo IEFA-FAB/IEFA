@@ -28,6 +28,7 @@ import { useMealTypes } from "@/hooks/data/useMealTypes"
 import { useMealTypeGroups } from "@/hooks/data/useMenuGroups"
 import { useRecipes } from "@/hooks/data/useRecipes"
 import { useSaveTemplateEdit, useTemplate } from "@/hooks/data/useTemplates"
+import { useLatest } from "@/hooks/ui/useLatest"
 import { usePersistentState } from "@/hooks/ui/usePersistentState"
 import { cn } from "@/lib/cn"
 import {
@@ -245,11 +246,6 @@ function WeeklyMenuEditorPage() {
 	// Conteúdo recém-carregado já conta como gravado. Sem esta marca, `savedSignatureRef`
 	// fica nulo e qualquer saída pareceria ter alteração pendente.
 	const loadedSignatureRef = useRef(false)
-	// O listener de atalho é montado uma vez; estes refs entregam o estado corrente a ele.
-	const selectedKeysRef = useRef<ReadonlySet<string>>(new Set())
-	const activeCellRef = useRef<{ day: number; mealTypeId: string } | null>(null)
-	const copyKeysRef = useRef<(keys: ReadonlySet<string>) => void>(() => {})
-	const pasteRef = useRef<(day: number, mealTypeId?: string) => void>(() => {})
 	// Seleção em massa: a chave atravessa dia e refeição, então a mesma preparação em dois
 	// dias são dois alvos distintos.
 	const [selectionMode, setSelectionMode] = useState(false)
@@ -272,8 +268,7 @@ function WeeklyMenuEditorPage() {
 	const savedSignatureRef = useRef<string | null>(null)
 	const contentSignature = JSON.stringify({ name: name.trim(), description: description.trim(), items, meals })
 	// Lida pelo guarda de saída no momento da navegação, não na renderização.
-	const contentSignatureRef = useRef(contentSignature)
-	contentSignatureRef.current = contentSignature
+	const contentSignatureRef = useLatest(contentSignature)
 
 	useEffect(() => {
 		if (!template || initialized) return
@@ -368,27 +363,6 @@ function WeeklyMenuEditorPage() {
 			clearTimeout(timer)
 		}
 	}, [highlightedKey])
-
-	// Ctrl+C copia a seleção, Ctrl+V cola na última refeição tocada. Campo de texto em foco
-	// fica de fora: ali o atalho é o do navegador, copiando o texto digitado.
-	useEffect(() => {
-		const onKeyDown = (event: KeyboardEvent) => {
-			if (!(event.ctrlKey || event.metaKey)) return
-			const target = event.target as HTMLElement | null
-			if (target?.closest("input, textarea, [contenteditable='true']")) return
-			const key = event.key.toLowerCase()
-			if (key === "c" && selectedKeysRef.current.size > 0) {
-				event.preventDefault()
-				copyKeysRef.current(selectedKeysRef.current)
-			}
-			if (key === "v" && activeCellRef.current) {
-				event.preventDefault()
-				pasteRef.current(activeCellRef.current.day, activeCellRef.current.mealTypeId)
-			}
-		}
-		window.addEventListener("keydown", onKeyDown)
-		return () => window.removeEventListener("keydown", onKeyDown)
-	}, [])
 
 	/** Preparações de uma célula (dia + refeição) como BoardItem (grupo + ordem + proporção). */
 	const getCellBoardItems = (dayOfWeek: number, mealTypeId: string): BoardItem[] => {
@@ -613,10 +587,32 @@ function WeeklyMenuEditorPage() {
 		)
 	}
 
-	selectedKeysRef.current = selectedKeys
-	activeCellRef.current = activeCell
-	copyKeysRef.current = handleCopyKeys
-	pasteRef.current = handlePaste
+	// O listener de atalho é montado uma vez; estes refs entregam o estado corrente a ele.
+	const selectedKeysRef = useLatest(selectedKeys)
+	const activeCellRef = useLatest(activeCell)
+	const copyKeysRef = useLatest(handleCopyKeys)
+	const pasteRef = useLatest(handlePaste)
+
+	// Ctrl+C copia a seleção, Ctrl+V cola na última refeição tocada. Campo de texto em foco
+	// fica de fora: ali o atalho é o do navegador, copiando o texto digitado.
+	useEffect(() => {
+		const onKeyDown = (event: KeyboardEvent) => {
+			if (!(event.ctrlKey || event.metaKey)) return
+			const target = event.target as HTMLElement | null
+			if (target?.closest("input, textarea, [contenteditable='true']")) return
+			const key = event.key.toLowerCase()
+			if (key === "c" && selectedKeysRef.current.size > 0) {
+				event.preventDefault()
+				copyKeysRef.current(selectedKeysRef.current)
+			}
+			if (key === "v" && activeCellRef.current) {
+				event.preventDefault()
+				pasteRef.current(activeCellRef.current.day, activeCellRef.current.mealTypeId)
+			}
+		}
+		window.addEventListener("keydown", onKeyDown)
+		return () => window.removeEventListener("keydown", onKeyDown)
+	}, [selectedKeysRef, activeCellRef, copyKeysRef, pasteRef])
 
 	const recipeMap = new Map([...recipeById].map(([id, r]) => [id, r.name]))
 	const mealTypeIds = (mealTypes ?? []).map((m) => m.id)

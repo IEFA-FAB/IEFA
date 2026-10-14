@@ -2,6 +2,7 @@ import type { UIMessage } from "@tanstack/ai-client"
 import { fetchServerSentEvents, useChat } from "@tanstack/ai-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useChatMessages, useCreateChatSession, useSaveChatMessage, useUpdateMessageChartType } from "@/hooks/data/useAnalyticsChatHistory"
+import { useLatest } from "@/hooks/ui/useLatest"
 import type { ChartSpec, ChartType, ChatMessage } from "@/types/domain/analytics-chat"
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -94,10 +95,6 @@ export function useChatSession({ sessionId, onSessionCreated }: UseChatSessionOp
 	// Charts loaded from DB (message ID → ChartSpec).
 	// Merged with in-flight ToolCallPart.output when mapping UIMessage → ChatMessage.
 	const [chartDataMap, setChartDataMap] = useState<Map<string, ChartSpec>>(new Map())
-	const chartDataMapRef = useRef(chartDataMap)
-	useEffect(() => {
-		chartDataMapRef.current = chartDataMap
-	}, [chartDataMap])
 
 	// User-selected chart type overrides (message ID → ChartType)
 	const [chartTypeOverrides, setChartTypeOverrides] = useState<Map<string, ChartType>>(new Map())
@@ -152,8 +149,7 @@ export function useChatSession({ sessionId, onSessionCreated }: UseChatSessionOp
 
 	// Keep a ref to uiMessages so effects can read the current value without
 	// adding uiMessages to their dependency arrays (which would cause loops).
-	const uiMessagesRef = useRef<UIMessage[]>([])
-	uiMessagesRef.current = uiMessages
+	const uiMessagesRef = useLatest<UIMessage[]>(uiMessages)
 
 	// ── DB sync effect ────────────────────────────────────────────────────────
 
@@ -220,7 +216,7 @@ export function useChatSession({ sessionId, onSessionCreated }: UseChatSessionOp
 			if (m.chart) dbCharts.set(m.id, m.chart as unknown as ChartSpec)
 		}
 		setChartDataMap(dbCharts)
-	}, [sessionId, loadedMessages, isLoading, setMessages])
+	}, [sessionId, loadedMessages, isLoading, setMessages, uiMessagesRef])
 
 	// ── Derived messages ──────────────────────────────────────────────────────
 
@@ -232,7 +228,7 @@ export function useChatSession({ sessionId, onSessionCreated }: UseChatSessionOp
 			id: m.id,
 			role: m.role as "user" | "assistant",
 			content: extractText(m.parts),
-			chart: extractChart(m.parts) ?? chartDataMapRef.current.get(m.id),
+			chart: extractChart(m.parts) ?? chartDataMap.get(m.id),
 			chartTypeOverride: chartTypeOverrides.get(m.id),
 			isStreaming: isLoading && i === lastAssistantIdx && m.role === "assistant",
 			createdAt: m.createdAt ?? new Date(),

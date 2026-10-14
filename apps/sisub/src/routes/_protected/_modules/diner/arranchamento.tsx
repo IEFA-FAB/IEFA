@@ -1,7 +1,7 @@
 import { isSaramUnverified } from "@iefa/database/saram-link"
 import { createFileRoute } from "@tanstack/react-router"
 import { RefreshCw, Settings, UtensilsCrossed } from "lucide-react"
-import { lazy, memo, Suspense, useCallback, useMemo, useRef, useState } from "react"
+import { lazy, memo, Suspense, useCallback, useMemo, useState } from "react"
 import { requirePermission } from "@/auth/pbac"
 import { BulkMealSelector } from "@/components/features/diner/BulkMealSelector"
 import { DayCardSkeleton } from "@/components/features/diner/DayCardSkeleton"
@@ -16,6 +16,7 @@ import { useSaramStatus } from "@/hooks/business/useUserSaram"
 import { useArranchamento } from "@/hooks/data/useArranchamento"
 import { useDailyMenuContent } from "@/hooks/data/useDailyMenuContent"
 import { useMessHalls } from "@/hooks/data/useMessHalls"
+import { useLatest } from "@/hooks/ui/useLatest"
 import { getDayCardData, isWeekday, labelAlteracao, labelCard, labelDiaUtil } from "@/lib/arranchamento"
 import { cn } from "@/lib/cn"
 import { createEmptyDayMeals, isDateNear } from "@/lib/meal"
@@ -269,15 +270,12 @@ function ArranchamentoPage() {
 	}
 
 	// Handlers estáveis (padrão ref, como RecipesManager/IngredientsTreeManager): identidade
-	// fixa para o memo dos DayCards; a versão corrente vive no ref. Escrita em render é
-	// tolerada aqui porque o arquivo opta fora do compiler ("use no memo").
-	const mealToggleRef = useRef(handleMealToggle)
-	mealToggleRef.current = handleMealToggle
-	const stableMealToggle = useCallback((date: string, meal: keyof DayMeals) => mealToggleRef.current(date, meal), [])
+	// fixa para o memo dos DayCards; a versão corrente vive no ref.
+	const mealToggleRef = useLatest(handleMealToggle)
+	const stableMealToggle = useCallback((date: string, meal: keyof DayMeals) => mealToggleRef.current(date, meal), [mealToggleRef])
 
-	const messHallChangeRef = useRef(handleMessHallChange)
-	messHallChangeRef.current = handleMessHallChange
-	const stableMessHallChange = useCallback((date: string, code: string) => messHallChangeRef.current(date, code), [])
+	const messHallChangeRef = useLatest(handleMessHallChange)
+	const stableMessHallChange = useCallback((date: string, code: string) => messHallChangeRef.current(date, code), [messHallChangeRef])
 
 	const handleRefresh = (): void => {
 		loadExistingArranchamentos()
