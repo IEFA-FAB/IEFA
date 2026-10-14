@@ -81,7 +81,7 @@ jobs:
 
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
-          bun-version: "1.4.3"
+          bun-version-file: package.json
       # Build args do bundle do cliente (`buildArgs` do manifesto) a partir das GitHub Variables,
       # no `$GITHUB_ENV`: o docker-bake.hcl declara cada um como `variable`, e o bake lê a
       # variável de ambiente homônima. Variável obrigatória vazia falha aqui, antes do bake.

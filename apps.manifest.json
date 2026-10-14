@@ -15,7 +15,11 @@
     "As dependências de workspace NÃO ficam aqui: o gerador as resolve do package.json",
     "de cada app, transitivamente. Era essa lista, mantida à mão em três arquivos, que",
     "vivia desatualizada — um package novo não entrava no COPY do Dockerfile (build",
-    "quebrado) nem no paths-filter (app não redeployava quando o package mudava)."
+    "quebrado) nem no paths-filter (app não redeployava quando o package mudava).",
+    "",
+    "`bunImage` e `bunRuntimeImage` andam junto com o `packageManager` do package.json raiz,",
+    "que é a versão do Bun dos workflows (`bun-version-file: package.json`). O check:deploy",
+    "falha se a tag de alguma das duas divergir dele."
   ],
   "bunImage": "oven/bun:1.4.3-alpine@sha256:629e17411f1f129dbec3af78d5af9c9f2a937435c80349437206c6b0b7422373",
   "bunRuntimeImage": "oven/bun:1.4.3-distroless@sha256:1aaa515018b0b37d95dbdebd55d1b7f37ad258a6289ba63e4bc3b9c9e3038697",
