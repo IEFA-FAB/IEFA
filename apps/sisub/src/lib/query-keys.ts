@@ -242,6 +242,7 @@ export const queryKeys = {
 		draft: (draftId: string | null) => ["quantity_estimate_draft", draftId] as const,
 		arp: (quantityEstimateId: string | null) => ["arp", "quantity_estimate", quantityEstimateId] as const,
 		arpCommitments: (arpId: string | null) => ["arp", "local-commitments", arpId] as const,
+		arpExecution: (arpId: string | null) => ["arp", "execution", arpId] as const,
 		empenhos: (arpItemId: string | null) => ["empenho", "item", arpItemId] as const,
 	},
 

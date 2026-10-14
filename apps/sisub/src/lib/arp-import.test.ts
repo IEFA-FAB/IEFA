@@ -406,11 +406,12 @@ describe("computeArpExecutionByItem", () => {
 			],
 			saldos: [saldo("ne1", 100, 50, 0)],
 		})
-		expect(result.a).toEqual({ liquidado: 30, pago: 15, aLiquidar: 0 })
-		expect(result.b).toEqual({ liquidado: 70, pago: 35, aLiquidar: 0 })
+		expect(result.byItem.a).toEqual({ liquidado: 30, pago: 15, aLiquidar: 0 })
+		expect(result.byItem.b).toEqual({ liquidado: 70, pago: 35, aLiquidar: 0 })
+		expect(result.incompleteEmpenhoIds).toEqual([])
 	})
 
-	it("NE inativa, sem saldo ou item nulo ficam de fora; total zero dá o saldo inteiro", () => {
+	it("NE inativa, sem saldo ou item nulo ficam de fora; total zero não reparte e marca a NE incompleta", () => {
 		const result = computeArpExecutionByItem({
 			arpNeItems: [
 				{ empenho_id: "inativa", arp_item_id: "a", value: 10 },
@@ -423,8 +424,33 @@ describe("computeArpExecutionByItem", () => {
 			allItems: [{ empenho_id: "zero", value: 0 }],
 			saldos: [saldo("inativa", 1, 1, 1), saldo("zero", 10, null, 4), saldo("semItens", null, 2, null)],
 		})
-		expect(result.a).toBeUndefined()
-		expect(result.z).toEqual({ liquidado: 10, pago: 2, aLiquidar: 4 })
+		expect(result.byItem.a).toBeUndefined()
+		expect(result.byItem.z).toEqual({ liquidado: 0, pago: 0, aLiquidar: 0 })
+		expect(result.incompleteEmpenhoIds).toEqual(["semItens", "zero"])
+	})
+
+	it("NE com total zero e vários itens na ata não multiplica a execução pelo número de itens", () => {
+		const result = computeArpExecutionByItem({
+			arpNeItems: [
+				{ empenho_id: "zero", arp_item_id: "a", value: 0 },
+				{ empenho_id: "zero", arp_item_id: "b", value: 0 },
+				{ empenho_id: "zero", arp_item_id: "c", value: "0" },
+				{ empenho_id: "ne1", arp_item_id: "a", value: 50 },
+			],
+			activeIds: new Set(["zero", "ne1"]),
+			allItems: [
+				{ empenho_id: "zero", value: 0 },
+				{ empenho_id: "zero", value: 0 },
+				{ empenho_id: "zero", value: "0" },
+				{ empenho_id: "ne1", value: 50 },
+			],
+			saldos: [saldo("zero", 90, 60, 30), saldo("ne1", 20, 10, 30)],
+		})
+		// antes: 90 de liquidado em cada um dos três itens (270 numa NE de 90)
+		expect(result.byItem.a).toEqual({ liquidado: 20, pago: 10, aLiquidar: 30 })
+		expect(result.byItem.b).toEqual({ liquidado: 0, pago: 0, aLiquidar: 0 })
+		expect(result.byItem.c).toEqual({ liquidado: 0, pago: 0, aLiquidar: 0 })
+		expect(result.incompleteEmpenhoIds).toEqual(["zero"])
 	})
 
 	it("acumula duas NEs no mesmo item", () => {
@@ -440,6 +466,6 @@ describe("computeArpExecutionByItem", () => {
 			],
 			saldos: [saldo("ne1", 4, 2, 6), saldo("ne2", 8, 8, 2)],
 		})
-		expect(result.a).toEqual({ liquidado: 8, pago: 6, aLiquidar: 7 })
+		expect(result.byItem.a).toEqual({ liquidado: 8, pago: 6, aLiquidar: 7 })
 	})
 })

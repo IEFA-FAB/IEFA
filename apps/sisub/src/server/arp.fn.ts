@@ -18,6 +18,7 @@ import { type LocalCommitment, resolveSaldoOficial } from "@/lib/arp-balance"
 import { loadLocalCommitments } from "@/lib/arp-commitments.server"
 import { type ArpSaldo, assertVigenciaWindow, formatNumeroAta, parseBrDate, pickArpHeader, resolveArpSaldos } from "@/lib/arp-compras"
 import {
+	type ArpExecution,
 	buildImportedArpItemRow,
 	buildImportedArpRow,
 	buildManualArpItemRow,
@@ -916,11 +917,12 @@ export const fetchArpLocalCommitmentsFn = createServerFn({ method: "GET" })
  * Execução orçamentária por item de ARP: vigente/liquidado/pago/a liquidar dos
  * empenhos locais, lidos da view única finance.v_empenho_saldo (a mesma que a
  * tela de Empenhos usa). Grandeza LOCAL — não se confunde com o snapshot
- * oficial da ARP.
+ * oficial da ARP. NE ativa cujos itens somam zero não se reparte: sai em `incompleteEmpenhoIds`,
+ * para a tela avisar que o dado daquele empenho está incompleto.
  */
 export const fetchArpExecutionFn = createServerFn({ method: "GET" })
 	.validator(z.object({ arpId: z.uuid() }))
-	.handler(async ({ data }): Promise<Record<string, { liquidado: number; pago: number; aLiquidar: number }>> => {
+	.handler(async ({ data }): Promise<ArpExecution> => {
 		await requireAuth()
 		const supabase = getProcurementClient()
 		await requireUnitScope(1, await resolveArpUnit(supabase, data.arpId))
@@ -928,7 +930,7 @@ export const fetchArpExecutionFn = createServerFn({ method: "GET" })
 		const { data: items, error: itemsError } = await supabase.from("arp_item").select("id").eq("arp_id", data.arpId)
 		if (itemsError) throw new Error(`Erro ao carregar os itens da ARP: ${publicDbMessage(itemsError)}`)
 		const itemIds = (items ?? []).map((item) => item.id)
-		if (itemIds.length === 0) return {}
+		if (itemIds.length === 0) return { byItem: {}, incompleteEmpenhoIds: [] }
 
 		// Pelos itens da NE. A liquidação é da NE inteira; numa NE com vários itens ela se reparte
 		// entre eles na proporção do valor de cada item — é leitura de acompanhamento, não lançamento.
@@ -936,7 +938,7 @@ export const fetchArpExecutionFn = createServerFn({ method: "GET" })
 		const { data: arpNeItems, error: arpNeError } = await financeClient.from("empenho_item").select("empenho_id, arp_item_id, value").in("arp_item_id", itemIds)
 		if (arpNeError) throw new Error(`Erro ao buscar itens de empenho: ${publicDbMessage(arpNeError)}`)
 		const empenhoIds = [...new Set((arpNeItems ?? []).map((row) => row.empenho_id))]
-		if (empenhoIds.length === 0) return {}
+		if (empenhoIds.length === 0) return { byItem: {}, incompleteEmpenhoIds: [] }
 
 		const [{ data: active, error: activeError }, { data: allItems, error: allItemsError }, { data: saldos, error: saldoError }] = await Promise.all([
 			financeClient.from("empenho").select("id").in("id", empenhoIds).eq("status", "ativo"),

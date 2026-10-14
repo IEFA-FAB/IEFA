@@ -219,6 +219,16 @@ escritos e só rodam depois de aplicada a migration `20260926214000`.
 - **Cobertura:** `acquisition-origin.operations.test.ts › carona sem anexo → uma NE com três itens…`;
   `empenho-conformity.test.ts`; `supply-order-gate.test.ts › NE com três itens…`.
 
+### GU-NE-03 — "A NE com três itens da ata entrou com o valor dos itens zerado"
+- **Realidade:** a NE foi registrada só pelo total, ou veio do SIAFI sem o valor de cada item; os
+  itens da ata somam R$ 0,00 e a liquidação é da NE inteira.
+- **O sistema precisa:** sem proporção, a execução da NE (liquidado, pago, a liquidar) não se
+  reparte: cada item recebe zero, nunca o saldo inteiro (que multiplicava a execução pelo número
+  de itens), e a NE é marcada como dado incompleto.
+- **UX:** no painel da ARP, a linha do empenho mostra "Dado incompleto" com o motivo no tooltip.
+- **Cobertura:** `arp-import.test.ts › computeArpExecutionByItem › NE com total zero e vários
+  itens…`. A execução por item em si (liquidado/pago/a liquidar) ainda não aparece na tela.
+
 ### GU-NE-02 — "A NE saiu no SIAFI e ninguém importou; a carne chega amanhã"
 - **O sistema precisa:** registro rápido (número, data, valor, favorecido) no próprio lugar — Gestão
   Unidade ou, pelo almoxarife com `storage:2`, na cozinha —, idempotente pelo número. A OF pode sair

@@ -273,10 +273,22 @@ export interface ArpItemExecution {
 
 type NumericLike = number | string | null
 
+export interface ArpExecution {
+	byItem: Record<string, ArpItemExecution>
+	/**
+	 * NEs ativas cujos itens somam zero: não há proporção para repartir a execução delas, que fica
+	 * fora de `byItem`. A tela avisa que o dado do empenho está incompleto.
+	 */
+	incompleteEmpenhoIds: string[]
+}
+
 /**
  * Reparte a execução de cada NE ATIVA entre os itens de ARP dela, na proporção do valor de cada
- * item — leitura de acompanhamento, não lançamento. NE sem linha na view de saldo fica de fora; NE
- * com total zero dá o saldo inteiro a cada item.
+ * item — leitura de acompanhamento, não lançamento. NE sem linha na view de saldo fica de fora.
+ *
+ * NE com total zero não tem proporção: a parte de cada item é ZERO e a NE sai em
+ * `incompleteEmpenhoIds`. Dar o saldo inteiro a cada item (o comportamento antigo) multiplicava o
+ * liquidado, o pago e o a liquidar pelo número de itens da NE na ata.
  */
 export function computeArpExecutionByItem(input: {
 	arpNeItems: ReadonlyArray<{ empenho_id: string; arp_item_id: string | null; value: NumericLike }>
@@ -284,7 +296,7 @@ export function computeArpExecutionByItem(input: {
 	allItems: ReadonlyArray<{ empenho_id: string; value: NumericLike }>
 	/** `empenho_id` sai nulável da view, que é filtrada por ele. */
 	saldos: ReadonlyArray<{ empenho_id: string | null; valor_liquidado: NumericLike; valor_pago: NumericLike; saldo_a_liquidar: NumericLike }>
-}): Record<string, ArpItemExecution> {
+}): ArpExecution {
 	const totalByEmpenho = new Map<string, number>()
 	for (const row of input.allItems) {
 		totalByEmpenho.set(row.empenho_id, (totalByEmpenho.get(row.empenho_id) ?? 0) + Number(row.value))
@@ -292,18 +304,20 @@ export function computeArpExecutionByItem(input: {
 	const saldoByEmpenho = new Map(input.saldos.map((saldo) => [saldo.empenho_id, saldo]))
 
 	const byItem: Record<string, ArpItemExecution> = {}
+	const incomplete = new Set<string>()
 	for (const row of input.arpNeItems) {
 		// `arp_item_id` nunca vem nulo: a consulta filtra por ele.
 		if (row.arp_item_id == null || !input.activeIds.has(row.empenho_id)) continue
 		const saldo = saldoByEmpenho.get(row.empenho_id)
 		if (!saldo) continue
 		const total = totalByEmpenho.get(row.empenho_id) ?? 0
-		const share = total > 0 ? Number(row.value) / total : 1
+		if (!(total > 0)) incomplete.add(row.empenho_id)
+		const share = total > 0 ? Number(row.value) / total : 0
 		const acc = byItem[row.arp_item_id] ?? { liquidado: 0, pago: 0, aLiquidar: 0 }
 		acc.liquidado += Number(saldo.valor_liquidado ?? 0) * share
 		acc.pago += Number(saldo.valor_pago ?? 0) * share
 		acc.aLiquidar += Number(saldo.saldo_a_liquidar ?? 0) * share
 		byItem[row.arp_item_id] = acc
 	}
-	return byItem
+	return { byItem, incompleteEmpenhoIds: [...incomplete].sort() }
 }
