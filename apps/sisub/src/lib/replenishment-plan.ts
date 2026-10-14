@@ -237,7 +237,8 @@ export function resolveObservedLeadDays(
 /**
  * O valor tem de caber no que RESTA do limite no ramo do item — o somatório do exercício, não o
  * item sozinho (art. 75, § 1º). A folga consumida por uma sugestão desconta das seguintes do mesmo
- * ramo (muta `dispensaRoom`); sem classe ou com dispensa sem valor, não se presume folga.
+ * ramo (muta `dispensaRoom`); sem classe ou com dispensa sem valor, não se presume folga. Como a
+ * ordem de chamada decide quem leva a folga, quem chama em lote é `buildReplenishmentSuggestions`.
  */
 export function reserveDispensaRoom(input: {
 	catmat: number | undefined
@@ -265,8 +266,22 @@ export function formatCalcMemory(input: {
 	return `bruta ${estimatedQuantity} × FC ${factors?.correction_factor ?? 1} ÷ IR ${factors?.rehydration_index ?? 1} = ${grossDemand}${minStock > 0 ? ` + mínimo ${minStock}` : ""}; − estoque ${stock.available.toFixed(2)} (excl. ${stock.expiring.toFixed(2)} vencendo) − trânsito ${inTransit} = ${netNeed}`
 }
 
-/** Sugestão de um insumo, com memória de cálculo. Chamada em ordem: consome a folga da dispensa. */
-export function buildReplenishmentSuggestion(need: ReplenishmentNeed, ctx: ReplenishmentContext): ReplenishmentSuggestion {
+/** O que se calcula de um insumo ANTES de decidir o canal (não toca a folga da dispensa). */
+interface ReplenishmentAssessment {
+	need: ReplenishmentNeed
+	factors: IngredientFactors | undefined
+	grossDemand: number
+	stock: StockEntry
+	inTransit: number
+	minStock: number
+	netNeed: number
+	coverageDays: number
+	leadTime: { days: number; source: string }
+	urgencyThresholdDays: number
+	estimatedValue: number | null
+}
+
+function assessReplenishmentNeed(need: ReplenishmentNeed, ctx: ReplenishmentContext): ReplenishmentAssessment {
 	const factors = ctx.factorsById.get(need.ingredient_id)
 	const grossDemand = resolveGrossDemand(need.estimated_quantity, factors)
 	const stock = ctx.stockById.get(need.ingredient_id) ?? { available: 0, expiring: 0 }
@@ -291,9 +306,27 @@ export function buildReplenishmentSuggestion(need: ReplenishmentNeed, ctx: Reple
 	// (review: canal ficava permanentemente inalcançável)
 	const price = ctx.priceByIngredient.get(need.ingredient_id)
 	const estimatedValue = price?.unitPrice != null ? (netNeed / price.conversionFactor) * price.unitPrice : null
+	return {
+		need,
+		factors,
+		grossDemand,
+		stock,
+		inTransit,
+		minStock,
+		netNeed,
+		coverageDays,
+		leadTime,
+		urgencyThresholdDays: policy?.urgency_threshold_days ?? leadTime.days,
+		estimatedValue,
+	}
+}
+
+/** Reserva a folga da dispensa (muta `ctx.dispensaRoom`) e decide o canal. */
+function finalizeReplenishmentSuggestion(a: ReplenishmentAssessment, ctx: ReplenishmentContext): ReplenishmentSuggestion {
+	const { need, factors, grossDemand, stock, inTransit, minStock, netNeed, coverageDays, leadTime } = a
 	const { smallValue, remaining } = reserveDispensaRoom({
 		catmat: ctx.catmatCodeByIngredient.get(need.ingredient_id),
-		estimatedValue,
+		estimatedValue: a.estimatedValue,
 		classByCatmat: ctx.classByCatmat,
 		dispensaRoom: ctx.dispensaRoom,
 	})
@@ -305,7 +338,7 @@ export function buildReplenishmentSuggestion(need: ReplenishmentNeed, ctx: Reple
 		caronaAvailable: null,
 		hasCatmat: ctx.catmatByIngredient.get(need.ingredient_id) ?? false,
 		coverageDays,
-		urgencyThresholdDays: policy?.urgency_threshold_days ?? leadTime.days,
+		urgencyThresholdDays: a.urgencyThresholdDays,
 		smallValue,
 		dispensaRemaining: remaining,
 	})
@@ -325,6 +358,50 @@ export function buildReplenishmentSuggestion(need: ReplenishmentNeed, ctx: Reple
 		reason: decision.reason,
 		calcMemory: formatCalcMemory({ estimatedQuantity: need.estimated_quantity, factors, grossDemand, minStock, stock, inTransit, netNeed }),
 	}
+}
+
+/**
+ * Ordem de urgência, a mesma régua do `decideChannel`: primeiro quem está abaixo do limiar de
+ * urgência (cobertura < limiar); dentro de cada grupo, a menor cobertura em dias; empate, a maior
+ * necessidade líquida (o critério de `rankReplenishmentSuggestions`); por fim o `ingredient_id`,
+ * para a ordem não depender da ordem de leitura.
+ */
+function compareByUrgency(a: ReplenishmentAssessment, b: ReplenishmentAssessment): number {
+	const urgentA = a.coverageDays < a.urgencyThresholdDays
+	const urgentB = b.coverageDays < b.urgencyThresholdDays
+	if (urgentA !== urgentB) return urgentA ? -1 : 1
+	if (a.coverageDays !== b.coverageDays) return a.coverageDays - b.coverageDays
+	if (a.netNeed !== b.netNeed) return b.netNeed - a.netNeed
+	return a.need.ingredient_id < b.need.ingredient_id ? -1 : a.need.ingredient_id > b.need.ingredient_id ? 1 : 0
+}
+
+/**
+ * Sugestão de um insumo, com memória de cálculo. Consome a folga da dispensa: para vários insumos
+ * que disputam o mesmo ramo, use `buildReplenishmentSuggestions`, que reserva por urgência.
+ */
+export function buildReplenishmentSuggestion(need: ReplenishmentNeed, ctx: ReplenishmentContext): ReplenishmentSuggestion {
+	return finalizeReplenishmentSuggestion(assessReplenishmentNeed(need, ctx), ctx)
+}
+
+/**
+ * Sugestões de todos os insumos, com a folga da dispensa (art. 75, § 1º: somatório do exercício
+ * no ramo) consumida do MAIS URGENTE para o menos urgente (`compareByUrgency`).
+ *
+ * Por quê: a folga é finita e a primeira sugestão que cabe a leva. Os `needs` chegam em ordem
+ * alfabética de pasta/insumo (`fetchProcurementNeeds`); reservar nessa ordem dava a dispensa ao
+ * insumo de nome menor, e o que estava para faltar caía em licitação, que não chega a tempo.
+ * Quem tem cobertura folgada pode esperar o processo regular; quem está abaixo do limiar, não.
+ *
+ * A saída volta na ordem dos `needs`: a ordem de exibição continua a de `rankReplenishmentSuggestions`.
+ */
+export function buildReplenishmentSuggestions(needs: ReadonlyArray<ReplenishmentNeed>, ctx: ReplenishmentContext): ReplenishmentSuggestion[] {
+	const assessments = needs.map((need) => assessReplenishmentNeed(need, ctx))
+	const byUrgency = assessments
+		.map((assessment, index) => ({ assessment, index }))
+		.sort((x, y) => compareByUrgency(x.assessment, y.assessment) || x.index - y.index)
+	const suggestions = new Array<ReplenishmentSuggestion>(needs.length)
+	for (const { assessment, index } of byUrgency) suggestions[index] = finalizeReplenishmentSuggestion(assessment, ctx)
+	return suggestions
 }
 
 /** Só o que precisa de compra ou tem lote vencendo; maior necessidade primeiro. */

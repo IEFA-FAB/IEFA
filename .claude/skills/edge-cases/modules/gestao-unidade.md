@@ -278,6 +278,16 @@ escritos e só rodam depois de aplicada a migration `20260926214000`.
   limite da dispensa no ramo (classe do CATMAT) da unidade compradora; urgência sozinha não autoriza
   dispensa (a de emergência, art. 75, VIII, tem processo próprio).
 - **Cobertura:** `replenishment.test.ts › decideChannel`; `acquisition.test.ts`.
+
+### GU-REP-02 — "Sobrou folga da dispensa para um item só, e foi para o que não tinha pressa"
+- **Realidade:** o arroz tem estoque para dez dias, a batata acabou; a folga da dispensa no ramo
+  cabe só uma das duas compras. A sugestão reservava na ordem alfabética: o arroz levava a dispensa
+  e a batata, que ia faltar, caía em licitação.
+- **O sistema precisa:** a folga do art. 75, § 1º, é consumida do mais urgente para o menos
+  urgente: abaixo do limiar de urgência primeiro, depois a menor cobertura, a maior necessidade e
+  o insumo, nessa ordem, sem depender da ordem de leitura.
+- **Cobertura:** `replenishment-plan.test.ts › buildReplenishmentSuggestions dá a folga da dispensa
+  ao mais urgente…` e `› desempata pela necessidade e depois pelo id…`.
 ## Execução da despesa (fluxo "Executar despesa", designação)
 
 ### GU-DES-01 — "Ninguém sabe quem é o fiscal do contrato"

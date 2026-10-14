@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import {
 	buildReplenishmentSuggestion,
+	buildReplenishmentSuggestions,
 	computeTransitByIngredient,
 	formatCalcMemory,
 	groupObservedLeadTimes,
@@ -293,6 +294,69 @@ describe("buildReplenishmentSuggestion", () => {
 		// (140 ÷ 2) × 2 = 140 de 1000
 		expect(dispensaRoom.get("89")).toBe(860)
 		expect(result.leadTime.days).toBe(4)
+	})
+
+	it("buildReplenishmentSuggestions dá a folga da dispensa ao mais urgente, não ao primeiro em ordem alfabética", () => {
+		const dispensaRoom = new Map<string, number | null>([["89", 150]])
+		const policy = { min_stock: 0, coverage_days: 7, urgency_threshold_days: 5 }
+		const ctx = baseContext({
+			// 140 em 14 dias = 10/dia: "a" cobre 10 dias (folgado), "b" está zerado (urgente)
+			stockById: new Map([["a", { available: 100, expiring: 0 }]]),
+			policyById: new Map([
+				["a", policy],
+				["b", policy],
+			]),
+			priceByIngredient: new Map([
+				["a", { unitPrice: 1, conversionFactor: 1 }],
+				["b", { unitPrice: 1, conversionFactor: 1 }],
+			]),
+			catmatByIngredient: new Map([
+				["a", true],
+				["b", true],
+			]),
+			catmatCodeByIngredient: new Map([
+				["a", 1],
+				["b", 1],
+			]),
+			classByCatmat: new Map([[1, "89"]]),
+			dispensaRoom,
+		})
+		// valores 40 (a) e 140 (b): a folga de 150 só cabe um dos dois
+		const result = buildReplenishmentSuggestions(
+			[
+				{ ...need, ingredient_id: "a", ingredient_name: "Arroz" },
+				{ ...need, ingredient_id: "b", ingredient_name: "Batata" },
+			],
+			ctx
+		)
+		expect(result.map((s) => s.ingredientId)).toEqual(["a", "b"]) // saída na ordem de entrada
+		expect(result[0]).toMatchObject({ coverageDays: 10, netNeed: 40, channel: "licitacao" })
+		expect(result[1]).toMatchObject({ coverageDays: 0, netNeed: 140, channel: "supermercado_virtual" })
+		expect(dispensaRoom.get("89")).toBe(10)
+	})
+
+	it("buildReplenishmentSuggestions desempata pela necessidade e depois pelo id, independente da ordem de entrada", () => {
+		const policy = { min_stock: 0, coverage_days: 7, urgency_threshold_days: 5 }
+		const make = () =>
+			baseContext({
+				policyById: new Map(["x", "y", "z"].map((id) => [id, policy])),
+				priceByIngredient: new Map(["x", "y", "z"].map((id) => [id, { unitPrice: 1, conversionFactor: 1 }])),
+				catmatByIngredient: new Map(["x", "y", "z"].map((id) => [id, true])),
+				catmatCodeByIngredient: new Map(["x", "y", "z"].map((id) => [id, 1])),
+				classByCatmat: new Map([[1, "89"]]),
+				// todos com cobertura 0: "y" (necessidade 200) vem antes; "x" e "z" (100) desempatam pelo id
+				dispensaRoom: new Map<string, number | null>([["89", 300]]),
+			})
+		const needs = [
+			{ ...need, ingredient_id: "z", estimated_quantity: 100 },
+			{ ...need, ingredient_id: "y", estimated_quantity: 200 },
+			{ ...need, ingredient_id: "x", estimated_quantity: 100 },
+		]
+		const forward = buildReplenishmentSuggestions(needs, make())
+		const backward = buildReplenishmentSuggestions([...needs].reverse(), make())
+		const channelById = (list: ReplenishmentSuggestion[]) => Object.fromEntries(list.map((s) => [s.ingredientId, s.channel]))
+		expect(channelById(forward)).toEqual({ x: "supermercado_virtual", y: "supermercado_virtual", z: "licitacao" })
+		expect(channelById(backward)).toEqual(channelById(forward))
 	})
 
 	it("rankReplenishmentSuggestions filtra sem necessidade nem vencimento e ordena pela necessidade", () => {
