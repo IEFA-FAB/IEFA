@@ -8,34 +8,61 @@
 # dezenas de linhas é um centavo por linha, sempre no mesmo sentido, e a diferença
 # reaparece na conciliação contra o SIAFI sem origem rastreável.
 #
-# O caminho certo é `roundToCents` (@iefa/sisub-domain), que normaliza o erro de
-# representação com `toPrecision(12)` antes de arredondar.
+# A varredura de 2026-10-13 (#629) achou o mesmo defeito fora dos arquivos que a regra listava, e
+# em outras formas: `Math.round(v * 100) / 100` (erra igual: 1,005 × 100 = 100,4999… → 100, e leva
+# o meio negativo para +∞, então uma nota e a sua anulação fechavam em centavos diferentes) em
+# `acquisition.fn.ts`, `restos-a-pagar.fn.ts`, `acquisition.ts`, `empenho-conformity.ts`,
+# `expense-execution.ts` e `EmpenhoFromOriginDialog.tsx`; um `round2` com `Number.EPSILON` em
+# `nfe-cost.ts`; e `Number(x.toFixed(2))` em `receiving-scan.ts`, `issue-variance.ts` e
+# `empenho-items.ts`. Eram cinco versões com semânticas diferentes. Por isso o escopo passou de uma
+# lista de arquivos para o sisub inteiro e as operations do domínio.
 #
-# Escopo estreito de propósito: `toFixed(2)` para EXIBIR texto é legítimo. A regra
-# só olha os arquivos que produzem valor monetário gravado.
+# O caminho certo é `roundToCents` (`@iefa/sisub-domain`, em `operations/money.ts`), que normaliza
+# o erro de representação com `toPrecision(12)` antes de arredondar e é simétrico no negativo.
+# `money.ts` fica fora: é onde o arredondamento mora.
+#
+# Escopo estreito de propósito: `toFixed(2)` para EXIBIR texto é legítimo, e percentual
+# (`Number((a / b * 100).toFixed(2))`) não é dinheiro. Nenhum dos dois casa.
+#
+# Casos de teste: `__fixtures__/money-rounding.ts` (opengrep test --config
+# .opengrep/rules/money-rounding.yaml .opengrep/rules/__fixtures__/money-rounding.ts).
 ##
 rules:
   - id: money-tofixed-rounding
     languages: [typescript]
     severity: ERROR
     message: >-
-      Valor monetário fechado com `Number(x.toFixed(2))` — use `roundToCents` de `@iefa/sisub-domain`.
-      `toFixed` arredonda o meio-centavo sempre para baixo (10,005 → 10,00), porque o binário
-      guarda 10,00499…. Em soma de várias linhas o viés é sistemático e aparece na conciliação
-      com o SIAFI como diferença sem origem. `roundToCents` normaliza a representação antes de
-      arredondar. Para EXIBIR texto, formate com Intl.NumberFormat em vez de toFixed.
+      Valor monetário fechado com `Number(x.toFixed(2))` ou `Math.round(x * 100) / 100` — use
+      `roundToCents` de `@iefa/sisub-domain`. Os dois arredondam o meio-centavo para baixo quando o
+      binário guarda 10,00499… no lugar de 10,005, e `Math.round` ainda leva o meio negativo para
+      +∞. Em soma de várias linhas o viés é sistemático e aparece na conciliação com o SIAFI como
+      diferença sem origem. `roundToCents` normaliza a representação antes de arredondar e é
+      simétrico no negativo. Para EXIBIR texto, formate com Intl.NumberFormat em vez de toFixed.
     paths:
       include:
-        - "apps/sisub/src/server/liquidacao.fn.ts"
-        - "apps/sisub/src/server/reconciliation.fn.ts"
-        - "apps/sisub/src/server/budget.fn.ts"
-        - "packages/sisub-domain/src/operations/budget-math.ts"
-        - "packages/sisub-domain/src/operations/liquidacao-math.ts"
+        - "packages/sisub-domain/src/operations/**"
+        - "apps/sisub/src/**"
       exclude:
+        - "packages/sisub-domain/src/operations/money.ts"
         - "**/*.test.ts"
+        - "**/*.test.tsx"
     # `Number($X.toFixed(2))` é arredondamento de VALOR — o defeito. `${x.toFixed(2)}`
     # dentro de uma mensagem é formatação de TEXTO e não entra aqui: o padrão é
     # deliberadamente estreito para não gerar achado que o revisor aprende a ignorar.
     # (Para texto em pt-BR, o certo é Intl.NumberFormat — outra conversa.)
     patterns:
-      - pattern: Number($X.toFixed(2))
+      - pattern-either:
+          - pattern: Number($X.toFixed(2))
+          # `Math.round(v * 100) / 100` e as variantes que o #629 achou:
+          # `(Math.sign(v) * Math.round(Math.abs(v) * 100 + Number.EPSILON)) / 100` (nfe-cost) e
+          # `Math.round(Number((v * 100).toPrecision(12))) / 100` (o próprio `roundToCents`, que
+          # agora só existe em `money.ts`).
+          - patterns:
+              - pattern: $NUM / 100
+              - metavariable-pattern:
+                  metavariable: $NUM
+                  pattern-either:
+                    - pattern: Math.round(<... $X * 100 ...>)
+                    - pattern: Math.round(<... 100 * $X ...>)
+      # Percentual (razão × 100) com duas casas: não é dinheiro (`deltaPct` em `issue-variance.ts`).
+      - pattern-not: Number(($A / $B * 100).toFixed(2))
