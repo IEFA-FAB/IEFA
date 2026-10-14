@@ -1,7 +1,7 @@
 /**
  * Caracterização das derivações dos gráficos do auditor (extraídas de
  * components/Charts.tsx). Trava o comportamento de origem, inclusive as
- * esquisitices (`|| 0` que engole NaN só na criação do item, por exemplo).
+ * esquisitices (o filtro `diff > 0` que some com o item sem divergência, por exemplo).
  */
 
 import { describe, expect, it } from "bun:test"
@@ -80,7 +80,7 @@ describe("aggregateComparisonData", () => {
 		])
 	})
 
-	it("o `|| 0` da criação engole NaN, mas a soma do item existente propaga", () => {
+	it("saldo NaN entra como 0 e `netDiff` é sempre `siloms − siafi`, na criação e na soma", () => {
 		const first = aggregateComparisonData([rec({ ug: "UG-A", siafiValue: Number.NaN, silomsValue: Number.NaN, difference: 10 })], ["TODOS"], "UG")
 		expect(first.aggregated[0]).toMatchObject({ siafi: 0, siloms: 0, netDiff: 0, diff: 10 })
 
@@ -92,11 +92,39 @@ describe("aggregateComparisonData", () => {
 			["TODOS"],
 			"UG"
 		)
-		expect(merged.aggregated[0]).toMatchObject({ siafi: 10, siloms: 5, diff: 5, consumoDiff: 0 })
-		expect(Number.isNaN(merged.aggregated[0].netDiff)).toBe(true)
+		expect(merged.aggregated[0]).toMatchObject({ siafi: 10, siloms: 5, diff: 5, consumoDiff: 0, netDiff: -5 })
+
+		// Só um lado ausente: a diferença líquida é a do lado presente, nos dois caminhos.
+		const oneSide = aggregateComparisonData(
+			[
+				rec({ ug: "UG-A", siafiValue: Number.NaN, silomsValue: 7, difference: 7 }),
+				rec({ ug: "UG-A", group: AccountGroup.CONSUMO, siafiValue: 3, silomsValue: Number.NaN, difference: 3 }),
+			],
+			["TODOS"],
+			"UG"
+		)
+		expect(oneSide.aggregated[0]).toMatchObject({ siafi: 3, siloms: 7, netDiff: 4 })
 	})
 
-	it("difference zero/NaN entra como 0 nos três grupos ao criar", () => {
+	it("difference NaN entra como 0 no grupo ao criar o item", () => {
+		// O segundo registro de cada UG, de outro grupo, mantém o item acima do filtro `diff > 0`.
+		const r = aggregateComparisonData(
+			[
+				rec({ ug: "A", group: AccountGroup.BMP, difference: Number.NaN }),
+				rec({ ug: "A", group: AccountGroup.CONSUMO, difference: 1 }),
+				rec({ ug: "B", group: AccountGroup.CONSUMO, difference: Number.NaN }),
+				rec({ ug: "B", group: AccountGroup.INTANGIVEL, difference: 2 }),
+				rec({ ug: "C", group: AccountGroup.INTANGIVEL, difference: Number.NaN }),
+				rec({ ug: "C", group: AccountGroup.BMP, difference: 3 }),
+			],
+			["TODOS"],
+			"UG"
+		)
+		const byUg = Object.fromEntries(r.aggregated.map((i) => [i.name, [i.bmpDiff, i.consumoDiff, i.intangivelDiff, i.diff]]))
+		expect(byUg).toEqual({ A: [0, 1, 0, 1], B: [0, 0, 2, 2], C: [3, 0, 0, 3] })
+	})
+
+	it("item só com difference NaN fica com diff 0 e sai pelo filtro `diff > 0`", () => {
 		const r = aggregateComparisonData(
 			[
 				rec({ ug: "A", group: AccountGroup.BMP, difference: Number.NaN }),

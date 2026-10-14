@@ -34,11 +34,19 @@ function resolveAggregationKey(curr: FinancialRecord, isSpecificUnitSelected: bo
 	return key
 }
 
+/**
+ * Divergência líquida (SILOMS − SIAFI) do registro, com saldo ausente/NaN como 0, igual
+ * às colunas `siafi` e `siloms`. Assim `netDiff` é sempre `siloms − siafi` do item.
+ * Antes a soma do item existente não tinha `|| 0` e um NaN chegava ao total líquido do
+ * painel de composição; e a criação zerava a diferença inteira quando só um lado faltava.
+ */
+const recordNetDiff = (curr: FinancialRecord) => (curr.silomsValue || 0) - (curr.siafiValue || 0)
+
 function addRecordToItem(found: AggregatedItem, curr: FinancialRecord) {
 	found.siafi += curr.siafiValue || 0
 	found.siloms += curr.silomsValue || 0
 	found.diff += curr.difference || 0
-	found.netDiff += curr.silomsValue - curr.siafiValue
+	found.netDiff += recordNetDiff(curr)
 
 	if (curr.group === AccountGroup.BMP) found.bmpDiff += curr.difference || 0
 	if (curr.group === AccountGroup.CONSUMO) found.consumoDiff += curr.difference || 0
@@ -52,7 +60,7 @@ function createAggregatedItem(key: string, curr: FinancialRecord): AggregatedIte
 		siafi: curr.siafiValue || 0,
 		siloms: curr.silomsValue || 0,
 		diff: curr.difference || 0,
-		netDiff: curr.silomsValue - curr.siafiValue || 0,
+		netDiff: recordNetDiff(curr),
 		orgaoSuperior: curr.orgaoSuperior,
 		ods: curr.ods,
 		riskLevel: curr.riskLevel,
