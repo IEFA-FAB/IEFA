@@ -18,9 +18,10 @@
  */
 
 import { createAdapterFromEnv, enforceRequestRateLimit, RateLimitError } from "@iefa/ai-provider"
-import { setResponseStatus } from "@tanstack/react-start/server"
+import { getRequest, setResponseStatus } from "@tanstack/react-start/server"
 import { silentAdapterLogger } from "#/lib/ai-logger"
 import { getServerCapabilities } from "#/lib/capabilities.server"
+import { withGenerationDeadline } from "#/lib/generation-deadline"
 
 /**
  * Capability gate + teto de requisições. Server functions do TanStack Start
@@ -71,40 +72,69 @@ function buildOptions(user: string, system?: string): ChatStreamOptions {
 	} as unknown as ChatStreamOptions
 }
 
-/** Geração de texto livre (não streaming): acumula os deltas do chatStream. */
-export async function generateText({ userId, user, system }: { userId: string; user: string; system?: string }): Promise<string> {
-	const adapter = getSucontAdapter(userId)
-	let text = ""
-	for await (const chunk of adapter.chatStream(buildOptions(user, system))) {
-		const c = chunk as { type?: string; delta?: string }
-		if (c.type === "TEXT_MESSAGE_CONTENT" && typeof c.delta === "string") text += c.delta
-	}
-	return text
-}
+/**
+ * Prazo das chamadas ao modelo feitas por server function, ABAIXO do `idle_timeout` de 60 s
+ * do ALB compartilhado (`infra/foundation/alb.tf`). Server function não manda byte nenhum até
+ * terminar: com o prazo igual ao do ALB, o balanceador cortava primeiro e o usuário via um 504
+ * em vez da mensagem de prazo. Os 10 s de folga cobrem o que a função faz depois da geração
+ * (gravar histórico) e a volta da resposta. O caminho de documento mediu 16–22 s com o
+ * opus-4-6 (`AI-PROVIDERS.md`, bench de 2026-08-21). Geração que precise encostar nisto vai
+ * para SSE com keep-alive, como `routes/api/sacdgc/analyze.post.ts`, não para um número maior.
+ */
+export const SERVER_FN_AI_DEADLINE_MS = 50_000
+
+const DEFAULT_TIMEOUT_MESSAGE = "A IA demorou mais que o esperado (timeout). Tente novamente com uma entrada menor."
 
 /**
- * Geração de saída estruturada (JSON): instrui o modelo com o JSON Schema e parseia.
- * @param abortController abortá-lo cancela a chamada no provider (o adapter repassa o signal
- *   ao SDK), em vez de só parar de esperar por ela enquanto o modelo segue gerando.
+ * Sinal da requisição da server function: o cliente que fecha a aba ou perde a rede aborta a
+ * geração, em vez de deixá-la correr até o prazo por uma resposta que ninguém vai ler. Fora de
+ * um request (teste, script) não há o que encadear.
  */
+function requestSignal(): AbortSignal | undefined {
+	try {
+		return getRequest()?.signal
+	} catch {
+		return undefined
+	}
+}
+
+type GenerationLimits = {
+	/** Mensagem quando o prazo vence — é o que chega à tela. */
+	timeoutMessage?: string
+}
+
+function withServerFnDeadline<T>({ timeoutMessage = DEFAULT_TIMEOUT_MESSAGE }: GenerationLimits, run: (controller: AbortController) => Promise<T>) {
+	return withGenerationDeadline({ deadlineMs: SERVER_FN_AI_DEADLINE_MS, timeoutMessage, signal: requestSignal() }, run)
+}
+
+/** Geração de texto livre (não streaming): acumula os deltas do chatStream, com prazo e abort. */
+export async function generateText({ userId, user, system, ...limits }: { userId: string; user: string; system?: string } & GenerationLimits): Promise<string> {
+	const adapter = getSucontAdapter(userId)
+	return withServerFnDeadline(limits, async (abortController) => {
+		let text = ""
+		for await (const chunk of adapter.chatStream({ ...buildOptions(user, system), abortController } as ChatStreamOptions)) {
+			const c = chunk as { type?: string; delta?: string }
+			if (c.type === "TEXT_MESSAGE_CONTENT" && typeof c.delta === "string") text += c.delta
+		}
+		return text
+	})
+}
+
+/** Geração de saída estruturada (JSON): instrui o modelo com o JSON Schema e parseia, com prazo e abort. */
 export async function generateJson<T>({
 	userId,
 	user,
 	system,
 	schema,
-	abortController,
-}: {
-	userId: string
-	user: string
-	system?: string
-	schema: unknown
-	abortController?: AbortController
-}): Promise<T> {
+	...limits
+}: { userId: string; user: string; system?: string; schema: unknown } & GenerationLimits): Promise<T> {
 	const adapter = getSucontAdapter(userId)
 	type StructuredArgs = Parameters<ReturnType<typeof getSucontAdapter>["structuredOutput"]>[0]
-	const result = await adapter.structuredOutput({
-		chatOptions: { ...buildOptions(user, system), abortController } as unknown as StructuredArgs["chatOptions"],
-		outputSchema: schema as StructuredArgs["outputSchema"],
-	})
+	const result = await withServerFnDeadline(limits, (abortController) =>
+		adapter.structuredOutput({
+			chatOptions: { ...buildOptions(user, system), abortController } as unknown as StructuredArgs["chatOptions"],
+			outputSchema: schema as StructuredArgs["outputSchema"],
+		})
+	)
 	return result.data as T
 }

@@ -16,8 +16,11 @@ import { defaultRateLimitStore } from "@iefa/ai-provider"
 // que não existe em teste. O dublê registra o que foi setado — que é exatamente o que
 // o cliente vai ler, já que o valor lançado é um Error e não uma Response.
 const response = { status: 0, headers: {} as Record<string, string> }
+// Requisição corrente da server function: o teste troca o signal para simular o cliente que saiu.
+const request = { signal: new AbortController().signal }
 
 mock.module("@tanstack/react-start/server", () => ({
+	getRequest: () => request,
 	setResponseStatus: (status: number) => {
 		response.status = status
 	},
@@ -26,7 +29,7 @@ mock.module("@tanstack/react-start/server", () => ({
 	},
 }))
 
-const { generateText, getSucontAdapter } = await import("./ai.server.ts")
+const { generateJson, generateText, getSucontAdapter, SERVER_FN_AI_DEADLINE_MS } = await import("./ai.server.ts")
 
 const AI_VARS = [
 	"SUCONT_AI_PROVIDER",
@@ -36,6 +39,8 @@ const AI_VARS = [
 	"SUCONT_AI_MAX_REQUESTS_PER_MINUTE",
 	"SUCONT_AI_MAX_TOKENS_PER_MINUTE",
 	"SUCONT_AI_MAX_TOKENS_PER_DAY",
+	"AWS_ACCESS_KEY_ID",
+	"AWS_SECRET_ACCESS_KEY",
 ] as const
 
 function clearAiEnv() {
@@ -54,6 +59,7 @@ beforeEach(() => {
 	defaultRateLimitStore.reset()
 	response.status = 0
 	response.headers = {}
+	request.signal = new AbortController().signal
 })
 
 afterEach(clearAiEnv)
@@ -130,5 +136,26 @@ describe("generateText", () => {
 
 		await expect(generateText({ userId: "user-1", user: "oi" })).rejects.toThrow(/limite de mensagens por minuto/i)
 		expect(response.status).toBe(429)
+	})
+})
+
+describe("prazo e cancelamento", () => {
+	// O cliente que fecha a aba aborta a geração no provider, em vez de deixá-la correr até o
+	// prazo. Com o signal da requisição já abortado, nada espera o modelo.
+	it("generateText e generateJson abortam quando a requisição do cliente já caiu", async () => {
+		configureBedrock()
+		// Credencial estática: o SDK não sai procurando credencial na rede antes de ver o abort.
+		process.env.AWS_ACCESS_KEY_ID = "teste"
+		process.env.AWS_SECRET_ACCESS_KEY = "teste"
+		const gone = new AbortController()
+		gone.abort()
+		request.signal = gone.signal
+
+		await expect(generateText({ userId: "user-1", user: "oi" })).rejects.toThrow(/cancelada/)
+		await expect(generateJson({ userId: "user-1", user: "oi", schema: { type: "object" } })).rejects.toThrow(/cancelada/)
+	})
+
+	it("o prazo fica abaixo do idle de 60 s do ALB", () => {
+		expect(SERVER_FN_AI_DEADLINE_MS).toBeLessThan(60_000)
 	})
 })
