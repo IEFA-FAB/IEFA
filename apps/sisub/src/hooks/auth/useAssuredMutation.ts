@@ -39,6 +39,7 @@ export function useAssuredMutation<TData = unknown, TError = Error, TVariables =
 	const { requestElevation } = useAssuranceElevation()
 	const { mutationFn, ...rest } = options
 
+	// react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation -- invólucro genérico: o onSuccess de quem usa vem em `rest`
 	return useMutation<TData, TError, TVariables, TContext>({
 		...rest,
 		mutationFn: (variables) => runWithElevation(variables, mutationFn, requestElevation),

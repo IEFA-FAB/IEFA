@@ -685,6 +685,7 @@ function AdminActionDialog({
 		setFailure(null)
 	}
 
+	// react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation -- onSettled, de quem abre o diálogo, relê a fila
 	const mutation = useMutation({
 		mutationFn: (input: { reason: string; saram: string }) => {
 			if (!action) throw new Error("Nenhuma ação selecionada.")

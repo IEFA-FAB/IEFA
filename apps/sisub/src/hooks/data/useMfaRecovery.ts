@@ -43,6 +43,7 @@ export function useGenerateRecoveryCodes() {
  * ser descartado só dispararia requisições com uma sessão que já não existe.
  */
 export function useConsumeRecoveryCode() {
+	// react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation -- a conclusão é navegação de página inteira (ver acima)
 	return useMutation({
 		mutationFn: (code: string) => consumeRecoveryCodeFn({ data: { code } }),
 	})

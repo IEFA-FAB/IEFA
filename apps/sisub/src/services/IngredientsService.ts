@@ -51,7 +51,6 @@ import {
 	restoreIngredientFn,
 	restoreIngredientVersionFn,
 	saveIngredientDetailsFn,
-	setIngredientNutrientsFn,
 	updateFolderFn,
 	updateIngredientFn,
 	updateIngredientItemFn,
@@ -265,7 +264,12 @@ export function useCeafa(search?: string) {
 	return { ceafaList: data, isLoading }
 }
 
+// Mutações de pasta, insumo, item e vínculo CATMAT NÃO invalidam aqui: quem chama invalida com
+// `await`, depois do `mutateAsync`, porque a ordem importa (o formulário só fecha ou volta ao
+// "salvo" depois do refetch; ver IngredientDetailForm). Invalidar também aqui dispararia o refetch
+// duas vezes. Cada hook aponta o arquivo que invalida.
 export function useCreateFolder() {
+	// react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation -- invalida em FolderForm
 	const mutation = useMutation({
 		mutationFn: (payload: FolderInsert) =>
 			createFolderFn({
@@ -285,6 +289,7 @@ export function useCreateFolder() {
 }
 
 export function useUpdateFolder() {
+	// react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation -- invalida em FolderForm
 	const mutation = useMutation({
 		mutationFn: ({ id, payload }: { id: string; payload: FolderUpdate }) =>
 			updateFolderFn({ data: { id, description: payload.description, parentId: payload.parent_id ?? undefined } }),
@@ -297,6 +302,7 @@ export function useUpdateFolder() {
 }
 
 export function useDeleteFolder() {
+	// react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation -- invalida em IngredientsTreeNode
 	const mutation = useMutation({
 		mutationFn: (id: string) => deleteFolderFn({ data: { id } }),
 	})
@@ -308,6 +314,7 @@ export function useDeleteFolder() {
 }
 
 export function useCreateIngredient() {
+	// react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation -- invalida em IngredientForm
 	const mutation = useMutation({
 		mutationFn: (payload: IngredientInsert) =>
 			createIngredientFn({
@@ -328,6 +335,7 @@ export function useCreateIngredient() {
 }
 
 export function useUpdateIngredient() {
+	// react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation -- invalida em IngredientForm
 	const mutation = useMutation({
 		mutationFn: ({ id, payload }: { id: string; payload: IngredientUpdate }) =>
 			updateIngredientFn({
@@ -349,6 +357,7 @@ export function useUpdateIngredient() {
 }
 
 export function useDeleteIngredient() {
+	// react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation -- invalida em IngredientsTreeNode
 	const mutation = useMutation({
 		mutationFn: (id: string) => deleteIngredientFn({ data: { id } }),
 	})
@@ -360,6 +369,7 @@ export function useDeleteIngredient() {
 }
 
 export function useRestoreFolder() {
+	// react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation -- invalida em IngredientsTreeNode
 	const mutation = useMutation({
 		mutationFn: (id: string) => restoreFolderFn({ data: { id } }),
 	})
@@ -371,6 +381,7 @@ export function useRestoreFolder() {
 }
 
 export function useRestoreIngredient() {
+	// react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation -- invalida em IngredientsTreeNode
 	const mutation = useMutation({
 		mutationFn: (id: string) => restoreIngredientFn({ data: { id } }),
 	})
@@ -382,6 +393,7 @@ export function useRestoreIngredient() {
 }
 
 export function useCreateIngredientItem() {
+	// react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation -- invalida em IngredientItemEditor
 	const mutation = useMutation({
 		mutationFn: (payload: IngredientItemInsert) =>
 			createIngredientItemFn({
@@ -404,6 +416,7 @@ export function useCreateIngredientItem() {
 }
 
 export function useUpdateIngredientItem() {
+	// react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation -- invalida em IngredientItemEditor
 	const mutation = useMutation({
 		mutationFn: ({ id, payload }: { id: string; payload: IngredientItemUpdate }) =>
 			updateIngredientItemFn({
@@ -427,6 +440,7 @@ export function useUpdateIngredientItem() {
 }
 
 export function useDeleteIngredientItem() {
+	// react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation -- invalida em IngredientItemsManager
 	const mutation = useMutation({
 		mutationFn: (id: string) => deleteIngredientItemFn({ data: { id } }),
 	})
@@ -494,6 +508,7 @@ export interface CreatePurchaseItemPayload {
 }
 
 export function useCreatePurchaseItem() {
+	// react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation -- invalida em PurchaseItemEditor
 	const mutation = useMutation({
 		// Cria o purchase_item e o vínculo com o ingredient (junção) em sequência.
 		mutationFn: async (p: CreatePurchaseItemPayload) => {
@@ -550,6 +565,7 @@ export interface UpdatePurchaseItemPayload {
 }
 
 export function useUpdatePurchaseItem() {
+	// react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation -- invalida em PurchaseItemEditor
 	const mutation = useMutation({
 		mutationFn: async (p: UpdatePurchaseItemPayload) => {
 			const codigo = positiveOrNull(p.catmatItemCodigo)
@@ -591,6 +607,7 @@ export function useUpdatePurchaseItem() {
 }
 
 export function useDeletePurchaseItemLink() {
+	// react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation -- invalida em PurchaseItemsManager
 	const mutation = useMutation({
 		// Remove apenas o vínculo (junção); o purchase_item é preservado (pode ter outros vínculos).
 		mutationFn: (linkId: string) => deletePurchaseItemIngredientFn({ data: { id: linkId } }),
@@ -598,23 +615,6 @@ export function useDeletePurchaseItemLink() {
 	return {
 		deletePurchaseItemLink: mutation.mutateAsync,
 		isDeleting: mutation.isPending,
-		error: mutation.error,
-	}
-}
-
-export function useSetIngredientNutrients() {
-	const mutation = useMutation({
-		mutationFn: ({ ingredientId, nutrients }: { ingredientId: string; nutrients: { nutrient_id: string; nutrient_value: number | null }[] }) =>
-			setIngredientNutrientsFn({
-				data: {
-					ingredientId,
-					nutrients: nutrients.map((n) => ({ nutrientId: n.nutrient_id, nutrientValue: n.nutrient_value })),
-				},
-			}),
-	})
-	return {
-		setIngredientNutrients: mutation.mutateAsync,
-		isSaving: mutation.isPending,
 		error: mutation.error,
 	}
 }
@@ -640,6 +640,7 @@ export interface SaveIngredientDetailsPayload {
 
 /** Salva identificação + nutrientes e registra UMA versão do insumo. */
 export function useSaveIngredientDetails() {
+	// react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation -- invalida em IngredientDetailForm
 	const mutation = useMutation({
 		mutationFn: (p: SaveIngredientDetailsPayload) =>
 			saveIngredientDetailsFn({
