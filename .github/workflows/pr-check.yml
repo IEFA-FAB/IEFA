@@ -97,6 +97,11 @@ jobs:
             echo "args=--affected" >> "$GITHUB_OUTPUT"
           fi
 
+      # `--concurrency=4`: uma tarefa por vCPU do runner (blacksmith-4vcpu). O motivo do número não
+      # foi registrado quando entrou (#421); o critério é esse. Não é o `2` do AGENTS.md: aquele
+      # protege a RAM da máquina de dev, e lint/typecheck/test pesam bem menos que o `vite build`
+      # (~3,3 GB cada, por isso o Build abaixo fica em 2). Subir não dá CPU a mais, só disputa
+      # e pico de RSS; descer alonga o job. Mesmo número no `release-verify.ts` (verify do deploy).
       - name: Lint · typecheck · test
         run: bunx turbo run lint typecheck test ${SCOPE_ARGS:+"$SCOPE_ARGS"} --concurrency=4 --continue
         env: &turbo-env
