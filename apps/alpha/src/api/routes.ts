@@ -408,6 +408,12 @@ const app = new Hono<{ Variables: AppVariables }>()
 			// uma chamada de modelo.
 			c.req.raw.signal.addEventListener("abort", () => run.abort(), { once: true })
 
+			// 60 s é o `idle_timeout` do ALB (`infra/foundation/alb.tf`). Este stream não manda
+			// keep-alive, só um `status` por nó do grafo, e um nó que demora mais que isso em
+			// silêncio teria a conexão cortada pelo ALB sem aviso. Com o teto igual ao idle, quem
+			// encerra é o servidor: aborta o grafo, avisa o cliente e registra o turno perdido. O
+			// chat de documentos (`chats.ts`) vai a 180 s porque manda comentário SSE a cada 15 s;
+			// subir este teto exige trazer o keep-alive junto. `lib/retry.ts` conta com esses 60 s.
 			const timeoutId = setTimeout(async () => {
 				run.abort()
 				await stream.writeSSE({ event: "error", data: JSON.stringify({ code: "CONNECTION_TIMEOUT" }) }).catch(() => {})

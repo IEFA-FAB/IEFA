@@ -19,7 +19,16 @@ import { type ObjetoTipo, selectApplicableModel } from "./select-model.ts"
 import { compareSeverity, type Severity, structuralSeverity } from "./severity.ts"
 import { applyCitationGuard, blockForRule, isApplicable, judgeRule, loadActiveRules } from "./verify.ts"
 
-/** Quantas regras são julgadas em paralelo. */
+/**
+ * Quantas regras são julgadas em paralelo.
+ *
+ * O 4 não tem medição registrada: veio assim no #191, sem teste de carga nem cota do Bedrock
+ * por trás. O que ele limita é real: cada regra faz uma recuperação (embedding, duas RPCs,
+ * rerank) e uma chamada ao juiz, então N regras são até 3N chamadas simultâneas ao Bedrock.
+ * Subir o número troca tempo de execução por throttling, e o throttling aqui custa caro: com
+ * `MAX_MODEL_RETRIES` (2, `lib/retry.ts`) esgotado, um erro rejeita o `Promise.all` do lote
+ * e a execução inteira falha, não só aquela regra.
+ */
 const RULE_CONCURRENCY = 4
 
 export interface FindingRow {
