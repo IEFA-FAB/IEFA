@@ -1,7 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, Link } from "@tanstack/react-router"
 import { ShoppingBasket, TriangleAlert } from "lucide-react"
 import { requirePermission } from "@/auth/pbac"
 import { PageHeader } from "@/components/layout/PageHeader"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -23,8 +24,21 @@ const CHANNEL_META: Record<string, { label: string; className: string }> = {
 	licitacao: { label: "Nova licitação", className: "bg-muted text-muted-foreground" },
 }
 
+/** Canal que depende da urgência, sem prazo de entrega para decidi-la. */
+const UNDETERMINED_CHANNEL = { label: "Canal indeterminado", className: "bg-warning/10 text-warning" }
+
+const LEAD_TIME_SOURCE_LABEL: Record<ReplenishmentSuggestion["leadTime"]["source"], string> = {
+	observed: "observado",
+	arp_default: "prazo ARP",
+	kitchen_default: "padrão da cozinha",
+	not_configured: "não configurado",
+}
+
 function ReplenishmentPage() {
 	const suggestions = Route.useLoaderData()
+	const { kitchenId } = Route.useParams()
+	// pendência da cozinha (prazo de entrega padrão), não do insumo: um aviso só, com a contagem
+	const leadTimePending = suggestions.filter((row) => row.leadTime.source === "not_configured").length
 
 	return (
 		<div className="space-y-6">
@@ -32,6 +46,24 @@ function ReplenishmentPage() {
 				title="Sugestões de Reposição"
 				description="Necessidade líquida do horizonte de 14 dias (demanda × FC ÷ IR − estoque válido − trânsito) com canal de compra recomendado. A decisão final é sua — o sistema só recomenda."
 			/>
+
+			{leadTimePending > 0 && (
+				<Alert variant="warning">
+					<TriangleAlert />
+					<AlertTitle>Prazo de entrega não configurado</AlertTitle>
+					<AlertDescription>
+						<p>
+							{leadTimePending === 1 ? "1 sugestão está" : `${leadTimePending} sugestões estão`} sem prazo de entrega: o fornecedor ainda não tem histórico de
+							entregas e a cozinha não tem prazo de entrega padrão. A necessidade continua calculada; a urgência fica indeterminada, e o canal também quando
+							depende dela.{" "}
+							<Link to="/storage/$kitchenId/settings" params={{ kitchenId }}>
+								Configurar o prazo de entrega padrão
+							</Link>{" "}
+							(Configurações do estoque, nível 3).
+						</p>
+					</AlertDescription>
+				</Alert>
+			)}
 
 			<Card>
 				<CardContent className="px-0 pb-0 pt-2">
@@ -55,7 +87,7 @@ function ReplenishmentPage() {
 							</thead>
 							<tbody className="divide-y divide-border/60">
 								{suggestions.map((row: ReplenishmentSuggestion) => {
-									const meta = CHANNEL_META[row.channel] ?? CHANNEL_META.licitacao
+									const meta = row.channel == null ? UNDETERMINED_CHANNEL : (CHANNEL_META[row.channel] ?? CHANNEL_META.licitacao)
 									return (
 										<tr key={row.ingredientId}>
 											<td className="py-2 px-3 text-xs">
@@ -84,10 +116,9 @@ function ReplenishmentPage() {
 												{row.measureUnit && <span className="ml-1 text-muted-foreground font-normal">{row.measureUnit}</span>}
 											</td>
 											<td className="py-2 px-2 text-xs text-right">
-												{row.leadTime.days}d
-												<span className="block text-[10px] text-muted-foreground">
-													{row.leadTime.source === "observed" ? "observado" : row.leadTime.source === "arp_default" ? "prazo ARP" : "default"}
-												</span>
+												{row.leadTime.days == null ? <span className="text-warning">Pendente</span> : `${row.leadTime.days}d`}
+												<span className="block text-[10px] text-muted-foreground">{LEAD_TIME_SOURCE_LABEL[row.leadTime.source]}</span>
+												{row.urgency === "undetermined" && <span className="block text-hint text-muted-foreground">urgência indeterminada</span>}
 											</td>
 											<td className="py-2 px-2">
 												<Tooltip>

@@ -13,6 +13,7 @@
  * TABLES: inventory.stock_adjustment(_item), stock_lot, kitchen_stock_settings.
  * @domain kitchen
  * @migration 20260917160000_inventory_operable_core
+ * @migration 20261014120000_kitchen_stock_settings_default_lead_time
  */
 
 import { hasPermission, NOT_EXPIRED, resolveEffectivePermissions, type UserPermission } from "@iefa/pbac"
@@ -20,6 +21,8 @@ import { INFLOW_REASONS, OUTFLOW_REASONS, REASON_NATURE, STOCK_ADJUSTMENT_REASON
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { publicDbMessage } from "@/lib/db-error-message"
+import { MAX_LEAD_TIME_DAYS, type StockSettings } from "@/lib/kitchen-stock-settings"
+import { readKitchenStockSettings, writeKitchenStockSettings } from "@/lib/kitchen-stock-settings.server"
 import { readAllPagesIn } from "@/lib/read-all-pages"
 import { buildAdjustmentDocumentRow, buildAdjustmentItemRow, buildPostFailureRecovery, findAdjustmentLotProblem } from "@/lib/stock-adjustment"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
@@ -223,52 +226,38 @@ async function hasOtherApprover(kitchenId: number, actorId: string): Promise<boo
 	return false
 }
 
+/**
+ * Configuração de estoque da cozinha, com a versão que a tela leva de volta ao salvar. Leitura e
+ * gravação em `kitchen-stock-settings.server.ts` (versão conferida no `WHERE`, EDIT-SAFETY.md).
+ */
 export const fetchStockSettingsFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive() }))
-	.handler(async ({ data }) => {
+	.handler(async ({ data }): Promise<StockSettings> => {
 		await requireStorageForKitchen(1, data.kitchenId)
-		const { data: row, error: rowError } = await inventory().from("kitchen_stock_settings").select("*").eq("kitchen_id", data.kitchenId).maybeSingle()
-		if (rowError) throw new Error(`Erro ao carregar a configuração de estoque da cozinha: ${publicDbMessage(rowError)}`)
-		return {
-			segregation: (row?.segregation ?? "dual") as "strict" | "dual",
-			adjustmentApprovalValue: Number(row?.adjustment_approval_value ?? 500),
-			issueTolerancePct: Number(row?.issue_tolerance_pct ?? 10),
-			issueToleranceFloorValue: Number(row?.issue_tolerance_floor_value ?? 20),
-			countTolerancePct: Number(row?.count_tolerance_pct ?? 5),
-			countToleranceValue: Number(row?.count_tolerance_value ?? 50),
-		}
+		return readKitchenStockSettings(data.kitchenId)
 	})
 
 export const saveStockSettingsFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
 			kitchenId: z.number().int().positive(),
+			// Obrigatória (null = a tela viu a cozinha sem linha): versão opcional deixaria o
+			// cliente que não manda gravar por cima.
+			expectedVersion: z.string().min(1).nullable(),
 			segregation: z.enum(["strict", "dual"]),
 			adjustmentApprovalValue: z.number().nonnegative(),
 			issueTolerancePct: z.number().min(0).max(100),
 			issueToleranceFloorValue: z.number().nonnegative(),
 			countTolerancePct: z.number().min(0).max(100),
 			countToleranceValue: z.number().nonnegative(),
+			// null = não configurado: a reposição mostra a pendência em vez de presumir prazo
+			defaultLeadTimeDays: z.number().int().min(1).max(MAX_LEAD_TIME_DAYS).nullable(),
 		})
 	)
-	.handler(async ({ data }) => {
+	.handler(async ({ data }): Promise<{ version: string }> => {
 		const { userId } = await requireStorageForKitchen(3, data.kitchenId)
-		const { error } = await inventory().from("kitchen_stock_settings").upsert(
-			{
-				kitchen_id: data.kitchenId,
-				segregation: data.segregation,
-				adjustment_approval_value: data.adjustmentApprovalValue,
-				issue_tolerance_pct: data.issueTolerancePct,
-				issue_tolerance_floor_value: data.issueToleranceFloorValue,
-				count_tolerance_pct: data.countTolerancePct,
-				count_tolerance_value: data.countToleranceValue,
-				updated_by: userId,
-				updated_at: new Date().toISOString(),
-			},
-			{ onConflict: "kitchen_id" }
-		)
-		if (error) throw new Error(`Erro ao salvar as configurações: ${publicDbMessage(error)}`)
-		return { saved: true }
+		const { kitchenId, expectedVersion, ...values } = data
+		return writeKitchenStockSettings({ kitchenId, values, expectedVersion, actorId: userId })
 	})
 
 /** Lotes informados no ajuste, conferidos pela cozinha (`findAdjustmentLotProblem`). */

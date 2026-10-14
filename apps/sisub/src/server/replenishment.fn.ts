@@ -4,11 +4,13 @@
  * estoque válido − trânsito), lead time observado com fallback e recomendação
  * de canal (ARP própria → carona → Supermercado Virtual → Contrata+ →
  * licitação). Recomenda — a emissão é humana. Checagem SICAF pré-OF via
- * dadosabertos.compras.gov.br (mesmo padrão do searchArpFn).
+ * dadosabertos.compras.gov.br (mesmo padrão do searchArpFn). Sem histórico do fornecedor e sem
+ * prazo de entrega padrão da cozinha, a sugestão sai com a pendência e a urgência indeterminada.
  * CLIENT: getServerClient + getDb (demanda bruta reusa fetchProcurementNeeds).
  * AUTH: `storage` nível 1 (leitura/sugestão).
  * @domain kitchen
  * @migration 20260729190000_inventory_stock_policy
+ * @migration 20261014120000_kitchen_stock_settings_default_lead_time
  */
 
 import {
@@ -29,6 +31,7 @@ import { getDb } from "@/lib/db.server"
 import { publicDbMessage } from "@/lib/db-error-message"
 import { currentFiscalYear } from "@/lib/expense-execution"
 import { purchaseUnitIdOfKitchen } from "@/lib/kitchen-purchase-unit.server"
+import { readKitchenStockSettings } from "@/lib/kitchen-stock-settings.server"
 import { readAllPages, readAllPagesIn } from "@/lib/read-all-pages"
 import {
 	buildReplenishmentSuggestion,
@@ -175,7 +178,7 @@ export const fetchReplenishmentSuggestionsFn = createServerFn({ method: "GET" })
 		// Toda leitura daqui lança e pagina: leitura que falha ou corta calada vira sugestão de
 		// compra errada (estoque ou trânsito a menos = comprar o que já tem). As independentes
 		// correm juntas, em duas etapas.
-		const [ingredients, balances, transitOrders, links, policies, purchaseUnitId] = await Promise.all([
+		const [ingredients, balances, transitOrders, links, policies, purchaseUnitId, stockSettings] = await Promise.all([
 			// (2) FC/IR do ingrediente (herança receita→ingrediente fica no anexo quantitativo; aqui é reposição)
 			readAllPagesIn("os fatores dos insumos", ingredientIds, (chunk, from, to) =>
 				kit.from("ingredient").select("id, correction_factor, rehydration_index").in("id", chunk).order("id").range(from, to)
@@ -219,6 +222,9 @@ export const fetchReplenishmentSuggestionsFn = createServerFn({ method: "GET" })
 				inv.from("stock_policy").select("*").eq("kitchen_id", data.kitchenId).in("ingredient_id", chunk).order("id").range(from, to)
 			),
 			purchaseUnitIdOfKitchen(data.kitchenId),
+			// (6b) prazo de entrega padrão da cozinha: o fallback do histórico do fornecedor. Nulo
+			// vira pendência na sugestão, nunca um número presumido.
+			readKitchenStockSettings(data.kitchenId),
 		])
 
 		const factorsById = new Map(ingredients.map((i) => [i.id, i]))
@@ -309,6 +315,7 @@ export const fetchReplenishmentSuggestionsFn = createServerFn({ method: "GET" })
 			stockById,
 			transitById,
 			policyById,
+			defaultLeadTimeDays: stockSettings.defaultLeadTimeDays,
 			expectedSupplierByIngredient,
 			observedByPurchaseItem,
 			arpBalanceById,

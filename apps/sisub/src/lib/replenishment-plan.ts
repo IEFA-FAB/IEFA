@@ -3,10 +3,23 @@
  * leituras do banco e a sugestão por insumo. As regras (FC/IR, necessidade líquida, lead time,
  * canal) são do `@iefa/sisub-domain`; aqui fica o que a server fn fazia em volta delas.
  *
+ * Prazo de entrega sem histórico e sem o prazo padrão da cozinha não vira número: a sugestão sai
+ * com `leadTime.source = "not_configured"`, a urgência `undetermined` e, se o canal depender dela,
+ * `channel: null`. A tela mostra a pendência; nada trava.
+ *
  * Fora de `replenishment.fn.ts` porque teste unitário não pode importar `@/server/*`.
  */
 
-import { applyCorrectionFactors, calculateNetNeed, decideChannel, estimateLeadTime, fitsDispensaRoom, type PurchaseChannel } from "@iefa/sisub-domain"
+import {
+	applyCorrectionFactors,
+	calculateNetNeed,
+	decideChannel,
+	estimateLeadTime,
+	fitsDispensaRoom,
+	type LeadTimeEstimate,
+	type PurchaseChannel,
+	type ReplenishmentUrgency,
+} from "@iefa/sisub-domain"
 
 type Numeric = number | string | null
 
@@ -20,8 +33,11 @@ export interface ReplenishmentSuggestion {
 	inTransit: number
 	netNeed: number
 	coverageDays: number
-	leadTime: { days: number; source: string }
-	channel: PurchaseChannel
+	/** `days: null` (`not_configured`): sem histórico, sem prazo da ARP e sem prazo padrão da cozinha. */
+	leadTime: LeadTimeEstimate
+	urgency: ReplenishmentUrgency
+	/** `null` quando o canal depende da urgência e ela é indeterminada. */
+	channel: PurchaseChannel | null
 	reason: string
 	calcMemory: string
 }
@@ -192,7 +208,6 @@ export interface IngredientFactors {
 
 export interface StockPolicyLike {
 	min_stock: Numeric
-	coverage_days: number | null
 	urgency_threshold_days: number | null
 }
 
@@ -202,6 +217,8 @@ export interface ReplenishmentContext extends DefaultPurchaseIndex {
 	stockById: ReadonlyMap<string, StockEntry>
 	transitById: ReadonlyMap<string, number>
 	policyById: ReadonlyMap<string, StockPolicyLike>
+	/** Prazo de entrega padrão da cozinha (`kitchen_stock_settings.default_lead_time_days`); null = não configurado. */
+	defaultLeadTimeDays: number | null
 	expectedSupplierByIngredient: ReadonlyMap<string, string>
 	observedByPurchaseItem: ReadonlyMap<string, number[]>
 	arpBalanceById: ReadonlyMap<string, number>
@@ -284,7 +301,9 @@ export function buildReplenishmentSuggestion(need: ReplenishmentNeed, ctx: Reple
 		ctx.expectedSupplierByIngredient.get(need.ingredient_id),
 		ctx.observedByPurchaseItem
 	)
-	const leadTime = estimateLeadTime(observedDays, null, policy?.coverage_days ?? 7)
+	// Histórico do fornecedor → prazo padrão da cozinha → pendência. A cobertura da política
+	// (`coverage_days`) não é prazo de entrega, e o 7 fixo de antes não tinha origem.
+	const leadTime = estimateLeadTime(observedDays, null, ctx.defaultLeadTimeDays)
 	// valor estimado ≈ (necessidade ÷ fator de conversão) × preço unitário
 	// do item de compra; limite de dispensa por valor (art. 75, I/II da
 	// Lei 14.133 — teto atualizado por decreto) habilita o Contrata+
@@ -305,6 +324,7 @@ export function buildReplenishmentSuggestion(need: ReplenishmentNeed, ctx: Reple
 		caronaAvailable: null,
 		hasCatmat: ctx.catmatByIngredient.get(need.ingredient_id) ?? false,
 		coverageDays,
+		// limiar do item, senão o prazo de entrega; sem os dois, a urgência fica indeterminada
 		urgencyThresholdDays: policy?.urgency_threshold_days ?? leadTime.days,
 		smallValue,
 		dispensaRemaining: remaining,
@@ -321,6 +341,7 @@ export function buildReplenishmentSuggestion(need: ReplenishmentNeed, ctx: Reple
 		netNeed,
 		coverageDays,
 		leadTime,
+		urgency: decision.urgency,
 		channel: decision.channel,
 		reason: decision.reason,
 		calcMemory: formatCalcMemory({ estimatedQuantity: need.estimated_quantity, factors, grossDemand, minStock, stock, inTransit, netNeed }),

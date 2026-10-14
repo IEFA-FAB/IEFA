@@ -55,7 +55,8 @@ A referência implementada é a preparação do SISUB (`apps/sisub/src/component
 | SISUB — cardápio semanal da cozinha, eventos, apoios | guarda de saída | autosave troca o conjunto inteiro, sem versão | **alto** |
 | SISUB — plano semanal global | guarda de saída; F5 perde | Salvar troca o conjunto inteiro | **alto** |
 | SISUB — assistente do anexo quantitativo | nenhuma; autosave cancelado ao sair | envio regrava a lista inteira com preço velho | **alto** |
-| SISUB — previsão de demanda, configurações da cozinha/unidade/estoque, grupos de cardápio, gerenciador de locais | nenhuma | UPDATE inteiro / delete+insert | médio |
+| SISUB — previsão de demanda, configurações da cozinha/unidade, grupos de cardápio, gerenciador de locais | nenhuma | UPDATE inteiro / delete+insert | médio |
+| SISUB — configurações do estoque | guarda de saída | versão (`updated_at`) conferida no `WHERE`; releitura no foco; merge de três vias | **feito** (2026-10-14) |
 | SISUB — insumo | rascunho | só avisa; o servidor grava por cima | médio |
 | Contrate — demanda | autosave sem `useBlocker`, descartado ao desmontar | 409 correto, mas a tela segue editável e não grava mais | **alto** |
 | Contrate — parecer e triagem da ACI, pregoeiro | texto some ao trocar de aba; erro silencioso | triagem último-vence | médio |

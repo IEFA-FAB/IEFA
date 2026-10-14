@@ -888,9 +888,11 @@ export {
 	decideChannel,
 	estimateLeadTime,
 	fitsDispensaRoom,
+	type LeadTimeEstimate,
 	type LeadTimeSource,
 	type NetNeedInput,
 	type PurchaseChannel,
+	type ReplenishmentUrgency,
 } from "./replenishment.ts"
 export {
 	type ActiveRpParcel,
