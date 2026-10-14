@@ -11,7 +11,7 @@
     "includes": [
       "**",
       "!.agents",
-      "!.claude",
+      "!.claude/skills/impeccable",
       "!plans",
       "!**/*.svg",
       "!**/src/styles.css",
@@ -113,6 +113,17 @@
         "rules": {
           "suspicious": {
             "noConsole": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": [".claude/hooks/**/*"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noConsole": "off",
+            "noUndeclaredEnvVars": "off"
           }
         }
       }

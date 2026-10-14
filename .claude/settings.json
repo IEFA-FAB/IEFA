@@ -24,12 +24,7 @@
       "Bash(gh run list:*)",
       "Bash(gh run view:*)"
     ],
-    "deny": [
-      "Read(./apps/*/.env)",
-      "Read(./apps/*/.env.local)",
-      "Read(./packages/*/.env)",
-      "Read(./.env)"
-    ]
+    "deny": ["Read(./apps/*/.env)", "Read(./apps/*/.env.local)", "Read(./packages/*/.env)", "Read(./.env)"]
   },
   "hooks": {
     "SessionStart": [

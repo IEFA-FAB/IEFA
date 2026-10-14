@@ -1,10 +1,10 @@
 // Casos do guard.ts: o que ele barra (true), pede confirmação ("ask") e deixa passar (false).
 // Roda com `bun test ./.claude/hooks/guard.test.ts` (fora dos workspaces; o turbo não o pega).
-import { expect, test } from "bun:test";
-import { resolve } from "node:path";
+import { expect, test } from "bun:test"
+import { resolve } from "node:path"
 
-const P = resolve(import.meta.dir, "../..");
-const GUARD = `${import.meta.dir}/guard.ts`;
+const P = resolve(import.meta.dir, "../..")
+const GUARD = `${import.meta.dir}/guard.ts`
 
 const CASES: Array<[string, boolean | "ask", object]> = [
 	["push main", true, { tool_name: "Bash", tool_input: { command: "git push origin " + "main" } }],
@@ -19,7 +19,11 @@ const CASES: Array<[string, boolean | "ask", object]> = [
 	["vitest no app", false, { tool_name: "Bash", tool_input: { command: "cd apps/sisub && bunx vitest run" } }],
 	["repair reverted", true, { tool_name: "Bash", tool_input: { command: "bunx supabase migration repair --status reverted 1" } }],
 	["repair applied", "ask", { tool_name: "Bash", tool_input: { command: "bunx supabase migration repair --status applied 1" } }],
-	["repair citado em heredoc", false, { tool_name: "Bash", tool_input: { command: "git commit -F - <<'EOF'\nfix: never run migration repair --status reverted\nEOF" } }],
+	[
+		"repair citado em heredoc",
+		false,
+		{ tool_name: "Bash", tool_input: { command: "git commit -F - <<'EOF'\nfix: never run migration repair --status reverted\nEOF" } },
+	],
 	["HUSKY=0", true, { tool_name: "Bash", tool_input: { command: "HUSKY=0 git commit -m x" } }],
 	["hooksPath desviado", true, { tool_name: "Bash", tool_input: { command: "git -c core.hooksPath=/dev/null commit -m x" } }],
 	["--no-veri abreviado", true, { tool_name: "Bash", tool_input: { command: "git commit --no-veri -m x" } }],
@@ -46,14 +50,34 @@ const CASES: Array<[string, boolean | "ask", object]> = [
 	["mcp apply_migration pede", "ask", { tool_name: "mcp__supabase__apply_migration", tool_input: { name: "x", query: "create table t()" } }],
 	["mcp select livre", false, { tool_name: "mcp__supabase__execute_sql", tool_input: { query: "select id, name from core.units where name = 'update'" } }],
 	["mcp update pede", "ask", { tool_name: "mcp__supabase__execute_sql", tool_input: { query: "update core.units set name = 'x' where id = 1" } }],
-	["mcp cte com delete pede", "ask", { tool_name: "mcp__supabase__execute_sql", tool_input: { query: "with d as (delete from t returning *) select * from d" } }],
+	[
+		"mcp cte com delete pede",
+		"ask",
+		{ tool_name: "mcp__supabase__execute_sql", tool_input: { query: "with d as (delete from t returning *) select * from d" } },
+	],
 	["mcp select into pede", "ask", { tool_name: "mcp__supabase__execute_sql", tool_input: { query: "select * into tmp_x from core.units" } }],
 	["mcp palavra em comentário", false, { tool_name: "mcp__supabase__execute_sql", tool_input: { query: "-- delete depois\nselect 1" } }],
-	["mcp leitura com agregação", false, { tool_name: "mcp__supabase__execute_sql", tool_input: { query: "select unit_id, count(*), coalesce(sum(x), 0) from finance.empenho group by 1;" } }],
-	["mcp leitura do catálogo", false, { tool_name: "mcp__supabase__execute_sql", tool_input: { query: "select pg_catalog.pg_get_functiondef(p.oid) from pg_proc p" } }],
-	["mcp terminate em select", "ask", { tool_name: "mcp__supabase__execute_sql", tool_input: { query: "select pg_terminate_backend(pid) from pg_stat_activity" } }],
+	[
+		"mcp leitura com agregação",
+		false,
+		{ tool_name: "mcp__supabase__execute_sql", tool_input: { query: "select unit_id, count(*), coalesce(sum(x), 0) from finance.empenho group by 1;" } },
+	],
+	[
+		"mcp leitura do catálogo",
+		false,
+		{ tool_name: "mcp__supabase__execute_sql", tool_input: { query: "select pg_catalog.pg_get_functiondef(p.oid) from pg_proc p" } },
+	],
+	[
+		"mcp terminate em select",
+		"ask",
+		{ tool_name: "mcp__supabase__execute_sql", tool_input: { query: "select pg_terminate_backend(pid) from pg_stat_activity" } },
+	],
 	["mcp setval em select", "ask", { tool_name: "mcp__supabase__execute_sql", tool_input: { query: "select setval('core.units_id_seq', 1)" } }],
-	["mcp função do app em select", "ask", { tool_name: "mcp__supabase__execute_sql", tool_input: { query: "select access_control.grant_permission('x', 'y')" } }],
+	[
+		"mcp função do app em select",
+		"ask",
+		{ tool_name: "mcp__supabase__execute_sql", tool_input: { query: "select access_control.grant_permission('x', 'y')" } },
+	],
 	["mcp '--' antes do delete", "ask", { tool_name: "mcp__supabase__execute_sql", tool_input: { query: "select 1 where '--' = 'x'; delete from core.units" } }],
 	["mcp dollar quote", "ask", { tool_name: "mcp__supabase__execute_sql", tool_input: { query: "select $$it's$$; delete from core.units; select 'x'" } }],
 	["mcp E string", "ask", { tool_name: "mcp__supabase__execute_sql", tool_input: { query: "select E'a\\'b', 1; delete from core.units where x = 'c'" } }],
@@ -65,16 +89,16 @@ const CASES: Array<[string, boolean | "ask", object]> = [
 	["generated.ts", true, { tool_name: "Edit", tool_input: { file_path: `${P}/packages/database/src/generated.ts` } }],
 	["apps/pdf/Dockerfile", false, { tool_name: "Edit", tool_input: { file_path: `${P}/apps/pdf/Dockerfile` } }],
 	["arquivo normal", false, { tool_name: "Edit", tool_input: { file_path: `${P}/apps/sisub/src/main.tsx` } }],
-];
+]
 
 for (const [name, expected, payload] of CASES) {
 	test(name, () => {
 		const run = Bun.spawnSync(["bun", GUARD], {
 			stdin: new TextEncoder().encode(JSON.stringify({ cwd: P, ...payload })),
 			env: { ...process.env, CLAUDE_PROJECT_DIR: P },
-		});
-		const out = run.stdout.toString();
-		const got = out.includes('"deny"') ? true : out.includes('"ask"') ? "ask" : false;
-		expect(got).toBe(expected);
-	});
+		})
+		const out = run.stdout.toString()
+		const got = out.includes('"deny"') ? true : out.includes('"ask"') ? "ask" : false
+		expect(got).toBe(expected)
+	})
 }
