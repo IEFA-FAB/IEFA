@@ -12,7 +12,20 @@ resource "aws_lb" "this" {
   # apagar o balanceador. Para remover de propósito: PR com `false`, apply, e só então o
   # destroy/replace (passo a passo no README de infra/).
   enable_deletion_protection = true
-  idle_timeout               = 60
+
+  # Âncora dos timeouts do monorepo: tudo o que fala com o ALB é calibrado contra estes
+  # 60 s. Mudou aqui, revise cada um:
+  #   - idle da origem MAIOR que este, para quem corta a conexão ociosa ser sempre o ALB
+  #     (senão ele reusa socket morto e devolve 502 sem 5xx no target):
+  #     docker/bun-serve-idle-timeout.ts (120 s, piso de todo Bun.serve dos apps Nitro),
+  #     apps/api/src/index.ts (idleTimeout 120), apps/alpha/src/index.ts (idleTimeout 240),
+  #     apps/sisub-mcp/src/index.ts (keepAliveTimeout 65 s, headersTimeout 66 s);
+  #   - heartbeat de SSE MENOR que este, para o stream nunca ficar ocioso: 15 s em
+  #     apps/alpha/src/api/chats.ts e nas rotas SSE do sucont (sacdgc, auditor);
+  #   - resposta síncrona (server function, JSON) termina ANTES disto ou vira 504; o que
+  #     passa de 60 s vira SSE ou job assíncrono (ex.: o orçamento de geração em
+  #     apps/sucont/src/server/document-ai.fn.ts).
+  idle_timeout = 60
 
   # Header com nome inválido (fora de [A-Za-z0-9-], ex.: `x_forwarded_for`) é
   # descartado no ALB em vez de chegar ao app: é o vetor clássico de smuggling e de
