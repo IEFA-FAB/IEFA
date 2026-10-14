@@ -9,11 +9,11 @@
 #
 # Escopo: `turbo --affected` contra a base do PR, com o grafo de workspace (package
 # alterado arrasta os apps que o consomem). Mudança em arquivo global (lockfile, biome,
-# turbo, tsconfig base, este workflow) roda tudo.
+# turbo, tsconfig base, manifesto e build args, este workflow) roda tudo.
 #
 # Sem segredo nenhum, de propósito: roda igual em PR de fork, e teste que precisa de
 # credencial é teste de integração, que tem o próprio workflow (`integration.yml`). As
-# `vars` abaixo são as mesmas que o `verify` do deploy.yml recebe e que já vão no bundle público.
+# `vars` abaixo são as que o bake de produção passa como build arg e que já vão no bundle público.
 name: pr-check
 
 on:
@@ -67,13 +67,30 @@ jobs:
       - name: Agent guard cases
         run: bun test ./.claude/hooks/guard.test.ts
 
+      # Build args do bundle do cliente (`buildArgs` + `buildArgFrom` do manifesto) no `$GITHUB_ENV`,
+      # os mesmos que o bake de produção recebe: sem eles o build do PR seria outro artefato, com
+      # outro grafo depois do tree-shaking. Abaixo, só as GitHub Variables de origem, uma a uma:
+      # o mapa build arg → variável sai do manifesto, e variável que ele usa e falta aqui falha o
+      # passo. `toJSON(vars)` dispensaria a lista, mas entregaria todas as variáveis do repo ao
+      # código de PR de fork.
+      - name: Resolve build args
+        run: bun scripts/release-build-env.ts --all
+        env:
+          VITE_IEFA_SUPABASE_URL: ${{ vars.VITE_IEFA_SUPABASE_URL }}
+          VITE_IEFA_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_SISUB_SUPABASE_URL: ${{ vars.VITE_SISUB_SUPABASE_URL }}
+          VITE_SISUB_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_FARO_COLLECTOR_URL: ${{ vars.VITE_FARO_COLLECTOR_URL }}
+          VITE_FARO_APP_NAME: ${{ vars.VITE_FARO_APP_NAME }}
+          VITE_FARO_ENVIRONMENT: ${{ vars.VITE_FARO_ENVIRONMENT }}
+
       - name: Resolve scope
         id: scope
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
         run: |
           changed=$(git diff --name-only "$BASE_SHA"...HEAD)
-          if printf '%s\n' "$changed" | grep -qE '^(bun\.lock|package\.json|biome\.json|turbo\.json|bunfig\.toml|packages/tsconfig/|\.oxlintrc\.tailwind\.jsonc$|scripts/lint-tailwind\.ts$|\.github/workflows/pr-check\.yml$)'; then
+          if printf '%s\n' "$changed" | grep -qE '^(bun\.lock|package\.json|biome\.json|turbo\.json|bunfig\.toml|packages/tsconfig/|\.oxlintrc\.tailwind\.jsonc$|scripts/lint-tailwind\.ts$|apps\.manifest\.json$|scripts/release-build-env\.ts$|\.github/workflows/pr-check\.yml$)'; then
             echo "args=" >> "$GITHUB_OUTPUT"
             echo "Arquivo global alterado: rodando o monorepo inteiro."
           else
@@ -85,14 +102,6 @@ jobs:
         env: &turbo-env
           SCOPE_ARGS: ${{ steps.scope.outputs.args }}
           TURBO_SCM_BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
-          VITE_IEFA_SUPABASE_URL: ${{ vars.VITE_IEFA_SUPABASE_URL }}
-          VITE_IEFA_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY }}
-          VITE_SISUB_SUPABASE_URL: ${{ vars.VITE_SISUB_SUPABASE_URL }}
-          VITE_SISUB_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
-          VITE_RUMAER_SUPABASE_URL: ${{ vars.VITE_SISUB_SUPABASE_URL }}
-          VITE_RUMAER_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
-          VITE_ASSIGNMENT_SELECTION_SUPABASE_URL: ${{ vars.VITE_SISUB_SUPABASE_URL }}
-          VITE_ASSIGNMENT_SELECTION_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
 
       # O build pega o que typecheck e teste não pegam: o import-protection do TanStack Start
       # (`*.server.*` alcançado pelo grafo do cliente) só existe no `vite build`. Sem este passo
@@ -104,8 +113,7 @@ jobs:
       - name: Build
         if: ${{ !cancelled() && steps.scope.outcome == 'success' }}
         run: bunx turbo run build ${SCOPE_ARGS:+"$SCOPE_ARGS"} --concurrency=2 --continue
-        # As mesmas `VITE_*` do passo acima (e que o bake de produção passa como build arg):
-        # sem elas o build do PR seria outro artefato, com outro grafo depois do tree-shaking.
+        # As `VITE_*` vêm do `$GITHUB_ENV` ("Resolve build args").
         env: *turbo-env
 
       # Arquivo morto: nenhum entry o alcança, dentro dos `project` de cada workspace no knip.json

@@ -61,6 +61,11 @@ Bump do Bun = `packageManager` + as duas imagens (tag e digest) + `bun run gener
   o Dockerfile, o bake e o paths-filter. O `deploy.yml` não muda: o `plan` e o `verify` leem o
   manifesto (`scripts/release-plan.ts`, `scripts/release-verify.ts`), e o
   `release-verify.test.ts` falha se o manifesto pedir tarefa que o workspace não tem.
+- **Build args do bundle saem do manifesto**, no deploy (`release-build-env.ts`) e no build do
+  `pr-check` (`release-build-env.ts --all`). O `pr-check` declara só as GitHub Variables de
+  origem no passo "Resolve build args"; variável que o manifesto usa e o passo não declara falha
+  o job. rumaer, sucont e assignment-selection usam o Supabase do sisub de propósito (o porquê
+  está no `$comment` do `apps.manifest.json`).
 - **PR do Dependabot e de fork** não recebem segredo: o `gate` pula (verde) e a integração deles
   roda no push da `main`. Para validar antes, dispare o workflow numa branch-cópia.
 
