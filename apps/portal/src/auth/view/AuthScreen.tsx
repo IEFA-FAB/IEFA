@@ -75,7 +75,7 @@ function FieldError({ children }: { children: React.ReactNode }) {
 
 function ErrorBanner({ message }: { message: string }) {
 	return (
-		<div className="border border-destructive/50 bg-destructive/5 px-3 py-2.5 text-sm text-destructive flex items-start gap-2">
+		<div role="alert" className="border border-destructive/50 bg-destructive/5 px-3 py-2.5 text-sm text-destructive flex items-start gap-2">
 			<WarningCircle className="h-4 w-4 shrink-0 mt-0.5" aria-hidden />
 			{message}
 		</div>

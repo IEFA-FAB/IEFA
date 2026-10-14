@@ -121,32 +121,31 @@ describe("getErrorMessage", () => {
 })
 
 describe("describeSignInFailure", () => {
-	test("padrão default casa a mensagem que o `signIn` do kit lança", () => {
-		expect(describeSignInFailure(new Error(INVALID_CREDENTIALS_MESSAGE), DEFAULT_INVALID_CREDENTIALS_PATTERN, M)).toEqual({
-			field: "password",
-			message: M.invalidCredentials,
-		})
+	const describe_ = (err: unknown) => describeSignInFailure(err, DEFAULT_INVALID_CREDENTIALS_PATTERN, M)
+	test("a mensagem que o `signIn` do kit lança vira o texto neutro do app", () => {
+		expect(describe_(new Error(INVALID_CREDENTIALS_MESSAGE))).toBe(M.invalidCredentials)
 	})
-	test("padrão default casa a recusa de qualquer caminho do `signIn` do kit (code e frase)", () => {
+	test("reconhece a recusa por qualquer caminho do `signIn` do kit (code e frase)", () => {
 		for (const error of [{ code: "invalid_credentials", message: "x" }, { message: "Invalid login credentials" }]) {
-			expect(describeSignInFailure(new Error(getAuthErrorMessage(error)), DEFAULT_INVALID_CREDENTIALS_PATTERN, M).field).toBe("password")
+			expect(describe_(new Error(getAuthErrorMessage(error)))).toBe(M.invalidCredentials)
 		}
 	})
-	test("padrão default casa 'Invalid login credentials' sem caixa", () => {
-		expect(describeSignInFailure(new Error("Invalid login credentials"), DEFAULT_INVALID_CREDENTIALS_PATTERN, M).field).toBe("password")
-		expect(describeSignInFailure(new Error("INVALID LOGIN CREDENTIALS"), DEFAULT_INVALID_CREDENTIALS_PATTERN, M).field).toBe("password")
+	test("reconhece 'Invalid login credentials' sem caixa", () => {
+		expect(describe_(new Error("Invalid login credentials"))).toBe(M.invalidCredentials)
+		expect(describe_(new Error("INVALID LOGIN CREDENTIALS"))).toBe(M.invalidCredentials)
 	})
-	test("outra recusa do GoTrue continua no banner", () => {
-		expect(describeSignInFailure(new Error("Confirme seu e-mail antes de entrar"), DEFAULT_INVALID_CREDENTIALS_PATTERN, M)).toEqual({
-			field: "form",
-			message: "Confirme seu e-mail antes de entrar",
-		})
+	// O padrão interpola a constante sem escape: um metacaractere nela mudaria o que casa.
+	test("a constante não tem metacaractere de regex", () => {
+		expect(INVALID_CREDENTIALS_MESSAGE).not.toMatch(/[.*+?^${}()|[\]\\/]/)
 	})
-	test("não-Error vira 'Erro desconhecido' no banner", () => {
-		expect(describeSignInFailure(42, DEFAULT_INVALID_CREDENTIALS_PATTERN, M)).toEqual({ field: "form", message: M.unknownError })
+	test("outra recusa do GoTrue passa com o próprio texto", () => {
+		expect(describe_(new Error("Confirme seu e-mail antes de entrar"))).toBe("Confirme seu e-mail antes de entrar")
+	})
+	test("não-Error vira 'Erro desconhecido'", () => {
+		expect(describe_(42)).toBe(M.unknownError)
 	})
 	test("Error com mensagem vazia usa o fallback de autenticação", () => {
-		expect(describeSignInFailure(new Error(""), DEFAULT_INVALID_CREDENTIALS_PATTERN, M)).toEqual({ field: "form", message: M.signInFallback })
+		expect(describe_(new Error(""))).toBe(M.signInFallback)
 	})
 })
 

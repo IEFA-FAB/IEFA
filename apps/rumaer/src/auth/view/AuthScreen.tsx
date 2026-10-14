@@ -20,7 +20,6 @@ const AUTH_SCREEN_CONFIG: AuthScreenConfig = {
 	rememberEmailKey: STORAGE_KEY_REMEMBER_EMAIL,
 	messages: FAB_EMAIL_AUTH_MESSAGES,
 	clearFeedbackOnTabSwitch: true,
-	signUpSuccessAfterTabSwitch: true,
 }
 
 export interface AuthScreenProps {
@@ -105,7 +104,7 @@ function FieldError({ children }: { children: React.ReactNode }) {
 
 function ErrorBanner({ message }: { message: string }) {
 	return (
-		<div className="flex items-start gap-2 rounded-xl border border-destructive/20 bg-destructive/5 px-3.5 py-2.5 text-sm text-destructive">
+		<div role="alert" className="flex items-start gap-2 rounded-xl border border-destructive/20 bg-destructive/5 px-3.5 py-2.5 text-sm text-destructive">
 			<CircleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
 			{message}
 		</div>

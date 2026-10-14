@@ -35,7 +35,6 @@ const AUTH_SCREEN_CONFIG: AuthScreenConfig = {
 		forgotFallback: "Erro ao enviar e-mail.",
 	},
 	clearFeedbackOnTabSwitch: true,
-	signUpSuccessAfterTabSwitch: true,
 	redirectOnlyFromAuthView: true,
 	resetSuccessFeedback: "banner",
 }
@@ -179,7 +178,7 @@ function FieldError({ id, children }: { id?: string; children: React.ReactNode }
 
 function ErrorBanner({ message }: { message: string }) {
 	return (
-		<div className="flex items-start gap-2 rounded-xl border border-destructive/20 bg-destructive/5 px-3.5 py-2.5 text-caption text-destructive">
+		<div role="alert" className="flex items-start gap-2 rounded-xl border border-destructive/20 bg-destructive/5 px-3.5 py-2.5 text-caption text-destructive">
 			<CircleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
 			{message}
 		</div>
