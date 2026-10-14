@@ -39,13 +39,6 @@ function todayDisplay(): string {
 	return new Date().toLocaleDateString("pt-BR")
 }
 
-function isDuplicateOrConflict(err: unknown): boolean {
-	if (!err || typeof err !== "object") return false
-	const e = err as { code?: string | number; status?: number; message?: string }
-	const msg = String(e.message || "").toLowerCase()
-	return e.code === "23505" || e.code === 23505 || e.code === "409" || e.status === 409 || msg.includes("duplicate key") || msg.includes("conflict")
-}
-
 // ─── Reducer ─────────────────────────────────────────────────────────────────
 
 type SelfCheckinState = {
@@ -206,16 +199,17 @@ function SelfCheckin() {
 				return
 			}
 
-			await insertPresenceFn({ data: { user_id: userId, date, meal, messHallId: messHall.id } })
-
-			toast.success("Presença registrada", { description: `Bom apetite! Redirecionando em ${REDIRECT_DELAY}s...` })
-			scheduleRedirect()
-		} catch (err) {
-			if (isDuplicateOrConflict(err)) {
+			// Duplicidade volta como resultado da fn (o transporte não leva o código do erro).
+			const outcome = await insertPresenceFn({ data: { user_id: userId, date, meal, messHallId: messHall.id } })
+			if (outcome.status === "duplicate") {
 				toast.info("Já registrado", { description: `Presença já registrada para esta refeição. Redirecionando em ${REDIRECT_DELAY}s...` })
 				scheduleRedirect()
 				return
 			}
+
+			toast.success("Presença registrada", { description: `Bom apetite! Redirecionando em ${REDIRECT_DELAY}s...` })
+			scheduleRedirect()
+		} catch {
 			toast.error("Erro", { description: "Não foi possível registrar sua presença." })
 		} finally {
 			dispatch({ type: "SET_SUBMITTING", value: false })

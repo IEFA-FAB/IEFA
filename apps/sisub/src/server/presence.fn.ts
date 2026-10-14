@@ -43,13 +43,25 @@ export const fetchArranchamentoMapFn = createServerFn({ method: "GET" })
 		return (await listArranchamentoMap(getDb(), data)) as ArranchamentoMap
 	})
 
+/** Presença gravada agora, ou que já existia (fiscal e comensal tratam as duas como sucesso). */
+export type InsertPresenceOutcome = { status: "inserted" } | { status: "duplicate" }
+
+const PG_UNIQUE_VIOLATION = "23505"
+
 export const insertPresenceFn = createServerFn({ method: "POST" })
 	.validator(InsertPresenceSchema)
-	.handler(async ({ data }) => {
+	.handler(async ({ data }): Promise<InsertPresenceOutcome> => {
 		const ctx = await requireAuth()
-		// No handleDomainError: insertPresence throws a code-bearing Error so callers
-		// can detect PG unique violations (code "23505"). Propagate it unchanged.
-		return insertPresence(getDb(), ctx, data)
+		try {
+			await insertPresence(getDb(), ctx, data)
+			return { status: "inserted" }
+		} catch (e) {
+			// A duplicidade volta como RESULTADO, não como erro: o transporte da server fn
+			// (ShallowErrorPlugin do TanStack Start) só leva a `message` do erro, e o `code` "23505"
+			// que insertPresence preserva some antes de chegar ao navegador.
+			if ((e as { code?: unknown } | null)?.code === PG_UNIQUE_VIOLATION) return { status: "duplicate" }
+			throw e
+		}
 	})
 
 export const deletePresenceFn = createServerFn({ method: "POST" }).validator(DeletePresenceSchema).handler(requireAuthThenRun(deletePresence))

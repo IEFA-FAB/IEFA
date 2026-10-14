@@ -6,8 +6,9 @@
  * refeitório — em `deletePresence` o refeitório vem da linha, que é o único dado confiável.
  *
  * insertPresence intentionally throws a code-bearing Error (not a DomainError)
- * so callers can detect PG unique violations (code "23505"); its server fn must
- * propagate the raw error instead of mapping it through handleDomainError.
+ * so callers can detect PG unique violations (code "23505"). The sisub server fn
+ * turns that code into a `{ status: "duplicate" }` result: the server fn transport
+ * only carries an error's message, so the code never reaches the browser.
  */
 
 import { arranchamentoInKitchen, mealPresencesInKitchen, type SisubDb, vMealPresencesWithUserInKitchen } from "@iefa/database/drizzle/sisub"

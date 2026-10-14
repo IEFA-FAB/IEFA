@@ -129,21 +129,26 @@ Hipóteses a verificar.
 - **Realidade:** o fiscal fica com a mesma tela aberta do almoço ao jantar (ou corrige a data);
   quem almoçou volta para jantar. Ou uma presença registrada por engano é excluída na lista e o
   militar passa de novo pelo leitor.
-- **O sistema precisa:** o cache de UUIDs já lidos (que evita reabrir o diálogo enquanto o crachá
-  continua na frente da câmera) é por OM + data + refeição, não só por UUID; excluir a presença
-  tira o UUID do cache daquela refeição. Se gravar a presença falha (rede, permissão, refeitório),
-  o UUID também sai, para o fiscal reler o crachá; a exceção é a duplicidade (código PG `23505`,
-  que `insertPresence` preserva): a presença já existe e reler reabriria o diálogo em laço. O cache
-  vive na página, e não na aba do scanner, porque as abas desmontam ao trocar.
+- **O sistema precisa:** o cache de crachás que o scanner ignora (para não reabrir o diálogo
+  enquanto o crachá continua na frente da câmera) é por OM + data + refeição, não só por UUID, e
+  só guarda quem tem presença gravada naquela refeição (gravada agora ou que já existia).
+  Cancelar o diálogo, escolher "não entra" ou falhar ao gravar não guarda: o crachá ganha só uma
+  pausa de 5 s e volta a ser lido. Excluir a presença tira o UUID do cache da refeição DA LINHA.
+  Data, refeição e refeitório são os do instante da leitura, na previsão, na gravação e no
+  cache, mesmo que o fiscal troque o filtro com o diálogo aberto. A duplicidade (`23505` no
+  banco) volta da `insertPresenceFn` como resultado `{ status: "duplicate" }`: o transporte da
+  server fn só leva a mensagem do erro, e o código se perdia no navegador. O cache vive na
+  página, e não na aba do scanner, porque as abas desmontam ao trocar.
 - **UX:** trocar a refeição no filtro basta; nenhuma leitura é ignorada em silêncio. Excluir na
-  "Lista de Presenças" e voltar ao scanner lê o militar de novo. Falha ao salvar mostra "Falha ao
-  salvar decisão" e a releitura funciona; duplicidade mostra "Já registrado" e o crachá segue
-  ignorado.
+  "Lista de Presenças" e voltar ao scanner lê o militar de novo. Cancelou por engano ou a gravação
+  falhou ("Falha ao salvar decisão"): é só reler. Duplicidade mostra "Já registrado" e o crachá
+  segue ignorado naquela refeição (no fiscal e no self check-in).
 - **Cobertura:** `apps/sisub/src/lib/fiscal.test.ts › createScanCache` (chave por refeição, data e
-  rancho; exclusão libera só aquela refeição; falha libera e duplicidade mantém; despejo LRU) e
-  `› isDuplicatePresenceError` (pelo código, não pelo texto). O `23505` do servidor:
-  `apps/sisub/src/test/operations/presence.operations.test.ts` (integração). Fiação na tela
-  (`messhall/$messHallId/index.tsx`): **LACUNA** de e2e (precisa de câmera simulada).
+  refeitório; exclusão libera só aquela refeição; pausa curta depois de fechar sem gravar;
+  despejo LRU) e `› isPresenceRecorded`; `apps/sisub/src/server/presence.fn.test.ts` (o `23505`
+  chega ao navegador como `duplicate`, com o transporte que só leva a mensagem); o `23505` do
+  banco: `apps/sisub/src/test/operations/presence.operations.test.ts` (integração). Fiação na
+  tela (`messhall/$messHallId/index.tsx`): **LACUNA** de e2e (precisa de câmera simulada).
 
 ### FIS-PRS-02 — "O refeitório fechou (falta de água)"
 - **Relacionado:** GC-AGD-07; o comensal precisa saber que não haverá refeição quente.

@@ -1,4 +1,5 @@
 import type { MealKey } from "@/types/domain/meal"
+import type { ConfirmPresenceResult } from "@/types/domain/presence"
 
 export interface ScannerState {
 	isReady: boolean
@@ -49,42 +50,49 @@ export interface ScanScope {
 }
 
 /**
- * UUIDs já lidos pelo scanner, por OM + data + refeição, com despejo do mais antigo (LRU).
+ * Crachás que o scanner deve ignorar, por OM + data + refeição.
  *
- * Existe porque a câmera decodifica o mesmo QR várias vezes por segundo enquanto o crachá
- * fica na frente dela: sem isto, o diálogo do mesmo militar reabriria em laço. A chave
- * inclui a refeição porque quem almoçou também janta: com chave só por UUID, o fiscal que
- * trocava almoço → jantar via as leituras do jantar ignoradas em silêncio.
+ * A câmera decodifica o mesmo QR várias vezes por segundo enquanto o crachá fica na frente
+ * dela. Entra no cache (com despejo do mais antigo, LRU) só quem tem presença gravada naquela
+ * refeição: cancelar o diálogo, escolher "não entra" ou falhar ao gravar não marca, e o militar
+ * pode ser lido de novo. Para o crachá ainda parado na câmera não reabrir o diálogo na hora, o
+ * fechamento sem gravação dá só uma pausa curta (`snooze`). A chave inclui a refeição porque
+ * quem almoçou também janta.
  */
 export interface ScanCache {
-	has: (scope: ScanScope, uuid: string) => boolean
+	has: (scope: ScanScope, uuid: string, now?: number) => boolean
+	/** Presença gravada (ou que já existia) naquela refeição. */
 	mark: (scope: ScanScope, uuid: string) => void
 	/** Presença excluída: o militar volta a poder ser lido naquela refeição. */
 	forget: (scope: ScanScope, uuid: string) => void
+	/** Diálogo fechado sem gravar: ignora o mesmo crachá por `ms`, depois libera. */
+	snooze: (scope: ScanScope, uuid: string, ms: number, now?: number) => void
 }
 
 export const SCAN_CACHE_MAX = 300
 
-/** Código do Postgres para violação de unicidade: a presença daquela refeição já existe. */
-const PG_UNIQUE_VIOLATION = "23505"
+/** Pausa depois de fechar o diálogo sem gravar: tempo de o crachá sair da frente da câmera. */
+export const SCAN_SNOOZE_MS = 5000
 
-/**
- * Falha ao gravar a presença porque ela já existe. `insertPresence` (sisub-domain) relança o
- * erro do banco com o `code` do PG, e o transporte da server fn preserva a propriedade.
- */
-export function isDuplicatePresenceError(err: unknown): boolean {
-	return typeof err === "object" && err !== null && (err as { code?: unknown }).code === PG_UNIQUE_VIOLATION
-}
-
-const scanCacheKey = (scope: ScanScope, uuid: string): string => `${scope.messHallId}|${scope.date}|${scope.meal}|${uuid}`
+const buildScanCacheKey = (scope: ScanScope, uuid: string): string => `${scope.messHallId}|${scope.date}|${scope.meal}|${uuid}`
 
 export function createScanCache(max: number = SCAN_CACHE_MAX): ScanCache {
 	// Set preserva a ordem de inserção: o primeiro elemento é o mais antigo.
 	const keys = new Set<string>()
+	const snoozedUntil = new Map<string, number>()
 	return {
-		has: (scope, uuid) => keys.has(scanCacheKey(scope, uuid)),
+		has: (scope, uuid, now = Date.now()) => {
+			const key = buildScanCacheKey(scope, uuid)
+			if (keys.has(key)) return true
+			const until = snoozedUntil.get(key)
+			if (until === undefined) return false
+			if (until > now) return true
+			snoozedUntil.delete(key)
+			return false
+		},
 		mark: (scope, uuid) => {
-			const key = scanCacheKey(scope, uuid)
+			const key = buildScanCacheKey(scope, uuid)
+			snoozedUntil.delete(key)
 			if (keys.has(key)) return
 			keys.add(key)
 			if (keys.size > max) {
@@ -93,7 +101,17 @@ export function createScanCache(max: number = SCAN_CACHE_MAX): ScanCache {
 			}
 		},
 		forget: (scope, uuid) => {
-			keys.delete(scanCacheKey(scope, uuid))
+			const key = buildScanCacheKey(scope, uuid)
+			keys.delete(key)
+			snoozedUntil.delete(key)
+		},
+		snooze: (scope, uuid, ms, now = Date.now()) => {
+			snoozedUntil.set(buildScanCacheKey(scope, uuid), now + ms)
 		},
 	}
+}
+
+/** Resultado da confirmação que deixa presença gravada: só esse entra no cache do scanner. */
+export function isPresenceRecorded(status: ConfirmPresenceResult["status"]): boolean {
+	return status !== "skipped"
 }

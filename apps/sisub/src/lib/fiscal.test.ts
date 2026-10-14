@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest"
-import { createScanCache, generateRestrictedDates, inferDefaultMeal, isDuplicatePresenceError, MEAL_LABEL, type ScanScope } from "./fiscal"
+import { createScanCache, generateRestrictedDates, inferDefaultMeal, isPresenceRecorded, MEAL_LABEL, SCAN_SNOOZE_MS, type ScanScope } from "./fiscal"
 
 describe("MEAL_LABEL", () => {
 	test("cobre as quatro refeições com rótulos pt-BR", () => {
@@ -59,14 +59,11 @@ describe("generateRestrictedDates", () => {
 	})
 })
 
-describe("isDuplicatePresenceError", () => {
-	test("reconhece pelo código do PG, não pelo texto", () => {
-		expect(isDuplicatePresenceError(Object.assign(new Error("duplicate key value"), { code: "23505" }))).toBe(true)
-		expect(isDuplicatePresenceError({ code: "23505" })).toBe(true)
-		expect(isDuplicatePresenceError(new Error("duplicate key value violates unique constraint"))).toBe(false)
-		expect(isDuplicatePresenceError(Object.assign(new Error("x"), { code: "23503" }))).toBe(false)
-		expect(isDuplicatePresenceError(null)).toBe(false)
-		expect(isDuplicatePresenceError("23505")).toBe(false)
+describe("isPresenceRecorded", () => {
+	test("gravada agora ou antes entra no cache; 'não entra' não", () => {
+		expect(isPresenceRecorded("inserted")).toBe(true)
+		expect(isPresenceRecorded("duplicate")).toBe(true)
+		expect(isPresenceRecorded("skipped")).toBe(false)
 	})
 })
 
@@ -98,19 +95,22 @@ describe("createScanCache", () => {
 		expect(cache.has(dinner, UUID)).toBe(true)
 	})
 
-	test("gravação que falhou libera a leitura; duplicidade (23505) a mantém", () => {
+	test("diálogo fechado sem gravar só pausa o crachá; depois ele é lido de novo", () => {
 		const cache = createScanCache()
-		// Formato que insertPresence (sisub-domain) relança e a server fn entrega ao cliente.
-		const duplicate = Object.assign(new Error('duplicate key value violates unique constraint "meal_presences_pkey"'), { code: "23505" })
-		const failures: unknown[] = [new Error("Failed to fetch"), Object.assign(new Error("permission denied"), { code: "42501" }), duplicate]
-		for (const err of failures) {
-			const uuid = String(failures.indexOf(err))
-			cache.mark(lunch, uuid)
-			if (!isDuplicatePresenceError(err)) cache.forget(lunch, uuid)
-		}
-		expect(cache.has(lunch, "0")).toBe(false)
-		expect(cache.has(lunch, "1")).toBe(false)
-		expect(cache.has(lunch, "2")).toBe(true)
+		cache.snooze(lunch, UUID, SCAN_SNOOZE_MS, 1_000)
+		expect(cache.has(lunch, UUID, 1_000 + SCAN_SNOOZE_MS - 1)).toBe(true)
+		expect(cache.has(dinner, UUID, 1_001)).toBe(false)
+		expect(cache.has(lunch, UUID, 1_000 + SCAN_SNOOZE_MS)).toBe(false)
+	})
+
+	test("gravar depois da pausa fixa o crachá; excluir tira pausa e marca", () => {
+		const cache = createScanCache()
+		cache.snooze(lunch, UUID, SCAN_SNOOZE_MS, 0)
+		cache.mark(lunch, UUID)
+		expect(cache.has(lunch, UUID, SCAN_SNOOZE_MS * 10)).toBe(true)
+		cache.snooze(lunch, UUID, SCAN_SNOOZE_MS, 0)
+		cache.forget(lunch, UUID)
+		expect(cache.has(lunch, UUID, 1)).toBe(false)
 	})
 
 	test("despeja o mais antigo ao passar do limite", () => {

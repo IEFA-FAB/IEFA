@@ -17,7 +17,7 @@ import { useAuth } from "@/hooks/auth/useAuth"
 import { useAddOtherPresence, useOtherPresencesCount, useScanProcessor } from "@/hooks/business/useFiscalOps"
 import { usePresenceManagement } from "@/hooks/data/usePresenceManagement"
 import { cn } from "@/lib/cn"
-import { createScanCache, generateRestrictedDates, inferDefaultMeal, isDuplicatePresenceError, type ScanCache, type ScanScope } from "@/lib/fiscal"
+import { createScanCache, generateRestrictedDates, inferDefaultMeal, isPresenceRecorded, SCAN_SNOOZE_MS, type ScanCache, type ScanScope } from "@/lib/fiscal"
 import { resolveDisplayNameFn } from "@/server/messhall.fn"
 import type { MealKey } from "@/types/domain/meal"
 import type { DialogState, FiscalFilters, FiscalPresenceRecord } from "@/types/domain/presence"
@@ -57,9 +57,16 @@ function extractUuid(payload: string): string | null {
 // leituras e o scanCache (por OM + data + refeição) impede reabrir o diálogo de quem já foi lido.
 const SCAN_COOLDOWN_MS = 800
 
-// "Nenhum QR no quadro" chega a cada frame e é o estado normal; o resto é falha real de decodificação.
+// O decodificador chama a cada frame: um erro persistente viraria um log por frame (e o Faro
+// captura o console). Cada mensagem distinta sai uma vez por carga da página.
+const loggedScanErrors = new Set<string>()
+
+// "Nenhum QR no quadro" é o estado normal; o resto é falha real de decodificação.
 function onScanFail(err: string | Error) {
 	if (err === QrScanner.NO_QR_CODE_FOUND) return
+	const message = String(err)
+	if (loggedScanErrors.has(message)) return
+	loggedScanErrors.add(message)
 	// biome-ignore lint/suspicious/noConsole: intencional — falha de decodificação não tem outro canal
 	console.error("[scanner] falha ao decodificar QR:", err)
 }
@@ -132,8 +139,9 @@ function ScannerTab({ filters, onFiltersChange, scanCache }: { filters: FiscalFi
 	const { confirmPresence } = usePresenceManagement(filters)
 
 	const lastScanAtRef = useRef(0)
-	// Escopo em que a leitura do diálogo aberto entrou no cache: é dele que ela sai se a gravação falhar.
-	const dialogScopeRef = useRef<ScanScope | null>(null)
+	// Leitura do diálogo aberto: data, refeição e refeitório do instante do scan valem para a
+	// previsão, a gravação e o cache, mesmo que o fiscal troque os filtros com o diálogo aberto.
+	const openScanRef = useRef<{ scope: ScanScope; uuid: string; recorded: boolean } | null>(null)
 
 	const [scannerState, dispatch] = useReducer(scannerReducer, {
 		isReady: false,
@@ -186,9 +194,8 @@ function ScannerTab({ filters, onFiltersChange, scanCache }: { filters: FiscalFi
 					const { willEat } = await processScanRef.current(uuid, scope)
 					if (!isMountedRef.current) return
 					setLastScanResult(uuid)
-					dialogScopeRef.current = scope
+					openScanRef.current = { scope, uuid, recorded: false }
 					setDialog({ open: true, uuid, willEat, willEnter: "sim" })
-					scanCache.mark(scope, uuid)
 					if (isMountedRef.current) setIsProcessing(false)
 				} catch (_err) {
 					if (isMountedRef.current) toast.error("Erro", { description: "Falha ao processar QR." })
@@ -234,17 +241,20 @@ function ScannerTab({ filters, onFiltersChange, scanCache }: { filters: FiscalFi
 	}, [onScanSuccess])
 
 	const handleConfirmDialog = useCallback(async () => {
-		if (!dialog.uuid) return
+		const open = openScanRef.current
+		if (!dialog.uuid || !open) return
 		try {
-			await confirmPresence(dialog.uuid, dialog.willEnter === "sim")
-			if (isMountedRef.current) setDialog((d) => ({ ...d, open: false, uuid: null }))
-		} catch (err) {
-			// Não gravou: libera o crachá para nova leitura, salvo se a presença já existia (aí
-			// reler reabriria o diálogo em laço). O toast do motivo sai do onError da mutation.
-			const scope = dialogScopeRef.current
-			if (scope && !isDuplicatePresenceError(err)) scanCache.forget(scope, dialog.uuid)
-			if (isMountedRef.current) setDialog((d) => ({ ...d, open: false, uuid: null }))
+			const { status } = await confirmPresence(dialog.uuid, dialog.willEnter === "sim", open.scope)
+			// Só presença gravada (agora ou antes) entra no cache; "não entra" deixa o crachá livre.
+			if (isPresenceRecorded(status)) {
+				scanCache.mark(open.scope, open.uuid)
+				open.recorded = true
+			}
+		} catch {
+			// Não gravou: o crachá fica livre para nova leitura (o fechamento só dá a pausa curta).
+			// O toast do motivo sai do onError da mutation.
 		}
+		if (isMountedRef.current) setDialog((d) => ({ ...d, open: false, uuid: null }))
 	}, [confirmPresence, dialog.uuid, dialog.willEnter, scanCache])
 
 	useEffect(() => {
@@ -260,10 +270,19 @@ function ScannerTab({ filters, onFiltersChange, scanCache }: { filters: FiscalFi
 		if (!scanner) return
 		if (dialog.open) {
 			scanner.stop()
-		} else if (scannerState.hasPermission) {
+			return
+		}
+		// Diálogo fechado sem gravar (Cancelar, Esc, "não entra", falha): pausa curta para o
+		// crachá ainda parado na câmera não reabrir o diálogo na hora; depois ele é lido de novo.
+		const closed = openScanRef.current
+		if (closed) {
+			if (!closed.recorded) scanCache.snooze(closed.scope, closed.uuid, SCAN_SNOOZE_MS)
+			openScanRef.current = null
+		}
+		if (scannerState.hasPermission) {
 			scanner.start().catch((_err) => {})
 		}
-	}, [dialog.open, scannerState.hasPermission])
+	}, [dialog.open, scannerState.hasPermission, scanCache])
 
 	const toggleScan = async () => {
 		const scanner = scannerRef.current
@@ -389,8 +408,9 @@ function AttendanceTab({ filters, onFiltersChange, scanCache }: { filters: Fisca
 	const removePresence = async (row: FiscalPresenceRecord) => {
 		try {
 			await deletePresence(row)
-			// A lista mostra só as presenças dos filtros atuais: o escopo da linha é o dos filtros.
-			scanCache.forget(filters, row.user_id)
+			// O escopo vem da própria linha. `meal` é texto no tipo gerado; quem grava (fiscal e
+			// self check-in) só manda MealKey, então o cast casa com a chave que o scanner marcou.
+			scanCache.forget({ date: row.date, meal: row.meal as MealKey, messHallId: row.mess_hall_id }, row.user_id)
 		} catch {
 			// O toast de falha já sai do onError da mutation; o militar continua presente.
 		}
