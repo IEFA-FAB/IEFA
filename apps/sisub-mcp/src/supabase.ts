@@ -6,6 +6,14 @@
  *
  * Ambos criam um client por chamada (não são singletons) para segurança em
  * ambientes com múltiplas sessões concorrentes.
+ *
+ * DÍVIDA: `createClient` direto, sem os deadlines de fetch de `@iefa/supabase-kit`
+ * (`createServiceRoleClient`, 10 s; auth, 5 s). Um GoTrue ou PostgREST que não responde
+ * pendura a chamada de tool sem prazo. A troca não é só de import: o sisub-mcp não depende
+ * do kit, e a dependência nova muda o Dockerfile e o `.github/paths-filter.yml` gerados
+ * (`bun run generate:deploy`), o que põe o PR na fila do mantenedor. Ao fazer, o
+ * `getDataClient` vira `createServiceRoleClient` e o `getAuthClient` usa `authTimeoutFetch`
+ * (ele só chama `auth.getUser(jwt)`, em `auth.ts`).
  */
 
 import type { Database } from "@iefa/database"
