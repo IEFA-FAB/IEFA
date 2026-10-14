@@ -14,6 +14,27 @@ import {
 import { UG_MAPPING } from "../ugMapping"
 
 // --- RISK CLASSIFICATION ---
+/*
+ * Origem dos parâmetros do índice de risco: PARÂMETROS SEM FONTE, A CALIBRAR.
+ *
+ * - Peso 70/30 (impacto × probabilidade), quartis do risco (25/50/75) e quintis do
+ *   impacto (20/40/60/80): vêm do upstream, commit debf6d33 "feat: Add risk assessment
+ *   and classification to data" (2026-03-11), gerado no AI Studio
+ *   (https://github.com/lsantosnels/SIAFI-x-SILOMS-Auditor/commit/debf6d33166f2dfcebf2f1533e8916a8248482e2).
+ *   O commit não cita norma, matriz de risco institucional nem critério; README, issues
+ *   e o histórico de prompts do repositório (migrated_prompt_history, até 2025-12-12)
+ *   não falam do índice. O próprio comentário de lá diz "Score = Impact × Probability"
+ *   e o código soma ponderado: nem a fórmula tem intenção registrada.
+ * - Faixas da probabilidade (0.1/0.3/0.6/0.85 da janela): do port, PR #207 (e228bca3).
+ *   Upstream cortava em meses absolutos de 12 (≤1, ≤3, ≤6, ≤9); o port passou a fração
+ *   da janela carregada e arredondou os cortes para cima (1/12≈0.08, 3/12=0.25,
+ *   6/12=0.5, 9/12=0.75). O único critério registrado é empírico: no relatório real de
+ *   32 competências, o eixo voltou a separar os cinco níveis.
+ *
+ * Os quartis e quintis são posição relativa no recorte (ranking), não limiar de
+ * materialidade: o mesmo valor muda de nível conforme as outras UGs do arquivo.
+ * Calibrar com a SUCONT-4 antes de usar o nível como critério de cobrança.
+ */
 /**
  * Chave da estatística de risco.
  *
@@ -63,6 +84,7 @@ export const applyRiskClassification = (data: FinancialRecord[]): FinancialRecor
 	const scores = Object.entries(stats).map(([key, s]) => {
 		const impactScore = (s.maxDiff / absoluteMaxDiff) * 100
 		const probabilityScore = (s.months.size / periodCount) * 100
+		// Parâmetro sem fonte, a calibrar (origem no bloco acima de `riskKey`).
 		const finalScore = impactScore * 0.7 + probabilityScore * 0.3
 		return { key, score: finalScore, maxDiff: s.maxDiff, months: s.months.size }
 	})
@@ -73,6 +95,7 @@ export const applyRiskClassification = (data: FinancialRecord[]): FinancialRecor
 		if (sortedScores.length === 0) return RiskLevel.BAIXO
 		const index = sortedScores.findIndex((s) => s >= score)
 		const percentile = (index / sortedScores.length) * 100
+		// Parâmetro sem fonte, a calibrar (origem no bloco acima de `riskKey`).
 		if (percentile <= 25) return RiskLevel.BAIXO
 		if (percentile <= 50) return RiskLevel.MEDIO
 		if (percentile <= 75) return RiskLevel.ALTO
@@ -83,6 +106,7 @@ export const applyRiskClassification = (data: FinancialRecord[]): FinancialRecor
 	const getImpactLevel = (val: number): ImpactLevel => {
 		const index = sortedMaxDiffs.findIndex((v) => v >= val)
 		const p = (index / sortedMaxDiffs.length) * 100
+		// Parâmetro sem fonte, a calibrar (origem no bloco acima de `riskKey`).
 		if (p <= 20) return ImpactLevel.INSIGNIFICANTE
 		if (p <= 40) return ImpactLevel.MENOR
 		if (p <= 60) return ImpactLevel.MODERADO
@@ -93,6 +117,7 @@ export const applyRiskClassification = (data: FinancialRecord[]): FinancialRecor
 	/** Fração das competências carregadas em que a conta divergiu — não contagem absoluta. */
 	const getProbabilityLevel = (months: number): ProbabilityLevel => {
 		const ratio = months / periodCount
+		// Parâmetro sem fonte, a calibrar (origem no bloco acima de `riskKey`).
 		if (ratio <= 0.1) return ProbabilityLevel.RARO
 		if (ratio <= 0.3) return ProbabilityLevel.OCASIONAL
 		if (ratio <= 0.6) return ProbabilityLevel.RECORRENTE
