@@ -61,29 +61,28 @@ export async function upsertArranchamento(db: SisubDb, ctx: UserContext, input: 
 	if (input.willEat) await assertAccountCanEat(db, ctx.userId)
 	const row = { date: input.date, userId: ctx.userId, meal: input.meal, willEat: input.willEat, messHallId: input.messHallId }
 
-	try {
-		await db
-			.insert(arranchamentoInKitchen)
-			.values(row)
-			.onConflictDoUpdate({
-				target: [arranchamentoInKitchen.userId, arranchamentoInKitchen.date, arranchamentoInKitchen.meal],
-				set: { willEat: input.willEat, messHallId: input.messHallId },
-			})
-	} catch (error) {
-		// A recusa do banco à conta institucional não é caso de borda: o fallback a repetiria.
-		const refusal = toSaramDomainError(error)
-		if (refusal.code === "ACCOUNT_INSTITUTIONAL") throw refusal
-		// Fallback: delete + insert — cobre casos de borda que o onConflict não resolve.
-		// Em transação: se o insert falhar, o delete reverte (senão a linha sumiria de vez).
-		await runQuery("UPSERT_FAILED", () =>
-			db.transaction(async (tx) => {
-				await tx
-					.delete(arranchamentoInKitchen)
-					.where(and(eq(arranchamentoInKitchen.userId, ctx.userId), eq(arranchamentoInKitchen.date, input.date), eq(arranchamentoInKitchen.meal, input.meal)))
-				await tx.insert(arranchamentoInKitchen).values(row)
-			})
-		)
-	}
+	// O único (user_id, date, meal) é a única unicidade de negócio da tabela; a PK `id` não entra no
+	// insert. Erro aqui (FK, deadline, conexão) propaga: não há segunda tentativa que o esconda.
+	await runQuery(
+		"UPSERT_FAILED",
+		async () => {
+			try {
+				await db
+					.insert(arranchamentoInKitchen)
+					.values(row)
+					.onConflictDoUpdate({
+						target: [arranchamentoInKitchen.userId, arranchamentoInKitchen.date, arranchamentoInKitchen.meal],
+						set: { willEat: input.willEat, messHallId: input.messHallId },
+					})
+			} catch (error) {
+				// A recusa do trigger à conta institucional sai com a mensagem dela.
+				const refusal = toSaramDomainError(error)
+				if (refusal.code === "ACCOUNT_INSTITUTIONAL") throw refusal
+				throw error
+			}
+		},
+		{ prefix: "Erro ao salvar o arranchamento" }
+	)
 }
 
 export async function deleteArranchamento(db: SisubDb, ctx: UserContext, input: DeleteArranchamento) {
