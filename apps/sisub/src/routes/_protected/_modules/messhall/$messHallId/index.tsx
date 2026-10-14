@@ -17,7 +17,7 @@ import { useAuth } from "@/hooks/auth/useAuth"
 import { useAddOtherPresence, useOtherPresencesCount, useScanProcessor } from "@/hooks/business/useFiscalOps"
 import { usePresenceManagement } from "@/hooks/data/usePresenceManagement"
 import { cn } from "@/lib/cn"
-import { createScanCache, generateRestrictedDates, inferDefaultMeal, type ScanCache } from "@/lib/fiscal"
+import { createScanCache, generateRestrictedDates, inferDefaultMeal, isDuplicatePresenceError, type ScanCache, type ScanScope } from "@/lib/fiscal"
 import { resolveDisplayNameFn } from "@/server/messhall.fn"
 import type { MealKey } from "@/types/domain/meal"
 import type { DialogState, FiscalFilters, FiscalPresenceRecord } from "@/types/domain/presence"
@@ -132,6 +132,8 @@ function ScannerTab({ filters, onFiltersChange, scanCache }: { filters: FiscalFi
 	const { confirmPresence } = usePresenceManagement(filters)
 
 	const lastScanAtRef = useRef(0)
+	// Escopo em que a leitura do diálogo aberto entrou no cache: é dele que ela sai se a gravação falhar.
+	const dialogScopeRef = useRef<ScanScope | null>(null)
 
 	const [scannerState, dispatch] = useReducer(scannerReducer, {
 		isReady: false,
@@ -184,6 +186,7 @@ function ScannerTab({ filters, onFiltersChange, scanCache }: { filters: FiscalFi
 					const { willEat } = await processScanRef.current(uuid, scope)
 					if (!isMountedRef.current) return
 					setLastScanResult(uuid)
+					dialogScopeRef.current = scope
 					setDialog({ open: true, uuid, willEat, willEnter: "sim" })
 					scanCache.mark(scope, uuid)
 					if (isMountedRef.current) setIsProcessing(false)
@@ -235,10 +238,14 @@ function ScannerTab({ filters, onFiltersChange, scanCache }: { filters: FiscalFi
 		try {
 			await confirmPresence(dialog.uuid, dialog.willEnter === "sim")
 			if (isMountedRef.current) setDialog((d) => ({ ...d, open: false, uuid: null }))
-		} catch (_err) {
+		} catch (err) {
+			// Não gravou: libera o crachá para nova leitura, salvo se a presença já existia (aí
+			// reler reabriria o diálogo em laço). O toast do motivo sai do onError da mutation.
+			const scope = dialogScopeRef.current
+			if (scope && !isDuplicatePresenceError(err)) scanCache.forget(scope, dialog.uuid)
 			if (isMountedRef.current) setDialog((d) => ({ ...d, open: false, uuid: null }))
 		}
-	}, [confirmPresence, dialog.uuid, dialog.willEnter])
+	}, [confirmPresence, dialog.uuid, dialog.willEnter, scanCache])
 
 	useEffect(() => {
 		if (!dialog.open || !autoCloseDialog || !dialog.uuid) return

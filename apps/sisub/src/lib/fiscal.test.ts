@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest"
-import { createScanCache, generateRestrictedDates, inferDefaultMeal, MEAL_LABEL, type ScanScope } from "./fiscal"
+import { createScanCache, generateRestrictedDates, inferDefaultMeal, isDuplicatePresenceError, MEAL_LABEL, type ScanScope } from "./fiscal"
 
 describe("MEAL_LABEL", () => {
 	test("cobre as quatro refeições com rótulos pt-BR", () => {
@@ -59,6 +59,17 @@ describe("generateRestrictedDates", () => {
 	})
 })
 
+describe("isDuplicatePresenceError", () => {
+	test("reconhece pelo código do PG, não pelo texto", () => {
+		expect(isDuplicatePresenceError(Object.assign(new Error("duplicate key value"), { code: "23505" }))).toBe(true)
+		expect(isDuplicatePresenceError({ code: "23505" })).toBe(true)
+		expect(isDuplicatePresenceError(new Error("duplicate key value violates unique constraint"))).toBe(false)
+		expect(isDuplicatePresenceError(Object.assign(new Error("x"), { code: "23503" }))).toBe(false)
+		expect(isDuplicatePresenceError(null)).toBe(false)
+		expect(isDuplicatePresenceError("23505")).toBe(false)
+	})
+})
+
 describe("createScanCache", () => {
 	const UUID = "11111111-2222-3333-4444-555555555555"
 	const lunch: ScanScope = { date: "2026-07-06", meal: "almoco", messHallId: 7 }
@@ -85,6 +96,21 @@ describe("createScanCache", () => {
 		cache.forget(lunch, UUID)
 		expect(cache.has(lunch, UUID)).toBe(false)
 		expect(cache.has(dinner, UUID)).toBe(true)
+	})
+
+	test("gravação que falhou libera a leitura; duplicidade (23505) a mantém", () => {
+		const cache = createScanCache()
+		// Formato que insertPresence (sisub-domain) relança e a server fn entrega ao cliente.
+		const duplicate = Object.assign(new Error('duplicate key value violates unique constraint "meal_presences_pkey"'), { code: "23505" })
+		const failures: unknown[] = [new Error("Failed to fetch"), Object.assign(new Error("permission denied"), { code: "42501" }), duplicate]
+		for (const err of failures) {
+			const uuid = String(failures.indexOf(err))
+			cache.mark(lunch, uuid)
+			if (!isDuplicatePresenceError(err)) cache.forget(lunch, uuid)
+		}
+		expect(cache.has(lunch, "0")).toBe(false)
+		expect(cache.has(lunch, "1")).toBe(false)
+		expect(cache.has(lunch, "2")).toBe(true)
 	})
 
 	test("despeja o mais antigo ao passar do limite", () => {

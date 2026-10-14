@@ -65,6 +65,17 @@ export interface ScanCache {
 
 export const SCAN_CACHE_MAX = 300
 
+/** Código do Postgres para violação de unicidade: a presença daquela refeição já existe. */
+const PG_UNIQUE_VIOLATION = "23505"
+
+/**
+ * Falha ao gravar a presença porque ela já existe. `insertPresence` (sisub-domain) relança o
+ * erro do banco com o `code` do PG, e o transporte da server fn preserva a propriedade.
+ */
+export function isDuplicatePresenceError(err: unknown): boolean {
+	return typeof err === "object" && err !== null && (err as { code?: unknown }).code === PG_UNIQUE_VIOLATION
+}
+
 const scanCacheKey = (scope: ScanScope, uuid: string): string => `${scope.messHallId}|${scope.date}|${scope.meal}|${uuid}`
 
 export function createScanCache(max: number = SCAN_CACHE_MAX): ScanCache {

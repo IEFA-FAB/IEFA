@@ -4,6 +4,7 @@ import type { PostgrestError } from "@supabase/supabase-js"
 import { type UseMutationResult, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useCallback } from "react"
 import { toast } from "@/components/ui/toast"
+import { isDuplicatePresenceError } from "@/lib/fiscal"
 import { queryKeys } from "@/lib/query-keys"
 import { deletePresenceFn, fetchArranchamentoMapFn, fetchPresencesFn, insertPresenceFn } from "@/server/presence.fn"
 import type {
@@ -26,10 +27,6 @@ class UnitRequiredError extends Error {
 	}
 }
 
-const isPostgrestError = (e: unknown): e is PostgrestError => {
-	return typeof e === "object" && e !== null && "code" in e && typeof (e as Record<string, unknown>).code === "string"
-}
-
 type MutationError = UnitRequiredError | PostgrestError
 
 // ============================================================================
@@ -50,7 +47,8 @@ const handleConfirmPresenceError = (error: unknown): void => {
 		return
 	}
 
-	if (isPostgrestError(error) && (error.code === "23505" || (error instanceof Error && error.message.includes("23505")))) {
+	// Mesma regra que o scanner usa para manter a leitura no cache (lib/fiscal).
+	if (isDuplicatePresenceError(error)) {
 		toast.info("Já registrado", {
 			description: "Este militar já foi marcado presente.",
 		})

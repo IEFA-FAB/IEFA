@@ -131,12 +131,18 @@ Hipóteses a verificar.
   militar passa de novo pelo leitor.
 - **O sistema precisa:** o cache de UUIDs já lidos (que evita reabrir o diálogo enquanto o crachá
   continua na frente da câmera) é por OM + data + refeição, não só por UUID; excluir a presença
-  tira o UUID do cache daquela refeição. O cache vive na página, e não na aba do scanner, porque as
-  abas desmontam ao trocar.
+  tira o UUID do cache daquela refeição. Se gravar a presença falha (rede, permissão, refeitório),
+  o UUID também sai, para o fiscal reler o crachá; a exceção é a duplicidade (código PG `23505`,
+  que `insertPresence` preserva): a presença já existe e reler reabriria o diálogo em laço. O cache
+  vive na página, e não na aba do scanner, porque as abas desmontam ao trocar.
 - **UX:** trocar a refeição no filtro basta; nenhuma leitura é ignorada em silêncio. Excluir na
-  "Lista de Presenças" e voltar ao scanner lê o militar de novo.
+  "Lista de Presenças" e voltar ao scanner lê o militar de novo. Falha ao salvar mostra "Falha ao
+  salvar decisão" e a releitura funciona; duplicidade mostra "Já registrado" e o crachá segue
+  ignorado.
 - **Cobertura:** `apps/sisub/src/lib/fiscal.test.ts › createScanCache` (chave por refeição, data e
-  rancho; exclusão libera só aquela refeição; despejo LRU). Fiação na tela
+  rancho; exclusão libera só aquela refeição; falha libera e duplicidade mantém; despejo LRU) e
+  `› isDuplicatePresenceError` (pelo código, não pelo texto). O `23505` do servidor:
+  `apps/sisub/src/test/operations/presence.operations.test.ts` (integração). Fiação na tela
   (`messhall/$messHallId/index.tsx`): **LACUNA** de e2e (precisa de câmera simulada).
 
 ### FIS-PRS-02 — "O refeitório fechou (falta de água)"
