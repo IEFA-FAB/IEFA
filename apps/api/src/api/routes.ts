@@ -3,6 +3,7 @@ import type { Context } from "hono"
 import { env } from "../env.ts"
 import { secureCompare } from "../lib/secure-compare.ts"
 import { ARRANCHAMENTO_PATH, arranchamentoDeprecationHeaders, LEGACY_ARRANCHAMENTO_PATH, logDeprecatedArranchamentoPath } from "./arranchamento-path.ts"
+import { MAX_CURSOR_LENGTH, NEXT_CURSOR_HEADER, POSTGREST_MAX_ROWS } from "./cursor.ts"
 import { createApiHandler } from "./factory.js"
 import { LEGACY_SARAM_FIELD, MIRROR_SARAM_COLUMN } from "./saram-field.ts"
 
@@ -119,10 +120,16 @@ function defineDocRoute<TSchema extends z.ZodType>(config: {
 				schema: {
 					type: "integer",
 					minimum: 1,
-					maximum: 100000,
-					default: 100000,
+					maximum: POSTGREST_MAX_ROWS,
+					default: POSTGREST_MAX_ROWS,
 				},
-				description: "Número máximo de registros",
+				description: `Número máximo de registros por resposta (teto ${POSTGREST_MAX_ROWS}). Para ler além, siga o cabeçalho ${NEXT_CURSOR_HEADER}.`,
+			},
+			{
+				name: "cursor",
+				in: "query" as const,
+				schema: { type: "string", maxLength: MAX_CURSOR_LENGTH },
+				description: `Próxima página: o valor do cabeçalho ${NEXT_CURSOR_HEADER} da resposta anterior, sem alterar. Repita os mesmos filtros e o mesmo \`order\`; cursor de outra ordenação é 400.`,
 			},
 			{
 				name: "order",
@@ -134,6 +141,12 @@ function defineDocRoute<TSchema extends z.ZodType>(config: {
 		responses: {
 			200: {
 				description: "Sucesso",
+				headers: {
+					[NEXT_CURSOR_HEADER]: {
+						description: `Presente quando a página veio cheia (\`limit\` linhas): passe-o em \`cursor\` para as seguintes. Ausente, não há mais linhas.`,
+						schema: { type: "string" },
+					},
+				},
 				content: {
 					"application/json": {
 						schema: z.array(config.responseSchema),
@@ -141,7 +154,7 @@ function defineDocRoute<TSchema extends z.ZodType>(config: {
 				},
 			},
 			400: {
-				description: "Parâmetro inválido — ordenação por coluna fora da resposta, ou colunas demais",
+				description: "Parâmetro inválido — ordenação por coluna fora da resposta, colunas demais, ou cursor inválido ou de outra ordenação",
 				content: {
 					"application/json": {
 						schema: ErrorSchema,
@@ -351,7 +364,8 @@ const presenceRoute = defineDocRoute({
 // /api/user-military-data -> user_military_data
 const [, militaryDataHandler] = createApiHandler({
 	table: "user_military_data",
-	// `id` fica fora da projeção: é só o desempate interno da paginação, não ordem que o cliente escolhe.
+	// Nenhuma coluna publicada é única (o SARAM espelho não tem UNIQUE; o CPF tem, mas não sai):
+	// o `id` sintético entra só como desempate e no cursor. Rota restrita por `x-admin-secret`.
 	uniqueKey: ["id"],
 	schema: "core",
 	select: `"${MIRROR_SARAM_COLUMN}", "nmGuerra", "nmPessoa", "sgPosto", "sgOrg", "dataAtualizacao"`,
