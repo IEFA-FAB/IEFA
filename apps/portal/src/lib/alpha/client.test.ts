@@ -18,4 +18,12 @@ describe("alphaPath", () => {
 		expect(alphaPath`/api/v1/sessions/${"s/../../x#y"}/messages`).toBe("/api/v1/sessions/s%2F..%2F..%2Fx%23y/messages")
 		expect(alphaPath`/api/v1/sessions`).toBe("/api/v1/sessions")
 	})
+
+	it("recusa `.`, `..` e vazio, que o parser de URL resolveria como outro caminho", () => {
+		// `encodeURIComponent` não toca em ponto: cru, `/sessions/../messages` virava `/api/v1/messages`.
+		for (const bad of [".", "..", ""]) expect(() => alphaPath`/api/v1/sessions/${bad}/messages`).toThrow("alphaPath")
+		// Ponto dentro do valor não é segmento de ponto: passa, e o caminho resolvido fica onde está.
+		expect(new URL(`https://alpha.test${alphaPath`/api/v1/sessions/${"..."}/messages`}`).pathname).toBe("/api/v1/sessions/.../messages")
+		expect(new URL(`https://alpha.test${alphaPath`/api/v1/sessions/${"a/../.."}/messages`}`).pathname).toBe("/api/v1/sessions/a%2F..%2F../messages")
+	})
 })
