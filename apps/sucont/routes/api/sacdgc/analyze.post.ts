@@ -4,6 +4,7 @@ import { defineHandler } from "nitro"
 import { type H3Event, HTTPError, readBody } from "nitro/h3"
 import { silentAdapterLogger } from "#/lib/ai-logger"
 import { getServerCapabilities } from "#/lib/capabilities.server"
+import { withGenerationDeadline } from "#/lib/generation-deadline"
 import { requireSameOriginJson, requireSucontUser } from "#/lib/nitro-auth.server"
 import { buildDgcUserPrompt, DGC_SYSTEM_PROMPT } from "#/sacdgc/prompt"
 import { dgcAnalysisRequestSchema } from "#/sacdgc/request"
@@ -141,40 +142,32 @@ export default defineHandler(async (event: H3Event) => {
 				}
 			}, HEARTBEAT_MS)
 
-			// Cliente foi embora: aborta a geração em vez de deixá-la correr até o
-			// deadline. Sem isto o modelo termina os 16 mil tokens de saída e o consumo
-			// entra no teto do usuário por uma resposta que ninguém vai ler.
-			const generation = new AbortController()
-			let deadlineTimer: ReturnType<typeof setTimeout> | undefined
+			// Cliente foi embora (aba fechada, "Interromper", rede): o `cancel` do stream aborta
+			// a geração em vez de deixá-la correr até o prazo. Sem isto o modelo termina a saída
+			// inteira e o consumo entra no teto do usuário por uma resposta que ninguém vai ler.
+			// Prazo, abort e limpeza do timer ficam em `withGenerationDeadline`.
+			const clientGone = new AbortController()
 
 			const finish = () => {
 				closed = true
 				clearInterval(heartbeat)
-				if (deadlineTimer) clearTimeout(deadlineTimer)
 			}
 
 			cancelGeneration = () => {
-				generation.abort()
+				clientGone.abort()
 				finish()
 			}
 
-			const deadline = new Promise<never>((_, reject) => {
-				// O timer precisa ser limpo: uma competência são ~69 análises em sequência,
-				// e 69 timers de 5 minutos vivos seguram o encerramento do processo.
-				deadlineTimer = setTimeout(() => {
-					generation.abort()
-					reject(new Error("A análise excedeu o tempo máximo de espera. Tente novamente."))
-				}, DEADLINE_MS)
-			})
-
-			const generated = adapter
-				.structuredOutput({
-					chatOptions: { ...(chatOptions as object), abortController: generation } as StructuredArgs["chatOptions"],
-					outputSchema: dgcAnalysisSchema as unknown as StructuredArgs["outputSchema"],
-				})
-				.then((result) => normalizeDgcAnalysis(result.data, { ugCode: request.ugCode, ugName: request.ugName, competence: request.competence }))
-
-			Promise.race([generated, deadline])
+			withGenerationDeadline(
+				{ deadlineMs: DEADLINE_MS, timeoutMessage: "A análise excedeu o tempo máximo de espera. Tente novamente.", signal: clientGone.signal },
+				(generation) =>
+					adapter
+						.structuredOutput({
+							chatOptions: { ...(chatOptions as object), abortController: generation } as StructuredArgs["chatOptions"],
+							outputSchema: dgcAnalysisSchema as unknown as StructuredArgs["outputSchema"],
+						})
+						.then((result) => normalizeDgcAnalysis(result.data, { ugCode: request.ugCode, ugName: request.ugName, competence: request.competence }))
+			)
 				.then((analysis) => send("done", analysis))
 				.catch((error: unknown) => send("failed", { message: error instanceof Error ? error.message : "Falha ao gerar a análise." }))
 				.finally(() => {

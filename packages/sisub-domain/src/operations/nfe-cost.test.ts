@@ -9,7 +9,7 @@
  */
 
 import { describe, expect, test } from "bun:test"
-import { computeNfeItemCosts } from "./nfe-cost.ts"
+import { computeNfeItemCosts, NfeCostError } from "./nfe-cost.ts"
 
 describe("computeNfeItemCosts", () => {
 	test("frete e desconto entram no custo do item", () => {
@@ -63,5 +63,44 @@ describe("computeNfeItemCosts", () => {
 		const result = computeNfeItemCosts([], 0)
 		expect(result.items).toEqual([])
 		expect(result.total).toBe(0)
+	})
+})
+
+describe("computeNfeItemCosts: meio-centavo", () => {
+	test("item no meio-centavo sobe, inclusive quando o binário guarda menos", () => {
+		// o `round2` antigo somava EPSILON, que não alcança 1,005 × 100 = 100,4999…
+		const result = computeNfeItemCosts([
+			{ nItem: 1, productValue: 1.005 },
+			{ nItem: 2, productValue: 10.005 },
+		])
+		expect(result.items.map((item) => item.totalCost)).toEqual([1.01, 10.01])
+		expect(result.total).toBe(11.02)
+	})
+
+	test("desconto maior que o produto: o negativo arredonda simétrico", () => {
+		const result = computeNfeItemCosts([{ nItem: 1, productValue: 0, discount: 10.005 }])
+		expect(result.items[0]?.totalCost).toBe(-10.01)
+	})
+})
+
+describe("computeNfeItemCosts: valor não numérico", () => {
+	test("item com NaN recusa em vez de entrar como custo zero", () => {
+		const run = () =>
+			computeNfeItemCosts([
+				{ nItem: 1, productValue: 10 },
+				{ nItem: 2, productValue: Number.NaN },
+				{ nItem: 3, productValue: 5, discount: Number.POSITIVE_INFINITY },
+			])
+		expect(run).toThrow(NfeCostError)
+		try {
+			run()
+		} catch (error) {
+			expect((error as NfeCostError).invalidItems).toEqual([2, 3])
+		}
+	})
+
+	test("vNF presente e não numérico recusa; ausente só desliga a conferência", () => {
+		expect(() => computeNfeItemCosts([{ nItem: 1, productValue: 10 }], Number.NaN)).toThrow(NfeCostError)
+		expect(computeNfeItemCosts([{ nItem: 1, productValue: 10 }], null).invoiceDifference).toBe(0)
 	})
 })

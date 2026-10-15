@@ -115,6 +115,19 @@ describe("groupSiafiWaiting", () => {
 			{ reportType: "ob", count: 1, parents: [] },
 		])
 	})
+
+	test("soma a contagem que a leitura já traz agrupada no banco", () => {
+		expect(
+			groupSiafiWaiting([
+				{ reportType: "ns", parent: "2026NE000123", count: 700 },
+				{ reportType: "ns", parent: "2026ne000124", count: 3 },
+				{ reportType: "ob", parent: null, count: 2 },
+			])
+		).toEqual([
+			{ reportType: "ns", count: 703, parents: ["2026NE000123", "2026NE000124"] },
+			{ reportType: "ob", count: 2, parents: [] },
+		])
+	})
 })
 
 describe("summarizeAcquisitions", () => {

@@ -9,7 +9,7 @@
  * não decide o comportamento de nenhum app, só deixa de repeti-lo.
  */
 
-import { normalizeEmail } from "./errors.ts"
+import { INVALID_CREDENTIALS_MESSAGE, normalizeEmail } from "./errors.ts"
 import { safeRedirect } from "./redirect.ts"
 
 /**
@@ -24,10 +24,15 @@ export const FAB_INSTITUTIONAL_EMAIL_PATTERN = /^[a-zA-Z0-9]+(?:[._-][a-zA-Z0-9]
 
 /**
  * Reconhece credencial inválida na mensagem que o `signIn` lança.
- * Equivale ao `msg.includes("Email ou senha incorretos") || msg.includes("Invalid login credentials")`
- * que as cópias do portal, contrate, rumaer e forms faziam: sensível a caixa e sem hífen.
+ *
+ * O `signIn` de `createAuthActions` traduz a recusa para `INVALID_CREDENTIALS_MESSAGE`; o
+ * padrão sai dessa constante, e não de uma cópia do texto, porque a cópia antiga
+ * ("Email ou senha incorretos", sem hífen) nunca casou com o que o kit lança e o
+ * texto neutro do app não aparecia. A frase em inglês do GoTrue fica para `signIn` que não
+ * traduz. Sem caixa: a mensagem é texto de provider, não identificador. A constante entra
+ * sem escape porque não tem metacaractere de regex (o teste garante).
  */
-export const DEFAULT_INVALID_CREDENTIALS_PATTERN = /Email ou senha incorretos|Invalid login credentials/
+export const DEFAULT_INVALID_CREDENTIALS_PATTERN = new RegExp(`${INVALID_CREDENTIALS_MESSAGE}|invalid login credentials`, "i")
 
 export type AuthView = "auth" | "forgot" | "reset"
 export type AuthTab = "login" | "register"
@@ -39,7 +44,7 @@ export interface AuthScreenMessages {
 	/** Erro ao enviar com e-mail fora do padrão. */
 	emailInvalid: string
 	passwordRequired: string
-	/** Erro de campo quando o `signIn` recusa a credencial. */
+	/** Banner quando o `signIn` recusa a credencial: neutro, sem apontar qual campo está errado. */
 	invalidCredentials: string
 	/** Mensagem quando o `signIn` lança algo que não é `Error`. */
 	unknownError: string
@@ -142,13 +147,18 @@ export function getErrorMessage(err: unknown, fallback: string): string {
 	return err instanceof Error ? err.message : fallback
 }
 
-export type SignInFailure = { field: "password" | "form"; message: string }
-
-/** Onde mostrar a falha do `signIn`: no campo de senha (credencial recusada) ou no banner. */
-export function describeSignInFailure(err: unknown, invalidCredentialsPattern: RegExp, messages: AuthScreenMessages): SignInFailure {
+/**
+ * Texto do banner quando o `signIn` falha. Credencial recusada vira a mensagem neutra do app.
+ *
+ * Toda falha vai para o banner, nunca para um campo: erro no campo de senha apontaria a senha
+ * como culpada quando o e-mail é que não existe (`openspec/specs/forms-auth`), e erro de campo
+ * desabilita o Entrar até a pessoa mexer naquele campo. O banner some ao editar qualquer campo
+ * do login e ao trocar de aba.
+ */
+export function describeSignInFailure(err: unknown, invalidCredentialsPattern: RegExp, messages: AuthScreenMessages): string {
 	const msg = getErrorMessage(err, messages.unknownError)
-	if (invalidCredentialsPattern.test(msg)) return { field: "password", message: messages.invalidCredentials }
-	return { field: "form", message: msg || messages.signInFallback }
+	if (invalidCredentialsPattern.test(msg)) return messages.invalidCredentials
+	return msg || messages.signInFallback
 }
 
 /** Destino depois do login: o `redirect` da URL, se interno, ou a raiz. */

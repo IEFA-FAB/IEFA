@@ -8,6 +8,10 @@
  * conferido nos triggers do banco.
  */
 
+import { roundToCents } from "./money.ts"
+
+const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
+
 export const EMPENHO_TYPES = ["ordinario", "estimativo", "global"] as const
 export type EmpenhoType = (typeof EMPENHO_TYPES)[number]
 
@@ -26,13 +30,11 @@ export interface EmpenhoItemProblem {
 	message: string
 }
 
-const cents = (value: number) => Math.round(value * 100) / 100
-
 /** Valor do item: o informado; com quantidade e preço e sem valor, o produto. */
 export function resolveItemValue(item: Pick<EmpenhoItemDraft, "quantity" | "unitPrice" | "value">): number {
-	if (item.value > 0) return cents(item.value)
-	if (item.quantity != null && item.unitPrice != null) return cents(item.quantity * item.unitPrice)
-	return cents(item.value)
+	if (item.value > 0) return roundToCents(item.value)
+	if (item.quantity != null && item.unitPrice != null) return roundToCents(item.quantity * item.unitPrice)
+	return roundToCents(item.value)
 }
 
 /**
@@ -49,10 +51,13 @@ export function empenhoItemProblems(items: readonly EmpenhoItemDraft[]): Empenho
 		if (item.quantity != null && !(item.quantity > 0)) problems.push({ index, message: `Item ${index + 1}: quantidade deve ser positiva` })
 		if (item.unitPrice != null && item.unitPrice < 0) problems.push({ index, message: `Item ${index + 1}: preço não pode ser negativo` })
 		if (item.quantity != null && item.unitPrice != null && item.value > 0) {
-			const product = cents(item.quantity * item.unitPrice)
-			// Tolerância de 1 centavo por arredondamento do preço unitário a 4 casas.
-			if (Math.abs(product - cents(item.value)) > 0.01) {
-				problems.push({ index, message: `Item ${index + 1}: quantidade × preço (${product.toFixed(2)}) não fecha com o valor (${item.value.toFixed(2)})` })
+			const product = roundToCents(item.quantity * item.unitPrice)
+			const value = roundToCents(item.value)
+			// Tolerância de 1 centavo por arredondamento do preço unitário a 4 casas. Compara em
+			// centavos inteiros: em reais, 1,01 − 1,00 dá 0,010000000000000009 e passaria do limite.
+			// A mensagem mostra os MESMOS valores conferidos, não o `toFixed(2)` do digitado.
+			if (Math.abs(Math.round((product - value) * 100)) > 1) {
+				problems.push({ index, message: `Item ${index + 1}: quantidade × preço (${BRL.format(product)}) não fecha com o valor (${BRL.format(value)})` })
 			}
 		}
 	})
@@ -60,7 +65,7 @@ export function empenhoItemProblems(items: readonly EmpenhoItemDraft[]): Empenho
 }
 
 export function sumEmpenhoItems(items: readonly EmpenhoItemDraft[]): number {
-	return cents(items.reduce((sum, item) => sum + resolveItemValue(item), 0))
+	return roundToCents(items.reduce((sum, item) => sum + resolveItemValue(item), 0))
 }
 
 // ─── Conferência NE × ARP ──────────────────────────────────────────────────────

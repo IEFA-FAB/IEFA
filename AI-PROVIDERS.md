@@ -165,7 +165,7 @@ incluso, e `structuredOutput` com o `analysisSchema` do document-ai):
 
 **TTFT** (time-to-first-token) é a coluna que importa no chat: o endpoint é SSE, então o que o
 usuário sente é o primeiro token, não a vazão. O total só é decisivo no caminho de documento,
-que **não** é streaming e tem timeout de 60 s no `document-ai.fn.ts`.
+que **não** é streaming e tem prazo de 50 s (`SERVER_FN_AI_DEADLINE_MS` em `apps/sucont/src/lib/ai.server.ts`, abaixo dos 60 s de idle do ALB).
 
 ¹ Numa das amostras o gpt-oss-120b respondeu sem citar UG/valor no formato que a diretriz 1 do
 system prompt pede; em outra citou. **Uma amostra por modelo não decide qualidade** — o bench

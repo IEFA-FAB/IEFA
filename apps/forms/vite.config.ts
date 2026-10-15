@@ -35,6 +35,9 @@ export default defineConfig(() => ({
 					},
 				},
 				"/assets/**": { headers: { "cache-control": "public, max-age=31536000, immutable" } },
+				// styles.css tem nome fixo (sem hash, ver `assetFileNames` abaixo) p/ evitar mismatch
+				// SSR↔client, então NÃO pode herdar o immutable de /assets/** (serviria CSS velho pra
+				// sempre após deploy). `no-cache` revalida a cada load; o sisub usa stale-while-revalidate.
 				"/assets/styles.css": {
 					headers: {
 						"cache-control": "no-cache",

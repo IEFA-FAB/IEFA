@@ -8,6 +8,7 @@
 
 import type { ArpSaldo } from "@/lib/arp-compras"
 import { anoFromNumeroAta, formatNumeroAta, parseBrDate, parseNumeroItem } from "@/lib/arp-compras"
+import { IN_CHUNK_SIZE, readAllPagesByKey } from "@/lib/read-all-pages"
 import type { ComprasArpItemResult } from "@/types/domain/arp"
 
 // ─── Vínculos da ARP já existente ────────────────────────────────────────────
@@ -273,10 +274,64 @@ export interface ArpItemExecution {
 
 type NumericLike = number | string | null
 
+/** Soma do valor dos itens de cada NE — a base da proporção que reparte a execução da NE. */
+export function sumItemValuesByEmpenho(items: ReadonlyArray<{ empenho_id: string; value: NumericLike }>): Map<string, number> {
+	const totalByEmpenho = new Map<string, number>()
+	for (const row of items) totalByEmpenho.set(row.empenho_id, (totalByEmpenho.get(row.empenho_id) ?? 0) + Number(row.value))
+	return totalByEmpenho
+}
+
+type ItemValueRow = { id: string; empenho_id: string; value: NumericLike }
+
+/**
+ * Soma dos itens de cada NE, lida por inteiro: os ids do `.in()` em fatias e cada fatia por keyset
+ * (`id`; é soma de dinheiro). Sem paginar, o PostgREST cortava em 1000 linhas calado, e a NE que
+ * ficava sem nenhuma linha lida saía como "Dado incompleto" sem motivo.
+ *
+ * `page(chunk, after, pageSize)` aplica `.in("empenho_id", chunk)`, `.gt("id", after)` quando
+ * `after` não é nulo, `.order("id")` e `.limit(pageSize)`.
+ */
+export async function readItemTotalsByEmpenho(
+	empenhoIds: readonly string[],
+	page: (chunk: string[], after: string | null, pageSize: number) => PromiseLike<{ data: ItemValueRow[] | null; error: { message: string } | null }>
+): Promise<Map<string, number>> {
+	const unique = [...new Set(empenhoIds)]
+	const rows: ItemValueRow[] = []
+	for (let i = 0; i < unique.length; i += IN_CHUNK_SIZE) {
+		const chunk = unique.slice(i, i + IN_CHUNK_SIZE)
+		rows.push(
+			...(await readAllPagesByKey(
+				"os itens dos empenhos",
+				(after: string | null, pageSize) => page(chunk, after, pageSize),
+				(row) => row.id
+			))
+		)
+	}
+	return sumItemValuesByEmpenho(rows)
+}
+
+/**
+ * A NE tem proporção para repartir a execução entre os itens? Itens somando zero (NE registrada só
+ * pelo total, ou sem o valor de cada item) não têm: a execução dela é dado incompleto por item.
+ */
+export function hasItemProportion(itemsTotal: number | undefined): boolean {
+	return itemsTotal != null && itemsTotal > 0
+}
+
+export interface ArpExecution {
+	/** Só itens com execução repartida; item cuja única NE não tem proporção fica sem entrada. */
+	byItem: Record<string, ArpItemExecution>
+	/** NEs ativas cujos itens somam zero: a execução delas não entra em `byItem`. */
+	incompleteEmpenhoIds: string[]
+}
+
 /**
  * Reparte a execução de cada NE ATIVA entre os itens de ARP dela, na proporção do valor de cada
- * item — leitura de acompanhamento, não lançamento. NE sem linha na view de saldo fica de fora; NE
- * com total zero dá o saldo inteiro a cada item.
+ * item — leitura de acompanhamento, não lançamento. NE sem linha na view de saldo fica de fora.
+ *
+ * NE com itens somando zero não tem proporção: fica FORA de `byItem` (nem zero, que se confundiria
+ * com "nada liquidado") e sai em `incompleteEmpenhoIds`. Dar o saldo inteiro a cada item (o
+ * comportamento antigo) multiplicava o liquidado, o pago e o a liquidar pelo número de itens.
  */
 export function computeArpExecutionByItem(input: {
 	arpNeItems: ReadonlyArray<{ empenho_id: string; arp_item_id: string | null; value: NumericLike }>
@@ -284,26 +339,28 @@ export function computeArpExecutionByItem(input: {
 	allItems: ReadonlyArray<{ empenho_id: string; value: NumericLike }>
 	/** `empenho_id` sai nulável da view, que é filtrada por ele. */
 	saldos: ReadonlyArray<{ empenho_id: string | null; valor_liquidado: NumericLike; valor_pago: NumericLike; saldo_a_liquidar: NumericLike }>
-}): Record<string, ArpItemExecution> {
-	const totalByEmpenho = new Map<string, number>()
-	for (const row of input.allItems) {
-		totalByEmpenho.set(row.empenho_id, (totalByEmpenho.get(row.empenho_id) ?? 0) + Number(row.value))
-	}
+}): ArpExecution {
+	const totalByEmpenho = sumItemValuesByEmpenho(input.allItems)
 	const saldoByEmpenho = new Map(input.saldos.map((saldo) => [saldo.empenho_id, saldo]))
 
 	const byItem: Record<string, ArpItemExecution> = {}
+	const incomplete = new Set<string>()
 	for (const row of input.arpNeItems) {
 		// `arp_item_id` nunca vem nulo: a consulta filtra por ele.
 		if (row.arp_item_id == null || !input.activeIds.has(row.empenho_id)) continue
 		const saldo = saldoByEmpenho.get(row.empenho_id)
 		if (!saldo) continue
 		const total = totalByEmpenho.get(row.empenho_id) ?? 0
-		const share = total > 0 ? Number(row.value) / total : 1
+		if (!hasItemProportion(total)) {
+			incomplete.add(row.empenho_id)
+			continue
+		}
+		const share = Number(row.value) / total
 		const acc = byItem[row.arp_item_id] ?? { liquidado: 0, pago: 0, aLiquidar: 0 }
 		acc.liquidado += Number(saldo.valor_liquidado ?? 0) * share
 		acc.pago += Number(saldo.valor_pago ?? 0) * share
 		acc.aLiquidar += Number(saldo.saldo_a_liquidar ?? 0) * share
 		byItem[row.arp_item_id] = acc
 	}
-	return byItem
+	return { byItem, incompleteEmpenhoIds: [...incomplete].sort() }
 }

@@ -18,8 +18,9 @@
  * default de `signOut()` é escopo GLOBAL e derrubaria todas as sessões do titular, que é o
  * oposto do que uma conferência de senha pode causar.
  *
- * Nunca use este client para decidir QUEM é o usuário da request: ele não enxerga os cookies.
- * Quem responde isso é `createSsrAuthClient`/`createCookieAuthClient`.
+ * Sozinho, não decide QUEM é o usuário da request: ele não enxerga os cookies. Quem responde
+ * isso é `createSsrAuthClient` (server fn do Start) ou `resolveCookieSessionUser` (rota Nitro),
+ * que usa este client para validar, com `getUser(jwt)`, o token que ele mesmo tirou do cookie.
  */
 import { createClient } from "@supabase/supabase-js"
 

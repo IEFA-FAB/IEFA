@@ -159,3 +159,10 @@ describe("fiscalShortfallValue", () => {
 		).toBe(0)
 	})
 })
+
+describe("fiscalShortfallValue: meio-centavo", () => {
+	test("pendência de meio-centavo sobe (o `toFixed(2)` antigo descia)", () => {
+		expect(fiscalShortfallValue([{ invoicedQtyBase: 2, receivedQtyBase: 1, unitCost: 1.005 }])).toBe(1.01)
+		expect(fiscalShortfallValue([{ invoicedQtyBase: 1, receivedQtyBase: 0, unitCost: 10.005 }])).toBe(10.01)
+	})
+})

@@ -16,8 +16,11 @@ import { defaultRateLimitStore } from "@iefa/ai-provider"
 // que não existe em teste. O dublê registra o que foi setado — que é exatamente o que
 // o cliente vai ler, já que o valor lançado é um Error e não uma Response.
 const response = { status: 0, headers: {} as Record<string, string> }
+// Requisição corrente da server function: o teste troca o signal para simular o cliente que saiu.
+const request = { signal: new AbortController().signal }
 
 mock.module("@tanstack/react-start/server", () => ({
+	getRequest: () => request,
 	setResponseStatus: (status: number) => {
 		response.status = status
 	},
@@ -26,7 +29,7 @@ mock.module("@tanstack/react-start/server", () => ({
 	},
 }))
 
-const { generateText, getSucontAdapter } = await import("./ai.server.ts")
+const { collectStreamText, generateJson, generateText, getSucontAdapter, SERVER_FN_AI_DEADLINE_MS } = await import("./ai.server.ts")
 
 const AI_VARS = [
 	"SUCONT_AI_PROVIDER",
@@ -54,6 +57,7 @@ beforeEach(() => {
 	defaultRateLimitStore.reset()
 	response.status = 0
 	response.headers = {}
+	request.signal = new AbortController().signal
 })
 
 afterEach(clearAiEnv)
@@ -130,5 +134,47 @@ describe("generateText", () => {
 
 		await expect(generateText({ userId: "user-1", user: "oi" })).rejects.toThrow(/limite de mensagens por minuto/i)
 		expect(response.status).toBe(429)
+	})
+})
+
+describe("prazo e cancelamento", () => {
+	// O cliente que fecha a aba aborta a geração no provider, em vez de deixá-la correr até o
+	// prazo. Com o signal da requisição já abortado, nada espera o modelo.
+	it("generateText e generateJson abortam quando a requisição do cliente já caiu", async () => {
+		configureBedrock()
+		const gone = new AbortController()
+		gone.abort()
+		request.signal = gone.signal
+
+		await expect(generateText({ userId: "user-1", user: "oi" })).rejects.toThrow(/cancelada/)
+		await expect(generateJson({ userId: "user-1", user: "oi", schema: { type: "object" } })).rejects.toThrow(/cancelada/)
+	})
+
+	it("o prazo fica abaixo do idle de 60 s do ALB", () => {
+		expect(SERVER_FN_AI_DEADLINE_MS).toBeLessThan(60_000)
+	})
+})
+
+describe("collectStreamText — RUN_ERROR", () => {
+	// O teto no meio do stream vira RUN_ERROR (o SSE não pode lançar). `generateText` acumulava só
+	// texto e devolvia "", e a tela mostrava uma mensagem genérica no lugar do limite.
+	async function* stream(...chunks: Record<string, unknown>[]) {
+		for (const chunk of chunks) yield chunk
+	}
+
+	it("acumula o texto", async () => {
+		expect(await collectStreamText(stream({ type: "TEXT_MESSAGE_CONTENT", delta: "a" }, { type: "TEXT_MESSAGE_CONTENT", delta: "b" }))).toBe("ab")
+	})
+
+	it("propaga a mensagem do teto com status 429", async () => {
+		await expect(collectStreamText(stream({ type: "RUN_ERROR", message: "Orçamento diário de IA esgotado", code: "tokens-per-day" }))).rejects.toThrow(
+			"Orçamento diário de IA esgotado"
+		)
+		expect(response.status).toBe(429)
+	})
+
+	it("outro RUN_ERROR propaga a mensagem sem mexer no status", async () => {
+		await expect(collectStreamText(stream({ type: "RUN_ERROR", message: "provider caiu" }))).rejects.toThrow("provider caiu")
+		expect(response.status).toBe(0)
 	})
 })

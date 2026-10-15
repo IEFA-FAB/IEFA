@@ -1,9 +1,8 @@
 import { StartClient } from "@tanstack/react-start/client"
 import { hydrateRoot } from "react-dom/client"
-import { getRouter } from "./router"
 
-const router = getRouter()
-
-// biome-ignore lint/suspicious/noExplicitAny: fix temporário do mismatch de tipos StartClient x React 19
-const StartClientAny = StartClient as any
-hydrateRoot(document, <StartClientAny router={router} />)
+// Sem prop: o `StartClient` cria o router sozinho, chamando o `getRouter()` de `router.tsx`
+// na hidratação. Chamar `getRouter()` aqui também criava um segundo router, com outro
+// QueryClient, e era ESSE que ganhava o listener de auth (`authListenerBound` só deixa o
+// primeiro): login e logout invalidavam um router que não estava na tela.
+hydrateRoot(document, <StartClient />)

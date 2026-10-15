@@ -358,7 +358,6 @@ function LoginView({ onSubmit, onForgotPassword }: LoginViewProps) {
 	const passwordErr = null
 
 	const handleSubmit = async (e: React.SyntheticEvent) => {
-		"use no memo"
 		e.preventDefault()
 		if (isLocked) return
 		const eErr = validateSignInEmail(email)
@@ -583,7 +582,6 @@ function RegisterView({ onSubmit, onBack }: RegisterViewProps) {
 	const confirmErr = confirm && confirm !== password ? "As senhas não coincidem." : null
 
 	const handleSubmit = async (e: React.SyntheticEvent) => {
-		"use no memo"
 		e.preventDefault()
 		if (!name.trim()) {
 			dispatch({ type: "SET_ERROR", value: "Nome obrigatório." })
@@ -826,7 +824,6 @@ function ForgotView({ onBack, onSubmit }: ForgotViewProps) {
 	const emailErr = email ? validateSignInEmail(email) : null
 
 	const handleSubmit = async (e: React.SyntheticEvent) => {
-		"use no memo"
 		e.preventDefault()
 		const eErr = validateSignInEmail(email)
 		if (eErr) {

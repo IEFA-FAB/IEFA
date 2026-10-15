@@ -59,3 +59,40 @@ export async function readAllPagesIn<T>(
 	}
 	return rows
 }
+
+/**
+ * Lê todas as páginas por KEYSET: cada página pede as linhas com chave MAIOR que a última
+ * vista (`.gt(chave, after)`), ordenadas por essa chave única, e para na página vazia.
+ *
+ * Use em leitura que soma dinheiro. Por OFFSET (`readAllPages`), cada página é outra
+ * transação: uma linha inserida antes da fronteira durante a leitura empurra a da fronteira
+ * para a página seguinte e ela entra DUAS vezes (o comprometido de uma NE somado em dobro);
+ * um delete faz uma sumir. Pela chave, a página seguinte começa depois da última linha vista,
+ * qualquer que seja a escrita no meio. A deduplicação por chave fica como defesa.
+ *
+ * `page(after, pageSize)` aplica `.gt(chave, after)` quando `after` não é nulo, `.order(chave)`
+ * e `.limit(pageSize)`. Chave que não avança entre páginas é consulta sem o `.gt`: lança, em
+ * vez de repetir a primeira página para sempre.
+ */
+export async function readAllPagesByKey<T, K extends string | number>(
+	what: string,
+	page: (after: K | null, pageSize: number) => PageResult<T>,
+	keyOf: (row: T) => K,
+	pageSize = PAGE_SIZE
+): Promise<T[]> {
+	const byKey = new Map<K, T>()
+	let after: K | null = null
+	for (;;) {
+		const { data, error } = await page(after, pageSize)
+		if (error) throw new Error(`Erro ao carregar ${what}: ${publicDbMessage(error)}`)
+		const batch = data ?? []
+		if (batch.length === 0) return [...byKey.values()]
+		for (const row of batch) {
+			const key = keyOf(row)
+			if (!byKey.has(key)) byKey.set(key, row)
+		}
+		const last = keyOf(batch[batch.length - 1] as T)
+		if (last === after) throw new Error(`Erro ao carregar ${what}: a paginação não avançou`)
+		after = last
+	}
+}

@@ -102,6 +102,8 @@ export async function ingestMarkdown(filePath: string): Promise<{ chunks_created
 	let created = 0
 	let skipped = 0
 
+	// Lote de leitura e de embedding, o mesmo `EMB_BATCH_SIZE` do embedder e do backfill; a
+	// gravação é que se fatia em `INSERT_BATCH`, porque foi ela que estourou com 128.
 	const BATCH = env.EMB_BATCH_SIZE
 	for (let i = 0; i < chunks.length; i += BATCH) {
 		const batch = chunks.slice(i, i + BATCH)

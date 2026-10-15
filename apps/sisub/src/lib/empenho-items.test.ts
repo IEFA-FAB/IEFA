@@ -88,3 +88,10 @@ describe("summarizeArpItemShare", () => {
 		expect(summarizeArpItemShare([], 500)).toEqual({ item_quantity: null, item_unit_price: null, item_value: 500 })
 	})
 })
+
+describe("summarizeArpItemShare: meio-centavo", () => {
+	it("soma com meio-centavo fecha para cima (o `toFixed(2)` antigo descia)", () => {
+		expect(summarizeArpItemShare([{ quantity: null, unit_price: null, value: 1.005 }], 0).item_value).toBe(1.01)
+		expect(summarizeArpItemShare([{ quantity: null, unit_price: null, value: "10.005" }], 0).item_value).toBe(10.01)
+	})
+})

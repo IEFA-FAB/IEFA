@@ -12,7 +12,28 @@ import {
 	parseSortableOrderParam,
 	projectedColumns,
 	toInt,
+	withUniqueTiebreak,
 } from "./query-params.ts"
+
+describe("withUniqueTiebreak", () => {
+	test("acrescenta a chave única que a ordem não cobre, ascendente, no fim", () => {
+		const order = [
+			{ column: "date", ascending: false },
+			{ column: "mess_hall_id", ascending: true },
+			{ column: "meal", ascending: true },
+		]
+		expect(withUniqueTiebreak(order, ["user_id", "date", "meal"])).toEqual([...order, { column: "user_id", ascending: true }])
+	})
+
+	test("não repete coluna já pedida, nem troca a direção dela", () => {
+		const order = [{ column: "id", ascending: false }]
+		expect(withUniqueTiebreak(order, ["id"])).toEqual(order)
+	})
+
+	test("sem ordem pedida, a chave única é a ordem", () => {
+		expect(withUniqueTiebreak([], ["id"])).toEqual([{ column: "id", ascending: true }])
+	})
+})
 
 describe("clampLimit", () => {
 	test("usa o padrão quando o parâmetro está ausente ou não é número", () => {

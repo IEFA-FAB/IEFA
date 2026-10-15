@@ -125,6 +125,42 @@ Hipóteses a verificar.
 - **O sistema precisa:** registrar "outras presenças" no dia sem cadastro individual.
 - **Cobertura:** `other_presences` — verificar teste.
 
+### FIS-SCN-01 — "Troquei do almoço para o jantar e o scanner parou de ler quem já tinha almoçado"
+- **Realidade:** o fiscal fica com a mesma tela aberta do almoço ao jantar (ou corrige a data);
+  quem almoçou volta para jantar. Ou uma presença registrada por engano é excluída na lista e o
+  militar passa de novo pelo leitor.
+- **O sistema precisa:** o cache de crachás que o scanner ignora (para não reabrir o diálogo
+  enquanto o crachá continua na frente da câmera) é por OM + data + refeição, não só por UUID, e
+  só guarda quem tem presença gravada NESTE refeitório naquela refeição (agora ou antes).
+  Cancelar, "não entra", presença em outro refeitório ou falha ao gravar não guardam: o crachá
+  ganha uma pausa de 5 s e volta a ser lido. Cancelar/Esc, "não entra" e presença em outro
+  refeitório ficam lembrados como recusa naquela refeição: a releitura reabre o diálogo com "Não" marcado e sem o "Fechar Auto.",
+  para nada ser gravado sem um toque do fiscal. Excluir a presença tira o UUID do cache da
+  refeição DA LINHA. Data, refeição e refeitório são os do instante da leitura, na previsão, na
+  gravação e no cache, mesmo que o fiscal troque o filtro com o diálogo aberto.
+  A unicidade de `meal_presences` é `(user_id, date, meal)`, sem o refeitório. A duplicidade
+  (`23505`) volta da `insertPresenceFn` como resultado `{ status: "duplicate", messHallId,
+  messHallName }`, com o refeitório da presença existente (`findMealPresenceMessHall`): o
+  transporte da server fn só leva a mensagem do erro, e o código se perdia no navegador. O cache
+  vive na página, e não na aba do scanner, porque as abas desmontam ao trocar.
+- **UX:** trocar a refeição no filtro basta; nenhuma leitura é ignorada em silêncio. Excluir na
+  "Lista de Presenças" e voltar ao scanner lê o militar de novo. Cancelou por engano ou recusou:
+  a releitura pede confirmação com "Não" já marcado e um aviso de que não fecha sozinho. Gravação
+  que falhou ("Falha ao salvar decisão"): é só reler. Duplicidade neste refeitório mostra "Já
+  registrado" e o crachá segue ignorado naquela refeição. Presença em outro refeitório avisa onde
+  ("Já há presença registrada nesta refeição em <refeitório>. Nada foi registrado aqui."), sem
+  prender o crachá; com o crachá ainda na câmera, a releitura pede toque com "Não" marcado, em vez
+  de tentar gravar de novo a cada leitura. O self check-in diz o mesmo ("Presença já registrada para esta refeição em
+  <refeitório>").
+- **Cobertura:** `apps/sisub/src/lib/fiscal.test.ts`: `createScanCache` (chave por refeição,
+  data e refeitório; exclusão libera só aquela refeição; pausa curta; despejo LRU),
+  `recusa e cancelamento no scanner` (reabre com "Não" e exige toque; presença em outro refeitório
+  conta como recusa; falha só pausa; gravar desfaz a recusa), `classifyInsertOutcome` e `isPresenceRecorded`. `apps/sisub/src/server/presence.fn.test.ts`
+  (o `23505` chega ao navegador como `duplicate` com o refeitório, pelo transporte que só leva a
+  mensagem). Banco: `apps/sisub/src/test/operations/presence.operations.test.ts` (integração;
+  `23505` e duplicata em outro refeitório com `findMealPresenceMessHall`). Fiação na tela
+  (`messhall/$messHallId/index.tsx`, `FiscalDialog`): **LACUNA** de e2e (precisa de câmera simulada).
+
 ### FIS-PRS-02 — "O refeitório fechou (falta de água)"
 - **Relacionado:** GC-AGD-07; o comensal precisa saber que não haverá refeição quente.
 - **Cobertura:** hipótese.

@@ -144,6 +144,55 @@ describe("validateSql", () => {
 		expect(validateSql("SELECT * FROM (units u JOIN mess_halls m ON m.unit_id = u.id) LIMIT 5")).toEqual({ valid: true })
 	})
 
+	test("parêntese dentro de literal não muda o nível (bypass da lista de relações e do FROM de função)", () => {
+		// `'('` descia um nível e `')'` fechava a lista do FROM: a vírgula seguinte não era conferida
+		expect(validateSql("SELECT * FROM units u JOIN kitchen k ON k.display_name = '(', auth.users a")).toEqual({
+			valid: false,
+			error: "Tabela não permitida: users",
+		})
+		expect(validateSql("SELECT * FROM units u JOIN kitchen k ON k.display_name = ')', auth.users a")).toEqual({
+			valid: false,
+			error: "Tabela não permitida: users",
+		})
+		// o `)` casava com o literal e o FROM da relação passava por argumento do `trim`
+		expect(validateSql("SELECT trim('(') FROM auth.users")).toEqual({ valid: false, error: "Tabela não permitida: users" })
+		expect(validateSql("SELECT substring(display_name FROM ')') FROM core.user_data")).toEqual({
+			valid: false,
+			error: "Tabela não permitida: user_data",
+		})
+		// literal `'::'` não faz da chamada seguinte um tipo
+		expect(validateSql("SELECT '::' dblink('x') FROM units")).toEqual({ valid: false, error: "Função não permitida: dblink" })
+		// literal com parêntese continua aceito onde é só valor
+		expect(validateSql("SELECT * FROM units u, kitchen k WHERE k.display_name = '(' OR u.display_name = ')' LIMIT 5")).toEqual({ valid: true })
+		expect(validateSql("SELECT trim('(' FROM display_name), count(*) AS \"(\" FROM units GROUP BY 1")).toEqual({ valid: true })
+	})
+
+	test("identificador entre aspas nunca é palavra-chave (bypass da lista de relações)", () => {
+		for (const alias of ['"where"', '"group"', '"order"', '"limit"', '"having"', '"offset"', '"fetch"', '"union"', '"WHERE"']) {
+			expect(validateSql(`SELECT * FROM units ${alias}, auth.users a`), alias).toEqual({ valid: false, error: "Tabela não permitida: users" })
+			expect(validateSql(`SELECT * FROM units AS ${alias}, auth.users a`), alias).toEqual({ valid: false, error: "Tabela não permitida: users" })
+		}
+		// `"join"`/`"from"` são nomes: não abrem relação, e o alias não muda a lista do FROM
+		expect(validateSql('SELECT * FROM units "join", auth.users a')).toEqual({ valid: false, error: "Tabela não permitida: users" })
+		expect(validateSql('SELECT 1 AS "from", 2 AS "join" FROM units')).toEqual({ valid: true })
+		// `""` é aspa dentro do nome: `"a""where"` é um identificador só
+		expect(validateSql('SELECT * FROM units "a""where", auth.users a')).toEqual({ valid: false, error: "Tabela não permitida: users" })
+		// palavra-chave entre aspas antes de "(" é chamada de função
+		expect(validateSql('SELECT "in"(1) FROM units')).toEqual({ valid: false, error: "Função não permitida: in" })
+		expect(validateSql('SELECT "extract"(x FROM auth.users) FROM units')).toEqual({ valid: false, error: "Tabela não permitida: users" })
+	})
+
+	test("nome de CTE entre aspas conserva maiúsculas: não mascara a tabela de mesmo nome", () => {
+		expect(validateSql('WITH "User_data" AS (SELECT 1) SELECT * FROM user_data')).toEqual({ valid: false, error: "Tabela não permitida: user_data" })
+		expect(validateSql('WITH "counts" AS (SELECT 1 AS n) SELECT n FROM counts')).toEqual({ valid: true })
+	})
+
+	test("identificador e espaço lidos como o Postgres lê (não ASCII é letra, NBSP não é espaço)", () => {
+		expect(validateSql("SELECT * FROM units whereé, auth.users a")).toEqual({ valid: false, error: "Tabela não permitida: users" })
+		expect(validateSql("SELECT * FROM units where\u00a0, auth.users a")).toEqual({ valid: false, error: "Tabela não permitida: users" })
+		expect(validateSql("SELECT count(*) AS refeições FROM units")).toEqual({ valid: true })
+	})
+
 	test("aceita rótulo entre aspas com acento e as funções de data comuns", () => {
 		expect(validateSql("SELECT count(*) AS \"Total de refeições\" FROM meal_presences WHERE date >= now() - interval '7 days'")).toEqual({
 			valid: true,
@@ -197,9 +246,10 @@ describe("validateSql: cada mensagem de recusa", () => {
 		expect(validateSql("SELECT '\\' FROM units")).toEqual({ valid: true })
 		refuse("SELECT `a` FROM units", "Caractere não permitido: `")
 		refuse("SELECT e'x' FROM units", "Strings com prefixo não são permitidas")
-		// LACUNA (caracterização, não contrato): o `&` vira token próprio, então o prefixo
-		// `u&` nunca casa e `U&'…'` passa. A role restrita do banco é que segura.
-		expect(validateSql("SELECT U&'x' FROM units")).toEqual({ valid: true })
+		// `U&` em string ou identificador: com UESCAPE, `U&"!0070g_sleep"` é `pg_sleep` no banco
+		refuse("SELECT U&'x' FROM units", "Strings com prefixo não são permitidas")
+		refuse("SELECT U&\"!0070g_sleep\" UESCAPE '!'(1) FROM units", "Strings com prefixo não são permitidas")
+		expect(validateSql("SELECT menu&'x' FROM units").valid).toBe(true)
 		refuse("SELECT B'1', N'x' FROM units", "Strings com prefixo não são permitidas")
 		refuse("SELECT 'abc FROM units", "String não terminada")
 		refuse("SELECT 'it''s FROM units", "String não terminada")

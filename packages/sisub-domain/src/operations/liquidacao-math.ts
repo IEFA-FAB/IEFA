@@ -6,6 +6,8 @@
  * verificado. Nenhuma tinha teste.
  */
 
+import { roundToCents } from "./money.ts"
+
 export interface ReceiptValueItem {
 	receivedQtyBase: number
 	unitCost: number | null
@@ -27,23 +29,6 @@ export function suggestedLiquidacaoValue(items: readonly ReceiptValueItem[]): nu
 		return acc + qty * cost
 	}, 0)
 	return roundToCents(total)
-}
-
-/**
- * Arredonda para centavo — e NÃO com `toFixed(2)`, que era o que estava em
- * produção.
- *
- * `(10.005).toFixed(2)` devolve "10.00": 10,005 em binário é 10,00499…, então
- * o meio-centavo cai sempre para baixo. Num valor só é um centavo; numa NS que
- * soma dezenas de itens, é um centavo por item sempre no mesmo sentido, e a
- * diferença aparece na conciliação contra o SIAFI sem ninguém saber de onde veio.
- *
- * `toPrecision(12)` normaliza o erro de representação ANTES do arredondamento,
- * então 1000,4999999999999 volta a ser 1000,5 e sobe para 1001 centavos.
- */
-export function roundToCents(value: number): number {
-	if (!Number.isFinite(value)) return 0
-	return Math.round(Number((value * 100).toPrecision(12))) / 100
 }
 
 /** Competência contábil de uma data ISO: sempre o primeiro dia do mês. */
@@ -167,6 +152,17 @@ export interface LiquidacaoNetBalance {
 	aPagar: number
 	/** Deduções retidas e ainda não recolhidas. */
 	aRecolher: number
+}
+
+/**
+ * Dedução sugerida pela alíquota (%) sobre o bruto da NS, em centavos fechados.
+ *
+ * A tela preenchia com `Math.round(bruto * pct) / 100`: bruto 1,15 a 50 % sugeria 0,57 (1,15 × 50
+ * é 57,4999… em binário), e a dedução era gravada com um centavo a menos do que o saldo conferido
+ * pelo `liquidacaoNetBalance`, que arredonda pelo `roundToCents`.
+ */
+export function deductionFromRate(bruto: number, ratePct: number): number {
+	return roundToCents((bruto * ratePct) / 100)
 }
 
 /**

@@ -493,6 +493,7 @@ export {
 	type DeductionEntry,
 	type DeductionKind,
 	deductionExceedsProblem,
+	deductionFromRate,
 	deductionRemittanceProblem,
 	isLiquidacaoWithoutReceipt,
 	type KitchenUnitRef,
@@ -505,7 +506,6 @@ export {
 	type ReceiptValueItem,
 	receiptLiquidacaoCeiling,
 	resolvePurchaseUnitId,
-	roundToCents,
 	suggestedLiquidacaoValue,
 } from "./liquidacao-math.ts"
 export { createMcpApiKey, deleteMcpApiKey, listMcpApiKeys, type McpApiKeyRow, revokeMcpApiKey } from "./mcp-keys.ts"
@@ -543,7 +543,8 @@ export {
 	recordMfaReset,
 	revokeRecoveryCodes,
 } from "./mfa-recovery.ts"
-export { computeNfeItemCosts, type NfeCostResult, type NfeItemCost, type NfeItemValues } from "./nfe-cost.ts"
+export { roundToCents } from "./money.ts"
+export { computeNfeItemCosts, NfeCostError, type NfeCostResult, type NfeItemCost, type NfeItemValues } from "./nfe-cost.ts"
 export {
 	type IngredientItemLink,
 	matchNfeItem,
@@ -631,7 +632,7 @@ export {
 	ingredientOutsidePreparations,
 	ingredientPreparationFilter,
 } from "./preparation-scope.ts"
-export { deletePresence, insertPresence, listArranchamentoMap, listPresences } from "./presence.ts"
+export { deletePresence, findMealPresenceMessHall, insertPresence, listArranchamentoMap, listPresences } from "./presence.ts"
 export {
 	complianceFactsOf,
 	deriveManualSelection,

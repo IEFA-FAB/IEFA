@@ -8,6 +8,14 @@ export function normalizeEmail(email: string) {
 }
 
 /**
+ * O que o `signIn` do kit lança quando o GoTrue recusa e-mail/senha, venha a recusa por `code`
+ * (`invalid_credentials`) ou pela frase em inglês. A tela de login reconhece credencial
+ * recusada por esta constante (`DEFAULT_INVALID_CREDENTIALS_PATTERN`): mudar o texto aqui muda
+ * os dois lados juntos.
+ */
+export const INVALID_CREDENTIALS_MESSAGE = "E-mail ou senha incorretos"
+
+/**
  * Erros do GoTrue que chegam com `code` estável, traduzidos pelo código.
  *
  * ## Por que o código vem ANTES da tabela de regex
@@ -51,7 +59,7 @@ const MESSAGE_BY_CODE: Record<string, string> = {
 	bad_jwt: "Sua sessão expirou. Entre novamente para continuar.",
 	request_timeout: "O serviço de autenticação demorou para responder. Tente de novo em instantes.",
 	// ── Senha: o GoTrue atual manda `code`; a tabela de regex abaixo fica para o que não manda
-	invalid_credentials: "E-mail ou senha incorretos",
+	invalid_credentials: INVALID_CREDENTIALS_MESSAGE,
 	email_not_confirmed: "Confirme seu e-mail antes de entrar",
 }
 
@@ -87,7 +95,7 @@ const MESSAGE_BY_PATTERN: [RegExp, string][] = [
 	[/(aal2 required|insufficient aal|assurance level)/i, MESSAGE_BY_CODE.insufficient_aal],
 	[/reauthentication (is )?needed/i, MESSAGE_BY_CODE.reauthentication_needed],
 	[/nonce/i, MESSAGE_BY_CODE.reauthentication_not_valid],
-	[/invalid login credentials/i, "E-mail ou senha incorretos"],
+	[/invalid login credentials/i, INVALID_CREDENTIALS_MESSAGE],
 	[/email not confirmed/i, "Confirme seu e-mail antes de entrar"],
 	[/user already registered/i, "Este e-mail já está cadastrado"],
 	[/password should be at least/i, "A senha deve ter no mínimo 8 caracteres, com maiúscula, minúscula e número"],
