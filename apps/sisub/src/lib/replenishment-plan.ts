@@ -234,23 +234,44 @@ export function resolveObservedLeadDays(
 	)
 }
 
+/** Canais que são dispensa por valor (art. 75, II): só eles consomem a folga do ramo. */
+const DISPENSA_CHANNELS: ReadonlySet<PurchaseChannel> = new Set(["supermercado_virtual", "contrata_mais"])
+
+export interface DispensaRoomCheck {
+	/** Ramo (classe do CATMAT) do item; ausente quando não há CATMAT ou classe. */
+	lineCode: string | undefined
+	smallValue: boolean
+	remaining: number | null
+}
+
 /**
  * O valor tem de caber no que RESTA do limite no ramo do item — o somatório do exercício, não o
- * item sozinho (art. 75, § 1º). A folga consumida por uma sugestão desconta das seguintes do mesmo
- * ramo (muta `dispensaRoom`); sem classe ou com dispensa sem valor, não se presume folga. Como a
- * ordem de chamada decide quem leva a folga, quem chama em lote é `buildReplenishmentSuggestions`.
+ * item sozinho (art. 75, § 1º). Só confere, não reserva: quem desconta é `consumeDispensaRoom`,
+ * depois que o canal sai dispensa. Sem classe ou com dispensa sem valor, não se presume folga.
  */
-export function reserveDispensaRoom(input: {
+export function checkDispensaRoom(input: {
 	catmat: number | undefined
 	estimatedValue: number | null
 	classByCatmat: ReadonlyMap<number, string>
-	dispensaRoom: Map<string, number | null>
-}): { smallValue: boolean; remaining: number | null } {
+	dispensaRoom: ReadonlyMap<string, number | null>
+}): DispensaRoomCheck {
 	const lineCode = input.catmat != null ? input.classByCatmat.get(input.catmat) : undefined
 	const remaining = lineCode ? (input.dispensaRoom.get(lineCode) ?? null) : null
-	const smallValue = fitsDispensaRoom(input.estimatedValue, remaining)
-	if (smallValue && lineCode && remaining != null && input.estimatedValue != null) input.dispensaRoom.set(lineCode, remaining - input.estimatedValue)
-	return { smallValue, remaining }
+	return { lineCode, smallValue: fitsDispensaRoom(input.estimatedValue, remaining), remaining }
+}
+
+/**
+ * Desconta o valor da folga do ramo (muta `dispensaRoom`) quando o canal escolhido é dispensa.
+ * ARP própria, carona e licitação não usam o limite do art. 75, II, e não tiram folga de ninguém.
+ */
+export function consumeDispensaRoom(
+	dispensaRoom: Map<string, number | null>,
+	check: DispensaRoomCheck,
+	estimatedValue: number | null,
+	channel: PurchaseChannel
+): void {
+	if (!DISPENSA_CHANNELS.has(channel) || !check.smallValue || !check.lineCode || check.remaining == null || estimatedValue == null) return
+	dispensaRoom.set(check.lineCode, check.remaining - estimatedValue)
 }
 
 export function formatCalcMemory(input: {
@@ -321,15 +342,16 @@ function assessReplenishmentNeed(need: ReplenishmentNeed, ctx: ReplenishmentCont
 	}
 }
 
-/** Reserva a folga da dispensa (muta `ctx.dispensaRoom`) e decide o canal. */
+/** Decide o canal e, se ele for dispensa, desconta a folga do ramo (muta `ctx.dispensaRoom`). */
 function finalizeReplenishmentSuggestion(a: ReplenishmentAssessment, ctx: ReplenishmentContext): ReplenishmentSuggestion {
 	const { need, factors, grossDemand, stock, inTransit, minStock, netNeed, coverageDays, leadTime } = a
-	const { smallValue, remaining } = reserveDispensaRoom({
+	const room = checkDispensaRoom({
 		catmat: ctx.catmatCodeByIngredient.get(need.ingredient_id),
 		estimatedValue: a.estimatedValue,
 		classByCatmat: ctx.classByCatmat,
 		dispensaRoom: ctx.dispensaRoom,
 	})
+	const { smallValue, remaining } = room
 	const decision = decideChannel({
 		netNeed,
 		ownArpBalance: ctx.arpBalanceById.get(need.ingredient_id) ?? 0,
@@ -342,6 +364,7 @@ function finalizeReplenishmentSuggestion(a: ReplenishmentAssessment, ctx: Replen
 		smallValue,
 		dispensaRemaining: remaining,
 	})
+	consumeDispensaRoom(ctx.dispensaRoom, room, a.estimatedValue, decision.channel)
 
 	return {
 		ingredientId: need.ingredient_id,
@@ -361,31 +384,24 @@ function finalizeReplenishmentSuggestion(a: ReplenishmentAssessment, ctx: Replen
 }
 
 /**
- * Ordem de urgência, a mesma régua do `decideChannel`: primeiro quem está abaixo do limiar de
- * urgência (cobertura < limiar); dentro de cada grupo, a menor cobertura em dias; empate, a maior
- * necessidade líquida (o critério de `rankReplenishmentSuggestions`); por fim o `ingredient_id`,
- * para a ordem não depender da ordem de leitura.
+ * Ordem de urgência, a mesma régua do `decideChannel` (urgente = cobertura < limiar): a menor
+ * folga até o limiar primeiro (cobertura − limiar; negativo é quanto falta para a reposição chegar
+ * a tempo). Pela cobertura absoluta, 3 dias com limiar 4 vinha antes de 4 dias com limiar 20, que
+ * está 16 dias atrasado. Empate, a maior necessidade líquida (o critério de
+ * `rankReplenishmentSuggestions`); por fim o `ingredient_id`, para a ordem não depender da leitura.
  */
 function compareByUrgency(a: ReplenishmentAssessment, b: ReplenishmentAssessment): number {
-	const urgentA = a.coverageDays < a.urgencyThresholdDays
-	const urgentB = b.coverageDays < b.urgencyThresholdDays
-	if (urgentA !== urgentB) return urgentA ? -1 : 1
-	if (a.coverageDays !== b.coverageDays) return a.coverageDays - b.coverageDays
+	const slackA = a.coverageDays - a.urgencyThresholdDays
+	const slackB = b.coverageDays - b.urgencyThresholdDays
+	if (slackA !== slackB) return slackA - slackB
 	if (a.netNeed !== b.netNeed) return b.netNeed - a.netNeed
 	return a.need.ingredient_id < b.need.ingredient_id ? -1 : a.need.ingredient_id > b.need.ingredient_id ? 1 : 0
 }
 
 /**
- * Sugestão de um insumo, com memória de cálculo. Consome a folga da dispensa: para vários insumos
- * que disputam o mesmo ramo, use `buildReplenishmentSuggestions`, que reserva por urgência.
- */
-export function buildReplenishmentSuggestion(need: ReplenishmentNeed, ctx: ReplenishmentContext): ReplenishmentSuggestion {
-	return finalizeReplenishmentSuggestion(assessReplenishmentNeed(need, ctx), ctx)
-}
-
-/**
- * Sugestões de todos os insumos, com a folga da dispensa (art. 75, § 1º: somatório do exercício
- * no ramo) consumida do MAIS URGENTE para o menos urgente (`compareByUrgency`).
+ * Sugestões de todos os insumos, com memória de cálculo. A folga da dispensa (art. 75, § 1º:
+ * somatório do exercício no ramo) é consumida do MAIS URGENTE para o menos urgente
+ * (`compareByUrgency`), e só por quem sai com canal de dispensa (`consumeDispensaRoom`).
  *
  * Por quê: a folga é finita e a primeira sugestão que cabe a leva. Os `needs` chegam em ordem
  * alfabética de pasta/insumo (`fetchProcurementNeeds`); reservar nessa ordem dava a dispensa ao

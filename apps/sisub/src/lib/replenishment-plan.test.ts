@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest"
 import {
-	buildReplenishmentSuggestion,
 	buildReplenishmentSuggestions,
+	checkDispensaRoom,
 	computeTransitByIngredient,
+	consumeDispensaRoom,
 	formatCalcMemory,
 	groupObservedLeadTimes,
 	indexDefaultPurchaseLinks,
@@ -11,7 +12,6 @@ import {
 	type ReplenishmentContext,
 	type ReplenishmentSuggestion,
 	rankReplenishmentSuggestions,
-	reserveDispensaRoom,
 	resolveGrossDemand,
 	resolveObservedLeadDays,
 	sumOrderedQtyByPurchaseItem,
@@ -174,7 +174,7 @@ describe("peças da sugestão", () => {
 		expect(resolveObservedLeadDays("p2", undefined, observed)).toEqual([])
 	})
 
-	it("reserveDispensaRoom consome a folga do ramo quando cabe", () => {
+	it("checkDispensaRoom confere sem reservar; consumeDispensaRoom desconta só em canal de dispensa", () => {
 		const room = new Map<string, number | null>([
 			["89", 1000],
 			["90", null],
@@ -183,22 +183,38 @@ describe("peças da sugestão", () => {
 			[1, "89"],
 			[2, "90"],
 		])
-		expect(reserveDispensaRoom({ catmat: 1, estimatedValue: 400, classByCatmat, dispensaRoom: room })).toEqual({ smallValue: true, remaining: 1000 })
+		const fits = checkDispensaRoom({ catmat: 1, estimatedValue: 400, classByCatmat, dispensaRoom: room })
+		expect(fits).toEqual({ lineCode: "89", smallValue: true, remaining: 1000 })
+		expect(room.get("89")).toBe(1000)
+		// canal que não é dispensa não consome
+		for (const channel of ["own_arp", "carona", "licitacao"] as const) consumeDispensaRoom(room, fits, 400, channel)
+		expect(room.get("89")).toBe(1000)
+		consumeDispensaRoom(room, fits, 400, "contrata_mais")
 		expect(room.get("89")).toBe(600)
-		// não cabe: não consome
-		expect(reserveDispensaRoom({ catmat: 1, estimatedValue: 700, classByCatmat, dispensaRoom: room })).toEqual({ smallValue: false, remaining: 600 })
+		// não cabe: nem dispensa consome
+		const tooBig = checkDispensaRoom({ catmat: 1, estimatedValue: 700, classByCatmat, dispensaRoom: room })
+		expect(tooBig).toEqual({ lineCode: "89", smallValue: false, remaining: 600 })
+		consumeDispensaRoom(room, tooBig, 700, "supermercado_virtual")
 		expect(room.get("89")).toBe(600)
 		// dispensa sem valor no ramo: não presume folga
-		expect(reserveDispensaRoom({ catmat: 2, estimatedValue: 1, classByCatmat, dispensaRoom: room })).toEqual({ smallValue: false, remaining: null })
+		expect(checkDispensaRoom({ catmat: 2, estimatedValue: 1, classByCatmat, dispensaRoom: room })).toEqual({
+			lineCode: "90",
+			smallValue: false,
+			remaining: null,
+		})
 		// sem CATMAT, CATMAT sem classe, ramo sem entrada
-		expect(reserveDispensaRoom({ catmat: undefined, estimatedValue: 1, classByCatmat, dispensaRoom: room })).toEqual({ smallValue: false, remaining: null })
-		expect(reserveDispensaRoom({ catmat: 3, estimatedValue: 1, classByCatmat, dispensaRoom: room })).toEqual({ smallValue: false, remaining: null })
-		expect(reserveDispensaRoom({ catmat: 4, estimatedValue: 1, classByCatmat: new Map([[4, "91"]]), dispensaRoom: room })).toEqual({
+		expect(checkDispensaRoom({ catmat: undefined, estimatedValue: 1, classByCatmat, dispensaRoom: room })).toEqual({
+			lineCode: undefined,
+			smallValue: false,
+			remaining: null,
+		})
+		expect(checkDispensaRoom({ catmat: 3, estimatedValue: 1, classByCatmat, dispensaRoom: room })).toMatchObject({ smallValue: false, remaining: null })
+		expect(checkDispensaRoom({ catmat: 4, estimatedValue: 1, classByCatmat: new Map([[4, "91"]]), dispensaRoom: room })).toMatchObject({
 			smallValue: false,
 			remaining: null,
 		})
 		// valor nulo
-		expect(reserveDispensaRoom({ catmat: 1, estimatedValue: null, classByCatmat, dispensaRoom: room })).toEqual({ smallValue: false, remaining: 600 })
+		expect(checkDispensaRoom({ catmat: 1, estimatedValue: null, classByCatmat, dispensaRoom: room })).toMatchObject({ smallValue: false, remaining: 600 })
 	})
 
 	it("formatCalcMemory com e sem estoque mínimo e fatores", () => {
@@ -239,9 +255,10 @@ describe("buildReplenishmentSuggestion", () => {
 		...overrides,
 	})
 	const need = { ingredient_id: "a", ingredient_name: "Arroz", measure_unit: "KG", estimated_quantity: 140 }
+	const buildOne = (one: typeof need, ctx: ReplenishmentContext) => buildReplenishmentSuggestions([one], ctx)[0]
 
 	it("insumo sem dado nenhum: tudo zerado, cobertura igual ao horizonte e licitação", () => {
-		const result = buildReplenishmentSuggestion({ ...need, estimated_quantity: 0 }, baseContext())
+		const result = buildOne({ ...need, estimated_quantity: 0 }, baseContext())
 		expect(result).toMatchObject({
 			ingredientId: "a",
 			description: "Arroz",
@@ -257,7 +274,7 @@ describe("buildReplenishmentSuggestion", () => {
 	})
 
 	it("ARP própria com saldo cobre a necessidade", () => {
-		const result = buildReplenishmentSuggestion(
+		const result = buildOne(
 			need,
 			baseContext({
 				stockById: new Map([["a", { available: 20, expiring: 2.123456 }]]),
@@ -277,7 +294,7 @@ describe("buildReplenishmentSuggestion", () => {
 
 	it("valor pequeno no ramo consome a folga da dispensa e entra no lead time do fornecedor esperado", () => {
 		const dispensaRoom = new Map<string, number | null>([["89", 1000]])
-		const result = buildReplenishmentSuggestion(
+		const result = buildOne(
 			need,
 			baseContext({
 				defaultPurchaseByIngredient: new Map([["a", "p1"]]),
@@ -357,6 +374,71 @@ describe("buildReplenishmentSuggestion", () => {
 		const channelById = (list: ReplenishmentSuggestion[]) => Object.fromEntries(list.map((s) => [s.ingredientId, s.channel]))
 		expect(channelById(forward)).toEqual({ x: "supermercado_virtual", y: "supermercado_virtual", z: "licitacao" })
 		expect(channelById(backward)).toEqual(channelById(forward))
+	})
+
+	const twoItemContext = (overrides: Partial<ReplenishmentContext>) =>
+		baseContext({
+			priceByIngredient: new Map([
+				["a", { unitPrice: 1, conversionFactor: 1 }],
+				["b", { unitPrice: 1, conversionFactor: 1 }],
+			]),
+			catmatByIngredient: new Map([
+				["a", true],
+				["b", true],
+			]),
+			catmatCodeByIngredient: new Map([
+				["a", 1],
+				["b", 1],
+			]),
+			classByCatmat: new Map([[1, "89"]]),
+			...overrides,
+		})
+	const twoNeeds = [
+		{ ...need, ingredient_id: "a", ingredient_name: "Arroz" },
+		{ ...need, ingredient_id: "b", ingredient_name: "Batata" },
+	]
+
+	it("buildReplenishmentSuggestions: o urgente coberto por ARP própria não tira a folga do próximo urgente", () => {
+		const dispensaRoom = new Map<string, number | null>([["89", 150]])
+		const policy = { min_stock: 0, coverage_days: 7, urgency_threshold_days: 5 }
+		const result = buildReplenishmentSuggestions(
+			twoNeeds,
+			twoItemContext({
+				// "a" zerado (mais urgente) e com ARP própria; "b" com 2 dias de cobertura
+				stockById: new Map([["b", { available: 20, expiring: 0 }]]),
+				policyById: new Map([
+					["a", policy],
+					["b", policy],
+				]),
+				arpBalanceById: new Map([["a", 1000]]),
+				dispensaRoom,
+			})
+		)
+		expect(result[0]).toMatchObject({ coverageDays: 0, netNeed: 140, channel: "own_arp" })
+		expect(result[1]).toMatchObject({ coverageDays: 2, netNeed: 120, channel: "supermercado_virtual" })
+		expect(dispensaRoom.get("89")).toBe(30)
+	})
+
+	it("buildReplenishmentSuggestions ordena pela distância até o limiar, não pela cobertura absoluta", () => {
+		const dispensaRoom = new Map<string, number | null>([["89", 150]])
+		const result = buildReplenishmentSuggestions(
+			twoNeeds,
+			twoItemContext({
+				// "a": 3 dias de cobertura, limiar 4 (1 dia atrasado); "b": 4 dias, limiar 20 (16 dias)
+				stockById: new Map([
+					["a", { available: 30, expiring: 0 }],
+					["b", { available: 40, expiring: 0 }],
+				]),
+				policyById: new Map([
+					["a", { min_stock: 0, coverage_days: 7, urgency_threshold_days: 4 }],
+					["b", { min_stock: 0, coverage_days: 7, urgency_threshold_days: 20 }],
+				]),
+				dispensaRoom,
+			})
+		)
+		expect(result[1]).toMatchObject({ coverageDays: 4, netNeed: 100, channel: "supermercado_virtual" })
+		expect(result[0]).toMatchObject({ coverageDays: 3, netNeed: 110, channel: "licitacao" })
+		expect(dispensaRoom.get("89")).toBe(50)
 	})
 
 	it("rankReplenishmentSuggestions filtra sem necessidade nem vencimento e ordena pela necessidade", () => {
