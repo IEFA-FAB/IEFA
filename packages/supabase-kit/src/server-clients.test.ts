@@ -18,6 +18,24 @@ const KEY = "sb_secret_test"
 const AUTO_REFRESH_TICK_MS = 30_000
 const N = 25
 const DEADLINE_MS = 30
+/** Esperas do backoff do postgrest-js (`getRetryDelay`): 1, 2 e 4 s. */
+const POSTGREST_BACKOFF_MS = new Set([1_000, 2_000, 4_000])
+
+/**
+ * Zera só as esperas do backoff do postgrest-js e devolve as que foram pedidas. O deadline do
+ * teste fica fora do conjunto, então continua valendo de verdade.
+ */
+function skipPostgrestBackoff(): number[] {
+	const requested: number[] = []
+	globalThis.setTimeout = ((handler: TimerHandler, ms?: number, ...args: unknown[]) => {
+		if (ms !== undefined && POSTGREST_BACKOFF_MS.has(ms)) {
+			requested.push(ms)
+			return realSetTimeout(handler, 0, ...args)
+		}
+		return realSetTimeout(handler, ms, ...args)
+	}) as typeof setTimeout
+	return requested
+}
 
 type AnyClient = {
 	auth: { initialize: () => Promise<unknown> }
@@ -32,6 +50,7 @@ function internals(client: AnyClient): GoTrueInternals {
 }
 
 const realSetInterval = globalThis.setInterval
+const realSetTimeout = globalThis.setTimeout
 const realFetch = globalThis.fetch
 let refreshIntervals = 0
 
@@ -45,6 +64,7 @@ beforeEach(() => {
 
 afterEach(() => {
 	globalThis.setInterval = realSetInterval
+	globalThis.setTimeout = realSetTimeout
 	globalThis.fetch = realFetch
 })
 
@@ -106,11 +126,14 @@ describe("o deadline do fetch vale para a leitura inteira, e a falha rápida ain
 				return Response.json([{ id: 1 }])
 			}) as unknown as typeof fetch
 
-			const { data, error } = await create(createTimeoutFetch(1_000)).from("units").select("*")
+			const backoff = skipPostgrestBackoff()
+
+			const { data, error } = await create(createTimeoutFetch(5_000)).from("units").select("*")
 
 			expect(error).toBeNull()
 			expect(data).toEqual([{ id: 1 }])
 			expect(calls).toBe(2)
+			expect(backoff).toEqual([1_000])
 		})
 
 		test(`${name}: 503 do cache de schema é repetido`, async () => {

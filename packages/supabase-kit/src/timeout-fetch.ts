@@ -23,8 +23,16 @@
  * `AbortError` ou `code` `ABORT_ERR`; `TimeoutError` só escapa se o signal do PRÓPRIO chamador
  * estiver abortado, o que aqui não acontece. Com um `Error` comum o deadline era tratado como
  * falha de rede e repetido: 4 × 10 s + 7 s ≈ 47 s numa leitura travada. Com `AbortError`, a
- * leitura travada custa uma tentativa e um deadline, e a falha RÁPIDA (`ECONNRESET`, 503 de
- * cache de schema) continua sendo repetida: o pior caso fica em deadline + 7 s.
+ * leitura travada custa uma tentativa e um deadline, e a falha que CHEGA (`ECONNRESET`, 503/520)
+ * continua sendo repetida, cada tentativa com deadline novo.
+ *
+ * Pior caso de uma leitura, com 10 s de deadline:
+ * - falha instantânea nas três primeiras tentativas e a quarta travada: deadline + 7 s ≈ 17 s;
+ * - falha que chega perto do deadline em todas: 4 × deadline + 7 s ≈ 47 s, o mesmo teto de
+ *   antes, mas só quando o upstream RESPONDE devagar, não quando trava;
+ * - 503/520 com `Retry-After`: o postgrest espera o valor do header, sem teto, e essa espera
+ *   não passa por este deadline: um `Retry-After` longo estouraria sozinho o orçamento do ALB.
+ * Não há orçamento por operação: o `fetch` não enxerga onde uma operação começa e termina.
  *
  * Vale para qualquer client montado com estes `fetch`, inclusive fora do kit.
  */
