@@ -114,7 +114,13 @@ describe("planEndDesignation", () => {
 })
 
 describe("selfDesignationProblem (segregação de funções)", () => {
-	const base = { isSelf: true, role: "gestor" as const, designatorCanFinalize: true, otherDesignators: ["CAP SILVA", "TEN SOUZA"] }
+	const base = {
+		isSelf: true,
+		role: "gestor" as const,
+		designatorCanFinalize: true,
+		unitDesignators: ["CAP SILVA", "TEN SOUZA"],
+		globalDesignators: [] as string[],
+	}
 
 	test("quem efetiva o definitivo não se designa gestor nem comissão, e lê quem mais pode designar", () => {
 		const problem = selfDesignationProblem(base)
@@ -126,7 +132,23 @@ describe("selfDesignationProblem (segregação de funções)", () => {
 	})
 
 	test("unidade de uma pessoa só: a recusa diz o caminho", () => {
-		expect(selfDesignationProblem({ ...base, otherDesignators: [] })).toMatch(/Ninguém mais tem Gestão Unidade nível 2/)
+		const problem = selfDesignationProblem({ ...base, unitDesignators: [] })
+		expect(problem).toMatch(/Ninguém mais tem Gestão Unidade nível 2/)
+		expect(problem).toMatch(/comandante designe outro servidor/)
+	})
+
+	test("o pessoal da OM vem antes dos globais, que vêm marcados", () => {
+		const globals = ["AAA SUPORTE", "BBB SUPORTE", "CCC SUPORTE", "DDD SUPORTE", "EEE SUPORTE"]
+		const problem = selfDesignationProblem({ ...base, unitDesignators: ["TEN SOUZA"], globalDesignators: globals }) as string
+		expect(problem).toContain("Quem pode designar: TEN SOUZA, AAA SUPORTE (acesso global)")
+		expect(problem).toMatch(/…\.$/)
+		expect(problem).not.toMatch(/Ninguém mais/)
+	})
+
+	test("sem ninguém da OM, diz isso e aponta os globais disponíveis", () => {
+		const problem = selfDesignationProblem({ ...base, unitDesignators: [], globalDesignators: ["MAJ ADMIN"] }) as string
+		expect(problem).toMatch(/Ninguém mais tem Gestão Unidade nível 2 nesta OM/)
+		expect(problem).toContain("com acesso global, pode designar: MAJ ADMIN (acesso global)")
 	})
 
 	test("designar outra pessoa, designar-se fiscal ou não poder efetivar passa", () => {

@@ -88,18 +88,29 @@ export function canDesignateInUnit(permissions: UserContext["permissions"], purc
  * pela autoridade competente" (art. 140, II, b), e a designação é o controle de outro papel.
  * Designar-se fiscal (o provisório) não entra na trava: o definitivo continua sendo de outra
  * pessoa. Quando ninguém mais na OM pode designar, a mensagem diz isso e o caminho.
+ *
+ * Quem designa vem em dois grupos: o pessoal da OM (`unit:2` escopado nela) PRIMEIRO, e depois quem
+ * só tem acesso global (suporte e administração), marcado. Na ordem alfabética pura os globais,
+ * que são vários, tomavam os nomes visíveis e empurravam o designador da OM para o "…".
  */
 export function selfDesignationProblem(input: {
 	isSelf: boolean
 	role: DesignationRole
 	designatorCanFinalize: boolean
-	otherDesignators: readonly string[]
+	/** Outros com `unit:2` escopado na OM. */
+	unitDesignators: readonly string[]
+	/** Outros que designam só pelo acesso global. */
+	globalDesignators: readonly string[]
 }): string | null {
 	if (!input.isSelf || !DEFINITIVE_RECEIPT_ROLES.includes(input.role) || !input.designatorCanFinalize) return null
+	const globals = input.globalDesignators.map((name) => `${name} (acesso global)`)
+	const list = (names: readonly string[]) => `${names.slice(0, 5).join(", ")}${names.length > 5 ? "…" : ""}`
 	const who =
-		input.otherDesignators.length > 0
-			? `Quem pode designar nesta OM: ${input.otherDesignators.slice(0, 5).join(", ")}${input.otherDesignators.length > 5 ? "…" : ""}.`
-			: "Ninguém mais tem Gestão Unidade nível 2 nesta OM: peça a concessão ao administrador do sisub, ou que o comandante designe outro servidor."
+		input.unitDesignators.length > 0
+			? `Quem pode designar: ${list([...input.unitDesignators, ...globals])}.`
+			: globals.length > 0
+				? `Ninguém mais tem Gestão Unidade nível 2 nesta OM; com acesso global, pode designar: ${list(globals)}. Ou peça a concessão ao administrador do sisub.`
+				: "Ninguém mais tem Gestão Unidade nível 2 nesta OM: peça a concessão ao administrador do sisub, ou que o comandante designe outro servidor."
 	return `A designação de gestor (do contrato ou setorial) ou de comissão para o recebimento definitivo é feita por outra pessoa: você também efetiva o definitivo nesta OM (segregação de funções, Lei 14.133/2021, art. 7º, § 1º). ${who}`
 }
 
@@ -272,8 +283,15 @@ export function isDesignationCandidate(permissions: UserPermission[], unitId: nu
  * deixaria de ser candidato. É a marca `viaGlobalAccess` da lista.
  */
 export function isCandidateOnlyViaGlobalAccess(permissions: UserPermission[], unitId: number, kitchenIds: readonly number[]): boolean {
-	const scoped = permissions.filter((p) => p.level <= 0 || p.unit_id !== null || p.kitchen_id !== null || p.mess_hall_id !== null)
-	return isDesignationCandidate(permissions, unitId, kitchenIds) && !isDesignationCandidate(scoped, unitId, kitchenIds)
+	return isDesignationCandidate(permissions, unitId, kitchenIds) && !isDesignationCandidate(withoutUnscopedAllows(permissions), unitId, kitchenIds)
+}
+
+/**
+ * O conjunto efetivo sem os allows sem escopo; os denies ficam todos. Não decide acesso: só separa
+ * o pessoal da OM de quem chega pelo acesso global, para marcar ou ordenar.
+ */
+function withoutUnscopedAllows(permissions: UserPermission[]): UserPermission[] {
+	return permissions.filter((p) => p.level <= 0 || p.unit_id !== null || p.kitchen_id !== null || p.mess_hall_id !== null)
 }
 
 async function loadUnitKitchenIds(db: SisubDb, unitId: number): Promise<number[]> {
@@ -302,15 +320,19 @@ interface UnitAccessPerson {
  * escopo de unidade ou de cozinha da OM: as sem escopo e as escopadas na OM ou numa cozinha dela.
  * Linha de outro escopo não muda a resposta (o deny escopado só cobre o próprio escopo), então o
  * recorte dá o mesmo veredito do conjunto completo. Os demais módulos não entram: deny é por
- * módulo. As cozinhas vêm de quem chama, que já as leu.
+ * módulo. As cozinhas vêm de quem chama quando ele já as leu; com `null`, o próprio SQL as
+ * recorta, e quem chama pode ler as cozinhas em paralelo.
  */
-async function loadUnitAccess(db: SisubDb, unitId: number, kitchenIds: readonly number[]): Promise<UnitAccessPerson[]> {
-	const inKitchens = kitchenIds.length
-		? sql`g.kitchen_id in (${sql.join(
-				kitchenIds.map((id) => sql`${id}`),
-				sql`, `
-			)})`
-		: sql`false`
+async function loadUnitAccess(db: SisubDb, unitId: number, kitchenIds: readonly number[] | null): Promise<UnitAccessPerson[]> {
+	const inKitchens =
+		kitchenIds == null
+			? sql`g.kitchen_id in (select k.id from kitchen.kitchen k where k.unit_id = ${unitId} or k.purchase_unit_id = ${unitId})`
+			: kitchenIds.length
+				? sql`g.kitchen_id in (${sql.join(
+						kitchenIds.map((id) => sql`${id}`),
+						sql`, `
+					)})`
+				: sql`false`
 	const rows = (await runQuery(
 		"QUERY_FAILED",
 		() =>
@@ -371,8 +393,7 @@ const byLabel = (a: { label: string }, b: { label: string }) => a.label.localeCo
  */
 export async function listDesignationCandidates(db: SisubDb, ctx: UserContext, input: { unitId: number }): Promise<DesignationCandidate[]> {
 	requireUnit(ctx, 2, input.unitId)
-	const kitchenIds = await loadUnitKitchenIds(db, input.unitId)
-	const people = await loadUnitAccess(db, input.unitId, kitchenIds)
+	const [kitchenIds, people] = await Promise.all([loadUnitKitchenIds(db, input.unitId), loadUnitAccess(db, input.unitId, null)])
 	return people
 		.filter((person) => isDesignationCandidate(person.permissions, input.unitId, kitchenIds))
 		.map((person) => ({
@@ -399,14 +420,14 @@ export async function createDesignation(db: SisubDb, ctx: UserContext, input: De
 	}
 	if (input.personId === ctx.userId && DEFINITIVE_RECEIPT_ROLES.includes(input.role)) {
 		const people = await loadUnitAccess(db, input.unitId, kitchenIds)
+		const designators = people.filter((person) => person.personId !== ctx.userId && canDesignateInUnit(person.permissions, input.unitId)).sort(byLabel)
+		const isUnitDesignator = (person: UnitAccessPerson) => canDesignateInUnit(withoutUnscopedAllows(person.permissions), input.unitId)
 		const problem = selfDesignationProblem({
 			isSelf: true,
 			role: input.role,
 			designatorCanFinalize: kitchenIds.some((id) => hasPermission(ctx.permissions, "storage", 3, { type: "kitchen", id })),
-			otherDesignators: people
-				.filter((person) => person.personId !== ctx.userId && canDesignateInUnit(person.permissions, input.unitId))
-				.sort(byLabel)
-				.map((person) => person.label),
+			unitDesignators: designators.filter(isUnitDesignator).map((person) => person.label),
+			globalDesignators: designators.filter((person) => !isUnitDesignator(person)).map((person) => person.label),
 		})
 		if (problem) throw new DomainError("DESIGNATION_SELF_SEGREGATION", problem)
 	}

@@ -124,9 +124,8 @@ export async function listEquipmentIssues(db: SisubDb, ctx: UserContext, input: 
  */
 export async function loadKitchenIssues(db: SisubDb, input: ListEquipmentIssues): Promise<EquipmentIssueWire[]> {
 	const scope = { kitchenIds: [input.kitchenId], unitIds: input.unitId != null ? [input.unitId] : null }
-	const open = await loadIssues(db, { ...scope, status: "open" })
-	if (input.onlyOpen) return open
-	const closed = await loadIssues(db, { ...scope, status: "closed", limit: input.limit })
+	if (input.onlyOpen) return loadIssues(db, { ...scope, status: "open" })
+	const [open, closed] = await Promise.all([loadIssues(db, { ...scope, status: "open" }), loadIssues(db, { ...scope, status: "closed", limit: input.limit })])
 	return [...open, ...closed].sort((a, b) => Date.parse(b.reported_at) - Date.parse(a.reported_at) || b.id.localeCompare(a.id))
 }
 
