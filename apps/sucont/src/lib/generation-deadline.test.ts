@@ -46,14 +46,33 @@ describe("withGenerationDeadline", () => {
 		expect(seen.signal?.aborted).toBe(true)
 	})
 
-	it("signal já abortado não deixa a geração rodar", async () => {
+	// Chamar `run` com o signal já abortado cobraria o teto de consumo por uma chamada que nem
+	// chega ao provider (cliente que caiu enquanto a server function montava o prompt).
+	it("signal já abortado: rejeita com o cancelamento sem chamar a geração", async () => {
 		const caller = new AbortController()
 		caller.abort()
-		const seen: { signal?: AbortSignal } = {}
+		let called = false
 		await expect(
-			withGenerationDeadline({ deadlineMs: 1_000, timeoutMessage: "prazo", signal: caller.signal }, (c) => hangingGeneration(c, seen))
-		).rejects.toThrow(/cancelada/)
-		expect(seen.signal?.aborted).toBe(true)
+			withGenerationDeadline({ deadlineMs: 1_000, timeoutMessage: "prazo", signal: caller.signal, cancelledMessage: "cancelada" }, async () => {
+				called = true
+				return "ok"
+			})
+		).rejects.toThrow("cancelada")
+		expect(called).toBe(false)
+	})
+
+	// O teto de consumo distingue prazo de cancelamento pelo nome do `reason`.
+	it("o abort do prazo leva reason TimeoutError; o do cancelamento, não", async () => {
+		const timedOut: { signal?: AbortSignal } = {}
+		await expect(withGenerationDeadline({ deadlineMs: 10, timeoutMessage: "prazo" }, (c) => hangingGeneration(c, timedOut))).rejects.toThrow("prazo")
+		expect((timedOut.signal?.reason as DOMException).name).toBe("TimeoutError")
+
+		const caller = new AbortController()
+		const cancelled: { signal?: AbortSignal } = {}
+		const pending = withGenerationDeadline({ deadlineMs: 1_000, timeoutMessage: "prazo", signal: caller.signal }, (c) => hangingGeneration(c, cancelled))
+		caller.abort()
+		await expect(pending).rejects.toThrow()
+		expect((cancelled.signal?.reason as DOMException).name).not.toBe("TimeoutError")
 	})
 
 	it("erro da geração antes do prazo passa intacto", async () => {

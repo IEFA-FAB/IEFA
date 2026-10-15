@@ -33,9 +33,18 @@ const DEFAULT_CANCELLED_MESSAGE = "A geração foi cancelada antes de terminar."
  *
  * O race com o abort garante o prazo mesmo se um adapter ignorar o signal. Rejeição depois do
  * abort vira o erro do prazo (ou do cancelamento), não o "Request aborted" do SDK.
+ *
+ * O abort do prazo leva `reason` com nome `TimeoutError` (a convenção do `AbortSignal.timeout()`).
+ * É por ele que o teto de consumo do `@iefa/ai-provider` distingue prazo, que cobra a saída
+ * cheia, de cancelamento, que cobra proporcional ao tempo.
+ *
+ * Com `signal` já abortado, `run` nem é chamado: a chamada nem chegaria ao provider, mas já
+ * teria passado pelo teto de consumo e sido cobrada.
  */
 export async function withGenerationDeadline<T>(options: GenerationDeadlineOptions, run: (controller: AbortController) => Promise<T>): Promise<T> {
 	const { deadlineMs, timeoutMessage, signal, cancelledMessage = DEFAULT_CANCELLED_MESSAGE } = options
+	if (signal?.aborted) throw new Error(cancelledMessage)
+
 	const controller = new AbortController()
 	let timedOut = false
 	const abortError = () => new Error(timedOut ? timeoutMessage : cancelledMessage)
@@ -46,11 +55,10 @@ export async function withGenerationDeadline<T>(options: GenerationDeadlineOptio
 
 	const timer = setTimeout(() => {
 		timedOut = true
-		controller.abort()
+		controller.abort(new DOMException(timeoutMessage, "TimeoutError"))
 	}, deadlineMs)
 	const onCallerAbort = () => controller.abort()
-	if (signal?.aborted) controller.abort()
-	else signal?.addEventListener("abort", onCallerAbort, { once: true })
+	signal?.addEventListener("abort", onCallerAbort, { once: true })
 
 	try {
 		return await Promise.race([run(controller), aborted])

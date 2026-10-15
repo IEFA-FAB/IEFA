@@ -98,6 +98,14 @@ function requestSignal(): AbortSignal | undefined {
 	}
 }
 
+/** `code` do RUN_ERROR que o teto de consumo emite (os `limit` do `RateLimitError`). */
+const RATE_LIMIT_CODES: ReadonlySet<string> = new Set<RateLimitError["limit"]>([
+	"requests-per-minute",
+	"tokens-per-minute",
+	"tokens-per-day",
+	"tokens-per-day-per-user",
+])
+
 type GenerationLimits = {
 	/** Mensagem quando o prazo vence — é o que chega à tela. */
 	timeoutMessage?: string
@@ -110,14 +118,27 @@ function withServerFnDeadline<T>({ timeoutMessage = DEFAULT_TIMEOUT_MESSAGE }: G
 /** Geração de texto livre (não streaming): acumula os deltas do chatStream, com prazo e abort. */
 export async function generateText({ userId, user, system, ...limits }: { userId: string; user: string; system?: string } & GenerationLimits): Promise<string> {
 	const adapter = getSucontAdapter(userId)
-	return withServerFnDeadline(limits, async (abortController) => {
-		let text = ""
-		for await (const chunk of adapter.chatStream({ ...buildOptions(user, system), abortController } as ChatStreamOptions)) {
-			const c = chunk as { type?: string; delta?: string }
-			if (c.type === "TEXT_MESSAGE_CONTENT" && typeof c.delta === "string") text += c.delta
+	return withServerFnDeadline(limits, (abortController) =>
+		collectStreamText(adapter.chatStream({ ...buildOptions(user, system), abortController } as ChatStreamOptions))
+	)
+}
+
+/**
+ * Texto de um `chatStream`. O teto de tokens no meio do stream (e a falha dos adapters que não
+ * lançam) chega como RUN_ERROR, não como exceção: ignorá-lo devolvia "" e a tela mostrava uma
+ * mensagem genérica no lugar de "limite atingido". Exportado para teste.
+ */
+export async function collectStreamText(stream: AsyncIterable<unknown>): Promise<string> {
+	let text = ""
+	for await (const chunk of stream) {
+		const c = chunk as { type?: string; delta?: string; message?: string; code?: string }
+		if (c.type === "TEXT_MESSAGE_CONTENT" && typeof c.delta === "string") text += c.delta
+		if (c.type === "RUN_ERROR") {
+			if (c.code && RATE_LIMIT_CODES.has(c.code)) setResponseStatus(429)
+			throw new Error(c.message || "Falha ao gerar a resposta da IA.")
 		}
-		return text
-	})
+	}
+	return text
 }
 
 /** Geração de saída estruturada (JSON): instrui o modelo com o JSON Schema e parseia, com prazo e abort. */

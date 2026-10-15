@@ -29,7 +29,7 @@ mock.module("@tanstack/react-start/server", () => ({
 	},
 }))
 
-const { generateJson, generateText, getSucontAdapter, SERVER_FN_AI_DEADLINE_MS } = await import("./ai.server.ts")
+const { collectStreamText, generateJson, generateText, getSucontAdapter, SERVER_FN_AI_DEADLINE_MS } = await import("./ai.server.ts")
 
 const AI_VARS = [
 	"SUCONT_AI_PROVIDER",
@@ -39,8 +39,6 @@ const AI_VARS = [
 	"SUCONT_AI_MAX_REQUESTS_PER_MINUTE",
 	"SUCONT_AI_MAX_TOKENS_PER_MINUTE",
 	"SUCONT_AI_MAX_TOKENS_PER_DAY",
-	"AWS_ACCESS_KEY_ID",
-	"AWS_SECRET_ACCESS_KEY",
 ] as const
 
 function clearAiEnv() {
@@ -144,9 +142,6 @@ describe("prazo e cancelamento", () => {
 	// prazo. Com o signal da requisição já abortado, nada espera o modelo.
 	it("generateText e generateJson abortam quando a requisição do cliente já caiu", async () => {
 		configureBedrock()
-		// Credencial estática: o SDK não sai procurando credencial na rede antes de ver o abort.
-		process.env.AWS_ACCESS_KEY_ID = "teste"
-		process.env.AWS_SECRET_ACCESS_KEY = "teste"
 		const gone = new AbortController()
 		gone.abort()
 		request.signal = gone.signal
@@ -157,5 +152,29 @@ describe("prazo e cancelamento", () => {
 
 	it("o prazo fica abaixo do idle de 60 s do ALB", () => {
 		expect(SERVER_FN_AI_DEADLINE_MS).toBeLessThan(60_000)
+	})
+})
+
+describe("collectStreamText — RUN_ERROR", () => {
+	// O teto no meio do stream vira RUN_ERROR (o SSE não pode lançar). `generateText` acumulava só
+	// texto e devolvia "", e a tela mostrava uma mensagem genérica no lugar do limite.
+	async function* stream(...chunks: Record<string, unknown>[]) {
+		for (const chunk of chunks) yield chunk
+	}
+
+	it("acumula o texto", async () => {
+		expect(await collectStreamText(stream({ type: "TEXT_MESSAGE_CONTENT", delta: "a" }, { type: "TEXT_MESSAGE_CONTENT", delta: "b" }))).toBe("ab")
+	})
+
+	it("propaga a mensagem do teto com status 429", async () => {
+		await expect(collectStreamText(stream({ type: "RUN_ERROR", message: "Orçamento diário de IA esgotado", code: "tokens-per-day" }))).rejects.toThrow(
+			"Orçamento diário de IA esgotado"
+		)
+		expect(response.status).toBe(429)
+	})
+
+	it("outro RUN_ERROR propaga a mensagem sem mexer no status", async () => {
+		await expect(collectStreamText(stream({ type: "RUN_ERROR", message: "provider caiu" }))).rejects.toThrow("provider caiu")
+		expect(response.status).toBe(0)
 	})
 })
