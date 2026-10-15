@@ -1,3 +1,4 @@
+import { getAuthErrorMessage as getKitAuthErrorMessage, normalizeEmail } from "@iefa/auth-kit"
 import type { AuthError, Session, User } from "@supabase/supabase-js"
 import { queryOptions } from "@tanstack/react-query"
 import { getServerSessionFn } from "@/server/auth.fn"
@@ -33,16 +34,14 @@ export const authQueryOptions = () =>
 		staleTime: 1000 * 60 * 5,
 	})
 
-const normalizeEmail = (email: string) => email.trim().toLowerCase()
-
-/** Traduz os erros do Supabase Auth para mensagens em português. */
+/**
+ * Traduz os erros do Supabase Auth pela tabela do kit (`code` primeiro, frase em inglês
+ * depois), para a credencial recusada sair com o mesmo texto dos outros apps
+ * (`INVALID_CREDENTIALS_MESSAGE`). Fica aqui só o que o kit não cobre: falha de rede.
+ */
 export function getAuthErrorMessage(error: AuthError | Error): string {
-	const msg = error.message.toLowerCase()
-	if (msg.includes("invalid login credentials")) return "E-mail ou senha inválidos."
-	if (msg.includes("email not confirmed")) return "E-mail ainda não confirmado."
-	if (msg.includes("rate limit") || msg.includes("too many")) return "Muitas tentativas. Aguarde e tente novamente."
-	if (msg.includes("network")) return "Falha de conexão. Verifique sua internet."
-	return error.message || "Erro ao autenticar."
+	if (error.message.toLowerCase().includes("network")) return "Falha de conexão. Verifique sua internet."
+	return getKitAuthErrorMessage(error) || "Erro ao autenticar."
 }
 
 export const authActions = {

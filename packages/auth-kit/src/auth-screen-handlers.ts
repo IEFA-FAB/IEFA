@@ -47,13 +47,11 @@ export interface AuthScreenConfig {
 	emailPattern?: RegExp
 	/** Reconhece credencial recusada na mensagem do `signIn`. Default: `DEFAULT_INVALID_CREDENTIALS_PATTERN`. */
 	invalidCredentialsPattern?: RegExp
-	/** Trocar de aba limpa o banner de erro e o de sucesso. Default: `false`. */
-	clearFeedbackOnTabSwitch?: boolean
 	/**
-	 * Depois do cadastro, a mensagem de sucesso é gravada DEPOIS de voltar à aba de
-	 * login (sobrevive a `clearFeedbackOnTabSwitch`). Default: `false` (antes).
+	 * Trocar de aba limpa também o banner de sucesso (o de erro some sempre). Default: `false`.
+	 * O "Conta criada!" do cadastro sobrevive: é gravado depois da troca para a aba de login.
 	 */
-	signUpSuccessAfterTabSwitch?: boolean
+	clearFeedbackOnTabSwitch?: boolean
 	/** Só redireciona quem já está autenticado a partir da view de login. Default: `false`. */
 	redirectOnlyFromAuthView?: boolean
 	/** Como confirmar a nova senha: `alert` do navegador ou banner de sucesso. Default: `"alert"`. */
@@ -66,7 +64,6 @@ export interface ResolvedAuthScreenConfig {
 	emailPattern: RegExp
 	invalidCredentialsPattern: RegExp
 	clearFeedbackOnTabSwitch: boolean
-	signUpSuccessAfterTabSwitch: boolean
 	redirectOnlyFromAuthView: boolean
 	resetSuccessFeedback: "alert" | "banner"
 }
@@ -78,7 +75,6 @@ export function resolveAuthScreenConfig(config: AuthScreenConfig): ResolvedAuthS
 		emailPattern: config.emailPattern ?? FAB_INSTITUTIONAL_EMAIL_PATTERN,
 		invalidCredentialsPattern: config.invalidCredentialsPattern ?? DEFAULT_INVALID_CREDENTIALS_PATTERN,
 		clearFeedbackOnTabSwitch: config.clearFeedbackOnTabSwitch ?? false,
-		signUpSuccessAfterTabSwitch: config.signUpSuccessAfterTabSwitch ?? false,
 		redirectOnlyFromAuthView: config.redirectOnlyFromAuthView ?? false,
 		resetSuccessFeedback: config.resetSuccessFeedback ?? "alert",
 	}
@@ -142,10 +138,9 @@ export function createAuthScreenHandlers(deps: AuthScreenHandlerDeps) {
 
 	const switchTab = (value: AuthTab) => {
 		set.setActiveTab(value)
-		if (config.clearFeedbackOnTabSwitch) {
-			set.setError("")
-			set.setSuccessMessage("")
-		}
+		// Erro de uma aba não vale na outra (credencial recusada no login não é falha do cadastro).
+		set.setError("")
+		if (config.clearFeedbackOnTabSwitch) set.setSuccessMessage("")
 		onTabChange?.(value)
 	}
 
@@ -190,9 +185,7 @@ export function createAuthScreenHandlers(deps: AuthScreenHandlerDeps) {
 			await onNavigate({ to: getPostLoginPath(state.redirect), replace: true })
 		} catch (err) {
 			onFailure()
-			const failure = describeSignInFailure(err, config.invalidCredentialsPattern, messages)
-			const setFailure = failure.field === "password" ? set.setPasswordError : set.setError
-			setFailure(failure.message)
+			set.setError(describeSignInFailure(err, config.invalidCredentialsPattern, messages))
 		} finally {
 			set.setIsSubmitting(false)
 		}
@@ -206,16 +199,10 @@ export function createAuthScreenHandlers(deps: AuthScreenHandlerDeps) {
 	}
 
 	const showSignUpSuccess = (email: string) => {
-		if (config.signUpSuccessAfterTabSwitch) {
-			// switchTab limpa successMessage — setar depois para a mensagem sobreviver na aba de login.
-			switchTab("login")
-			set.setLoginEmail(email)
-			set.setSuccessMessage(messages.signUpSuccess)
-			return
-		}
-		set.setSuccessMessage(messages.signUpSuccess)
+		// Depois do switchTab, que pode limpar o successMessage: a mensagem sobrevive na aba de login.
 		switchTab("login")
 		set.setLoginEmail(email)
+		set.setSuccessMessage(messages.signUpSuccess)
 	}
 
 	const handleRegister = async (e: FormSubmit) => {
