@@ -61,6 +61,7 @@ function fakeDb(rows: unknown[] = [], owner: { kitchenId: number | null } | unde
 	const writes: string[] = []
 	const selectChain: Record<string, unknown> = {}
 	selectChain.from = () => selectChain
+	selectChain.innerJoin = () => selectChain
 	selectChain.where = () => Object.assign(Promise.resolve(rows), selectChain)
 	// `orderBy`/`limit` devolvem a chain (não uma Promise crua): as operations encadeiam
 	// `.where().orderBy().limit()`, e um Promise sem os métodos quebraria com TypeError —
