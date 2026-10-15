@@ -102,11 +102,18 @@ function FieldError({ children }: { children: React.ReactNode }) {
 	)
 }
 
-function ErrorBanner({ message }: { message: string }) {
+/**
+ * Só a `message` fica na região anunciada (`role="alert"`). O `detail` fica fora dela: a contagem
+ * da trava muda a cada segundo e, dentro do alerta, o leitor de tela a anunciaria a cada troca.
+ */
+function ErrorBanner({ message, detail }: { message: string; detail?: string }) {
 	return (
-		<div role="alert" className="flex items-start gap-2 rounded-xl border border-destructive/20 bg-destructive/5 px-3.5 py-2.5 text-sm text-destructive">
+		<div className="flex items-start gap-2 rounded-xl border border-destructive/20 bg-destructive/5 px-3.5 py-2.5 text-sm text-destructive">
 			<CircleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-			{message}
+			<span>
+				<span role="alert">{message}</span>
+				{detail && ` ${detail}`}
+			</span>
 		</div>
 	)
 }
@@ -349,7 +356,7 @@ function LoginForm({ screen }: ScreenProps) {
 	} = screen
 	return (
 		<form onSubmit={handleLogin} className="space-y-3.5">
-			{isLocked && <ErrorBanner message={`Muitas tentativas. Tente novamente em ${retryAfter}s.`} />}
+			{isLocked && <ErrorBanner message="Muitas tentativas." detail={`Tente novamente em ${retryAfter}s.`} />}
 			{error && !isLocked && <ErrorBanner message={error} />}
 			{successMessage && <SuccessBanner message={successMessage} />}
 
