@@ -17,8 +17,8 @@ import { UG_MAPPING } from "../ugMapping"
 /*
  * Origem dos parâmetros do índice de risco: PARÂMETROS SEM FONTE, A CALIBRAR.
  *
- * - Peso 70/30 (impacto × probabilidade), quartis do risco (25/50/75) e quintis do
- *   impacto (20/40/60/80): vêm do upstream, commit debf6d33 "feat: Add risk assessment
+ * - Peso 70/30 (impacto × probabilidade) e os cortes 25/50/75 do risco e 20/40/60/80 do
+ *   impacto: vêm do upstream, commit debf6d33 "feat: Add risk assessment
  *   and classification to data" (2026-03-11), gerado no AI Studio
  *   (https://github.com/lsantosnels/SIAFI-x-SILOMS-Auditor/commit/debf6d33166f2dfcebf2f1533e8916a8248482e2).
  *   O commit não cita norma, matriz de risco institucional nem critério; README, issues
@@ -31,8 +31,20 @@ import { UG_MAPPING } from "../ugMapping"
  *   6/12=0.5, 9/12=0.75). O único critério registrado é empírico: no relatório real de
  *   32 competências, o eixo voltou a separar os cinco níveis.
  *
- * Os quartis e quintis são posição relativa no recorte (ranking), não limiar de
- * materialidade: o mesmo valor muda de nível conforme as outras UGs do arquivo.
+ * O que o código calcula (não são quartis nem quintis): ordena os valores das n chaves
+ * (UG, grupo), pega o índice da PRIMEIRA posição com valor ≥ ao da chave e usa
+ * `índice / n × 100` como posição; o nível sai dos cortes acima (≤25, ≤50, ≤75, resto no
+ * risco; ≤20, ≤40, ≤60, ≤80, resto no impacto). É posição relativa no recorte, não
+ * limiar de materialidade: o mesmo valor muda de nível conforme as outras UGs do arquivo.
+ *
+ * Defeito conhecido, COMPORTAMENTO ATUAL A DECIDIR (sai nas mensagens oficiais, por isso
+ * não foi mexido; casos travados em dataProcessor.test.ts):
+ * - a maior chave fica em (n−1)/n, nunca em 100: com n ≤ 4 chaves o risco não chega a
+ *   CRÍTICO (n = 4 dá 0/25/50/75: BAIXO, BAIXO, MÉDIO, ALTO), e com n ≤ 5 o impacto não
+ *   chega a CATASTRÓFICO (n = 5 dá 0/20/40/60/80);
+ * - empate pega o índice do primeiro: chaves de mesmo valor caem todas no nível da
+ *   primeira; se todas empatam, todas ficam em BAIXO / INSIGNIFICANTE.
+ * Correção possível, se o mantenedor decidir: posição `(índice da ÚLTIMA ocorrência + 1) / n`.
  * Calibrar com a SUCONT-4 antes de usar o nível como critério de cobrança.
  */
 /**
