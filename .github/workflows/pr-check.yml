@@ -54,6 +54,7 @@ jobs:
           restore-keys: ${{ runner.os }}-bun-
 
       - name: Install dependencies
+        id: install
         run: bun install --frozen-lockfile
 
       # O `lint` de cada workspace já é `biome check` (formatação inclusa), mas o turbo só roda os
@@ -71,11 +72,18 @@ jobs:
       # os mesmos que o bake de produção recebe: sem eles o build do PR seria outro artefato, com
       # outro grafo depois do tree-shaking. Abaixo, só as GitHub Variables de origem, uma a uma:
       # o mapa build arg → variável sai do manifesto, e variável que ele usa e falta aqui falha o
-      # passo. `toJSON(vars)` dispensaria a lista, mas entregaria todas as variáveis do repo ao
-      # código de PR de fork.
+      # passo, assim como variável obrigatória vazia (em PR de fork só avisa). `toJSON(vars)`
+      # dispensaria a lista, mas entregaria todas as variáveis do repo ao código de PR de fork.
+      # Vem antes do lint porque o `test` lê as `VITE_SISUB_*`; se falhar, só o Build é pulado
+      # (o job fica vermelho com o erro dele, e lint, typecheck e test seguem como sinal próprio).
+      # Daqui em diante, `!cancelled()` e o `outcome` do que cada passo precisa: um passo vermelho
+      # não esconde os outros.
       - name: Resolve build args
+        id: build-args
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: bun scripts/release-build-env.ts --all
         env:
+          HEAD_REPO_FORK: ${{ github.event.pull_request.head.repo.fork }}
           VITE_IEFA_SUPABASE_URL: ${{ vars.VITE_IEFA_SUPABASE_URL }}
           VITE_IEFA_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY }}
           VITE_SISUB_SUPABASE_URL: ${{ vars.VITE_SISUB_SUPABASE_URL }}
@@ -86,11 +94,12 @@ jobs:
 
       - name: Resolve scope
         id: scope
+        if: ${{ !cancelled() }}
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
         run: |
           changed=$(git diff --name-only "$BASE_SHA"...HEAD)
-          if printf '%s\n' "$changed" | grep -qE '^(bun\.lock|package\.json|biome\.json|turbo\.json|bunfig\.toml|packages/tsconfig/|\.oxlintrc\.tailwind\.jsonc$|scripts/lint-tailwind\.ts$|apps\.manifest\.json$|scripts/release-build-env\.ts$|\.github/workflows/pr-check\.yml$)'; then
+          if printf '%s\n' "$changed" | grep -qE '^(bun\.lock|package\.json|biome\.json|turbo\.json|bunfig\.toml|packages/tsconfig/|\.oxlintrc\.tailwind\.jsonc$|scripts/lint-tailwind\.ts$|apps\.manifest\.json$|scripts/release-build-env\.ts$|scripts/generate-deploy-artifacts\.ts$|\.github/workflows/pr-check\.yml$)'; then
             echo "args=" >> "$GITHUB_OUTPUT"
             echo "Arquivo global alterado: rodando o monorepo inteiro."
           else
@@ -103,6 +112,7 @@ jobs:
       # (~3,3 GB cada, por isso o Build abaixo fica em 2). Subir não dá CPU a mais, só disputa
       # e pico de RSS; descer alonga o job. Mesmo número no `release-verify.ts` (verify do deploy).
       - name: Lint · typecheck · test
+        if: ${{ !cancelled() && steps.install.outcome == 'success' && steps.scope.outcome == 'success' }}
         run: bunx turbo run lint typecheck test ${SCOPE_ARGS:+"$SCOPE_ARGS"} --concurrency=4 --continue
         env: &turbo-env
           SCOPE_ARGS: ${{ steps.scope.outputs.args }}
@@ -116,7 +126,7 @@ jobs:
       # mesmo tempo (~3,3 GB de RSS cada no sisub). Roda mesmo que o passo acima falhe: são
       # sinais independentes. O resultado é descartado; a imagem continua saindo do Dockerfile.
       - name: Build
-        if: ${{ !cancelled() && steps.scope.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.install.outcome == 'success' && steps.scope.outcome == 'success' && steps.build-args.outcome == 'success' }}
         run: bunx turbo run build ${SCOPE_ARGS:+"$SCOPE_ARGS"} --concurrency=2 --continue
         # As `VITE_*` vêm do `$GITHUB_ENV` ("Resolve build args").
         env: *turbo-env
