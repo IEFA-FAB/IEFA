@@ -21,8 +21,15 @@
 # o erro de representação com `toPrecision(12)` antes de arredondar e é simétrico no negativo.
 # `money.ts` fica fora: é onde o arredondamento mora.
 #
-# Escopo estreito de propósito: `toFixed(2)` para EXIBIR texto é legítimo, e percentual
-# (`Number((a / b * 100).toFixed(2))`) não é dinheiro. Nenhum dos dois casa.
+# Escopo estreito de propósito: `toFixed(2)` para EXIBIR texto é legítimo, e percentual ou
+# quantidade (kg) com duas casas não é dinheiro. Com o escopo em `apps/sisub/src/**` inteiro, a
+# regra separa os dois por forma e por nome:
+#   - percentual: `x * 100` dentro do `toFixed(2)`, ou `Math.round(x * 100 * 100) / 100`;
+#   - quantidade/percentual pelo nome da expressão (`qty`, `quantit`, `kg`, `pct`, `percent`,
+#     `ratio`), a menos que ela também traga nome de dinheiro (`price`, `cost`, `valor`, `value`,
+#     `amount`, `preco`, `custo`): `item.quantity * item.unitPrice` continua sendo valor.
+# Limite: a separação é por nome. Dinheiro em variável chamada `qty…` passa, e quantidade em
+# variável de nome neutro (`Number(x.toFixed(2))`) é acusada; nesse caso, renomeie (`xKg`).
 #
 # Casos de teste: `__fixtures__/money-rounding.ts` (opengrep test --config
 # .opengrep/rules/money-rounding.yaml .opengrep/rules/__fixtures__/money-rounding.ts).
@@ -52,7 +59,13 @@ rules:
     # (Para texto em pt-BR, o certo é Intl.NumberFormat — outra conversa.)
     patterns:
       - pattern-either:
-          - pattern: Number($X.toFixed(2))
+          - patterns:
+              - pattern: Number($X.toFixed(2))
+              # Quantidade/percentual pelo nome (`qtyKg`, `ratio`, `deltaPct`), a menos que o
+              # nome também fale de dinheiro (`item.quantity * item.unitPrice` é valor).
+              - metavariable-regex:
+                  metavariable: $X
+                  regex: '^(?!(?=[\s\S]*(?i:pct|percent|kg|qty|quantit|ratio))(?![\s\S]*(?i:price|cost|valor|value|amount|preco|custo)))'
           # `Math.round(v * 100) / 100` e as variantes que o #629 achou:
           # `(Math.sign(v) * Math.round(Math.abs(v) * 100 + Number.EPSILON)) / 100` (nfe-cost) e
           # `Math.round(Number((v * 100).toPrecision(12))) / 100` (o próprio `roundToCents`, que
@@ -64,5 +77,12 @@ rules:
                   pattern-either:
                     - pattern: Math.round(<... $X * 100 ...>)
                     - pattern: Math.round(<... 100 * $X ...>)
-      # Percentual (razão × 100) com duas casas: não é dinheiro (`deltaPct` em `issue-variance.ts`).
-      - pattern-not: Number(($A / $B * 100).toFixed(2))
+              - metavariable-regex:
+                  metavariable: $NUM
+                  regex: '^(?!(?=[\s\S]*(?i:pct|percent|kg|qty|quantit|ratio))(?![\s\S]*(?i:price|cost|valor|value|amount|preco|custo)))'
+      # Percentual com duas casas: algo × 100 fechado em centésimos. Dinheiro × 100 não aparece
+      # dentro de `toFixed(2)`, e centavos de percentual são `* 100 * 100` (ou `* 10000`).
+      - pattern-not: Number(<... $A * 100 ...>.toFixed(2))
+      - pattern-not: Number(<... 100 * $A ...>.toFixed(2))
+      - pattern-not: Math.round($A * 100 * 100) / 100
+      - pattern-not: Math.round($A * 10000) / 100

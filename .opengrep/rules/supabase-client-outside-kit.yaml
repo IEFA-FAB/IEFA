@@ -12,6 +12,7 @@
 #     query feita por engano através dele roda como service_role e passa por cima da RLS.
 #
 # O portal tinha o mesmo padrão em `favorites.fn.ts` e `journal/email.server.ts` (#628).
+# `createBrowserClient` com a secret é o pior caso: a chave vai para o bundle do navegador.
 #
 # Caminho certo: `createServiceRoleClient` do kit para dados (os getters de cada app, como
 # `getKitchenClient` no sisub) e `createSsrAuthClient`/`createCookieAuthClient` com a publishable
@@ -21,10 +22,21 @@
 #   - `packages/supabase-kit/**`: é onde o client é montado de propósito.
 #   - `apps/alpha/**`, `apps/api/**`: serviços Hono que ainda montam `createClient` direto. Dívida
 #     declarada no AGENTS.md, não padrão; sai daqui quando migrarem para o kit.
-#   - `apps/sisub-mcp/**`: serviço Bun (MCP SDK, sem TanStack Start) na mesma situação dos Hono.
-#     Dívida registrada aqui; sai daqui quando `getDataClient` passar a usar o kit.
-#   - testes, e2e e helpers de teste (`src/test/**`): montam o client de seed contra o banco de
-#     teste, fora de requisição.
+#   - `apps/sisub-mcp/**`: o mantenedor decidiu migrar o `getDataClient` para o kit em PR
+#     separado. Remover esta exclusão quando o PR de migração do sisub-mcp entrar.
+#   - testes, e2e, helpers de teste (`src/test/**`) e `scripts/**`: montam o client de seed ou de
+#     limpeza contra o banco, fora de requisição (sem ALB, sem sessão de usuário).
+#
+# O que a regra enxerga:
+#   - as três fábricas (`createClient` do supabase-js, `createServerClient` e
+#     `createBrowserClient` do `@supabase/ssr`) pelo import: nome direto, renomeado
+#     (`import { createClient as c }`) ou por namespace (`import * as sb` + `sb.createClient`). O
+#     import é o que ancora: o `createClient` do Sanity e o do openapi-fetch têm o mesmo nome e
+#     outra assinatura.
+#   - a chave SÓ PELO NOME do argumento: `envServer.SISUB_SUPABASE_SECRET_KEY`,
+#     `requireEnv("…_SECRET_KEY")`, `process.env.API_SUPABASE_SERVICE_ROLE_KEY`, `serviceRoleKey`,
+#     `secret`. Uma variável com nome neutro (`const k = envServer.SISUB_SUPABASE_SECRET_KEY` e
+#     `createClient(url, k)`) passa: a regra não segue valor. É limite conhecido, não garantia.
 #
 # Casos de teste: `__fixtures__/supabase-client-outside-kit.ts` (opengrep test --config
 # .opengrep/rules/supabase-client-outside-kit.yaml .opengrep/rules/__fixtures__/supabase-client-outside-kit.ts).
@@ -37,28 +49,33 @@ rules:
     severity: ERROR
     message: >-
       Client Supabase montado à mão com a secret key (service_role). Fora do `@iefa/supabase-kit`
-      ele não tem os deadlines de fetch (consulta presa vira 502 no ALB) e, se for o client de
+      ele não tem os deadlines de fetch (consulta presa vira 502 no ALB); se for o client de
       sessão, uma query feita por engano através dele roda como service_role e passa por cima da
-      RLS. Dados: `createServiceRoleClient` (ou o getter do app, como `getKitchenClient`). Sessão:
-      `createSsrAuthClient`/`createCookieAuthClient` com a publishable key (no sisub,
-      `requireSisubUser` nas rotas Nitro).
+      RLS; no navegador (`createBrowserClient`), a chave vaza no bundle. Dados:
+      `createServiceRoleClient` (ou o getter do app, como `getKitchenClient`). Sessão:
+      `createSsrAuthClient`/`createCookieAuthClient`/`resolveCookieSessionUser` com a publishable
+      key (no sisub, `requireSisubUser` nas rotas Nitro). Navegador: `createAppBrowserClient`.
     paths:
       include:
         - "apps/**"
       exclude:
         - "apps/alpha/**"
         - "apps/api/**"
+        # Remover quando o PR de migração do sisub-mcp para o kit entrar.
         - "apps/sisub-mcp/**"
         - "**/*.test.ts"
         - "**/*.test.tsx"
         - "**/e2e/**"
         - "**/src/test/**"
-    # A chave por nome: `envServer.SISUB_SUPABASE_SECRET_KEY`, `requireEnv("…_SECRET_KEY")`,
-    # `process.env.API_SUPABASE_SERVICE_ROLE_KEY`, `serviceRoleKey`. A publishable/anon não casa.
-    # O import ancora o `createClient` no supabase-js: o do Sanity e o do openapi-fetch têm o
-    # mesmo nome e outra assinatura.
+        - "**/scripts/**"
     patterns:
       - pattern-either:
+          # Nome direto.
+          - patterns:
+              - pattern-inside: |
+                  import { createClient } from "@supabase/supabase-js"
+                  ...
+              - pattern: createClient($URL, $K, ...)
           - patterns:
               - pattern-inside: |
                   import { createServerClient } from "@supabase/ssr"
@@ -66,9 +83,35 @@ rules:
               - pattern: createServerClient($URL, $K, ...)
           - patterns:
               - pattern-inside: |
-                  import { createClient } from "@supabase/supabase-js"
+                  import { createBrowserClient } from "@supabase/ssr"
                   ...
-              - pattern: createClient($URL, $K, ...)
+              - pattern: createBrowserClient($URL, $K, ...)
+          # Import renomeado: `import { createClient as createSupabaseClient }`.
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      import { $FN as $ALIAS } from "@supabase/supabase-js"
+                      ...
+                  - pattern-inside: |
+                      import { $FN as $ALIAS } from "@supabase/ssr"
+                      ...
+              - metavariable-regex:
+                  metavariable: $FN
+                  regex: '^(createClient|createServerClient|createBrowserClient)$'
+              - pattern: $ALIAS($URL, $K, ...)
+          # Namespace: `import * as sb` + `sb.createClient(…)`.
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      import * as $NS from "@supabase/supabase-js"
+                      ...
+                  - pattern-inside: |
+                      import * as $NS from "@supabase/ssr"
+                      ...
+              - pattern-either:
+                  - pattern: $NS.createClient($URL, $K, ...)
+                  - pattern: $NS.createServerClient($URL, $K, ...)
+                  - pattern: $NS.createBrowserClient($URL, $K, ...)
       - metavariable-regex:
           metavariable: $K
-          regex: '(?i).*(SECRET_?KEY|SERVICE_?ROLE)'
+          regex: '(?i).*(secret|service_?role)'

@@ -1,3 +1,9 @@
+// ok: react-directive-not-first
+"use client"
+// Prólogo com mais de uma diretiva: o compiler lê as duas (`program.directives`).
+// ok: react-directive-not-first
+"use no memo"
+
 // Casos de teste de `.opengrep/rules/react-compiler-directive.yaml`. Não é código do app: fica fora de
 // `apps`/`packages` (o `scan:rules` não o lê) e o Biome ignora `__fixtures__`.
 //
@@ -20,6 +26,13 @@ export function TreeManager() {
 	"use no memo"
 	const virtualizer = useVirtualizer({})
 	return <div onScroll={() => virtualizer.scrollToIndex(0)} />
+}
+
+export function StrictComponent() {
+	"use strict"
+	// ok: react-directive-not-first
+	"use no memo"
+	return null
 }
 
 export const ArrowComponent = (): null => {

@@ -24,6 +24,10 @@
 #     depois dos imports, no módulo). Basta olhar a instrução IMEDIATAMENTE anterior: se há
 #     alguma, a diretiva não é a primeira. Com `$S; ... "use no memo";` o motor estourava o tempo
 #     nos `index.ts` de mil re-exports. `go_deeper_stmt: false` mantém as duas no mesmo bloco.
+#     Exceção: a anterior também é uma string solta, como em `"use client"; "use no memo"` no topo
+#     do módulo ou `"use strict"; "use no memo"` numa função. O prólogo é uma SEQUÊNCIA de
+#     diretivas, e o compiler lê todas. Limite: `x; "use client"; "use no memo"` (a de cima já
+#     fora do prólogo) passa, porque a regra só olha a vizinha.
 #   - `react-directive-in-non-component`: a diretiva como primeira instrução de uma função que não
 #     é componente nem hook. A função com nome é casada pelo nome (o motor dá nome também a
 #     `const x = () => {…}` e a `onSubmit: async () => {…}`); a anônima, pela posição (argumento
@@ -37,6 +41,12 @@
 # #630 aplicado). Limites conhecidos (deixam passar, não acusam errado): `function (…)` anônima com
 # parâmetro desestruturado, arrow anônima com tipo de retorno que contenha `=` e parênteses
 # aninhados em mais de três níveis nos parâmetros.
+#
+# Desempenho: as duas regras começam com `pattern-regex` sobre o arquivo inteiro exigindo o texto
+# `use no memo`. Sem ele o ramo anônimo (que casa toda chamada, atribuição e `return`) rodava regex
+# em todo argumento do repo, e o motor não tinha literal para descartar arquivo antes: 17 s só
+# para este arquivo. Com ele, o prefiltro pula os arquivos sem a diretiva (~9 s, quase tudo o
+# custo fixo do scan) e os achados são os mesmos.
 #
 # Casos de teste: `__fixtures__/react-compiler-directive.tsx` (opengrep test --config
 # .opengrep/rules/react-compiler-directive.yaml .opengrep/rules/__fixtures__/react-compiler-directive.tsx).
@@ -64,9 +74,17 @@ rules:
     options:
       go_deeper_stmt: false
     patterns:
+      # Prefiltro: casa o arquivo inteiro só se ele tem a diretiva (ver cabeçalho).
+      - pattern-regex: '(?s)\A.*use no memo.*'
       - pattern-inside: |
           $S;
           "use no memo";
+      # Prólogo com mais de uma diretiva (`"use client"; "use no memo"`): a anterior ser só uma
+      # string não conta. Por regex sobre o texto de `$S` porque `"$D";` como padrão casa também
+      # instrução que apenas CONTÉM uma string (`const x = cond === "only" ? …`).
+      - metavariable-regex:
+          metavariable: $S
+          regex: '^(?!\s*\(?\s*(?:"[^"\n]*"|''[^''\n]*'')\s*\)?\s*;?\s*$)'
       - pattern: '"use no memo";'
 
   - id: react-directive-in-non-component
@@ -91,29 +109,32 @@ rules:
       # `const x = () => {…}` fica só com o ramo da função nomeada; sem isto `$X = $F` também a
       # casaria, e o mesmo sítio sairia duas vezes.
       vardef_assign: false
-    pattern-either:
-      # Função nomeada (declaração, ou `const nome = () => {…}`, que o motor trata igual) cujo nome
-      # não é de componente (PascalCase) nem de hook (`use` + maiúscula/dígito).
-      - patterns:
-          - pattern: 'function $N(...) { "use no memo"; ... }'
-          - metavariable-regex:
-              metavariable: $N
-              regex: '^(?!use[A-Z0-9]|[A-Z])'
-      # Função anônima pela posição. O regex sobre o texto de `$F` exige que `$F` SEJA a função
-      # (parâmetros com parênteses balanceados, ou um identificador, e logo o `=>`) e que a
-      # diretiva abra o corpo dela, e não o de outra função lá dentro.
-      - patterns:
-          - pattern-either:
-              - patterns:
-                  - pattern: '$CALLEE(..., $F, ...)'
-                  - metavariable-regex:
-                      metavariable: $CALLEE
-                      regex: '^(?!(React\.)?(memo|forwardRef)$)'
-              - pattern: '<$EL $ATTR={$F} />'
-              - pattern: '$F(...)'
-              - pattern: '$X = $F'
-              - pattern: 'return $F'
-          - metavariable-regex:
-              metavariable: $F
-              regex: '^\(?\s*(?:async\s*)?(?:function\b[^{]*|(?:\((?:[^()]|\((?:[^()]|\([^()]*\))*\))*\)|[A-Za-z_$][\w$]*)\s*(?::[^=]*?)?=>\s*)\{\s*(?:(?://[^\n]*|/\*[\s\S]*?\*/)\s*)*["'']use no memo["'']'
-          - focus-metavariable: $F
+    patterns:
+      # Prefiltro: casa o arquivo inteiro só se ele tem a diretiva (ver cabeçalho).
+      - pattern-regex: '(?s)\A.*use no memo.*'
+      - pattern-either:
+          # Função nomeada (declaração, ou `const nome = () => {…}`, que o motor trata igual) cujo nome
+          # não é de componente (PascalCase) nem de hook (`use` + maiúscula/dígito).
+          - patterns:
+              - pattern: 'function $N(...) { "use no memo"; ... }'
+              - metavariable-regex:
+                  metavariable: $N
+                  regex: '^(?!use[A-Z0-9]|[A-Z])'
+          # Função anônima pela posição. O regex sobre o texto de `$F` exige que `$F` SEJA a função
+          # (parâmetros com parênteses balanceados, ou um identificador, e logo o `=>`) e que a
+          # diretiva abra o corpo dela, e não o de outra função lá dentro.
+          - patterns:
+              - pattern-either:
+                  - patterns:
+                      - pattern: '$CALLEE(..., $F, ...)'
+                      - metavariable-regex:
+                          metavariable: $CALLEE
+                          regex: '^(?!(React\.)?(memo|forwardRef)$)'
+                  - pattern: '<$EL $ATTR={$F} />'
+                  - pattern: '$F(...)'
+                  - pattern: '$X = $F'
+                  - pattern: 'return $F'
+              - metavariable-regex:
+                  metavariable: $F
+                  regex: '^\(?\s*(?:async\s*)?(?:function\b[^{]*|(?:\((?:[^()]|\((?:[^()]|\([^()]*\))*\))*\)|[A-Za-z_$][\w$]*)\s*(?::[^=]*?)?=>\s*)\{\s*(?:(?://[^\n]*|/\*[\s\S]*?\*/)\s*)*["'']use no memo["'']'
+              - focus-metavariable: $F

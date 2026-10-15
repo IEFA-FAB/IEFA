@@ -12,6 +12,11 @@ declare const counts: { processado: number }
 declare const committed: Map<string, number>
 declare const delta: number
 declare const suggested: number
+declare const ratio: number
+declare const qtyKg: number
+declare const a: number
+declare const b: number
+declare const line2: { quantity: number; unitPrice: number }
 declare function roundToCents(value: number): number
 
 // ruleid: money-tofixed-rounding
@@ -38,6 +43,12 @@ export const round2 = (value: number) => (Math.sign(value) * Math.round(Math.abs
 // ruleid: money-tofixed-rounding
 export const legacy = (value: number) => Math.round(Number((value * 100).toPrecision(12))) / 100
 
+// Quantidade × preço é valor, mesmo com `quantity` no nome.
+// ruleid: money-tofixed-rounding
+export const lineValue = Math.round(line2.quantity * line2.unitPrice * 100) / 100
+// ruleid: money-tofixed-rounding
+export const lineValueFixed = Number((line2.quantity * line2.unitPrice).toFixed(2))
+
 // ok: money-tofixed-rounding
 export const rounded = roundToCents(total)
 // ok: money-tofixed-rounding
@@ -53,3 +64,15 @@ export const pct = Math.round((delta / suggested) * 100)
 // Milésimos (quantidade em kg), não centavos.
 // ok: money-tofixed-rounding
 export const kg = Math.round(total * 1000) / 1000
+// Percentuais com duas casas, nas formas que a revisão do #641 achou.
+// ok: money-tofixed-rounding
+export const pctFromRatio = Number((ratio * 100).toFixed(2))
+// ok: money-tofixed-rounding
+export const pctLeading = Number(((100 * a) / b).toFixed(2))
+// ok: money-tofixed-rounding
+export const pctCents = Math.round((a / b) * 100 * 100) / 100
+// Quantidade em kg pelo nome.
+// ok: money-tofixed-rounding
+export const kgFixed = Number(qtyKg.toFixed(2))
+// ok: money-tofixed-rounding
+export const kgRound = Math.round(qtyKg * 100) / 100

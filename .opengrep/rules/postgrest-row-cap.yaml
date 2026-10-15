@@ -12,9 +12,15 @@
 #   - na api, o `defaultLimit`/`maxLimit = 100000` do factory prometia o que não entregava:
 #     `/arranchamentos` (~44 mil linhas) respondia 200 com exatamente 1000.
 #
-# Caminho certo: `readAllPages` (`apps/sisub/src/lib/read-all-pages.ts`), que pagina com
-# `.range(from, to)` sobre uma ordem por chave única até a página vazia; na api, `readUpTo`
-# (`apps/api/src/api/read-up-to.ts`), que pagina até o `limit` pedido.
+# Caminho certo, no sisub: `readAllPages` (`apps/sisub/src/lib/read-all-pages.ts`), que pagina
+# com `.range(from, to)` sobre uma ordem por chave única até a página vazia, ou
+# `readAllPagesByKey` (keyset, para leitura que soma dinheiro). Na api, o #626 trocou a promessa
+# de `limit` alto por paginação de keyset (`apps/api/src/api/cursor.ts`): a rota devolve até 1000
+# linhas e o cabeçalho `X-Next-Cursor` quando a página veio cheia.
+#
+# `.range(0, 4999)` é o mesmo defeito por outro caminho: pede 5000 e volta 1000. A regra acusa
+# `.range(A, B)` com literais e B − A ≥ 1000 (o intervalo é inclusivo, então são B − A + 1
+# linhas). Com variáveis, como dentro do `readAllPages`, não casa.
 #
 # A regra só olha cadeia PostgREST (`.from(…).select(…)` ou `.rpc(…)`): no Drizzle a ordem é
 # `db.select().from(t)` e não há teto, então `.limit(5000)` ali não casa. Limite em variável
@@ -31,10 +37,12 @@ rules:
     languages: [typescript]
     severity: ERROR
     message: >-
-      `.limit(N)` com N > 1000 numa leitura PostgREST. O PostgREST corta calado em 1000 linhas
-      (`max_rows`): a resposta vem com status 200, sem erro, e menor do que o pedido, e quem soma,
-      conta ou decide a partir dela erra sem saber. Pagine com `readAllPages`
-      (`apps/sisub/src/lib/read-all-pages.ts`, ordem por chave única) ou, na api, `readUpTo`.
+      `.limit(N)` com N > 1000, ou `.range(A, B)` com mais de 1000 linhas, numa leitura
+      PostgREST. O PostgREST corta calado em 1000 linhas (`max_rows`): a resposta vem com status
+      200, sem erro, e menor do que o pedido, e quem soma, conta ou decide a partir dela erra sem
+      saber. No sisub, pagine com `readAllPages` ou `readAllPagesByKey`
+      (`apps/sisub/src/lib/read-all-pages.ts`, ordem por chave única); na api, com o cursor de
+      keyset de `apps/api/src/api/cursor.ts` (`X-Next-Cursor`).
     paths:
       include:
         - "apps/**"
@@ -42,12 +50,18 @@ rules:
       exclude:
         - "**/*.test.ts"
     patterns:
-      - pattern: $Q.limit($N)
+      - pattern-either:
+          - patterns:
+              - pattern: $Q.limit($N)
+              - metavariable-comparison:
+                  metavariable: $N
+                  comparison: $N > 1000
+          - patterns:
+              - pattern: $Q.range($FROM, $TO)
+              - metavariable-comparison:
+                  comparison: $TO - $FROM >= 1000
       - metavariable-pattern:
           metavariable: $Q
           pattern-either:
             - pattern: $C.from(...).select(...)
             - pattern: $C.rpc(...)
-      - metavariable-comparison:
-          metavariable: $N
-          comparison: $N > 1000

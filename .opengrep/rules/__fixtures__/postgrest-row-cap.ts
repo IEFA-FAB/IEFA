@@ -33,6 +33,11 @@ export async function capped(unitId: string) {
 		.limit(10_000)
 	// ruleid: postgrest-limit-above-row-cap
 	await supabase.rpc("list_rows", { unit_id: unitId }).limit(1001)
+	// `.range` é inclusivo: 0..4999 pede 5000 linhas e volta 1000.
+	// ruleid: postgrest-limit-above-row-cap
+	await supabase.from("t").select("id").order("id").range(0, 4999)
+	// ruleid: postgrest-limit-above-row-cap
+	await supabase.from("t").select("id").order("id").range(2000, 3000)
 }
 
 export async function fine(unitId: string) {
@@ -47,6 +52,10 @@ export async function fine(unitId: string) {
 	// Drizzle não passa pelo PostgREST e não tem teto.
 	// ok: postgrest-limit-above-row-cap
 	await db.select().from(table).where(unitId).limit(5000)
+	// Exatamente 1000 linhas (0..999): cabe.
+	// ok: postgrest-limit-above-row-cap
+	await supabase.from("t").select("id").order("id").range(0, 999)
+	// Página do `readAllPages`, com variáveis.
 	// ok: postgrest-limit-above-row-cap
 	await readAllPages("os empenhos", (from, to) => supabase.from("empenho").select("id").eq("unit_id", unitId).order("id").range(from, to))
 }

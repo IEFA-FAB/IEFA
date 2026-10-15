@@ -7,8 +7,10 @@
 
 import type { Database } from "@iefa/database"
 import { createServiceRoleClient, createSsrAuthClient } from "@iefa/supabase-kit"
-import { createServerClient } from "@supabase/ssr"
-import { createClient } from "@supabase/supabase-js"
+import * as ssr from "@supabase/ssr"
+import { createBrowserClient, createServerClient, createServerClient as makeServerClient } from "@supabase/ssr"
+import * as sb from "@supabase/supabase-js"
+import { createClient, createClient as createSupabaseClient } from "@supabase/supabase-js"
 
 declare const envServer: {
 	VITE_SISUB_SUPABASE_URL: string
@@ -21,6 +23,9 @@ declare function requireEnv(name: string): string
 declare const cookies: { getAll(): { name: string; value: string }[]; setAll(): void }
 declare const url: string
 declare const serviceRoleKey: string
+declare const secret: string
+declare const sanity: { createClient(options: { projectId: string; token: string }): unknown }
+declare const neutralName: string
 
 // O client de sessão dos streams de chat do sisub antes do #625.
 export function authClientFromEvent() {
@@ -50,6 +55,22 @@ export const fromProcess = createClient(url, process.env.API_SUPABASE_SERVICE_RO
 // ruleid: supabase-secret-client-outside-kit
 export const camelCase = createClient(url, serviceRoleKey)
 
+// Só um rename no import, e o defeito do #625 voltava sem achado.
+// ruleid: supabase-secret-client-outside-kit
+export const aliased = createSupabaseClient(url, envServer.SISUB_SUPABASE_SECRET_KEY)
+// ruleid: supabase-secret-client-outside-kit
+export const aliasedServer = makeServerClient(url, envServer.SISUB_SUPABASE_SECRET_KEY, { cookies })
+// ruleid: supabase-secret-client-outside-kit
+export const namespaced = sb.createClient(url, envServer.SISUB_SUPABASE_SECRET_KEY)
+// ruleid: supabase-secret-client-outside-kit
+export const namespacedBrowser = ssr.createBrowserClient(url, serviceRoleKey)
+// No navegador, a chave vai para o bundle.
+// ruleid: supabase-secret-client-outside-kit
+export const browser = createBrowserClient(url, envServer.SISUB_SUPABASE_SECRET_KEY)
+// `const secret = envServer.SISUB_SUPABASE_SECRET_KEY` (o `purge-test-fixtures.ts` do sucont).
+// ruleid: supabase-secret-client-outside-kit
+export const plainSecret = createClient(url, secret)
+
 // ok: supabase-secret-client-outside-kit
 export const kitData = createServiceRoleClient({ url: envServer.VITE_SISUB_SUPABASE_URL, secretKey: envServer.SISUB_SUPABASE_SECRET_KEY, schema: "kitchen" })
 // ok: supabase-secret-client-outside-kit
@@ -59,3 +80,11 @@ export const kitAuth = createSsrAuthClient({ url: envServer.VITE_SISUB_SUPABASE_
 export const anon = createClient(envServer.VITE_SISUB_SUPABASE_URL, envServer.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY)
 // ok: supabase-secret-client-outside-kit
 export const ssrAnon = createServerClient(envServer.VITE_SISUB_SUPABASE_URL, envServer.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY, { cookies })
+// ok: supabase-secret-client-outside-kit
+export const browserAnon = createBrowserClient(url, envServer.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY)
+// Mesmo nome, outra biblioteca (Sanity): o import é que ancora.
+// ok: supabase-secret-client-outside-kit
+export const cms = sanity.createClient({ projectId: "x", token: secret })
+// Limite conhecido: a regra lê o NOME da chave, não segue o valor.
+// ok: supabase-secret-client-outside-kit
+export const neutral = createClient(url, neutralName)
