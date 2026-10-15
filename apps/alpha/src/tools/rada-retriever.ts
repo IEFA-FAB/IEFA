@@ -56,6 +56,8 @@ export interface RADARetrieverOutput {
 	}
 }
 
+// Calibrado para o reranker NVIDIA e sem golden set que o confirme no Bedrock: ver
+// `RERANK_THRESHOLD` em `env-schema.ts` antes de mexer.
 const THRESHOLD = env.RERANK_THRESHOLD
 const RRF_K = env.RRF_K
 const RERANK_TOP_N = env.RERANK_TOP_N
@@ -237,6 +239,8 @@ async function rerankOrFallback(query: string, docs: Array<{ id: string; content
 
 export async function radaRetriever(input: RADARetrieverInput): Promise<RADARetrieverOutput> {
 	const { query, filters, top_k = 10 } = input
+	// Só a pergunta leva o prefixo; os chunks foram embedados sem ele. Herança do BGE, mantida
+	// até haver eval de recuperação (ver `EMB_QUERY_PREFIX` em `env-schema.ts`).
 	const queryWithPrefix = `${env.EMB_QUERY_PREFIX}${query}`
 	const document_types_filtered: readonly DocumentType[] = Array.isArray(filters.document_type) ? [...filters.document_type] : [filters.document_type]
 	if (document_types_filtered.length === 0) {
@@ -327,6 +331,8 @@ export async function radaRetriever(input: RADARetrieverInput): Promise<RADARetr
 				},
 			} satisfies RetrievedDocument
 		})
+		// Mesmo corte com rerank NVIDIA, Bedrock ou ordenação posicional (que tem piso em
+		// THRESHOLD e, portanto, não é filtrada); o número só foi calibrado para o primeiro.
 		.filter((d) => d.scores.rerank_score >= THRESHOLD)
 		.sort((a, b) => b.scores.rerank_score - a.scores.rerank_score)
 

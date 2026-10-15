@@ -1,6 +1,7 @@
 import type { Context, MiddlewareHandler } from "hono"
 import { z } from "zod"
 import supabase from "../lib/supabase.js"
+import { type CursorValue, decodeCursor, encodeCursor, isInvalidInputError, keysetFilter, NEXT_CURSOR_HEADER, POSTGREST_MAX_ROWS } from "./cursor.ts"
 import {
 	clampLimit,
 	commaListToArray,
@@ -10,6 +11,7 @@ import {
 	type OrderRule,
 	parseSortableOrderParam,
 	projectedColumns,
+	withUniqueTiebreak,
 } from "./query-params.ts"
 
 export type ApiConfig = {
@@ -20,7 +22,14 @@ export type ApiConfig = {
 	dateColumn?: string
 	dateColumnType?: "timestamp" | "date"
 	defaultOrder?: OrderRule[]
+	/**
+	 * Chave única da tabela (PK ou UNIQUE, colunas NOT NULL), desempate final de qualquer
+	 * ordenação. Obrigatória: o cursor (`cursor.ts`) precisa de ordem total, senão a página
+	 * seguinte repete ou pula as linhas empatadas na fronteira.
+	 */
+	uniqueKey: readonly string[]
 	mapParams?: Record<string, string>
+	/** Padrão e teto do `limit`; nunca acima de {@link POSTGREST_MAX_ROWS}. */
 	defaultLimit?: number
 	maxLimit?: number
 	cacheControl?: string
@@ -41,6 +50,12 @@ export const ErrorResponseSchema = z.object({
 	timestamp: z.string().optional(),
 })
 
+/**
+ * Prefixo das colunas da chave lidas só para montar o cursor (fora da projeção publicada):
+ * entram no `select` com alias e saem da linha antes da resposta.
+ */
+const CURSOR_ONLY_PREFIX = "__cursor_"
+
 export function createApiHandler(config: ApiConfig): [MiddlewareHandler, (c: any) => Promise<Response>] {
 	const {
 		table,
@@ -50,13 +65,16 @@ export function createApiHandler(config: ApiConfig): [MiddlewareHandler, (c: any
 		dateColumnType = "timestamp",
 		defaultOrder = [],
 		mapParams = {},
-		defaultLimit = 100000,
-		maxLimit = 100000,
 		cacheControl = "public, max-age=300",
 		corsOrigin = "*",
 	} = config
+	// O PostgREST corta toda resposta em `max_rows` (1000) sem avisar: teto acima disso prometia
+	// linhas que nunca chegavam. Mais que 1000 linhas = seguir o `X-Next-Cursor`.
+	const maxLimit = Math.min(config.maxLimit ?? POSTGREST_MAX_ROWS, POSTGREST_MAX_ROWS)
+	const defaultLimit = Math.min(config.defaultLimit ?? maxLimit, maxLimit)
 	const orderAliases = config.orderAliases ?? {}
-	const sortableColumns = config.sortableColumns ?? [...projectedColumns(select), ...Object.keys(orderAliases)]
+	const projected = projectedColumns(select)
+	const sortableColumns = config.sortableColumns ?? [...projected, ...Object.keys(orderAliases)]
 
 	// Middleware para cache-control e CORS
 	const setDefaultHeaders: MiddlewareHandler = async (c, next) => {
@@ -96,8 +114,40 @@ export function createApiHandler(config: ApiConfig): [MiddlewareHandler, (c: any
 				)
 			}
 
+			// Ordem final: a pedida (ou a padrão) + a chave única como desempate. É por ela que o
+			// cursor anda.
+			const requestedOrder = orderFromParam.order.map((rule) => ({ ...rule, column: orderAliases[rule.column] ?? rule.column }))
+			const finalOrder = withUniqueTiebreak(requestedOrder.length ? requestedOrder : defaultOrder, config.uniqueKey).filter((rule) => rule.column)
+
+			// Cursor conferido antes da consulta: malformado, ou de outra ordenação, é erro do cliente.
+			let keyset: string | null = null
+			const rawCursor = sp.get("cursor")
+			if (rawCursor) {
+				const cursor = decodeCursor(rawCursor, finalOrder)
+				if (!cursor.ok) {
+					return c.json(
+						{
+							error:
+								cursor.reason === "order-mismatch"
+									? "O cursor é de outra ordenação: repita na próxima página o mesmo `order` da primeira"
+									: "Cursor inválido: use o valor do cabeçalho X-Next-Cursor sem alterar",
+						},
+						400
+					)
+				}
+				keyset = keysetFilter(finalOrder, cursor.values)
+				// Nada vem depois da última linha: página vazia, sem ir ao banco.
+				if (keyset === null) return c.json([], 200)
+			}
+
+			// Coluna da ordem que a rota não publica (a chave de `user_military_data`) é lida com
+			// alias só para o cursor, e sai da linha antes da resposta.
+			const cursorOnly = finalOrder.map((rule) => rule.column).filter((column) => !projected.includes(column))
+			const selectWithKey = [select, ...cursorOnly.map((column) => `${CURSOR_ONLY_PREFIX}${column}:"${column}"`)].join(", ")
+
 			// Inicia query
-			let query = supabase.schema(schema).from(table).select(select).limit(limit)
+			let query = supabase.schema(schema).from(table).select(selectWithKey).limit(limit)
+			if (keyset) query = query.or(keyset)
 
 			// Filtros mapeados
 			for (const [param, column] of Object.entries(mapParams)) {
@@ -151,16 +201,18 @@ export function createApiHandler(config: ApiConfig): [MiddlewareHandler, (c: any
 			}
 
 			// Ordenação
-			const requestedOrder = orderFromParam.order.map((rule) => ({ ...rule, column: orderAliases[rule.column] ?? rule.column }))
-			const finalOrder: OrderRule[] = requestedOrder.length ? requestedOrder : defaultOrder
 			for (const ord of finalOrder) {
-				if (!ord.column) continue
 				query = query.order(ord.column, { ascending: ord.ascending ?? true })
 			}
 
 			// Executa query
-			const { data: rows, error } = await query
+			const { data, error } = await query
 			if (error) {
+				// Valor do cliente que não converte no tipo da coluna (cursor adulterado, filtro
+				// `mess_hall_id=abc`): erro de quem chamou, não do servidor.
+				if (isInvalidInputError(error)) {
+					return c.json({ error: "Valor de filtro ou de cursor inválido para o tipo da coluna" }, 400)
+				}
 				// A mensagem do PostgREST (coluna, schema, hint SQL) fica no log do
 				// servidor — nunca no corpo da resposta pública, que é anônima. Vazar
 				// `error.message` entregava a estrutura interna do banco a qualquer um.
@@ -173,7 +225,19 @@ export function createApiHandler(config: ApiConfig): [MiddlewareHandler, (c: any
 				)
 			}
 
-			return c.json(rows ?? [], 200)
+			// `select` montado em tempo de execução: o parser de tipo do postgrest-js não o lê.
+			const rows = (data ?? []) as unknown as Array<Record<string, unknown>>
+			// Página cheia: pode haver mais. O cursor sai da última linha, pela ordem final.
+			const last = rows.at(-1)
+			if (last && rows.length === limit) {
+				const values = finalOrder.map(
+					(rule) => (last[projected.includes(rule.column) ? rule.column : `${CURSOR_ONLY_PREFIX}${rule.column}`] ?? null) as CursorValue
+				)
+				c.header(NEXT_CURSOR_HEADER, encodeCursor(finalOrder, values))
+			}
+			const body =
+				cursorOnly.length === 0 ? rows : rows.map((row) => Object.fromEntries(Object.entries(row).filter(([key]) => !key.startsWith(CURSOR_ONLY_PREFIX))))
+			return c.json(body, 200)
 		} catch (err: unknown) {
 			console.error("Erro crítico no endpoint API:", err)
 			return c.json(

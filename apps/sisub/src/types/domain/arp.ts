@@ -35,6 +35,8 @@ export interface EmpenhoOfArpItem
 	item_quantity: number | null
 	item_unit_price: number | null
 	item_value: number
+	/** NE ativa cujos itens somam zero: a execução dela não se reparte entre os itens da ata. */
+	execution_incomplete: boolean
 }
 
 export interface ArpItemWithEmpenhos extends ArpItem {

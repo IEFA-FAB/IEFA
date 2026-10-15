@@ -47,6 +47,9 @@ const TURN_ABORTED = "aborted"
 const TURN_ERRORED = "error"
 const TURNS_WITHOUT_ANSWER = [TURN_ABORTED, TURN_ERRORED] as const
 
+/** Comentário SSE do ChatRADA entre nós do grafo: o idle do ALB é de 60 s. */
+const SSE_KEEPALIVE_MS = 15_000
+
 /** Linhas de `query_log` lidas para montar a lista de sessões. */
 const ROW_WINDOW = 500
 /** Sessões devolvidas. `truncated` avisa quando há mais do que isto. */
@@ -408,7 +411,18 @@ const app = new Hono<{ Variables: AppVariables }>()
 			// uma chamada de modelo.
 			c.req.raw.signal.addEventListener("abort", () => run.abort(), { once: true })
 
+			// O stream só escreve um `status` por nó do grafo, e um nó (uma chamada de modelo)
+			// pode ficar calado mais que o `idle_timeout` de 60 s do ALB (`infra/foundation/alb.tf`).
+			// O comentário SSE periódico mantém a conexão aberta, como no chat de documentos
+			// (`chats.ts`): sem ele, quem cortava era o ALB, sem aviso ao cliente e sem registro.
+			const keepalive = setInterval(() => {
+				stream.write(": keep-alive\n\n").catch(() => {})
+			}, SSE_KEEPALIVE_MS)
+			// O teto do turno é orçamento de custo e de espera, não o idle do ALB: o keep-alive
+			// cobre o idle. `lib/retry.ts` dimensiona as retentativas por esses 60 s; subir o
+			// teto pede rever aquele número junto.
 			const timeoutId = setTimeout(async () => {
+				clearInterval(keepalive)
 				run.abort()
 				await stream.writeSSE({ event: "error", data: JSON.stringify({ code: "CONNECTION_TIMEOUT" }) }).catch(() => {})
 				stream.abort()
@@ -446,6 +460,8 @@ const app = new Hono<{ Variables: AppVariables }>()
 					tracer?.getRunId() ?? null
 				)
 				await stream.writeSSE({ event: "error", data: JSON.stringify({ code: aborted ? "CONNECTION_TIMEOUT" : "INTERNAL_ERROR" }) }).catch(() => {})
+			} finally {
+				clearInterval(keepalive)
 			}
 		})
 	})

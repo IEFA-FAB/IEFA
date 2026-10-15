@@ -20,6 +20,20 @@ describe("tolerância de saldo", () => {
 		expect(arredondarCentavos(10.005)).toBe(10.01)
 	})
 
+	it("meio-centavo negativo é simétrico ao positivo (longe do zero), como o roundToCents do sisub", () => {
+		expect(arredondarCentavos(-10.005)).toBe(-10.01)
+		expect(arredondarCentavos(-1.005)).toBe(-1.01)
+		for (const valor of [0.005, 1.005, 8.575, 10.005, 1234.565]) {
+			expect(arredondarCentavos(-valor)).toBe(-arredondarCentavos(valor))
+		}
+		expect(Object.is(arredondarCentavos(-0.001), 0)).toBe(true)
+	})
+
+	it("valores grandes mantêm o centavo", () => {
+		expect(arredondarCentavos(12_345_678_901.23)).toBe(12_345_678_901.23)
+		expect(arredondarCentavos(-999_999_999_999.99)).toBe(-999_999_999_999.99)
+	})
+
 	it("devolve zero para valor não finito em vez de propagar NaN", () => {
 		expect(arredondarCentavos(Number.NaN)).toBe(0)
 		expect(arredondarCentavos(Number.POSITIVE_INFINITY)).toBe(0)

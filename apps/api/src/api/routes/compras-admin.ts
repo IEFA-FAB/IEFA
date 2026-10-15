@@ -2,7 +2,7 @@ import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi"
 import { createClient } from "@supabase/supabase-js"
 import { env } from "../../env.ts"
 import { secureCompare } from "../../lib/secure-compare.ts"
-import { SYNC_SOURCES } from "../../lib/sync-log.ts"
+import { claimSignal, launchSync, SYNC_SOURCES } from "../../lib/sync-log.ts"
 import { hasLiveSync, runComprasSync } from "../../workers/compras-sync/index.ts"
 
 function getSupabase() {
@@ -69,6 +69,10 @@ const triggerSyncRoute = createRoute({
 		409: {
 			content: { "application/json": { schema: ErrorSchema } },
 			description: "Sync already running",
+		},
+		500: {
+			content: { "application/json": { schema: ErrorSchema } },
+			description: "The sync could not be registered",
 		},
 		401: {
 			content: { "application/json": { schema: ErrorSchema } },
@@ -179,22 +183,29 @@ comprasAdminRoutes
 			return c.json({ error: "Sync já está em andamento" }, 409)
 		}
 
-		runComprasSync({ triggeredBy: "manual" })
-			.then((syncId) => console.log(`[compras-admin] Sync manual #${syncId} concluída`))
+		// A sync roda solta (sem `await`); a resposta espera só a reivindicação dela, e o id
+		// vem do próprio `claimSync` (ver `launchSync`), não de uma busca pela linha mais nova.
+		const { onClaimed, claimed } = claimSignal()
+		const run = runComprasSync({ triggeredBy: "manual", onClaimed })
+		run
+			.then((syncId) =>
+				syncId === -1
+					? console.log("[compras-admin] Sync manual abortada: outra já estava viva")
+					: console.log(`[compras-admin] Sync manual #${syncId} concluída`)
+			)
 			.catch((err) => console.error("[compras-admin] Sync manual falhou:", err))
 
-		await new Promise((resolve) => setTimeout(resolve, 200))
-
-		const { data: latest } = await supabase
-			.from("integration_sync_log")
-			.select("id")
-			.eq("source", SYNC_SOURCES.comprasGov)
-			.eq("triggered_by", "manual")
-			.order("started_at", { ascending: false })
-			.limit(1)
-			.single()
-
-		return c.json({ sync_id: latest?.id ?? null, message: "Sync iniciada em background" }, 202)
+		const outcome = await launchSync(run, claimed)
+		switch (outcome.status) {
+			case "claimed":
+				return c.json({ sync_id: outcome.syncId, message: "Sync iniciada em background" }, 202)
+			case "already_running":
+				return c.json({ error: "Sync já está em andamento" }, 409)
+			case "failed":
+				return c.json({ error: "Falha ao iniciar a sync" }, 500)
+			case "pending":
+				return c.json({ sync_id: null, message: "Sync iniciada em background" }, 202)
+		}
 	})
 
 	// ── GET /admin/compras/sync/latest — última sync ───────────────────────────

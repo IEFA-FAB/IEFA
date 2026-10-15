@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Spinner } from "@/components/ui/spinner"
 import { toast } from "@/components/ui/toast"
 import { useAssuredAction } from "@/hooks/auth/useAssuredAction"
+import { useInvalidateArpEmpenhoViews } from "@/hooks/data/useArp"
 import { isElevationCancelled } from "@/lib/assurance/assurance-error"
 import { applyCreditBatchFn } from "@/server/budget.fn"
 import { applyDocumentBatchFn, listWaitingDocumentsFn } from "@/server/reconciliation.fn"
@@ -42,6 +43,8 @@ function SiafiPage() {
 	const { batches, waiting } = Route.useLoaderData()
 	const { unitId } = Route.useParams()
 	const router = useRouter()
+	// Lote de NE/NS/OB cria e completa NEs que o painel da ARP lê.
+	const invalidateArpViews = useInvalidateArpEmpenhoViews()
 	const fileInput = useRef<HTMLInputElement>(null)
 	const [reportType, setReportType] = useState<(typeof REPORT_TYPES)[number]>("credito")
 	const [busy, setBusy] = useState(false)
@@ -86,6 +89,7 @@ function SiafiPage() {
 				if (result.relinked > 0) parts.push(`${result.relinked} estacionado(s) religado(s)`)
 				if (result.divergent > 0) parts.push(`${result.divergent} divergência(s) na conciliação`)
 				toast.success(parts.join(" · "))
+				invalidateArpViews()
 			}
 			router.invalidate()
 		} catch (err) {

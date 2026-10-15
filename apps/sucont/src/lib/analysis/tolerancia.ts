@@ -19,19 +19,29 @@ export const TOLERANCIA_SALDO = 0.005
 /**
  * Arredonda para centavos, eliminando o resíduo binário do parse.
  *
- * Mesma técnica do `roundToCents` do sisub (`@iefa/sisub-domain`): normalizar a
- * representação com `toPrecision(12)` ANTES de arredondar. `toFixed(2)` puro
- * derruba o meio-centavo sempre para baixo — `(10.005).toFixed(2)` devolve
- * "10.00", porque em binário 10,005 é 10,00499…. Num item é um centavo; numa
- * soma de dezenas de linhas o viés é sistemático e reaparece na conciliação como
- * diferença sem origem.
+ * Mesma técnica do `roundToCents` do sisub (`@iefa/sisub-domain`, `operations/money.ts`):
+ * normalizar a representação com `toPrecision` ANTES de arredondar. `toFixed(2)` puro
+ * derruba o meio-centavo para baixo — `(1.005).toFixed(2)` devolve "1.00", porque em
+ * binário 1,005 é 1,00499…. Num item é um centavo; numa soma de dezenas de linhas o
+ * viés é sistemático e reaparece na conciliação como diferença sem origem.
+ *
+ * Meio-centavo vai para longe do zero, simétrico no negativo: `Math.round` sozinho
+ * leva -10,005 a -10,00, e aí o débito e o crédito do mesmo lançamento fechariam em
+ * centavos diferentes (o par inter-OM deixaria resíduo de um centavo). A precisão é
+ * 12 dígitos, que absorve o erro acumulado de somas longas, e a partir de R$ 10 milhões
+ * cresce com a magnitude para guardar três casas abaixo do centavo (12 dígitos fixos
+ * cortariam o centavo a partir de R$ 10 bilhões). Zero sai `0`, nunca `-0`.
  *
  * Duplicado em vez de importado de propósito: `@iefa/sisub-domain` é o domínio do
- * sisub, e o sucont não deve depender dele para somar dinheiro.
+ * sisub, e o sucont não deve depender dele para somar dinheiro. Mudou lá, muda aqui.
  */
 export function arredondarCentavos(valor: number): number {
 	if (!Number.isFinite(valor)) return 0
-	return Math.round(Number((valor * 100).toPrecision(12))) / 100
+	const escalado = Math.abs(valor) * 100
+	const digitosInteiros = Math.trunc(escalado).toFixed(0).length
+	const centavos = Math.round(Number(escalado.toPrecision(Math.min(100, Math.max(12, digitosInteiros + 3)))))
+	if (centavos === 0) return 0
+	return (Math.sign(valor) * centavos) / 100
 }
 
 /** `true` quando os dois saldos diferem além do ruído de arredondamento. */

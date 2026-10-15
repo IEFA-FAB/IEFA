@@ -51,6 +51,9 @@ Em `.github/workflows/README.md`: o que roda em cada evento, em que runner e com
   o Dockerfile, o bake e o paths-filter. O `deploy.yml` não muda: o `plan` e o `verify` leem o
   manifesto (`scripts/release-plan.ts`, `scripts/release-verify.ts`), e o
   `release-verify.test.ts` falha se o manifesto pedir tarefa que o workspace não tem.
+- **`transit` no `turbo.json` não tem script e não sai.** Existe para levar o hash das
+  dependências (`^transit`) a `typecheck`, `test` e `test:unit`: sem ele, mudar um pacote não
+  mudava o hash do app que o importa e o turbo reaproveitava o resultado velho do cache (#556).
 - **PR do Dependabot e de fork** não recebem segredo: o `gate` pula (verde) e a integração deles
   roda no push da `main`. Para validar antes, dispare o workflow numa branch-cópia.
 

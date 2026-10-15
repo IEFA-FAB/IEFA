@@ -181,7 +181,7 @@ export const suggestLiquidacaoFromReceiptFn = createServerFn({ method: "GET" })
 		if (itemsError) throw new Error(`Erro ao carregar os itens do recebimento: ${publicDbMessage(itemsError)}`)
 		// `suggestedLiquidacaoValue` fecha em centavo sem o viés do arredondamento
 		// anterior, que descia o meio-centavo sempre — ver `roundToCents` em
-		// liquidacao-math.ts.
+		// `@iefa/sisub-domain` (operations/money.ts).
 		const valor = suggestedLiquidacaoValue(
 			((items ?? []) as Array<{ received_qty_base: number; unit_cost: number | null }>).map((item) => ({
 				receivedQtyBase: Number(item.received_qty_base),

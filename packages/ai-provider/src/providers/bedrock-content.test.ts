@@ -82,4 +82,15 @@ describe("parte de texto vazia", () => {
 		expect(() => toBlocks(soVazio)).not.toThrow()
 		expect(toBlocks(comTexto)).toEqual([{ text: "Segue." }])
 	})
+
+	// Ao contrário do stream (que encerra o run com RUN_ERROR), o histórico tolera: a tool call
+	// reenviada já rodou num turno anterior, e lançar aqui impediria reabrir a conversa.
+	it("tool call do histórico com argumento ilegível vira input {} sem derrubar a conversa", () => {
+		const assistant = {
+			role: "assistant",
+			content: "",
+			toolCalls: [{ id: "t1", type: "function", function: { name: "busca", arguments: '{"q":' } }],
+		} as Parameters<typeof toBlocks>[0]
+		expect(toBlocks(assistant)).toEqual([{ toolUse: { toolUseId: "t1", name: "busca", input: {} } }] as unknown as ReturnType<typeof toBlocks>)
+	})
 })

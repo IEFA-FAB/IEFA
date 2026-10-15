@@ -136,3 +136,14 @@ export function parseSortableOrderParam(
 	}
 	return { ok: true, order: parsed }
 }
+
+/**
+ * Ordem final com desempate pela chave única da tabela: as colunas de `uniqueKey` que a ordem
+ * pedida ainda não cobre entram no fim, ascendentes. Sem isso a ordem não é total, e paginar
+ * com `range` repete e pula linhas entre as páginas (empate em `date` reordena à vontade do
+ * Postgres a cada consulta).
+ */
+export function withUniqueTiebreak(order: readonly OrderRule[], uniqueKey: readonly string[]): OrderRule[] {
+	const covered = new Set(order.map((rule) => rule.column))
+	return [...order, ...uniqueKey.filter((column) => !covered.has(column)).map((column) => ({ column, ascending: true }))]
+}

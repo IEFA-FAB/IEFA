@@ -363,7 +363,6 @@ export function DayDrawer({ date, kitchenId, onClose, open }: DayDrawerProps) {
 					kitchenId={kitchenId}
 					selectedRecipeIds={[]}
 					onSelect={async (recipeIds) => {
-						"use no memo"
 						const menu = recipeSelectorMenu
 						setRecipeSelectorMenu(null)
 						if (!menu || recipeIds.length === 0) return

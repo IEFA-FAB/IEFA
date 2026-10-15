@@ -43,10 +43,34 @@ const schema = z.object({
 	/** Modelo de rerank do Bedrock; vazio desliga o rerank. */
 	ALPHA_RERANK_MODEL: z.string().default(""),
 	EMB_MODEL: z.string().default("baai/bge-m3"),
+	/**
+	 * Instrução que vai na frente da PERGUNTA antes do embedding (`tools/rada-retriever.ts`).
+	 * Herança do embedder BGE servido pela NVIDIA: é a instrução de busca da família BGE. O
+	 * padrão hoje é o Titan v2, que não usa instrução, e os chunks foram gravados sem prefixo
+	 * nenhum (`sources/embeddings.ts`, `cli/backfill-embeddings.ts`): a pergunta e o documento
+	 * já são embedados de forma assimétrica. Ficou por não haver como medir a troca: o
+	 * `bun run eval` só cobre as checagens cruzadas, e o golden set de recuperação depende de
+	 * ETP/TR reais (`openspec/changes/alpha-fontes-federais-conformidade/tasks.md`, H.3).
+	 * Mudar exige estender o eval à recuperação e comparar antes e depois.
+	 */
 	EMB_QUERY_PREFIX: z.string().default("Represent this sentence for searching relevant passages:"),
+	/**
+	 * Um número para três lotes: textos por chamada ao embedder (`sources/embeddings.ts`),
+	 * `LIMIT` de cada volta do backfill (`cli/backfill-embeddings.ts`) e chunks por volta da
+	 * ingestão de markdown (`ingest/markdown-ingest.ts`). A gravação NÃO usa este lote: com
+	 * 128 linhas por INSERT o índice HNSW estourava o `statement_timeout`, e a ingestão grava
+	 * em `INSERT_BATCH` (10). Subir este número cresce os três de uma vez.
+	 */
 	EMB_BATCH_SIZE: z.coerce.number().default(128),
 	NVIDIA_RERANK_MODEL: z.string().default("nvidia/llama-3.2-nv-rerankqa-1b-v2"),
 	RERANK_TOP_N: z.coerce.number().default(5),
+	/**
+	 * Corte de relevância do rerank. Calibrado para o sigmoid do logit do reranker NVIDIA
+	 * (`rerankNvidia`); o `relevanceScore` do Bedrock tem outra distribuição e herdou o
+	 * número sem medição. A calibração está BLOQUEADA por falta de golden set real (H.3 em
+	 * `openspec/changes/alpha-fontes-federais-conformidade/tasks.md`), e o `bun run eval`
+	 * ainda não cobre a recuperação: mudar o número hoje é palpite.
+	 */
 	RERANK_THRESHOLD: z.coerce.number().default(0.45),
 	RRF_K: z.coerce.number().default(60),
 	/** Segredo do job agendado que chama /internal/jobs/sources/refresh. */

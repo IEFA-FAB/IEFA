@@ -2,7 +2,7 @@ import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi"
 import { createClient } from "@supabase/supabase-js"
 import { env } from "../../env.ts"
 import { secureCompare } from "../../lib/secure-compare.ts"
-import { hasLiveSync, SYNC_SOURCES } from "../../lib/sync-log.ts"
+import { claimSignal, hasLiveSync, launchSync, SYNC_SOURCES } from "../../lib/sync-log.ts"
 import { COMAER_CNPJ, runPcaSync, SYNC_ALREADY_RUNNING } from "../../workers/pncp-pca-sync/index.ts"
 
 /**
@@ -59,6 +59,7 @@ const triggerRoute = createRoute({
 	responses: {
 		202: { description: "Ingestão iniciada", content: { "application/json": { schema: z.object({ sync_id: z.number().nullable() }) } } },
 		409: { description: "Já em andamento", content: { "application/json": { schema: z.object({ error: z.string() }) } } },
+		500: { description: "A ingestão não pôde ser registrada", content: { "application/json": { schema: z.object({ error: z.string() }) } } },
 		401: { description: "Não autorizado", content: { "application/json": { schema: z.object({ error: z.string() }) } } },
 	},
 })
@@ -92,7 +93,11 @@ pncpPcaAdminRoutes
 
 		const body = c.req.valid("json") ?? {}
 
-		runPcaSync({ triggeredBy: "manual", cnpj: body.cnpj ?? COMAER_CNPJ, anos: body.anos })
+		// A ingestão roda solta (sem `await`); a resposta espera só a reivindicação dela, e o id
+		// vem do próprio `claimSync` (ver `launchSync`), não de uma busca pela linha mais nova.
+		const { onClaimed, claimed } = claimSignal()
+		const run = runPcaSync({ triggeredBy: "manual", cnpj: body.cnpj ?? COMAER_CNPJ, anos: body.anos, onClaimed })
+		run
 			.then((id) =>
 				id === SYNC_ALREADY_RUNNING
 					? console.log("[pncp-pca-admin] Ingestão abortada: outra já estava viva")
@@ -100,21 +105,17 @@ pncpPcaAdminRoutes
 			)
 			.catch((err) => console.error("[pncp-pca-admin] Ingestão falhou:", err))
 
-		await new Promise((resolve) => setTimeout(resolve, 200))
-
-		// Só interessa a execução AINDA viva: sem o filtro de status, uma corrida perdida
-		// devolveria o id de um sync manual antigo e já finalizado como se fosse o recém-criado.
-		const { data: latest } = await supabase
-			.from("integration_sync_log")
-			.select("id")
-			.eq("source", SYNC_SOURCES.pncpPca)
-			.eq("triggered_by", "manual")
-			.eq("status", "running")
-			.order("started_at", { ascending: false })
-			.limit(1)
-			.maybeSingle()
-
-		return c.json({ sync_id: latest?.id ?? null }, 202)
+		const outcome = await launchSync(run, claimed)
+		switch (outcome.status) {
+			case "claimed":
+				return c.json({ sync_id: outcome.syncId }, 202)
+			case "already_running":
+				return c.json({ error: "Ingestão do PCA já está em andamento" }, 409)
+			case "failed":
+				return c.json({ error: "Falha ao iniciar a ingestão do PCA" }, 500)
+			case "pending":
+				return c.json({ sync_id: null }, 202)
+		}
 	})
 
 	.openapi(latestRoute, async (c) => {

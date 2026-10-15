@@ -174,19 +174,48 @@ const BLOCKED_KEYWORDS = [
 	"WINDOW",
 ]
 
-type Token = { kind: "ident" | "string" | "number" | "punct"; value: string }
+/** `quoted`: identificador entre aspas — nome, nunca palavra-chave, e sensível a maiúsculas. */
+type Token = { kind: "ident" | "string" | "number" | "punct"; value: string; quoted?: boolean }
+
+/**
+ * Sintaxe é só token de pontuação. O token de string guarda o conteúdo sem aspas e o identificador
+ * entre aspas guarda o nome: ler pelo valor fazia `'('` e `"("` abrirem nível de parênteses.
+ */
+function isPunct(token: Token | undefined, value: string): boolean {
+	return token?.kind === "punct" && token.value === value
+}
+
+/**
+ * Palavra-chave é só identificador SEM aspas. Pelo valor, o alias `"where"` encerrava a lista do
+ * FROM e a vírgula seguinte (`FROM units "where", auth.users a`) não era conferida.
+ */
+function isKeyword(token: Token | undefined, ...words: string[]): boolean {
+	return token?.kind === "ident" && token.quoted !== true && words.includes(token.value)
+}
+
+/** Espaço para o Postgres (`[ \t\n\r\f\v]`). O `\s` do JS inclui o NBSP, que no Postgres é letra. */
+const PG_WHITESPACE = /[ \t\n\r\f\v]/
+
+/** Identificador sem aspas como o Postgres lê: caractere não ASCII é letra (`whereé` é um nome só). */
+const PG_IDENTIFIER = /^[A-Za-z_\u0080-\uffff][A-Za-z0-9_\u0080-\uffff]*/
+
+/** O Postgres só converte A–Z; `toLowerCase` do JS levaria o sinal de Kelvin (U+212A) a `k`. */
+function foldAsciiCase(name: string): string {
+	return name.replace(/[A-Z]/g, (ch) => ch.toLowerCase())
+}
 
 /**
  * Tokenizador mínimo. Recusa (retorna string de erro) o que abriria ambiguidade entre o que
  * o validador lê e o que o Postgres executa: comentário, dollar-quoting, string com escape
- * (E'…', U&'…') e identificador entre aspas com caractere fora de [A-Za-z0-9_].
+ * (E'…') e o prefixo `U&` em string ou identificador (com `UESCAPE`, `U&"!0070g_sleep"` é
+ * `pg_sleep` para o Postgres e outro nome para o validador).
  */
 function tokenize(sql: string): Token[] | string {
 	const tokens: Token[] = []
 	let i = 0
 	while (i < sql.length) {
 		const ch = sql[i]
-		if (/\s/.test(ch)) {
+		if (PG_WHITESPACE.test(ch)) {
 			i++
 			continue
 		}
@@ -194,7 +223,7 @@ function tokenize(sql: string): Token[] | string {
 		if (ch === "$" || ch === "\\" || ch === "`") return `Caractere não permitido: ${ch}`
 		if (ch === "'") {
 			const prev = tokens.at(-1)
-			if (prev?.kind === "ident" && /^(e|u&|b|x|n)$/i.test(prev.value)) return "Strings com prefixo não são permitidas"
+			if (prev?.kind === "ident" && /^(e|b|x|n)$/i.test(prev.value)) return "Strings com prefixo não são permitidas"
 			let j = i + 1
 			let value = ""
 			while (j < sql.length) {
@@ -215,20 +244,33 @@ function tokenize(sql: string): Token[] | string {
 			continue
 		}
 		if (ch === '"') {
-			const close = sql.indexOf('"', i + 1)
-			if (close === -1) return "Identificador não terminado"
-			const value = sql.slice(i + 1, close)
-			// Qualquer conteúdo sem aspas vale: o identificador não sai do token (`""` escapado
-			// fecharia e reabriria, e aí vira dois tokens que a varredura confere). Rótulo de
-			// gráfico em português — `AS "Total de refeições"` — é o uso comum.
+			// `""` é aspa escapada dentro do nome, como no Postgres: um token só. O nome fica como
+			// está (entre aspas, `"User_data"` não é `user_data`). Rótulo de gráfico em português
+			// — `AS "Total de refeições"` — é o uso comum.
+			let j = i + 1
+			let value = ""
+			while (j < sql.length) {
+				if (sql[j] === '"') {
+					if (sql[j + 1] === '"') {
+						value += '"'
+						j += 2
+						continue
+					}
+					break
+				}
+				value += sql[j]
+				j++
+			}
+			if (j >= sql.length) return "Identificador não terminado"
 			if (value.length === 0) return "Identificador entre aspas vazio"
-			tokens.push({ kind: "ident", value: value.toLowerCase() })
-			i = close + 1
+			tokens.push({ kind: "ident", value, quoted: true })
+			i = j + 1
 			continue
 		}
-		const ident = /^[A-Za-z_][A-Za-z0-9_]*/.exec(sql.slice(i))
+		if (/^u&['"]/i.test(sql.slice(i, i + 3))) return "Strings com prefixo não são permitidas"
+		const ident = PG_IDENTIFIER.exec(sql.slice(i))
 		if (ident) {
-			tokens.push({ kind: "ident", value: ident[0].toLowerCase() })
+			tokens.push({ kind: "ident", value: foldAsciiCase(ident[0]) })
 			i += ident[0].length
 			continue
 		}
@@ -254,9 +296,9 @@ function collectCteNames(tokens: Token[]): Set<string> {
 	const names = new Set<string>()
 	for (let i = 0; i + 2 < tokens.length; i++) {
 		const [a, b, c] = [tokens[i], tokens[i + 1], tokens[i + 2]]
-		if (a.kind === "ident" && b.kind === "ident" && b.value === "as" && c.value === "(") {
+		if (a.kind === "ident" && isKeyword(b, "as") && isPunct(c, "(")) {
 			const prev = tokens[i - 1]
-			if (prev && (prev.value === "with" || prev.value === ",")) names.add(a.value)
+			if (isKeyword(prev, "with") || isPunct(prev, ",")) names.add(a.value)
 		}
 	}
 	return names
@@ -266,24 +308,23 @@ function collectCteNames(tokens: Token[]): Set<string> {
 function checkRelationAt(tokens: Token[], i: number, cteNames: Set<string>): string | null {
 	const first = tokens[i]
 	if (!first) return "Relação ausente"
-	if (first.value === "(") {
+	if (isPunct(first, "(")) {
 		// `FROM (SELECT …)` é subquery, validada pelo resto da varredura. Mas `FROM (a JOIN b …)`
 		// é JOIN entre parênteses: a PRIMEIRA relação de dentro não vem depois de FROM/JOIN
 		// nenhum, e passava sem conferência (`FROM (auth.users u CROSS JOIN units x)`).
 		let j = i
-		while (tokens[j]?.value === "(") j++
-		const inner = tokens[j]?.value
-		if (inner === "select" || inner === "with" || inner === "values") return null
+		while (isPunct(tokens[j], "(")) j++
+		if (isKeyword(tokens[j], "select", "with", "values")) return null
 		return checkRelationAt(tokens, j, cteNames)
 	}
 	if (first.kind !== "ident") return `Relação inválida: ${first.value}`
 	let schema: string | null = null
 	let table = first.value
-	if (tokens[i + 1]?.value === "." && tokens[i + 2]?.kind === "ident") {
+	if (isPunct(tokens[i + 1], ".") && tokens[i + 2]?.kind === "ident") {
 		schema = first.value
 		table = tokens[i + 2].value
 	}
-	if (tokens[schema ? i + 3 : i + 1]?.value === "(") return `Função como relação não permitida: ${table}`
+	if (isPunct(tokens[schema ? i + 3 : i + 1], "(")) return `Função como relação não permitida: ${table}`
 	if (schema && !ALLOWED_SCHEMAS.has(schema)) return `Tabela não permitida: ${table}`
 	if (!schema && cteNames.has(table)) return null
 	if (!ALLOWED_TABLES.has(table)) return `Tabela não permitida: ${table}`
@@ -332,13 +373,15 @@ function checkTokens(normalized: string): string | null {
 function scanTokens(scan: TokenScan): string | null {
 	for (let i = 0; i < scan.tokens.length; i++) {
 		const token = scan.tokens[i]
-		// Parêntese pelo VALOR, de qualquer tipo de token (inclusive a string '(').
-		if (token.value === "(") {
+		// Parêntese só de pontuação: o literal `'('` (ou `')'`) não muda o nível. Contado pelo
+		// valor, `ON m.x = '(', auth.users a` descia um nível e a vírgula da lista de relações
+		// deixava de ser conferida.
+		if (isPunct(token, "(")) {
 			scan.depth++
 			scan.inFromList[scan.depth] = false
 			continue
 		}
-		if (token.value === ")") {
+		if (isPunct(token, ")")) {
 			scan.inFromList[scan.depth] = false
 			scan.depth = Math.max(0, scan.depth - 1)
 			continue
@@ -352,13 +395,15 @@ function scanTokens(scan: TokenScan): string | null {
 function checkIdentToken(scan: TokenScan, i: number): string | null {
 	const token = scan.tokens[i]
 	// Catálogo e funções de sistema: nada de pg_* nem information_schema.
-	if (token.value.startsWith("pg_") || token.value === "information_schema") {
-		return `Identificador não permitido: ${token.value}`
+	// Minúsculas de propósito, inclusive entre aspas: recusa a mais nunca abre o catálogo.
+	const lower = token.value.toLowerCase()
+	if (lower.startsWith("pg_") || lower === "information_schema") {
+		return `Identificador não permitido: ${lower}`
 	}
 
-	if (token.value === "from" || token.value === "join") return checkRelationKeyword(scan, i)
+	if (isKeyword(token, "from", "join")) return checkRelationKeyword(scan, i)
 
-	if (FROM_LIST_TERMINATORS.has(token.value)) scan.inFromList[scan.depth] = false
+	if (isKeyword(token, ...FROM_LIST_TERMINATORS)) scan.inFromList[scan.depth] = false
 
 	return checkFunctionCall(scan.tokens, i)
 }
@@ -368,7 +413,7 @@ function checkRelationKeyword(scan: TokenScan, i: number): string | null {
 	const token = scan.tokens[i]
 	// `EXTRACT(x FROM y)` e `SUBSTRING(a FROM b)` usam FROM sem ser relação.
 	const opener = findOpenerFunction(scan.tokens, i)
-	if (token.value === "from" && opener && FUNCTIONS_WITH_FROM_ARGUMENT.has(opener)) return null
+	if (isKeyword(token, "from") && opener && FUNCTIONS_WITH_FROM_ARGUMENT.has(opener)) return null
 	const err = checkRelationAt(scan.tokens, i + 1, scan.cteNames)
 	if (err) return err
 	scan.inFromList[scan.depth] = true
@@ -377,12 +422,14 @@ function checkRelationKeyword(scan: TokenScan, i: number): string | null {
 
 /** Identificador seguido de "(": só função liberada, palavra-chave ou tipo. */
 function checkFunctionCall(tokens: Token[], i: number): string | null {
-	if (tokens[i + 1]?.value !== "(") return null
+	if (!isPunct(tokens[i + 1], "(")) return null
 	const token = tokens[i]
 	const prev = tokens[i - 1]
-	if (prev?.value === ".") return `Função qualificada não permitida: ${token.value}`
-	const isType = prev?.value === "::" || prev?.value === "as"
-	if (!isType && !ALLOWED_FUNCTIONS.has(token.value) && !KEYWORDS_BEFORE_PAREN.has(token.value)) {
+	if (isPunct(prev, ".")) return `Função qualificada não permitida: ${token.value}`
+	// Tipo depois de `::` ou `AS` de verdade: o literal `'::'` antes de `f(` não isenta a função.
+	const isType = isPunct(prev, "::") || isKeyword(prev, "as")
+	// `"in"(…)` entre aspas é chamada da função "in", não a palavra-chave.
+	if (!isType && !ALLOWED_FUNCTIONS.has(token.value) && !isKeyword(token, ...KEYWORDS_BEFORE_PAREN)) {
 		return `Função não permitida: ${token.value}`
 	}
 	return null
@@ -390,7 +437,7 @@ function checkFunctionCall(tokens: Token[], i: number): string | null {
 
 /** Vírgula no nível de uma lista de relações abre outra relação. */
 function checkFromListComma(scan: TokenScan, i: number): string | null {
-	if (scan.tokens[i].value !== "," || !scan.inFromList[scan.depth]) return null
+	if (!isPunct(scan.tokens[i], ",") || !scan.inFromList[scan.depth]) return null
 	return checkRelationAt(scan.tokens, i + 1, scan.cteNames)
 }
 
@@ -411,14 +458,20 @@ export function validateSql(sql: string): { valid: boolean; error?: string } {
 	return error === null ? { valid: true } : { valid: false, error }
 }
 
-/** Nome da função cujo "(" envolve a posição `i` no mesmo nível, se houver. */
+/**
+ * Nome da função cujo "(" envolve a posição `i` no mesmo nível, se houver. Só parêntese de
+ * pontuação: pelo valor, `trim('(') FROM auth.users` casava o `)` com o literal e o FROM da
+ * relação passava por argumento do `trim`.
+ */
 function findOpenerFunction(tokens: Token[], i: number): string | null {
 	let depth = 0
 	for (let j = i - 1; j >= 0; j--) {
-		const v = tokens[j].value
-		if (v === ")") depth++
-		else if (v === "(") {
-			if (depth === 0) return tokens[j - 1]?.kind === "ident" ? tokens[j - 1].value : null
+		const token = tokens[j]
+		if (isPunct(token, ")")) depth++
+		else if (isPunct(token, "(")) {
+			// `"extract"(x FROM …)` entre aspas é função comum: o FROM dentro dela é relação.
+			const name = tokens[j - 1]
+			if (depth === 0) return name?.kind === "ident" && !name.quoted ? name.value : null
 			depth--
 		}
 	}

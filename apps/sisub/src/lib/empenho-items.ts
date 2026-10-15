@@ -6,6 +6,8 @@
  * item só por valor, não se soma.
  */
 
+import { roundToCents } from "@iefa/sisub-domain/money"
+
 type Numeric = number | string | null
 
 export interface EmpenhoItemAmounts {
@@ -42,7 +44,7 @@ export interface ArpItemShare {
  */
 export function summarizeArpItemShare(items: readonly EmpenhoItemAmounts[], fallbackValue: number): ArpItemShare {
 	if (items.length === 0) return { item_quantity: null, item_unit_price: null, item_value: fallbackValue }
-	const value = Number(items.reduce((sum, item) => sum + Number(item.value), 0).toFixed(2))
+	const value = roundToCents(items.reduce((sum, item) => sum + Number(item.value), 0))
 	const quantified = items.every((item) => item.quantity != null)
 	const quantity = quantified ? Number(items.reduce((sum, item) => sum + Number(item.quantity), 0).toFixed(4)) : null
 	const prices = new Set(items.map((item) => (item.unit_price == null ? null : Number(item.unit_price))))

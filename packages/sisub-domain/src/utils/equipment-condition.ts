@@ -32,6 +32,8 @@ import type { EquipmentIssueSeverity, EquipmentIssueStatus, EquipmentUnitStatus 
  * o conserto acabou. Nos dois casos a linha permanece no histórico; o que muda é o peso.
  */
 export const OPEN_ISSUE_STATUSES = ["open", "in_repair"] as const satisfies readonly EquipmentIssueStatus[]
+/** Pane encerrada: resolvida ou descartada. Não pesa na condição; é histórico. */
+export const CLOSED_ISSUE_STATUSES = ["resolved", "dismissed"] as const satisfies readonly EquipmentIssueStatus[]
 
 export const EQUIPMENT_CONDITIONS = ["operational", "degraded", "down", "retired"] as const
 export type EquipmentCondition = (typeof EQUIPMENT_CONDITIONS)[number]

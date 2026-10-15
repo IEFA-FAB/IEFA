@@ -29,7 +29,8 @@ import { cn } from "@/lib/utils"
 // do login e da nova senha deixa o botão em "enviando" até a navegação.
 const FAB_EMAIL_REGEX = FAB_INSTITUTIONAL_EMAIL_PATTERN
 const STORAGE_KEY_REMEMBER_EMAIL = "fab_remember_email"
-const MESSAGES = FAB_EMAIL_AUTH_MESSAGES
+// Recusa de credencial no texto de `openspec/specs/forms-auth`: neutro, sem apontar o campo.
+const MESSAGES = { ...FAB_EMAIL_AUTH_MESSAGES, invalidCredentials: "E-mail ou senha inválidos" }
 
 // view derivada da URL — "reset" ativado por token_hash, "forgot" por ?view=forgot
 export type AuthView = "auth" | "forgot" | "reset"
@@ -170,11 +171,18 @@ function FieldError({ children }: { children: React.ReactNode }) {
 	)
 }
 
-function ErrorBanner({ message }: { message: string }) {
+/**
+ * Só a `message` fica na região anunciada (`role="alert"`). O `detail` fica fora dela: a contagem
+ * da trava muda a cada segundo e, dentro do alerta, o leitor de tela a anunciaria a cada troca.
+ */
+function ErrorBanner({ message, detail }: { message: string; detail?: string }) {
 	return (
 		<div className="border border-destructive/50 bg-destructive/5 px-3 py-2.5 text-sm text-destructive flex items-start gap-2">
 			<WarningCircle className="h-4 w-4 shrink-0 mt-0.5" aria-hidden />
-			{message}
+			<span>
+				<span role="alert">{message}</span>
+				{detail && ` ${detail}`}
+			</span>
 		</div>
 	)
 }
@@ -387,8 +395,7 @@ function LoginTabContent({ state, dispatch, actions, onNavigate, searchParams, i
 			await onNavigate({ href: safeRedirect(searchParams.redirect) ?? "/dashboard", replace: true })
 		} catch (err) {
 			onFailure()
-			const failure = describeSignInFailure(err, DEFAULT_INVALID_CREDENTIALS_PATTERN, MESSAGES)
-			dispatch(failure.field === "password" ? { type: "PASSWORD_ERROR", error: failure.message } : { type: "SET_ERROR", message: failure.message })
+			dispatch({ type: "SET_ERROR", message: describeSignInFailure(err, DEFAULT_INVALID_CREDENTIALS_PATTERN, MESSAGES) })
 		}
 	}
 
@@ -403,7 +410,7 @@ function LoginTabContent({ state, dispatch, actions, onNavigate, searchParams, i
 
 			<form onSubmit={handleSubmit}>
 				<div className="px-8 pb-6 space-y-5">
-					{isLocked && <ErrorBanner message={`Muitas tentativas. Tente novamente em ${retryAfter}s.`} />}
+					{isLocked && <ErrorBanner message="Muitas tentativas." detail={`Tente novamente em ${retryAfter}s.`} />}
 					{state.error && !isLocked && <ErrorBanner message={state.error} />}
 					{state.successMessage && <SuccessBanner message={state.successMessage} />}
 

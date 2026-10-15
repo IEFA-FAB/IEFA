@@ -217,20 +217,6 @@ export function useTemplates(kitchenId: number | null) {
 	})
 }
 
-export function useApplyTemplate() {
-	return useMutation({
-		mutationFn: async (_vars: { templateId: string; targetDates: Date[]; kitchenId: number }) => {
-			// Artificial delay
-			await new Promise((resolve) => setTimeout(resolve, 1000))
-
-			return true
-		},
-		onError: (_error) => {
-			toast.error("Erro ao aplicar template")
-		},
-	})
-}
-
 // --- Trash ---
 
 export function useTrashItems(kitchenId: number | null) {
