@@ -50,6 +50,13 @@ export function createTimeoutFetch(timeoutMs: number): typeof fetch {
  *
  * Valem para TODOS os apps atrás do mesmo ALB — o modo de falha não é específico
  * do sisub, só foi diagnosticado lá primeiro.
+ *
+ * O deadline é por chamada de `fetch`, não por operação. O postgrest-js repete GET/HEAD
+ * em erro de rede (até 3 vezes, esperando 1 + 2 + 4 s), e o abort daqui conta como erro
+ * de rede porque o motivo é um `Error` comum, não um `AbortError`. Com o retry ligado, uma
+ * leitura travada custaria 4 × 10 s + 7 s ≈ 47 s. Por isso os clients do kit passam
+ * `db: { retry: false }`; quem montar um client próprio com estes `fetch` precisa fazer o
+ * mesmo para o número acima valer para a operação inteira.
  */
 export const AUTH_FETCH_TIMEOUT_MS = 5_000
 export const DATA_FETCH_TIMEOUT_MS = 10_000

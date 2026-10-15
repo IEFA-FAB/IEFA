@@ -62,7 +62,10 @@ export type SsrAuthClientOptions<S extends SchemaName> = {
  */
 export function createSsrAuthClient<S extends SchemaName>({ url, key, schema, fetch }: SsrAuthClientOptions<S>) {
 	return createServerClient<Database, S>(url, key, {
-		...(schema ? { db: { schema } } : {}),
+		// Sem o retry do postgrest-js: o deadline do `fetch` vale para a operação inteira (ver
+		// `createServiceRoleClient`). `autoRefreshToken`/`detectSessionInUrl` o `@supabase/ssr` já
+		// força em `false` no client de servidor.
+		db: { ...(schema ? { schema } : {}), retry: false },
 		global: { fetch: fetch ?? authTimeoutFetch },
 		cookies: startCookieMethods(),
 		// `Secure` explícito: o default do @supabase/ssr não marca, e o cookie carrega o
