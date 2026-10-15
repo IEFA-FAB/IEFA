@@ -98,11 +98,11 @@ describe("fetchReceiptFn — linhas da conferência", () => {
 			["pi-classe", narrowSpec(spec("pi-classe", "seco"))],
 			["pi-sem-classe", narrowSpec(spec("pi-sem-classe", null))],
 		])
-		expect(isDefaultSpecNeededForItem({ ingredient_id: null, purchase_item_id: null }, specById)).toBe(false)
-		expect(isDefaultSpecNeededForItem({ ingredient_id: "i", purchase_item_id: null }, specById)).toBe(true)
-		expect(isDefaultSpecNeededForItem({ ingredient_id: "i", purchase_item_id: "pi-sem-classe" }, specById)).toBe(true)
-		expect(isDefaultSpecNeededForItem({ ingredient_id: "i", purchase_item_id: "pi-desconhecido" }, specById)).toBe(true)
-		expect(isDefaultSpecNeededForItem({ ingredient_id: "i", purchase_item_id: "pi-classe" }, specById)).toBe(false)
+		expect(isDefaultSpecNeededForItem({ item_id: null, purchase_item_id: null }, specById)).toBe(false)
+		expect(isDefaultSpecNeededForItem({ item_id: "i", purchase_item_id: null }, specById)).toBe(true)
+		expect(isDefaultSpecNeededForItem({ item_id: "i", purchase_item_id: "pi-sem-classe" }, specById)).toBe(true)
+		expect(isDefaultSpecNeededForItem({ item_id: "i", purchase_item_id: "pi-desconhecido" }, specById)).toBe(true)
+		expect(isDefaultSpecNeededForItem({ item_id: "i", purchase_item_id: "pi-classe" }, specById)).toBe(false)
 	})
 
 	test("insumos da padrão sem repetição", () => {
@@ -110,11 +110,11 @@ describe("fetchReceiptFn — linhas da conferência", () => {
 		expect(
 			fallbackIngredientIds(
 				[
-					{ ingredient_id: "i1", purchase_item_id: null },
-					{ ingredient_id: "i1", purchase_item_id: null },
-					{ ingredient_id: "i2", purchase_item_id: "pi-classe" },
-					{ ingredient_id: null, purchase_item_id: null },
-					{ ingredient_id: "i3", purchase_item_id: "pi-outro" },
+					{ item_id: "i1", purchase_item_id: null },
+					{ item_id: "i1", purchase_item_id: null },
+					{ item_id: "i2", purchase_item_id: "pi-classe" },
+					{ item_id: null, purchase_item_id: null },
+					{ item_id: "i3", purchase_item_id: "pi-outro" },
 				],
 				specById
 			)
@@ -150,7 +150,7 @@ describe("fetchReceiptFn — linhas da conferência", () => {
 	}
 
 	test("linha com especificação própria com classe: ela é o acondicionamento e a sugestão", () => {
-		expect(buildReceiptItemDetails({ id: "it-1", ingredient_id: "ing-1", purchase_item_id: "pi-1", ingredient_item_id: "sku-1" }, lookup)).toEqual({
+		expect(buildReceiptItemDetails({ id: "it-1", item_id: "ing-1", purchase_item_id: "pi-1", ingredient_item_id: "sku-1" }, lookup)).toEqual({
 			description: "Carne bovina",
 			measure_unit: "kg",
 			gtin: "7891234567890",
@@ -161,7 +161,7 @@ describe("fetchReceiptFn — linhas da conferência", () => {
 	})
 
 	test("linha com especificação sem classe: acondicionamento da linha, classe da padrão", () => {
-		const details = buildReceiptItemDetails({ id: "it-2", ingredient_id: "ing-1", purchase_item_id: "pi-2", ingredient_item_id: "sku-2" }, lookup)
+		const details = buildReceiptItemDetails({ id: "it-2", item_id: "ing-1", purchase_item_id: "pi-2", ingredient_item_id: "sku-2" }, lookup)
 		expect(details.conditioning).toBe(lineSpecWithoutClass)
 		expect(details.suggested_conservation_class).toBe("congelado")
 		expect(details.gtin).toBeNull()
@@ -169,14 +169,14 @@ describe("fetchReceiptFn — linhas da conferência", () => {
 	})
 
 	test("linha sem item de compra: tudo da padrão", () => {
-		const details = buildReceiptItemDetails({ id: "it-3", ingredient_id: "ing-1", purchase_item_id: null, ingredient_item_id: null }, lookup)
+		const details = buildReceiptItemDetails({ id: "it-3", item_id: "ing-1", purchase_item_id: null, ingredient_item_id: null }, lookup)
 		expect(details.conditioning).toBe(defaultSpec)
 		expect(details.suggested_conservation_class).toBe("congelado")
 		expect(details.gtin).toBeNull()
 	})
 
 	test("linha sem insumo nem especificação: descrição de traço e tudo nulo", () => {
-		expect(buildReceiptItemDetails({ id: "it-4", ingredient_id: null, purchase_item_id: null, ingredient_item_id: "sku-desconhecido" }, lookup)).toEqual({
+		expect(buildReceiptItemDetails({ id: "it-4", item_id: null, purchase_item_id: null, ingredient_item_id: "sku-desconhecido" }, lookup)).toEqual({
 			description: "—",
 			measure_unit: null,
 			gtin: null,
@@ -187,7 +187,7 @@ describe("fetchReceiptFn — linhas da conferência", () => {
 	})
 
 	test("insumo sem padrão e linha sem classe: sugestão nula", () => {
-		const details = buildReceiptItemDetails({ id: "it-5", ingredient_id: "ing-sem-padrao", purchase_item_id: "pi-2", ingredient_item_id: null }, lookup)
+		const details = buildReceiptItemDetails({ id: "it-5", item_id: "ing-sem-padrao", purchase_item_id: "pi-2", ingredient_item_id: null }, lookup)
 		expect(details.suggested_conservation_class).toBeNull()
 		expect(details.description).toBe("—")
 	})

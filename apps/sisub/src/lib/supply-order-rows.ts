@@ -20,7 +20,8 @@ export function collectOrderArpItemIds(items: ReadonlyArray<{ arpItemId?: string
 
 export function buildSupplyOrderRow(input: {
 	empenhoId: string | null | undefined
-	kitchenId: number
+	/** Local de estoque da cozinha de entrega (`inventory.stock_location.id`). */
+	locationId: number
 	number: string | undefined
 	sentAt: string
 	expectedDelivery: string
@@ -30,7 +31,7 @@ export function buildSupplyOrderRow(input: {
 }) {
 	return {
 		empenho_id: input.empenhoId ?? null,
-		kitchen_id: input.kitchenId,
+		location_id: input.locationId,
 		number: input.number?.trim() || null,
 		sent_at: input.sentAt,
 		expected_delivery: input.expectedDelivery,

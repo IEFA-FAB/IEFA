@@ -186,26 +186,26 @@ O gestor de uma OM tem interesse e autoridade apenas sobre os dados da sua unida
 
 ---
 
-## `storage` — Estoque e Almoxarifado
+## `storage` — Estoque (SISPROV)
 
-**Escopo:** A definir (provavelmente `unit_id` ou `kitchen_id`)
+**Escopo:** `kitchen_id` (o local de estoque da cozinha), `unit_id` (todos os locais da OM e das apoiadas) ou nenhum (toda a rede).
 
 ### O que é
-Acesso ao controle de estoque — entrada e saída de ingredientes, materiais e insumos do almoxarifado.
+O estoque do SISPROV, de toda classe de suprimento: alimentação, auxiliar, fardamento. Um estoque só (`inventory`), com local, lote, movimento, custo médio, contagem, ajuste e fechamento mensal.
 
 ### Responsabilidade
-Gerenciar o inventário físico da unidade: registrar recebimentos, baixas, transferências e divergências de estoque.
+Operar os locais de estoque: receber, armazenar, transferir, contar, ajustar e distribuir. A classe que cada um vê sai do que o local guarda: a cozinha guarda alimentação, o almoxarifado da OM guarda o que a OM recebe.
 
 ### Por que funciona assim
-O almoxarifado é uma operação crítica com impacto financeiro direto. Separar em módulo próprio permite que o almoxarife tenha acesso ao estoque sem ter acesso a gestão de cozinha ou analytics — e vice-versa.
+O módulo nasceu no sisub e mudou de dono, não de nome, quando o SISPROV passou a ser dono de todo estoque (13/10/2026). Um módulo só evita dois almoxarifes governados por regras diferentes sobre o mesmo saldo. O grant por cozinha continua sendo concedido no sisub e abre as telas `/storage/$kitchenId`; o grant por OM é concedido no SISPROV e alcança todos os locais da OM e das apoiadas, inclusive a cozinha. Deny na cozinha, na OM ou numa apoiadora da cadeia vence o allow.
 
 ### Quem acessa
 
 | Nível | Perfil |
 |-------|--------|
-| `1` | Auxiliar de almoxarifado — consulta saldo e histórico |
-| `2` | Almoxarife — registra movimentações |
-| `3+` | Gestor de estoque — administra inventário e faz ajustes |
+| `1` | Consulta saldo e histórico dos locais alcançados |
+| `2` | Operador de estoque — recebe, transfere, conta, distribui |
+| `3+` | Gestor do local — aprova ajuste e contagem, configura tolerâncias |
 
 ---
 
@@ -261,18 +261,45 @@ de nível, não de lugar: quem consulta o acompanhamento não é quem o edita.
 
 ---
 
+## `sisprov-planning`, `sisprov-admin` — Provisões (SISPROV)
+
+**Escopo:** `unit_id` (OM), com cobertura pela hierarquia de apoio. Sem escopo = toda a rede (SDAB).
+
+### O que é
+Os papéis do SISPROV que não são operação de estoque. O estoque é o módulo `storage`, acima.
+
+### Responsabilidade
+- `sisprov-planning` — o **elo SISPROV na OM**: informa e ajusta a previsão de incorporação da OM e acompanha a adesão da coleta de tamanhos.
+- `sisprov-admin` — a **SDAB**: grupos de demanda, enxovais, curvas de tamanhos, períodos de planejamento, aprovação de OF e locais de estoque; no nível 3, os grants do SISPROV (`storage` por OM, `sisprov-planning`, `sisprov-admin`).
+
+### Por que funciona assim
+Operador de estoque e elo são papéis distintos na mesma OM, com o mesmo nível 2, e um não implica o outro: por isso são módulos, não níveis de um módulo único (o mesmo recorte do Projeto α). O grant na apoiadora (GAP-SJ) cobre as apoiadas (IAE, DCTA, IEFA-SJ), como nos módulos `alpha-*`. O militar que preenche a própria ficha de tamanhos ou confirma o próprio recebimento não tem módulo: é a sessão autenticada, como o `diner`.
+
+### Quem acessa
+
+| Módulo | Nível | Perfil |
+|--------|-------|--------|
+| `sisprov-planning` | `1` | Consulta a previsão e a adesão da OM |
+| `sisprov-planning` | `2` | Elo SISPROV — informa e ajusta a previsão da OM |
+| `sisprov-admin` | `2` | SDAB — gestão sistêmica (grupos, enxovais, curvas, aprovação de OF, locais) |
+| `sisprov-admin` | `3` | Administrador do SISPROV — gerencia os grants do app |
+
+---
+
 ## Resumo
 
 | Módulo | Escopo | Quem acessa |
 |--------|--------|-------------|
 | `diner` | — | Todos os usuários (injetado automaticamente) |
-| `messhall` | `mess_hall_id` | Operadores de refeitório e Fiscais de rancho |
+| `messhall` | `mess_hall_id` | Operadores de refeitório e Fiscais de cozinha |
 | `unit` | `unit_id` | Gestores da unidade militar |
 | `kitchen` | `kitchen_id` | Chefes de cozinha e gestores de alimentação |
 | `kitchen-production` | `kitchen_id` | Cozinheiros e auxiliares de produção |
 | `global` | — | TI e administradores centrais do IEFA |
 | `analytics` | — | Analistas e gestores centrais |
 | `local-analytics` | `unit_id` | Gestores e responsáveis da OM |
-| `storage` | A definir | Almoxarifes e gestores de estoque |
+| `storage` | `kitchen_id`, `unit_id` ou — | Operadores e gestores de estoque, de toda classe (SISPROV) |
 | `rumaer` | — | Editores e administradores do catálogo de uniformes |
 | `sucont` | — | Leitores, editores e administradores do Hub SUCONT-4 |
+| `sisprov-planning` | `unit_id` | Elo SISPROV na OM (previsão de incorporação) |
+| `sisprov-admin` | `unit_id` ou — | SDAB (gestão sistêmica) e administradores dos grants do SISPROV |

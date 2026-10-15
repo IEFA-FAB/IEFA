@@ -24,13 +24,28 @@ import { maskBlindCountQuantities, withoutBlindCountLots } from "@/lib/blind-cou
 import { publicDbMessage } from "@/lib/db-error-message"
 import { itemDescription } from "@/lib/item-description"
 import { readAllPages, readAllPagesIn } from "@/lib/read-all-pages"
-import { requireStorageForKitchen } from "@/lib/storage-auth.server"
+import { classifyFoodItems, foodRefOf } from "@/lib/stock-item.server"
+import { requireStockForKitchen, requireStorageForLocation, resolveKitchenLocation } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 
 const inventory = () => getServerClient("inventory")
 const kitchen = () => getServerClient("kitchen")
 
 const toExpiryBand = (value: string | null): ExpiryBand | null => EXPIRY_BANDS.find((band) => band === value) ?? null
+
+/**
+ * O estoque identifica o item por `item_id`; a tela, por insumo ou preparação. Devolve as linhas
+ * com o par da tela (`ingredient_id`/`frozen_preparation_id`) no lugar do `item_id`.
+ */
+async function withFoodRefs<T extends { item_id: string | null }>(
+	rows: readonly T[]
+): Promise<Array<Omit<T, "item_id"> & { ingredient_id: string | null; frozen_preparation_id: string | null }>> {
+	const refs = await classifyFoodItems(rows.map((row) => row.item_id).filter((id) => id != null))
+	return rows.map(({ item_id, ...row }) => {
+		const ref = foodRefOf(refs, item_id)
+		return { ...row, ingredient_id: ref.ingredientId, frozen_preparation_id: ref.frozenPreparationId }
+	})
+}
 
 export interface ExpiryLotRow {
 	lotId: string
@@ -92,7 +107,7 @@ export const fetchExpiringLotsFn = createServerFn({ method: "GET" })
 		})
 	)
 	.handler(async ({ data }) => {
-		const ctx = await requireStorageForKitchen(1, data.kitchenId)
+		const { ctx, location } = await requireStockForKitchen(1, data.kitchenId)
 		const bands = data.bands?.length ? data.bands : [...EXPIRY_BANDS]
 
 		// Todas as páginas: o PostgREST corta em 1000 linhas sem erro, e cortar
@@ -104,17 +119,17 @@ export const fetchExpiringLotsFn = createServerFn({ method: "GET" })
 				inventory()
 					.from("v_lot_expiry")
 					.select(
-						"lot_id, short_code, lot_code, ingredient_id, frozen_preparation_id, location, expiry_date, days_left, alert_days, conservation_class, balance, balance_value, use_first, quarantined_at, band"
+						"lot_id, short_code, lot_code, item_id, location, expiry_date, days_left, alert_days, conservation_class, balance, balance_value, use_first, quarantined_at, band"
 					)
-					.eq("kitchen_id", data.kitchenId)
+					.eq("location_id", location.id)
 					.in("band", bands)
 					.order("lot_id")
 					.range(from, to)
 			),
-			hiddenByBlindCount(data.kitchenId, ctx),
+			hiddenByBlindCount(data.kitchenId, ctx, location.id),
 		])
 		// Coluna de view sai nula no tipo gerado; a consulta filtra a faixa, e lote sem id não existe.
-		const read = viewRows.flatMap((row) => {
+		const read = (await withFoodRefs(viewRows)).flatMap((row) => {
 			const band = toExpiryBand(row.band)
 			return row.lot_id && band ? [{ ...row, lot_id: row.lot_id, band }] : []
 		})
@@ -139,7 +154,7 @@ export const fetchExpiringLotsFn = createServerFn({ method: "GET" })
 		// faixa com o botão habilitado, e o segundo clique criava uma SEGUNDA baixa
 		// do saldo inteiro — aprovar as duas tentaria baixar o lote duas vezes.
 		//
-		// A consulta parte das baixas pendentes DA COZINHA, não dos lotes: lote
+		// A consulta parte das baixas pendentes DO LOCAL, não dos lotes: lote
 		// vencido se acumula até alguém baixar, e mandar todos os ids na URL do GET
 		// passava de dezenas de KB com algumas centenas deles — a requisição era
 		// recusada e a tela de vencimentos inteira não carregava. Baixa pendente de
@@ -149,8 +164,8 @@ export const fetchExpiringLotsFn = createServerFn({ method: "GET" })
 		const pending = await readAllPages("as baixas pendentes", (from, to) =>
 			inventory()
 				.from("stock_adjustment_item")
-				.select("id, lot_id, stock_adjustment!inner(status, kitchen_id)")
-				.eq("stock_adjustment.kitchen_id", data.kitchenId)
+				.select("id, lot_id, stock_adjustment!inner(status, location_id)")
+				.eq("stock_adjustment.location_id", location.id)
 				.eq("stock_adjustment.status", "pending_approval")
 				.eq("direction", "out")
 				.not("lot_id", "is", null)
@@ -219,7 +234,7 @@ export const fetchExpiringLotsFn = createServerFn({ method: "GET" })
 export const fetchExpirySummaryFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive() }))
 	.handler(async ({ data }) => {
-		await requireStorageForKitchen(1, data.kitchenId)
+		const { location } = await requireStockForKitchen(1, data.kitchenId)
 		// blind-count-exempt: contagem de lotes e valor em risco agregados para o badge do menu, sem
 		// item nem quantidade (lacuna anotada em EST-CNT-04).
 		// Só as faixas que o resumo soma. Ler todo lote com saldo — inclusive a
@@ -230,7 +245,7 @@ export const fetchExpirySummaryFn = createServerFn({ method: "GET" })
 			inventory()
 				.from("v_lot_expiry")
 				.select("lot_id, band, balance_value")
-				.eq("kitchen_id", data.kitchenId)
+				.eq("location_id", location.id)
 				.in("band", ["expired", "critical", "no_expiry"])
 				.order("lot_id")
 				.range(from, to)
@@ -260,10 +275,10 @@ export const setLotUseFirstFn = createServerFn({ method: "POST" })
 	.validator(z.object({ lotId: z.uuid(), useFirst: z.boolean() }))
 	.handler(async ({ data }) => {
 		const inv = inventory()
-		const { data: lot, error: lotError } = await inv.from("stock_lot").select("id, kitchen_id, quarantined_at").eq("id", data.lotId).maybeSingle()
+		const { data: lot, error: lotError } = await inv.from("stock_lot").select("id, location_id, quarantined_at").eq("id", data.lotId).maybeSingle()
 		if (lotError) throw new Error(`Erro ao carregar o lote: ${publicDbMessage(lotError)}`)
 		if (!lot) throw new Error("Lote não encontrado")
-		await requireStorageForKitchen(2, Number(lot.kitchen_id))
+		await requireStorageForLocation(2, Number(lot.location_id))
 		// marcar "usar primeiro" um lote em quarentena é uma ordem que a alocação
 		// vai ignorar: a quarentena exclui o lote antes de qualquer ordenação
 		if (data.useFirst && lot.quarantined_at != null) throw new Error("Lote está em quarentena — libere antes de marcar para usar primeiro")
@@ -273,16 +288,17 @@ export const setLotUseFirstFn = createServerFn({ method: "POST" })
 		return { useFirst: data.useFirst }
 	})
 
-/** Políticas da cozinha, com a global que vale quando ela não tem a sua. */
+/** Políticas do local de estoque da cozinha, com a global que vale quando ele não tem a sua. */
 export const fetchExpiryPoliciesFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive() }))
 	.handler(async ({ data }) => {
-		await requireStorageForKitchen(1, data.kitchenId)
+		const { location } = await requireStockForKitchen(1, data.kitchenId)
 		const all = await readAllPages("as políticas de vencimento", (from, to) =>
 			inventory()
 				.from("expiry_alert_policy")
-				.select("id, kitchen_id, ingredient_id, conservation_class, alert_days, notes")
-				.or(`kitchen_id.eq.${data.kitchenId},kitchen_id.is.null`)
+				// `item_id` é o id do insumo: política por item só se grava pela tela de insumo
+				.select("id, location_id, ingredient_id:item_id, conservation_class, alert_days, notes")
+				.or(`location_id.eq.${location.id},location_id.is.null`)
 				.order("id")
 				.range(from, to)
 		)
@@ -292,7 +308,7 @@ export const fetchExpiryPoliciesFn = createServerFn({ method: "GET" })
 
 		return all.map((row) => ({
 			id: row.id,
-			scope: row.kitchen_id == null ? ("global" as const) : ("kitchen" as const),
+			scope: row.location_id == null ? ("global" as const) : ("kitchen" as const),
 			ingredientId: row.ingredient_id,
 			ingredientName: row.ingredient_id ? (names.get(row.ingredient_id) ?? null) : null,
 			conservationClass: row.conservation_class,
@@ -321,17 +337,20 @@ export const saveExpiryPolicyFn = createServerFn({ method: "POST" })
 			})
 	)
 	.handler(async ({ data }) => {
-		const { userId } = await requireStorageForKitchen(3, data.kitchenId)
+		const {
+			ctx: { userId },
+			location,
+		} = await requireStockForKitchen(3, data.kitchenId)
 		const inv = inventory()
 		// NÃO é `upsert(onConflict)`: os índices únicos desta tabela são de
-		// EXPRESSÃO (`coalesce(kitchen_id, 0)`), e o Postgres não casa nome de
+		// EXPRESSÃO (`coalesce(location_id, 0)`), e o Postgres não casa nome de
 		// coluna com índice de expressão — todo save devolvia 42P10 e nenhuma
 		// cozinha conseguia gravar política. Atualiza; se não havia linha, insere;
 		// se outra pessoa inseriu no meio (23505), atualiza de novo.
 		const values = { alert_days: data.alertDays, notes: data.notes?.trim() || null, updated_at: new Date().toISOString() }
 		const matching = () => {
-			const query = inv.from("expiry_alert_policy").update(values).eq("kitchen_id", data.kitchenId)
-			if (data.ingredientId) return query.eq("ingredient_id", data.ingredientId)
+			const query = inv.from("expiry_alert_policy").update(values).eq("location_id", location.id)
+			if (data.ingredientId) return query.eq("item_id", data.ingredientId)
 			if (data.conservationClass) return query.eq("conservation_class", data.conservationClass)
 			throw new Error("A política é de um ingrediente OU de uma classe de conservação")
 		}
@@ -340,8 +359,8 @@ export const saveExpiryPolicyFn = createServerFn({ method: "POST" })
 		if (updateError) throw new Error(`Erro ao salvar a política de vencimento: ${publicDbMessage(updateError)}`)
 		if ((updated ?? []).length === 0) {
 			const { error: insertError } = await inv.from("expiry_alert_policy").insert({
-				kitchen_id: data.kitchenId,
-				...(data.ingredientId ? { ingredient_id: data.ingredientId } : { conservation_class: data.conservationClass }),
+				location_id: location.id,
+				...(data.ingredientId ? { item_id: data.ingredientId } : { conservation_class: data.conservationClass }),
 				...values,
 				created_by: userId,
 			})
@@ -360,12 +379,12 @@ export const deleteExpiryPolicyFn = createServerFn({ method: "POST" })
 	.validator(z.object({ policyId: z.uuid() }))
 	.handler(async ({ data }) => {
 		const inv = inventory()
-		const { data: policy, error: policyError } = await inv.from("expiry_alert_policy").select("id, kitchen_id").eq("id", data.policyId).maybeSingle()
+		const { data: policy, error: policyError } = await inv.from("expiry_alert_policy").select("id, location_id").eq("id", data.policyId).maybeSingle()
 		if (policyError) throw new Error(`Erro ao carregar a política: ${publicDbMessage(policyError)}`)
 		if (!policy) throw new Error("Política não encontrada")
 		// política global não se apaga por aqui — o dono dela é a administração
-		if (policy.kitchen_id == null) throw new Error("Política global não é editável pela cozinha")
-		await requireStorageForKitchen(3, Number(policy.kitchen_id))
+		if (policy.location_id == null) throw new Error("Política global não é editável pela cozinha")
+		await requireStorageForLocation(3, Number(policy.location_id))
 
 		const { error } = await inv.from("expiry_alert_policy").delete().eq("id", data.policyId)
 		if (error) throw new Error(`Erro ao remover a política: ${publicDbMessage(error)}`)
@@ -408,17 +427,18 @@ export const fetchExpiringInPeriodFn = createServerFn({ method: "GET" })
 		}
 		// Quantidade de item em contagem cega aberta não sai daqui: o planejamento é mais uma tela
 		// de onde se leria o esperado. O item fica — a validade é o que o cardápio usa.
-		const hidden = await hiddenByBlindCount(data.kitchenId, ctx)
+		const location = await resolveKitchenLocation(data.kitchenId)
+		const hidden = await hiddenByBlindCount(data.kitchenId, ctx, location.id)
 		// Olhando um mês FUTURO, o corte começa no início dele: lote que estraga
 		// semanas antes do mês nem chega a ele, e sugeri-lo para aquele cardápio
 		// é sugerir comida que não vai existir. No passado, o corte é hoje.
 		const today = getBrasiliaToday()
 		const cutoff = data.from && data.from > today ? data.from : today
-		const rows = await readAllPages("os vencimentos do período", (from, to) =>
+		const viewRows = await readAllPages("os vencimentos do período", (from, to) =>
 			inventory()
 				.from("v_lot_expiry")
-				.select("lot_id, ingredient_id, frozen_preparation_id, expiry_date, balance, balance_value, quarantined_at")
-				.eq("kitchen_id", data.kitchenId)
+				.select("lot_id, item_id, expiry_date, balance, balance_value, quarantined_at")
+				.eq("location_id", location.id)
 				.not("expiry_date", "is", null)
 				// Limite de BAIXO também: lote já vencido e ainda não baixado aparecia em
 				// "aproveite no cardápio", e olhando um mês passado o bloco listava só
@@ -431,6 +451,7 @@ export const fetchExpiringInPeriodFn = createServerFn({ method: "GET" })
 				.order("lot_id")
 				.range(from, to)
 		)
+		const rows = await withFoodRefs(viewRows)
 		const byItem = new Map<string, { ingredientId: string | null; frozenPreparationId: string | null; quantity: number; value: number; firstExpiry: string }>()
 		for (const row of rows.filter((row) => row.quarantined_at == null)) {
 			const key = row.ingredient_id ?? row.frozen_preparation_id ?? ""

@@ -1,0 +1,10 @@
+{
+  "extends": "@iefa/tsconfig/react-app.json",
+  "include": ["**/*.ts", "**/*.tsx"],
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["./src/*"]
+    },
+    "types": ["vite/client", "bun"]
+  }
+}

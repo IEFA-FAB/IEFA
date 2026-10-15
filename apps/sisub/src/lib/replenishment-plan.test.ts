@@ -18,14 +18,14 @@ import {
 } from "@/lib/replenishment-plan"
 
 describe("indexStockByIngredient", () => {
-	it("separa disponível de vencendo no horizonte e ignora saldo não positivo e insumo nulo", () => {
+	it("separa disponível de vencendo no horizonte e ignora saldo não positivo e item nulo", () => {
 		const stock = indexStockByIngredient(
 			[
-				{ ingredient_id: "a", balance: 10, expiry_date: null },
-				{ ingredient_id: "a", balance: "4", expiry_date: "2026-10-20" },
-				{ ingredient_id: "a", balance: 3, expiry_date: "2026-10-21" },
-				{ ingredient_id: "b", balance: 0, expiry_date: null },
-				{ ingredient_id: null, balance: 99, expiry_date: null },
+				{ item_id: "a", balance: 10, expiry_date: null },
+				{ item_id: "a", balance: "4", expiry_date: "2026-10-20" },
+				{ item_id: "a", balance: 3, expiry_date: "2026-10-21" },
+				{ item_id: "b", balance: 0, expiry_date: null },
+				{ item_id: null, balance: 99, expiry_date: null },
 			],
 			"2026-10-20"
 		)
@@ -80,12 +80,12 @@ describe("indexDefaultPurchaseLinks", () => {
 })
 
 describe("trânsito", () => {
-	it("sumReceivedByIngredient ignora linha sem insumo", () => {
+	it("sumReceivedByIngredient ignora linha sem item", () => {
 		expect([
 			...sumReceivedByIngredient([
-				{ ingredient_id: "a", received_qty_base: 2 },
-				{ ingredient_id: null, received_qty_base: 5 },
-				{ ingredient_id: "a", received_qty_base: "1" },
+				{ item_id: "a", received_qty_base: 2 },
+				{ item_id: null, received_qty_base: 5 },
+				{ item_id: "a", received_qty_base: "1" },
 			]),
 		]).toEqual([["a", 3]])
 	})

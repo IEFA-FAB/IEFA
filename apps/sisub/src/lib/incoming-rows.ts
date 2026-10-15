@@ -143,11 +143,11 @@ export function buildSupplyOrderRows(
 // ── (b) NF-e sem recebimento efetivado ─────────────────────────────────────
 
 /**
- * Nota da cozinha E nota enviada à UNIDADE compradora que nenhuma cozinha
- * reivindicou ainda (`kitchen_id` nulo).
+ * Nota do local de estoque da cozinha E nota enviada à UNIDADE compradora que
+ * nenhuma cozinha reivindicou ainda (`location_id` nulo).
  */
-export function buildIncomingNoteScope(kitchenId: number, purchaseUnit: number | null): string {
-	return purchaseUnit == null ? `kitchen_id.eq.${kitchenId}` : `kitchen_id.eq.${kitchenId},and(kitchen_id.is.null,unit_id.eq.${purchaseUnit})`
+export function buildIncomingNoteScope(locationId: number, purchaseUnit: number | null): string {
+	return purchaseUnit == null ? `location_id.eq.${locationId}` : `location_id.eq.${locationId},and(location_id.is.null,unit_id.eq.${purchaseUnit})`
 }
 
 export interface IncomingNote {
@@ -160,10 +160,11 @@ export interface IncomingNote {
 	total_value: number | string | null
 	status: string
 	situation_result: string | null
-	kitchen_id: number | null
+	/** Local de estoque dono da nota; nulo enquanto nenhuma cozinha a assumiu. */
+	location_id: number | null
 }
 
-/** Recebimentos das notas, de qualquer cozinha: efetivados, em andamento aqui e em andamento em outra. */
+/** Recebimentos das notas, de qualquer local: efetivados, em andamento neste local e em andamento em outro. */
 export interface NoteReceiptIndex {
 	definitiveByNote: Set<string>
 	openHereByNote: Map<string, string>
@@ -171,8 +172,8 @@ export interface NoteReceiptIndex {
 }
 
 export function indexNoteReceipts(
-	receipts: ReadonlyArray<{ id: string; nfe_document_id: string | null; kitchen_id: number | string | null; definitive_at: string | null }>,
-	kitchenId: number
+	receipts: ReadonlyArray<{ id: string; nfe_document_id: string | null; location_id: number | string | null; definitive_at: string | null }>,
+	locationId: number
 ): NoteReceiptIndex {
 	const definitiveByNote = new Set<string>()
 	const openHereByNote = new Map<string, string>()
@@ -180,7 +181,7 @@ export function indexNoteReceipts(
 	for (const row of receipts) {
 		if (row.nfe_document_id == null) continue // filtrado no `.in()`
 		if (row.definitive_at != null) definitiveByNote.add(row.nfe_document_id)
-		else if (Number(row.kitchen_id) === kitchenId) openHereByNote.set(row.nfe_document_id, row.id)
+		else if (Number(row.location_id) === locationId) openHereByNote.set(row.nfe_document_id, row.id)
 		else openElsewhere.add(row.nfe_document_id)
 	}
 	return { definitiveByNote, openHereByNote, openElsewhere }
@@ -228,7 +229,7 @@ export function buildNfeRows(notes: readonly IncomingNote[], index: NoteReceiptI
 			// nota cancelada na SEFAZ não é entrega a esperar, é entrega que não vem
 			cancelled: note.situation_result === "cancelled",
 			openReceiptId,
-			unclaimed: note.kitchen_id == null,
+			unclaimed: note.location_id == null,
 			announced: note.status === "announced",
 			pending: pendingByNote.get(note.id) ?? 0,
 		}
@@ -249,7 +250,7 @@ export function buildNfeRows(notes: readonly IncomingNote[], index: NoteReceiptI
 			supplyOrderId: null,
 			nfeDocumentId: note.id,
 			goodsReceiptId: openReceiptId,
-			unclaimedNote: note.kitchen_id == null,
+			unclaimedNote: note.location_id == null,
 		})
 	}
 	return rows

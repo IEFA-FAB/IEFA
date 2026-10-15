@@ -175,7 +175,7 @@ async function loadReceiptRows(db: SisubDb, kitchenIds: readonly number[]): Prom
 		"QUERY_FAILED",
 		() =>
 			db.execute(sql`
-				select gr.id, gr.kitchen_id, gr.source, gr.status, gr.created_at, gr.provisional_at, gr.definitive_at,
+				select gr.id, sl.kitchen_id, gr.source, gr.status, gr.created_at, gr.provisional_at, gr.definitive_at,
 					gr.delivery_note_number, gr.supplier_name, gr.invoice_expected, gr.nfe_document_id, gr.supply_order_id, gr.empenho_id,
 					gr.invoice_check_deferred_at, n.access_key, n.situation_result, n.situation_checked_at,
 					(select count(*) from inventory.goods_receipt_item i where i.receipt_id = gr.id) as lines,
@@ -189,9 +189,11 @@ async function loadReceiptRows(db: SisubDb, kitchenIds: readonly number[]): Prom
 					exists (select 1 from inventory.designations_covering(coalesce(k.purchase_unit_id, k.unit_id), gr.empenho_id,
 						${textArray(DEFINITIVE_RECEIPT_ROLES)})) as has_definitive_designation
 				from inventory.goods_receipt gr
-				join kitchen.kitchen k on k.id = gr.kitchen_id
+				-- o recebimento é do local de estoque; a lente do sisub é a cozinha dona do local
+				join inventory.stock_location sl on sl.id = gr.location_id
+				join kitchen.kitchen k on k.id = sl.kitchen_id
 				left join inventory.nfe_document n on n.id = gr.nfe_document_id
-				where gr.kitchen_id in (${sql.join(
+				where sl.kitchen_id in (${sql.join(
 					kitchenIds.map((id) => sql`${id}`),
 					sql`, `
 				)})
@@ -455,8 +457,9 @@ export async function fetchExpenseExecutionStatus(db: SisubDb, ctx: UserContext,
 				db.execute(sql`
 					select so.id, so.number, so.sent_at, coalesce(k.display_name, 'Cozinha ' || k.id) as kitchen_name
 					from procurement.supply_order so
-					join kitchen.kitchen k on k.id = so.kitchen_id
-					where so.kitchen_id ${kitchenFilter} and so.empenho_id is null and so.status not in ('draft', 'cancelled')
+					join inventory.stock_location sl on sl.id = so.location_id
+					join kitchen.kitchen k on k.id = sl.kitchen_id
+					where sl.kitchen_id ${kitchenFilter} and so.empenho_id is null and so.status not in ('draft', 'cancelled')
 					order by so.sent_at nulls last
 					limit 50
 				`),
@@ -501,7 +504,7 @@ export async function fetchExpenseExecutionStatus(db: SisubDb, ctx: UserContext,
 						max(v.dias_desde_recebimento) filter (where v.situacao = 'sem_liquidacao') as oldest,
 						count(*) filter (where v.situacao = 'valor_divergente') as divergent
 					from finance.v_physical_accounting_reconciliation v
-					where v.kitchen_id ${kitchenFilter}
+					where v.location_id in (select sl.id from inventory.stock_location sl where sl.kitchen_id ${kitchenFilter})
 				`),
 			{ prefix: "Erro ao ler a conciliação físico × contábil" }
 		) as unknown as Promise<Row[]>,

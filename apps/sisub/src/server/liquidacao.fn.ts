@@ -37,11 +37,28 @@ import { publicDbMessage } from "@/lib/db-error-message"
 import { type LiquidacaoLinkInput, liquidacaoLinkProblems, type ReceiptForLiquidacao } from "@/lib/invoice-gate"
 import { readAllPagesIn } from "@/lib/read-all-pages"
 import { selectColumns } from "@/lib/select-columns"
+import { kitchenOfLocation } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 import { requireUnitScope } from "@/lib/unit-auth.server"
 
 const finance = () => getServerClient("finance")
 const inventory = () => getServerClient("inventory")
+
+/**
+ * Unidade compradora da cozinha do local de estoque do recebimento (`purchase_unit_id`, senão
+ * `unit_id`); `null` quando o local não é de cozinha ou a cozinha não tem unidade.
+ */
+async function purchaseUnitIdOfLocation(locationId: number): Promise<number | null> {
+	const kitchenId = await kitchenOfLocation(locationId)
+	if (kitchenId == null) return null
+	const { data: kitchenRow, error: kitchenError } = await getServerClient("kitchen")
+		.from("kitchen")
+		.select("unit_id, purchase_unit_id")
+		.eq("id", kitchenId)
+		.maybeSingle()
+	if (kitchenError) throw new Error(`Erro ao carregar a cozinha do recebimento: ${publicDbMessage(kitchenError)}`)
+	return resolvePurchaseUnitId({ unitId: kitchenRow?.unit_id ?? null, purchaseUnitId: kitchenRow?.purchase_unit_id ?? null })
+}
 
 const DEDUCTION_COLUMNS = ["id", "liquidacao_id", "kind", "amount", "document_kind", "document_number", "revenue_code", "paid_on", "notes"] as const
 
@@ -157,22 +174,15 @@ export const suggestLiquidacaoFromReceiptFn = createServerFn({ method: "GET" })
 		// "não encontrado" x "existe" para quem não tem escopo é um oráculo barato, mas é um oráculo.
 		const { data: receipt, error: receiptError } = await inv
 			.from("goods_receipt")
-			.select("id, kitchen_id, status, definitive_at, empenho_id, nfe_document_id")
+			.select("id, location_id, status, definitive_at, empenho_id, nfe_document_id")
 			.eq("id", data.receiptId)
 			.maybeSingle()
 		if (receiptError) throw new Error(`Erro ao carregar o recebimento: ${publicDbMessage(receiptError)}`)
 		if (!receipt) throw new Error("Recebimento não encontrado")
 
-		const kitchenDb = getServerClient("kitchen")
-		const { data: kitchenRow, error: kitchenError } = await kitchenDb
-			.from("kitchen")
-			.select("unit_id, purchase_unit_id")
-			.eq("id", receipt.kitchen_id)
-			.maybeSingle()
-		if (kitchenError) throw new Error(`Erro ao carregar a cozinha do recebimento: ${publicDbMessage(kitchenError)}`)
 		// Quem empenha e liquida é a unidade COMPRADORA: inverter a precedência
 		// autorizaria contra a unidade errada. Ver `resolvePurchaseUnitId`.
-		const unitId = resolvePurchaseUnitId({ unitId: kitchenRow?.unit_id ?? null, purchaseUnitId: kitchenRow?.purchase_unit_id ?? null })
+		const unitId = await purchaseUnitIdOfLocation(receipt.location_id)
 		if (unitId == null) throw new Error("Cozinha do recebimento não tem unidade vinculada")
 		await requireUnitScope(1, unitId)
 
@@ -346,18 +356,14 @@ async function assertLiquidacaoLinks(
 	if (goodsReceiptId) {
 		const { data: row, error } = await inv
 			.from("goods_receipt")
-			.select("id, kitchen_id, status, definitive_at, nfe_document_id, empenho_id, fiscal_pending")
+			.select("id, location_id, status, definitive_at, nfe_document_id, empenho_id, fiscal_pending")
 			.eq("id", goodsReceiptId)
 			.maybeSingle()
 		if (error) throw new Error(`Erro ao conferir o recebimento: ${publicDbMessage(error)}`)
 		if (!row) throw new Error("Recebimento não encontrado")
 
-		const kitchenDb = getServerClient("kitchen")
-		const { data: kitchenRow, error: kitchenError } = await kitchenDb.from("kitchen").select("unit_id, purchase_unit_id").eq("id", row.kitchen_id).maybeSingle()
-		if (kitchenError) throw new Error(`Erro ao conferir a cozinha do recebimento: ${publicDbMessage(kitchenError)}`)
-
 		receipt = {
-			unitId: resolvePurchaseUnitId({ unitId: kitchenRow?.unit_id ?? null, purchaseUnitId: kitchenRow?.purchase_unit_id ?? null }),
+			unitId: await purchaseUnitIdOfLocation(row.location_id),
 			status: row.status,
 			definitiveAt: row.definitive_at,
 			nfeDocumentId: row.nfe_document_id,
@@ -610,7 +616,8 @@ export const fetchPagamentoPanelFn = createServerFn({ method: "GET" })
 
 export interface ReceiptForLiquidacaoOption {
 	id: string
-	kitchenId: number
+	/** Local de estoque do recebimento (`goods_receipt.location_id`). */
+	locationId: number
 	definitiveAt: string | null
 	nfeDocumentId: string | null
 	/** Teto da NS por este recebimento; `null` quando indeterminado (item sem custo e sem NF-e). */
@@ -633,7 +640,7 @@ export const listReceiptsForLiquidacaoFn = createServerFn({ method: "GET" })
 
 		const { data: receipts, error } = await inventory()
 			.from("goods_receipt")
-			.select("id, kitchen_id, status, definitive_at, nfe_document_id")
+			.select("id, location_id, status, definitive_at, nfe_document_id")
 			.eq("empenho_id", data.empenhoId)
 			// atestado = efetivado: a recusa grava rejected_at, e o banco impede definitive_at nela
 			// (20260926205000). O filtro vai NA consulta, antes do limite: filtrar depois deixava
@@ -643,13 +650,13 @@ export const listReceiptsForLiquidacaoFn = createServerFn({ method: "GET" })
 			.limit(100)
 		if (error) throw new Error(`Erro ao listar os recebimentos do empenho: ${publicDbMessage(error)}`)
 
-		const attested = (receipts ?? []) as Array<{ id: string; kitchen_id: number; definitive_at: string | null; nfe_document_id: string | null }>
+		const attested = (receipts ?? []) as Array<{ id: string; location_id: number; definitive_at: string | null; nfe_document_id: string | null }>
 		const ceilings = await readReceiptCeilings(attested.map((row) => row.id))
 		return attested.map((row) => {
 			const read = ceilings.get(row.id) ?? { ceiling: receiptLiquidacaoCeiling([], null), alreadyLiquidated: 0, liquidacaoCount: 0 }
 			return {
 				id: row.id,
-				kitchenId: Number(row.kitchen_id),
+				locationId: Number(row.location_id),
 				definitiveAt: row.definitive_at,
 				nfeDocumentId: row.nfe_document_id,
 				teto: read.ceiling.value,

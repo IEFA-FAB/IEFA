@@ -44,7 +44,10 @@ export interface StockBalanceItem {
 	expiredBalance: number
 }
 
-/** Linha de `inventory.v_stock_balance` (fora dos tipos gerados). */
+/**
+ * Linha de `inventory.v_stock_balance` (fora dos tipos gerados), já com o `item_id` do estoque
+ * traduzido para o par da tela (insumo ou preparação congelada) por `stock-item.server`.
+ */
 export interface StockBalanceViewRow {
 	ingredient_id: string | null
 	frozen_preparation_id: string | null

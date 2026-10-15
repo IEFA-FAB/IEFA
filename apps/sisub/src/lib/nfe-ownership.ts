@@ -2,8 +2,8 @@
  * De quem é a NF-e: a regra que decide se uma cozinha pode assumir a nota, ou receber
  * mercadoria por ela.
  *
- * A nota chega no CNPJ da OM compradora, não da cozinha. Enquanto nenhuma cozinha a assumiu
- * (`kitchen_id` nulo), ela é da UNIDADE (`unit_id`), e só uma cozinha cuja unidade de compra é
+ * A nota chega no CNPJ da OM compradora, não da cozinha. Enquanto nenhum local de estoque a
+ * assumiu (`location_id` nulo), ela é da UNIDADE (`unit_id`), e só uma cozinha cuja unidade de compra é
  * aquela pode tomá-la. Nota sem unidade (`unit_id` nulo e sem cozinha) está na triagem global:
  * o destinatário não foi reconhecido, e quem atribui a unidade é o nível 3 global.
  *
@@ -11,12 +11,12 @@
  */
 
 export interface NfeOwnershipInput {
-	/** Cozinha dona da nota (`nfe_document.kitchen_id`). */
-	docKitchenId: number | null
+	/** Local de estoque dono da nota (`nfe_document.location_id`). */
+	docLocationId: number | null
 	/** Unidade destinatária da nota (`nfe_document.unit_id`). */
 	docUnitId: number | null
-	/** Cozinha que quer assumir a nota ou receber por ela. */
-	kitchenId: number
+	/** Local de estoque (o da cozinha) que quer assumir a nota ou receber por ela. */
+	locationId: number
 	/** Unidade de compra dessa cozinha (`purchase_unit_id`, senão `unit_id`). */
 	kitchenPurchaseUnitId: number | null
 }
@@ -26,8 +26,8 @@ export interface NfeOwnershipInput {
  * ninguém a assumiu); senão, a frase que diz por que não e o que fazer.
  */
 export function nfeOwnershipProblem(input: NfeOwnershipInput): string | null {
-	if (input.docKitchenId != null && input.docKitchenId !== input.kitchenId) return "NF-e já pertence a outra cozinha"
-	if (input.docKitchenId === input.kitchenId) {
+	if (input.docLocationId != null && input.docLocationId !== input.locationId) return "NF-e já pertence a outra cozinha"
+	if (input.docLocationId === input.locationId) {
 		// Já é desta cozinha — desde que o destinatário conhecido seja a unidade dela. Nota que ficou
 		// com a cozinha e depois teve outra unidade atribuída (ou gravada antes desta regra) não
 		// sustenta recebimento aqui.

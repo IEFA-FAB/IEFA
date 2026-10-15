@@ -30,15 +30,15 @@ const SELECTIONS: Array<{ label: string; table: string; columns: string }> = [
 	{ label: "favorecido do empenho", table: "finance.empenho", columns: "id, numero_empenho, favorecido_nome, favorecido_cnpj, unit_id" },
 	{ label: "saldo do empenho", table: "finance.v_empenho_saldo", columns: "empenho_id, saldo_a_liquidar" },
 	{
-		label: "recebimentos da cozinha",
+		label: "recebimentos do local de estoque da cozinha",
 		table: "inventory.goods_receipt",
-		columns: "id, supply_order_id, status, nfe_document_id, source, delivery_note_number, created_at, definitive_at, kitchen_id",
+		columns: "id, supply_order_id, status, nfe_document_id, source, delivery_note_number, created_at, definitive_at, location_id",
 	},
 	{ label: "unidade compradora da cozinha", table: "kitchen.kitchen", columns: "unit_id, purchase_unit_id" },
 	{
 		label: "notas em aberto",
 		table: "inventory.nfe_document",
-		columns: "id, access_key, supplier_name, supplier_cnpj, supplier_cpf, issued_at, total_value, status, situation_result, kitchen_id, unit_id",
+		columns: "id, access_key, supplier_name, supplier_cnpj, supplier_cpf, issued_at, total_value, status, situation_result, location_id, unit_id",
 	},
 	{ label: "itens da nota", table: "inventory.nfe_item", columns: "id, nfe_document_id, ingredient_item_id" },
 ]

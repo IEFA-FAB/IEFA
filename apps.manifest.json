@@ -62,6 +62,20 @@
       }
     },
     {
+      "key": "sisprov",
+      "title": "SISPROV (Sistema de Provisões — estoque de todas as classes)",
+      "workspace": "@iefa/sisprov",
+      "path": "apps/sisprov",
+      "kind": "nitro",
+      "port": 3000,
+      "buildArgs": ["VITE_SISPROV_SUPABASE_URL", "VITE_SISPROV_SUPABASE_PUBLISHABLE_KEY"],
+      "healthUrlVar": "SISPROV_HEALTH_URL",
+      "buildArgFrom": {
+        "VITE_SISPROV_SUPABASE_URL": "VITE_SISUB_SUPABASE_URL",
+        "VITE_SISPROV_SUPABASE_PUBLISHABLE_KEY": "VITE_SISUB_SUPABASE_PUBLISHABLE_KEY"
+      }
+    },
+    {
       "key": "sucont",
       "title": "SUCONT (HUB SUCONT-4 — acompanhamento contábil)",
       "workspace": "sucont",

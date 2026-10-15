@@ -99,6 +99,26 @@ async function purchaseUnitOfKitchen(supabase: NfeClient, kitchenId: number | nu
 	return resolvePurchaseUnitId({ unitId: data?.unit_id ?? null, purchaseUnitId: data?.purchase_unit_id ?? null })
 }
 
+/**
+ * O `inventory` é por LOCAL de estoque (migration `inventory_multiclass`): a NF-e guarda o
+ * `location_id`, não a cozinha. O contrato desta rota continua em cozinha (`kitchen_id`), que é
+ * como o sisub chama; a tradução fica aqui, nos dois sentidos.
+ */
+async function locationOfKitchen(supabase: NfeClient, kitchenId: number | null): Promise<number | null> {
+	if (kitchenId == null) return null
+	const { data, error } = await supabase.from("stock_location").select("id").eq("kitchen_id", kitchenId).is("deleted_at", null).maybeSingle()
+	if (error) throw new Error(`Falha ao carregar o local de estoque da cozinha: ${error.message}`)
+	if (!data) throw new Error(`A cozinha ${kitchenId} não tem local de estoque`)
+	return Number(data.id)
+}
+
+async function kitchenOfLocation(supabase: NfeClient, locationId: number | null): Promise<number | null> {
+	if (locationId == null) return null
+	const { data, error } = await supabase.from("stock_location").select("kitchen_id").eq("id", locationId).maybeSingle()
+	if (error) throw new Error(`Falha ao carregar o local de estoque: ${error.message}`)
+	return data?.kitchen_id == null ? null : Number(data.kitchen_id)
+}
+
 function buildItemRows(documentId: string, parsed: ParsedNfe, costByItem: Map<number, number>) {
 	return parsed.items.map((item) => ({
 		nfe_document_id: documentId,
@@ -138,7 +158,10 @@ function buildItemRows(documentId: string, parsed: ParsedNfe, costByItem: Map<nu
  */
 async function completeAnnouncedDocument(
 	supabase: NfeClient,
-	existing: { id: string; kitchen_id: number | null; unit_id: number | null },
+	existing: { id: string; location_id: number | null; unit_id: number | null },
+	// A cozinha que esta importação já resolveu (`kitchenForImportedNfe`), não a da query crua:
+	// era o que `fields.kitchen_id` carregava antes de a nota passar a guardar o local.
+	importKitchenId: number | null,
 	fields: Record<string, unknown>,
 	parsed: ParsedNfe,
 	costByItem: Map<number, number>
@@ -149,7 +172,7 @@ async function completeAnnouncedDocument(
 	// A cozinha que leu a chave também cede a nota quando o XML revela que ela é de outra
 	// unidade: sem isto, ler a chave de um DANFE alheio e depois enviar o XML deixava a nota
 	// com a cozinha errada. Decidido ANTES de gravar itens: a recusa abaixo não deixa sobra.
-	const claimedKitchen = existing.kitchen_id ?? (fields.kitchen_id as number | null)
+	const claimedKitchen = (await kitchenOfLocation(supabase, existing.location_id)) ?? importKitchenId
 	const destinationUnitId = fields.unit_id as number | null
 	const kitchenId = kitchenForImportedNfe({
 		requestedKitchenId: claimedKitchen,
@@ -191,7 +214,7 @@ async function completeAnnouncedDocument(
 			access_key: undefined,
 			unit_id: unitId,
 			destination_confirmed: fields.unit_id != null,
-			kitchen_id: kitchenId,
+			location_id: await locationOfKitchen(supabase, kitchenId),
 			created_by: undefined,
 		})
 		.eq("id", existing.id)
@@ -298,7 +321,7 @@ export function createNfeAdminRoutes(deps: NfeAdminRoutesDeps = {}) {
 			authenticity: auth,
 			status: "available",
 			xml,
-			kitchen_id: kitchenId,
+			location_id: await locationOfKitchen(supabase, kitchenId),
 			created_by: created_by ?? null,
 		}
 
@@ -308,7 +331,7 @@ export function createNfeAdminRoutes(deps: NfeAdminRoutesDeps = {}) {
 			if (docError.code === "23505") {
 				const { data: existing } = await supabase
 					.from("nfe_document")
-					.select("id, status, kitchen_id, unit_id")
+					.select("id, status, location_id, unit_id")
 					.eq("access_key", parsed.accessKey)
 					.maybeSingle()
 				// Nota ANUNCIADA pela chave do DANFE: o XML é o que a completa — é o fluxo que a tela
@@ -317,10 +340,11 @@ export function createNfeAdminRoutes(deps: NfeAdminRoutesDeps = {}) {
 				// `goods_receipt` e `finance.liquidacao` apontam para ela com ON DELETE SET NULL, o
 				// recebimento já registrado pela chave perdia a nota em silêncio.
 				if (existing?.status === "announced") {
-					if (existing.kitchen_id != null && kitchen_id != null && Number(existing.kitchen_id) !== kitchen_id) {
+					const existingKitchen = await kitchenOfLocation(supabase, existing.location_id == null ? null : Number(existing.location_id))
+					if (existingKitchen != null && kitchen_id != null && existingKitchen !== kitchen_id) {
 						return c.json({ error: "NF-e já pertence a outra cozinha", document_id: undefined }, 409)
 					}
-					const completed = await completeAnnouncedDocument(supabase, existing, documentFields, parsed, costByItem)
+					const completed = await completeAnnouncedDocument(supabase, existing, kitchenId, documentFields, parsed, costByItem)
 					if ("error" in completed) {
 						if (completed.conflict) return c.json({ error: completed.error, document_id: undefined }, 409)
 						throw new Error(completed.error)

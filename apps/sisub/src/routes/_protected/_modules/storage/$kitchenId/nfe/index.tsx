@@ -174,7 +174,7 @@ function NfeListPage() {
 													<Badge variant="outline" className="text-destructive">
 														Cancelada
 													</Badge>
-												) : doc.kitchen_id == null ? (
+												) : doc.location_id == null ? (
 													<Button type="button" size="sm" variant="outline" onClick={() => claim(doc.id)}>
 														Assumir para esta cozinha
 													</Button>

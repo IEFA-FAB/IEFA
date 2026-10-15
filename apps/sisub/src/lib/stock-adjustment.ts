@@ -6,17 +6,17 @@
  */
 
 /**
- * Lote informado tem de ser da cozinha do ajuste — o guard é por cozinha, e sem esta checagem o
- * nível 2 de uma cozinha ajustaria lote de outra. "Outra cozinha" é conferido antes de "não
- * encontrado".
+ * Lote informado tem de ser do local de estoque do ajuste — o guard é pelo local, e sem esta
+ * checagem o nível 2 de uma cozinha ajustaria lote de outra. "Outra cozinha" é conferido antes de
+ * "não encontrado".
  */
 export function findAdjustmentLotProblem(
-	lots: ReadonlyArray<{ kitchen_id: number }>,
-	kitchenId: number,
+	lots: ReadonlyArray<{ location_id: number }>,
+	locationId: number,
 	requestedLotIds: readonly string[]
 ): "Lote de outra cozinha" | "Lote não encontrado" | null {
 	for (const lot of lots) {
-		if (lot.kitchen_id !== kitchenId) return "Lote de outra cozinha"
+		if (lot.location_id !== locationId) return "Lote de outra cozinha"
 	}
 	if (lots.length !== new Set(requestedLotIds).size) return "Lote não encontrado"
 	return null
@@ -24,14 +24,14 @@ export function findAdjustmentLotProblem(
 
 /** Cabeçalho do documento; observação vazia vira null. */
 export function buildAdjustmentDocumentRow(input: {
-	kitchenId: number
+	locationId: number
 	notes: string | undefined
 	isEvidencePending: boolean
 	userId: string
 	submittedAt: string
 }) {
 	return {
-		kitchen_id: input.kitchenId,
+		location_id: input.locationId,
 		notes: input.notes?.trim() || null,
 		evidence_status: input.isEvidencePending ? ("pending" as const) : ("complete" as const),
 		created_by: input.userId,
@@ -58,8 +58,8 @@ export function buildAdjustmentItemRow<T extends AdjustmentItemRowInput>(adjustm
 	return {
 		adjustment_id: adjustmentId,
 		lot_id: item.lotId ?? null,
-		ingredient_id: item.ingredientId ?? null,
-		frozen_preparation_id: item.frozenPreparationId ?? null,
+		// o id do insumo ou da preparação é o `item_id`; ajuste só por lote não o informa
+		item_id: item.ingredientId ?? item.frozenPreparationId ?? null,
 		direction: item.direction,
 		quantity: item.quantity,
 		unit_cost: item.unitCost ?? null,

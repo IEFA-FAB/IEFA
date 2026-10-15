@@ -44,6 +44,7 @@ const APP_NAMES: Record<string, Record<LegalLocale, string>> = {
 	contrate: { "pt-BR": "Contrate", "en-US": "Contrate" },
 	"assignment-selection": { "pt-BR": "Escolha de Vagas", "en-US": "Assignment Selection" },
 	docs: { "pt-BR": "Documentação", "en-US": "Documentation" },
+	sisprov: { "pt-BR": "SISPROV", "en-US": "SISPROV" },
 }
 
 /** Conteúdo publicado da Política de Cookies em cada locale, lido da migration vigente. */

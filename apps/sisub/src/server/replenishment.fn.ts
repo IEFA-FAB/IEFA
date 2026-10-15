@@ -44,7 +44,7 @@ import {
 	sumReceivedByIngredient,
 } from "@/lib/replenishment-plan"
 import { checkSupplierSicaf } from "@/lib/sicaf.server"
-import { requireStorageForKitchen } from "@/lib/storage-auth.server"
+import { requireStockForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 
 /** Linha de `acquisition` pela costura frouxa de `loadUnitExecution`; colunas em `loadDispensaRoomByClass`. */
@@ -155,7 +155,7 @@ export type { ReplenishmentSuggestion }
 export const fetchReplenishmentSuggestionsFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive(), horizonDays: z.number().int().min(1).max(60).default(14) }))
 	.handler(async ({ data }): Promise<ReplenishmentSuggestion[]> => {
-		const ctx = await requireStorageForKitchen(1, data.kitchenId)
+		const { ctx, location } = await requireStockForKitchen(1, data.kitchenId)
 		// a sugestão é demanda − saldo: com o item em contagem cega, ela revela o saldo
 		await assertNoBlindCountHides(data.kitchenId, ctx, "A reposição")
 		const inv = inventory()
@@ -186,12 +186,11 @@ export const fetchReplenishmentSuggestionsFn = createServerFn({ method: "GET" })
 			readAllPagesIn("o saldo dos insumos", ingredientIds, (chunk, from, to) =>
 				inv
 					.from("v_stock_balance")
-					.select("ingredient_id, frozen_preparation_id, lot_id, balance, expiry_date")
-					.eq("kitchen_id", data.kitchenId)
-					.in("ingredient_id", chunk)
+					.select("item_id, lot_id, balance, expiry_date")
+					.eq("location_id", location.id)
+					.in("item_id", chunk)
 					.gt("balance", 0)
-					.order("ingredient_id")
-					.order("frozen_preparation_id")
+					.order("item_id")
 					.order("lot_id")
 					.range(from, to)
 			),
@@ -200,7 +199,7 @@ export const fetchReplenishmentSuggestionsFn = createServerFn({ method: "GET" })
 				proc
 					.from("supply_order")
 					.select("id, supply_order_item (purchase_item_id, ordered_qty)")
-					.eq("kitchen_id", data.kitchenId)
+					.eq("location_id", location.id)
 					.in("status", ["sent", "partially_received"])
 					.order("id")
 					.range(from, to)
@@ -216,7 +215,7 @@ export const fetchReplenishmentSuggestionsFn = createServerFn({ method: "GET" })
 			),
 			// (6) política
 			readAllPagesIn("as políticas de estoque", ingredientIds, (chunk, from, to) =>
-				inv.from("stock_policy").select("*").eq("kitchen_id", data.kitchenId).in("ingredient_id", chunk).order("id").range(from, to)
+				inv.from("stock_policy").select("*").eq("location_id", location.id).in("item_id", chunk).order("id").range(from, to)
 			),
 			purchaseUnitIdOfKitchen(data.kitchenId),
 		])
@@ -226,7 +225,7 @@ export const fetchReplenishmentSuggestionsFn = createServerFn({ method: "GET" })
 		const purchaseQty = sumOrderedQtyByPurchaseItem(transitOrders)
 		const defaultPurchase = indexDefaultPurchaseLinks(links)
 		const { defaultPurchaseByIngredient, catmatCodeByIngredient } = defaultPurchase
-		const policyById = new Map(policies.map((p) => [p.ingredient_id, p]))
+		const policyById = new Map(policies.map((p) => [p.item_id, p]))
 
 		const [receiptItems, transitLinks, arpItems, leadTimes, classByCatmat] = await Promise.all([
 			// OF parcialmente recebida: o que já entrou em definitivo sai do trânsito
@@ -240,7 +239,7 @@ export const fetchReplenishmentSuggestionsFn = createServerFn({ method: "GET" })
 				return readAllPagesIn(
 					"os itens recebidos das OFs em trânsito",
 					receipts.map((r) => r.id),
-					(chunk, from, to) => inv.from("goods_receipt_item").select("id, ingredient_id, received_qty_base").in("receipt_id", chunk).order("id").range(from, to)
+					(chunk, from, to) => inv.from("goods_receipt_item").select("id, item_id, received_qty_base").in("receipt_id", chunk).order("id").range(from, to)
 				)
 			})(),
 			// conversão do trânsito por PURCHASE_ITEM da OF — sem exigir is_default

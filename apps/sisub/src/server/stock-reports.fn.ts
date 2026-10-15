@@ -17,7 +17,8 @@ import { csvRow } from "@/lib/csv"
 import { publicDbMessage } from "@/lib/db-error-message"
 import { committedQuantity } from "@/lib/empenho-items"
 import { readAllPages, readAllPagesIn } from "@/lib/read-all-pages"
-import { requireStorageForKitchen } from "@/lib/storage-auth.server"
+import { classifyFoodItems, foodRefOf } from "@/lib/stock-item.server"
+import { requireStockForKitchen, requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 
 const inventory = () => getServerClient("inventory")
@@ -49,9 +50,12 @@ async function describeIngredients(ids: string[]) {
 export const closeMonthFn = createServerFn({ method: "POST" })
 	.validator(z.object({ kitchenId: z.number().int().positive(), competencia: competenciaSchema }))
 	.handler(async ({ data }) => {
-		const { userId } = await requireStorageForKitchen(3, data.kitchenId)
+		const {
+			ctx: { userId },
+			location,
+		} = await requireStockForKitchen(3, data.kitchenId)
 		const { data: result, error } = await inventory().rpc("close_month", {
-			p_kitchen_id: data.kitchenId,
+			p_location_id: location.id,
 			p_competencia: `${data.competencia}-01`,
 			p_user: userId,
 		})
@@ -65,11 +69,11 @@ export const closeMonthFn = createServerFn({ method: "POST" })
 export const listClosingsFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive() }))
 	.handler(async ({ data }) => {
-		await requireStorageForKitchen(1, data.kitchenId)
+		const { location } = await requireStockForKitchen(1, data.kitchenId)
 		const { data: closings, error } = await inventory()
 			.from("monthly_closing")
 			.select("id, competencia, total_in, total_out, value_in, value_out, opening_value, closing_value, closed_at")
-			.eq("kitchen_id", data.kitchenId)
+			.eq("location_id", location.id)
 			.order("competencia", { ascending: false })
 			.limit(24)
 		if (error) throw new Error(`Erro ao listar fechamentos: ${publicDbMessage(error)}`)
@@ -83,8 +87,8 @@ export const listClosingsFn = createServerFn({ method: "GET" })
 export const fetchBalanceteFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive(), competencia: competenciaSchema }))
 	.handler(async ({ data }) => {
-		const ctx = await requireStorageForKitchen(1, data.kitchenId)
-		await assertNoBlindCountHides(data.kitchenId, ctx, "O balancete")
+		const { ctx, location } = await requireStockForKitchen(1, data.kitchenId)
+		await assertNoBlindCountHides(data.kitchenId, ctx, "O balancete", location.id)
 		const { from, to } = monthRange(data.competencia)
 
 		// O saldo inicial soma o ledger inteiro até a competência: passa de 1000 linhas cedo, e o
@@ -94,8 +98,8 @@ export const fetchBalanceteFn = createServerFn({ method: "GET" })
 		const moves = await readAllPages("o ledger", (rangeFrom, rangeTo) =>
 			inventory()
 				.from("stock_movement")
-				.select("id, ingredient_id, frozen_preparation_id, type, quantity, total_cost, created_at")
-				.eq("kitchen_id", data.kitchenId)
+				.select("id, item_id, type, quantity, total_cost, created_at")
+				.eq("location_id", location.id)
 				.lt("created_at", to)
 				.order("created_at")
 				.order("id")
@@ -113,13 +117,15 @@ export const fetchBalanceteFn = createServerFn({ method: "GET" })
 			outQty: number
 			outVal: number
 		}
+		const refs = await classifyFoodItems(moves.map((move) => move.item_id))
 		const rows = new Map<string, Row>()
 		for (const move of moves) {
-			const key = move.ingredient_id ? `i:${move.ingredient_id}` : `f:${move.frozen_preparation_id}`
+			const ref = foodRefOf(refs, move.item_id)
+			const key = ref.ingredientId ? `i:${ref.ingredientId}` : `f:${ref.frozenPreparationId}`
 			const row = rows.get(key) ?? {
 				key,
-				ingredientId: move.ingredient_id,
-				frozenId: move.frozen_preparation_id,
+				ingredientId: ref.ingredientId,
+				frozenId: ref.frozenPreparationId,
 				openQty: 0,
 				openVal: 0,
 				inQty: 0,
@@ -159,10 +165,10 @@ export const fetchBalanceteFn = createServerFn({ method: "GET" })
 export const fetchLedgerSheetFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive(), ingredientId: z.uuid(), competencia: competenciaSchema }))
 	.handler(async ({ data }) => {
-		const ctx = await requireStorageForKitchen(1, data.kitchenId)
+		const { ctx, location } = await requireStockForKitchen(1, data.kitchenId)
 		// a ficha é o saldo acumulado do item: com o item numa contagem cega
 		// aberta, ela é exatamente o número que a contagem esconde
-		if ((await hiddenByBlindCount(data.kitchenId, ctx)).has(data.ingredientId)) {
+		if ((await hiddenByBlindCount(data.kitchenId, ctx, location.id)).has(data.ingredientId)) {
 			throw new Error("A ficha deste item fica indisponível enquanto ele estiver numa contagem cega aberta")
 		}
 		const { from, to } = monthRange(data.competencia)
@@ -172,8 +178,8 @@ export const fetchLedgerSheetFn = createServerFn({ method: "GET" })
 			inv
 				.from("stock_movement")
 				.select("id, type, quantity")
-				.eq("kitchen_id", data.kitchenId)
-				.eq("ingredient_id", data.ingredientId)
+				.eq("location_id", location.id)
+				.eq("item_id", data.ingredientId)
 				.lt("created_at", from)
 				.order("id")
 				.range(rangeFrom, rangeTo)
@@ -186,8 +192,8 @@ export const fetchLedgerSheetFn = createServerFn({ method: "GET" })
 			inv
 				.from("stock_movement")
 				.select("id, type, quantity, unit_cost, total_cost, justification, created_at, lot_id")
-				.eq("kitchen_id", data.kitchenId)
-				.eq("ingredient_id", data.ingredientId)
+				.eq("location_id", location.id)
+				.eq("item_id", data.ingredientId)
 				.gte("created_at", from)
 				.lt("created_at", to)
 				.order("created_at", { ascending: true })
@@ -206,8 +212,8 @@ export const fetchLedgerSheetFn = createServerFn({ method: "GET" })
 export const exportCatmatCsvFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive(), competencia: competenciaSchema }))
 	.handler(async ({ data }): Promise<string> => {
-		const ctx = await requireStorageForKitchen(1, data.kitchenId)
-		await assertNoBlindCountHides(data.kitchenId, ctx, "A exportação")
+		const { ctx, location } = await requireStockForKitchen(1, data.kitchenId)
+		await assertNoBlindCountHides(data.kitchenId, ctx, "A exportação", location.id)
 		const balancete = await fetchBalanceteFn({ data })
 
 		const ingredientIds = balancete.map((row) => row.ingredientId).filter((id): id is string => id != null)

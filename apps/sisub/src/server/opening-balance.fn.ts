@@ -10,7 +10,8 @@
  *
  * CLIENT: getServerClient (service role, schema inventory).
  * AUTH: `storage` nível 1 lê; nível 2 prepara (importa, custeia, cancela); nível 3 lança.
- *   A cozinha vem SEMPRE da linha do documento, nunca do input, em toda fn que recebe o id.
+ *   O local de estoque (e dele a cozinha) vem SEMPRE da linha do documento, nunca do input, em
+ *   toda fn que recebe o id.
  * TABLES: inventory.opening_balance(_item), stock_cost (leitura), procurement.* (preços).
  * @domain kitchen
  * @migration 20260922100000_inventory_opening_balance
@@ -38,7 +39,7 @@ import {
 	suggestOpeningCosts,
 } from "@/lib/opening-balance.server"
 import { readAllPages, readAllPagesIn } from "@/lib/read-all-pages"
-import { requireStorageForKitchen } from "@/lib/storage-auth.server"
+import { requireStockForKitchen, requireStockForLocation } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 
 const inventory = () => getServerClient("inventory")
@@ -49,7 +50,7 @@ const MAX_SHEET_CHARS = 3_000_000
 
 interface OpeningDocRow {
 	id: string
-	kitchen_id: number
+	location_id: number
 	status: "draft" | "posted" | "cancelled"
 	source: OpeningBalanceSource
 	source_filename: string | null
@@ -75,17 +76,18 @@ interface OpeningItemRow {
 }
 
 /**
- * Documento pelo id, com a cozinha checada contra o nível pedido. A cozinha é a da LINHA — o
- * id vem do cliente, e aceitar a cozinha do input deixaria o nível 3 de uma cozinha lançar a
- * carga de outra.
+ * Documento pelo id, com a cozinha checada contra o nível pedido. A cozinha é a do local de
+ * estoque da LINHA — o id vem do cliente, e aceitar a cozinha do input deixaria o nível 3 de uma
+ * cozinha lançar a carga de outra. Local sem cozinha: `kitchenId` nulo, e só a permissão global
+ * passa.
  */
 async function requireOpeningDoc(openingBalanceId: string, level: 1 | 2 | 3) {
-	const { data, error } = await inventory().from("opening_balance").select("id, kitchen_id, status").eq("id", openingBalanceId).maybeSingle()
+	const inv = inventory()
+	const { data, error } = await inv.from("opening_balance").select("id, location_id, status").eq("id", openingBalanceId).maybeSingle()
 	if (error) throw new Error(`Erro ao carregar a carga de abertura: ${publicDbMessage(error)}`)
 	if (!data) throw new Error("Carga de abertura não encontrada")
-	const kitchenId = Number(data.kitchen_id)
-	const ctx = await requireStorageForKitchen(level, kitchenId)
-	return { ctx, kitchenId, status: data.status as OpeningDocRow["status"] }
+	const { ctx, location } = await requireStockForLocation(level, Number(data.location_id))
+	return { ctx, kitchenId: location.kitchenId, status: data.status as OpeningDocRow["status"] }
 }
 
 /** O CHECK de `opening_balance_item.cost_source` é o vocabulário (contrato em `sql-vocabulary`). */
@@ -95,7 +97,8 @@ async function loadItems(openingBalanceId: string): Promise<OpeningItemRow[]> {
 	const rows = await readAllPages("as linhas da carga", (from, to) =>
 		inventory()
 			.from("opening_balance_item")
-			.select("id, line_number, ingredient_id, quantity, lot_code, expiry_date, location, unit_cost, cost_source, cost_reference")
+			// o `item_id` da linha é o id do insumo: a carga só aceita insumo do catálogo
+			.select("id, line_number, ingredient_id:item_id, quantity, lot_code, expiry_date, location, unit_cost, cost_source, cost_reference")
 			.eq("opening_balance_id", openingBalanceId)
 			.order("line_number")
 			.order("id")
@@ -112,7 +115,7 @@ const num = (value: number | string | null) => (value == null ? null : Number(va
 export const fetchOpeningBalanceFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive() }))
 	.handler(async ({ data }) => {
-		await requireStorageForKitchen(1, data.kitchenId)
+		const { location } = await requireStockForKitchen(1, data.kitchenId)
 		const inv = inventory()
 
 		const {
@@ -121,10 +124,10 @@ export const fetchOpeningBalanceFn = createServerFn({ method: "GET" })
 			count,
 		} = await inv
 			.from("opening_balance")
-			.select("id, kitchen_id, status, source, source_filename, import_rejections, created_at, updated_at, posted_at, posted_value, cancelled_at", {
+			.select("id, location_id, status, source, source_filename, import_rejections, created_at, updated_at, posted_at, posted_value, cancelled_at", {
 				count: "exact",
 			})
-			.eq("kitchen_id", data.kitchenId)
+			.eq("location_id", location.id)
 			.order("created_at", { ascending: false })
 			.limit(20)
 		if (error) throw new Error(`Erro ao carregar as cargas de abertura: ${publicDbMessage(error)}`)
@@ -202,10 +205,10 @@ export const downloadOpeningCatalogSheetFn = createServerFn({ method: "GET" })
 		})
 	)
 	.handler(async ({ data }) => {
-		await requireStorageForKitchen(2, data.kitchenId)
+		const { location } = await requireStockForKitchen(2, data.kitchenId)
 		const [catalog, moved, classes] = await Promise.all([
 			loadOpeningCatalog(),
-			loadMovedIngredientIds(data.kitchenId),
+			loadMovedIngredientIds(location.id),
 			data.conservationClass ? loadConservationClasses() : Promise.resolve(null),
 		])
 		const selected = catalog
@@ -235,7 +238,10 @@ export const importOpeningSheetFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }) => {
-		const { userId } = await requireStorageForKitchen(2, data.kitchenId)
+		const {
+			ctx: { userId },
+			location,
+		} = await requireStockForKitchen(2, data.kitchenId)
 
 		let parsed: ReturnType<typeof parseOpeningSheet>
 		try {
@@ -245,11 +251,7 @@ export const importOpeningSheetFn = createServerFn({ method: "POST" })
 			throw error
 		}
 
-		const [catalog, canonicalUnits, movedIngredientIds] = await Promise.all([
-			loadOpeningCatalog(),
-			loadCanonicalUnits(),
-			loadMovedIngredientIds(data.kitchenId),
-		])
+		const [catalog, canonicalUnits, movedIngredientIds] = await Promise.all([loadOpeningCatalog(), loadCanonicalUnits(), loadMovedIngredientIds(location.id)])
 		const { lines, rejections } = resolveOpeningSheet(parsed, buildIngredientIndex(catalog), { canonicalUnits, movedIngredientIds })
 		if (lines.length === 0) {
 			throw new Error(
@@ -260,13 +262,13 @@ export const importOpeningSheetFn = createServerFn({ method: "POST" })
 		}
 
 		const { data: openingBalanceId, error } = await inventory().rpc("save_opening_balance_draft", {
-			p_kitchen_id: data.kitchenId,
+			p_location_id: location.id,
 			p_actor: userId,
 			p_source: data.source,
 			p_source_filename: data.fileName,
 			p_items: lines.map((line) => ({
 				line_number: line.lineNumber,
-				ingredient_id: line.ingredientId,
+				item_id: line.ingredientId,
 				quantity: line.quantity,
 				lot_code: line.lotCode,
 				expiry_date: line.expiryDate,
@@ -293,7 +295,10 @@ export const applyOpeningCostSuggestionsFn = createServerFn({ method: "POST" })
 		const pending = (await loadItems(data.openingBalanceId)).filter((item) => item.unit_cost == null)
 		if (pending.length === 0) return { applied: 0, remaining: 0 }
 
-		const suggestions = await suggestOpeningCosts([...new Set(pending.map((item) => item.ingredient_id))], await loadKitchenUnitId(kitchenId))
+		const suggestions = await suggestOpeningCosts(
+			[...new Set(pending.map((item) => item.ingredient_id))],
+			kitchenId == null ? null : await loadKitchenUnitId(kitchenId)
+		)
 		const costs = pending.flatMap((item) => {
 			const suggestion = suggestions.get(item.ingredient_id)
 			return suggestion

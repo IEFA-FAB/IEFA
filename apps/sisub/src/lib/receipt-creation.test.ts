@@ -26,6 +26,8 @@ import {
 } from "@/lib/receipt-creation"
 
 const KITCHEN = 7
+// o local de estoque da cozinha 7: ids de sequências diferentes
+const LOCATION = 31
 
 describe("toNullableNumber", () => {
 	test("nulo fica nulo; zero e texto viram número", () => {
@@ -37,20 +39,20 @@ describe("toNullableNumber", () => {
 })
 
 describe("resolveEmpenhoFromOrder — a OF sustenta a entrega", () => {
-	const order = { kitchen_id: KITCHEN, empenho_id: "ne-1", status: "sent" }
+	const order = { location_id: LOCATION, empenho_id: "ne-1", status: "sent" }
 
 	test("OF ausente ou de outra cozinha", () => {
-		expect(resolveEmpenhoFromOrder(null, KITCHEN, null)).toEqual({ ok: false, problem: "OF não encontrada ou de outra cozinha" })
-		expect(resolveEmpenhoFromOrder({ ...order, kitchen_id: 8 }, KITCHEN, null)).toEqual({ ok: false, problem: "OF não encontrada ou de outra cozinha" })
+		expect(resolveEmpenhoFromOrder(null, LOCATION, null)).toEqual({ ok: false, problem: "OF não encontrada ou de outra cozinha" })
+		expect(resolveEmpenhoFromOrder({ ...order, location_id: 8 }, LOCATION, null)).toEqual({ ok: false, problem: "OF não encontrada ou de outra cozinha" })
 	})
 
-	test("cozinha como texto é comparada como número", () => {
-		expect(resolveEmpenhoFromOrder({ ...order, kitchen_id: String(KITCHEN) }, KITCHEN, null)).toEqual({ ok: true, value: "ne-1" })
+	test("local como texto é comparado como número", () => {
+		expect(resolveEmpenhoFromOrder({ ...order, location_id: String(LOCATION) }, LOCATION, null)).toEqual({ ok: true, value: "ne-1" })
 	})
 
 	test("rascunho e cancelada não sustentam", () => {
 		for (const status of ["draft", "cancelled"]) {
-			expect(resolveEmpenhoFromOrder({ ...order, status }, KITCHEN, null)).toEqual({
+			expect(resolveEmpenhoFromOrder({ ...order, status }, LOCATION, null)).toEqual({
 				ok: false,
 				problem: "Só OF enviada sustenta a entrega — envie a OF ou registre sem ela",
 			})
@@ -58,9 +60,9 @@ describe("resolveEmpenhoFromOrder — a OF sustenta a entrega", () => {
 	})
 
 	test("OF com empenho: vale o dela; outro empenho pedido é recusado", () => {
-		expect(resolveEmpenhoFromOrder(order, KITCHEN, null)).toEqual({ ok: true, value: "ne-1" })
-		expect(resolveEmpenhoFromOrder(order, KITCHEN, "ne-1")).toEqual({ ok: true, value: "ne-1" })
-		expect(resolveEmpenhoFromOrder(order, KITCHEN, "ne-2")).toEqual({
+		expect(resolveEmpenhoFromOrder(order, LOCATION, null)).toEqual({ ok: true, value: "ne-1" })
+		expect(resolveEmpenhoFromOrder(order, LOCATION, "ne-1")).toEqual({ ok: true, value: "ne-1" })
+		expect(resolveEmpenhoFromOrder(order, LOCATION, "ne-2")).toEqual({
 			ok: false,
 			problem: "A OF é de outro empenho — escolha o empenho da OF, ou registre sem OF",
 		})
@@ -68,11 +70,11 @@ describe("resolveEmpenhoFromOrder — a OF sustenta a entrega", () => {
 
 	test("OF aguardando empenho: NE pedida é recusada; sem NE, segue sem empenho", () => {
 		const awaiting = { ...order, empenho_id: null, status: "partially_received" }
-		expect(resolveEmpenhoFromOrder(awaiting, KITCHEN, "ne-2")).toEqual({
+		expect(resolveEmpenhoFromOrder(awaiting, LOCATION, "ne-2")).toEqual({
 			ok: false,
 			problem: "A OF está aguardando empenho: vincule a NE na própria OF, que confere o SICAF — ou registre a entrega com a OF e sem NE",
 		})
-		expect(resolveEmpenhoFromOrder(awaiting, KITCHEN, null)).toEqual({ ok: true, value: null })
+		expect(resolveEmpenhoFromOrder(awaiting, LOCATION, null)).toEqual({ ok: true, value: null })
 	})
 })
 
@@ -111,7 +113,7 @@ describe("recebimento a partir da NF-e", () => {
 		id,
 		n_item: nItem,
 		description,
-		ingredient_id: ingredient,
+		item_id: ingredient,
 	})
 
 	test("nenhum item casado (inclusive nota sem itens)", () => {
@@ -147,7 +149,7 @@ describe("recebimento a partir da NF-e", () => {
 			[
 				{
 					id: "nf-1",
-					ingredient_id: "ing-1",
+					item_id: "ing-1",
 					ingredient_item_id: "sku-1",
 					purchase_item_id: "pi-1",
 					matched_qty_base: 30,
@@ -158,7 +160,7 @@ describe("recebimento a partir da NF-e", () => {
 				},
 				{
 					id: "nf-2",
-					ingredient_id: "ing-2",
+					item_id: "ing-2",
 					ingredient_item_id: null,
 					purchase_item_id: null,
 					matched_qty_base: null,
@@ -175,8 +177,7 @@ describe("recebimento a partir da NF-e", () => {
 				row: {
 					receipt_id: "gr-1",
 					nfe_item_id: "nf-1",
-					ingredient_id: "ing-1",
-					frozen_preparation_id: null,
+					item_id: "ing-1",
 					ingredient_item_id: "sku-1",
 					purchase_item_id: "pi-1",
 					invoiced_qty_base: 30,
@@ -190,8 +191,7 @@ describe("recebimento a partir da NF-e", () => {
 				row: {
 					receipt_id: "gr-1",
 					nfe_item_id: "nf-2",
-					ingredient_id: "ing-2",
-					frozen_preparation_id: null,
+					item_id: "ing-2",
 					ingredient_item_id: null,
 					purchase_item_id: null,
 					invoiced_qty_base: null,
@@ -270,9 +270,9 @@ describe("entrega sem NF-e", () => {
 
 	test("recebimento: fornecedor em branco cai no favorecido; documento só com dígitos; textos aparados", () => {
 		expect(
-			buildWithoutInvoiceReceiptRow(data, { empenhoId: "ne-1", empenho: { favorecido_nome: "Padaria do Empenho", favorecido_cnpj: "99" } }, "user-1")
+			buildWithoutInvoiceReceiptRow(data, LOCATION, { empenhoId: "ne-1", empenho: { favorecido_nome: "Padaria do Empenho", favorecido_cnpj: "99" } }, "user-1")
 		).toEqual({
-			kitchen_id: KITCHEN,
+			location_id: LOCATION,
 			source: "delivery_note",
 			delivery_note_number: "R-1",
 			supplier_name: "Padaria do Empenho",
@@ -297,6 +297,7 @@ describe("entrega sem NF-e", () => {
 				supplyOrderId: "of-1",
 				invoiceExpected: false,
 			},
+			LOCATION,
 			{ empenhoId: null, empenho: null },
 			"user-1"
 		)
@@ -311,7 +312,12 @@ describe("entrega sem NF-e", () => {
 			notes: null,
 		})
 		expect(
-			buildWithoutInvoiceReceiptRow({ ...data, supplierDocument: null }, { empenhoId: "ne-1", empenho: { favorecido_nome: null, favorecido_cnpj: "99" } }, "u")
+			buildWithoutInvoiceReceiptRow(
+				{ ...data, supplierDocument: null },
+				LOCATION,
+				{ empenhoId: "ne-1", empenho: { favorecido_nome: null, favorecido_cnpj: "99" } },
+				"u"
+			)
 		).toMatchObject({ supplier_name: null, supplier_document: "99" })
 	})
 
@@ -319,8 +325,7 @@ describe("entrega sem NF-e", () => {
 		expect(buildWithoutInvoiceItemRows(data.lines, "gr-1", new Map([["ing-1", "pi-1"]]))).toEqual([
 			{
 				receipt_id: "gr-1",
-				ingredient_id: "ing-1",
-				frozen_preparation_id: null,
+				item_id: "ing-1",
 				purchase_item_id: "pi-1",
 				invoiced_qty_base: null,
 				received_qty_base: 0,
@@ -328,8 +333,7 @@ describe("entrega sem NF-e", () => {
 			},
 			{
 				receipt_id: "gr-1",
-				ingredient_id: "ing-2",
-				frozen_preparation_id: null,
+				item_id: "ing-2",
 				purchase_item_id: null,
 				invoiced_qty_base: null,
 				received_qty_base: 0,
@@ -345,11 +349,11 @@ describe("entrega sem NF-e", () => {
 
 	test("item por insumo; linha sem insumo fica fora; o último vence", () => {
 		const map = indexItemsByIngredient([
-			{ id: "it-1", ingredient_id: "ing-1", purchase_item_id: null },
-			{ id: "it-2", ingredient_id: null, purchase_item_id: "pi" },
-			{ id: "it-3", ingredient_id: "ing-1", purchase_item_id: "pi-1" },
+			{ id: "it-1", item_id: "ing-1", purchase_item_id: null },
+			{ id: "it-2", item_id: null, purchase_item_id: "pi" },
+			{ id: "it-3", item_id: "ing-1", purchase_item_id: "pi-1" },
 		])
-		expect([...map.entries()]).toEqual([["ing-1", { id: "it-3", ingredient_id: "ing-1", purchase_item_id: "pi-1" }]])
+		expect([...map.entries()]).toEqual([["ing-1", { id: "it-3", item_id: "ing-1", purchase_item_id: "pi-1" }]])
 	})
 
 	test("avisos por linha", () => {

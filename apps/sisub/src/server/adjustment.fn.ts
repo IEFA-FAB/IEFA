@@ -10,19 +10,27 @@
  *
  * CLIENT: getServerClient (service role, schemas inventory/kitchen/access_control).
  * AUTH: `storage` nível 2 registra e lança dentro da alçada; nível 3 aprova.
- * TABLES: inventory.stock_adjustment(_item), stock_lot, kitchen_stock_settings.
+ * TABLES: inventory.stock_adjustment(_item), stock_lot, stock_location_settings.
  * @domain kitchen
  * @migration 20260917160000_inventory_operable_core
  */
 
-import { hasPermission, NOT_EXPIRED, resolveEffectivePermissions, type UserPermission } from "@iefa/pbac"
+import { NOT_EXPIRED, resolveEffectivePermissions, type UserPermission } from "@iefa/pbac"
+import { canOnStockLocation } from "@iefa/sisprov-domain"
 import { INFLOW_REASONS, OUTFLOW_REASONS, REASON_NATURE, STOCK_ADJUSTMENT_REASONS, type StockAdjustmentReason } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { publicDbMessage } from "@/lib/db-error-message"
 import { readAllPagesIn } from "@/lib/read-all-pages"
 import { buildAdjustmentDocumentRow, buildAdjustmentItemRow, buildPostFailureRecovery, findAdjustmentLotProblem } from "@/lib/stock-adjustment"
-import { requireStorageForKitchen } from "@/lib/storage-auth.server"
+import { classifyFoodItems, foodRefOf } from "@/lib/stock-item.server"
+import {
+	type KitchenStockLocation,
+	requireStockForKitchen,
+	requireStockForLocation,
+	requireStorageForLocation,
+	stockSupportGraphFor,
+} from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 
 const inventory = () => getServerClient("inventory")
@@ -129,12 +137,12 @@ function evidencePending(items: readonly AdjustmentItemInput[]): boolean {
  *    vindo de política;
  *  • `resolveEffectivePermissions` para a precedência de deny, que não é
  *    ausência: um `level <= 0` de QUALQUER origem anula os allows que cobre;
- *  • `hasPermission` para o escopo, com a MESMA regra que o guard da própria
- *    server fn aplica — permissão global ou escopada nesta cozinha. Se o PBAC
- *    passar a fazer permissão de unidade alcançar as cozinhas dela, esta
- *    função acompanha sozinha, em vez de divergir do guard.
+ *  • `canOnStockLocation` (`@iefa/sisprov-domain`) para o escopo, com a MESMA
+ *    regra que o guard da própria server fn aplica — global, a cozinha do
+ *    local ou uma OM que cubra a do local. Divergir do guard faria o autor
+ *    gravar "único nível 3" com um aprovador por OM existente.
  */
-async function hasOtherApprover(kitchenId: number, actorId: string): Promise<boolean> {
+async function hasOtherApprover(location: KitchenStockLocation, actorId: string): Promise<boolean> {
 	type PermissionRow = {
 		user_id: string
 		module: string
@@ -154,7 +162,9 @@ async function hasOtherApprover(kitchenId: number, actorId: string): Promise<boo
 	// passava a gravar "único nível 3 da cozinha" — uma exceção falsa num
 	// documento contábil. Recortar por módulo é seguro para a precedência de deny,
 	// que é por módulo.
-	const inScope = `kitchen_id.eq.${kitchenId},kitchen_id.is.null`
+	// Sem escopo de cozinha entram o global e os grants por OM; quem cobre o local decide a regra
+	// do domínio, abaixo. Local sem cozinha não tem grant de cozinha que o alcance.
+	const inScope = location.kitchenId == null ? "kitchen_id.is.null" : `kitchen_id.eq.${location.kitchenId},kitchen_id.is.null`
 
 	const { data: statements, error: statementError } = await ac
 		.from("policy_statement")
@@ -216,9 +226,12 @@ async function hasOtherApprover(kitchenId: number, actorId: string): Promise<boo
 
 	const candidates = new Set([...inlineByUser.keys(), ...policyByUser.keys()])
 	candidates.delete(actorId)
+	// Grafo de apoio lido uma vez, e só se algum candidato tiver grant por OM.
+	const graph = await stockSupportGraphFor([...inlineByUser.values(), ...policyByUser.values()].flat())
 	for (const userId of candidates) {
 		const effective = resolveEffectivePermissions(inlineByUser.get(userId) ?? [], policyByUser.get(userId) ?? [])
-		if (hasPermission(effective, "storage", 3, { type: "kitchen", id: kitchenId })) return true
+		// A mesma regra do guard da aprovação: cozinha do local, OM que o cobre ou global.
+		if (canOnStockLocation(effective, 3, location, graph)) return true
 	}
 	return false
 }
@@ -226,8 +239,8 @@ async function hasOtherApprover(kitchenId: number, actorId: string): Promise<boo
 export const fetchStockSettingsFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive() }))
 	.handler(async ({ data }) => {
-		await requireStorageForKitchen(1, data.kitchenId)
-		const { data: row, error: rowError } = await inventory().from("kitchen_stock_settings").select("*").eq("kitchen_id", data.kitchenId).maybeSingle()
+		const { location } = await requireStockForKitchen(1, data.kitchenId)
+		const { data: row, error: rowError } = await inventory().from("stock_location_settings").select("*").eq("location_id", location.id).maybeSingle()
 		if (rowError) throw new Error(`Erro ao carregar a configuração de estoque da cozinha: ${publicDbMessage(rowError)}`)
 		return {
 			segregation: (row?.segregation ?? "dual") as "strict" | "dual",
@@ -252,10 +265,13 @@ export const saveStockSettingsFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }) => {
-		const { userId } = await requireStorageForKitchen(3, data.kitchenId)
-		const { error } = await inventory().from("kitchen_stock_settings").upsert(
+		const {
+			ctx: { userId },
+			location,
+		} = await requireStockForKitchen(3, data.kitchenId)
+		const { error } = await inventory().from("stock_location_settings").upsert(
 			{
-				kitchen_id: data.kitchenId,
+				location_id: location.id,
 				segregation: data.segregation,
 				adjustment_approval_value: data.adjustmentApprovalValue,
 				issue_tolerance_pct: data.issueTolerancePct,
@@ -265,26 +281,26 @@ export const saveStockSettingsFn = createServerFn({ method: "POST" })
 				updated_by: userId,
 				updated_at: new Date().toISOString(),
 			},
-			{ onConflict: "kitchen_id" }
+			{ onConflict: "location_id" }
 		)
 		if (error) throw new Error(`Erro ao salvar as configurações: ${publicDbMessage(error)}`)
 		return { saved: true }
 	})
 
-/** Lotes informados no ajuste, conferidos pela cozinha (`findAdjustmentLotProblem`). */
+/** Lotes informados no ajuste, conferidos pelo local de estoque (`findAdjustmentLotProblem`). */
 async function loadAdjustmentLots(
 	inv: ReturnType<typeof inventory>,
-	kitchenId: number,
+	locationId: number,
 	items: readonly AdjustmentItemInput[]
-): Promise<Array<{ kitchen_id: number; ingredient_id: string | null }>> {
-	// lote informado tem de ser da cozinha do ajuste — o guard é por cozinha,
+): Promise<Array<{ location_id: number; item_id: string }>> {
+	// lote informado tem de ser do local de estoque do ajuste — o guard é pelo local,
 	// e sem esta checagem o nível 2 de uma cozinha ajustaria lote de outra
 	const lotIds = items.map((item) => item.lotId).filter((id) => id != null)
 	if (lotIds.length === 0) return []
-	const { data: rows, error: lotsError } = await inv.from("stock_lot").select("id, kitchen_id, ingredient_id").in("id", lotIds)
+	const { data: rows, error: lotsError } = await inv.from("stock_lot").select("id, location_id, item_id").in("id", lotIds)
 	if (lotsError) throw new Error(`Erro ao conferir os lotes do ajuste: ${publicDbMessage(lotsError)}`)
 	const lots = rows ?? []
-	const lotProblem = findAdjustmentLotProblem(lots, kitchenId, lotIds)
+	const lotProblem = findAdjustmentLotProblem(lots, locationId, lotIds)
 	if (lotProblem) throw new Error(lotProblem)
 	return lots
 }
@@ -377,23 +393,27 @@ export const createAdjustmentFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }) => {
-		const { userId } = await requireStorageForKitchen(2, data.kitchenId)
+		const {
+			ctx: { userId },
+			location,
+		} = await requireStockForKitchen(2, data.kitchenId)
 		const inv = inventory()
 
-		const lots = await loadAdjustmentLots(inv, data.kitchenId, data.items)
+		const lots = await loadAdjustmentLots(inv, location.id, data.items)
 
 		// insumo com unidade fora do catálogo canônico não movimenta estoque: o
 		// ajuste entraria numa unidade que o resto do sistema não sabe converter
 		for (const item of data.items) {
 			await assertCanonicalUnit(item.ingredientId ?? null)
 		}
-		for (const lot of lots) await assertCanonicalUnit(lot.ingredient_id)
+		const lotRefs = await classifyFoodItems(lots.map((lot) => lot.item_id))
+		for (const lot of lots) await assertCanonicalUnit(foodRefOf(lotRefs, lot.item_id).ingredientId)
 
 		const { data: doc, error } = await inv
 			.from("stock_adjustment")
 			.insert(
 				buildAdjustmentDocumentRow({
-					kitchenId: data.kitchenId,
+					locationId: location.id,
 					notes: data.notes,
 					isEvidencePending: evidencePending(data.items),
 					userId,
@@ -454,19 +474,22 @@ export const createAdjustmentFn = createServerFn({ method: "POST" })
 		}
 	})
 
-/** Aprova e lança o ajuste pendente. Segregação conforme a cozinha. */
+/** Aprova e lança o ajuste pendente. Segregação conforme o local de estoque. */
 export const approveAdjustmentFn = createServerFn({ method: "POST" })
 	.validator(z.object({ adjustmentId: z.uuid() }))
 	.handler(async ({ data }) => {
 		const inv = inventory()
 		const { data: doc, error: docError } = await inv
 			.from("stock_adjustment")
-			.select("kitchen_id, status, created_by, approval_required")
+			.select("location_id, status, created_by, approval_required")
 			.eq("id", data.adjustmentId)
 			.maybeSingle()
 		if (docError) throw new Error(`Erro ao carregar o ajuste: ${publicDbMessage(docError)}`)
 		if (!doc) throw new Error("Ajuste não encontrado")
-		const { userId } = await requireStorageForKitchen(3, Number(doc.kitchen_id))
+		const {
+			ctx: { userId },
+			location,
+		} = await requireStockForLocation(3, Number(doc.location_id))
 		if (doc.status !== "pending_approval") throw new Error(`Ajuste em "${doc.status}" não está aguardando aprovação`)
 
 		// Quem aprova ≠ quem lançou. Mas se NÃO existe outro nível 3 na cozinha, a
@@ -484,7 +507,7 @@ export const approveAdjustmentFn = createServerFn({ method: "POST" })
 
 		let exceptionReason: string | null = null
 		if (requires === true && doc.created_by === userId) {
-			if (await hasOtherApprover(Number(doc.kitchen_id), userId)) {
+			if (await hasOtherApprover(location, userId)) {
 				throw new Error("Segregação de funções: quem lançou o ajuste não pode aprová-lo — há outro responsável nível 3 nesta cozinha")
 			}
 			exceptionReason = "Único responsável nível 3 da cozinha no momento da aprovação"
@@ -503,10 +526,10 @@ export const rejectAdjustmentFn = createServerFn({ method: "POST" })
 	.validator(z.object({ adjustmentId: z.uuid(), reason: z.string().min(5) }))
 	.handler(async ({ data }) => {
 		const inv = inventory()
-		const { data: doc, error: docError } = await inv.from("stock_adjustment").select("kitchen_id, status").eq("id", data.adjustmentId).maybeSingle()
+		const { data: doc, error: docError } = await inv.from("stock_adjustment").select("location_id, status").eq("id", data.adjustmentId).maybeSingle()
 		if (docError) throw new Error(`Erro ao carregar o ajuste: ${publicDbMessage(docError)}`)
 		if (!doc) throw new Error("Ajuste não encontrado")
-		const { userId } = await requireStorageForKitchen(3, Number(doc.kitchen_id))
+		const { userId } = await requireStorageForLocation(3, Number(doc.location_id))
 		if (doc.status === "posted") throw new Error("Ajuste já lançado")
 
 		// Condicionado ao estado que foi conferido: entre a leitura acima e esta
@@ -543,13 +566,13 @@ export const completeAdjustmentEvidenceFn = createServerFn({ method: "POST" })
 		const inv = inventory()
 		const { data: item, error: itemError } = await inv
 			.from("stock_adjustment_item")
-			.select("id, adjustment_id, stock_adjustment!inner(kitchen_id)")
+			.select("id, adjustment_id, stock_adjustment!inner(location_id)")
 			.eq("id", data.adjustmentItemId)
 			.maybeSingle()
 		if (itemError) throw new Error(`Erro ao carregar o item do ajuste: ${publicDbMessage(itemError)}`)
 		if (!item) throw new Error("Item de ajuste não encontrado")
-		const kitchenId = Number((item as { stock_adjustment: { kitchen_id: number } }).stock_adjustment.kitchen_id)
-		await requireStorageForKitchen(2, kitchenId)
+		const locationId = Number((item as { stock_adjustment: { location_id: number } }).stock_adjustment.location_id)
+		await requireStorageForLocation(2, locationId)
 
 		const { error } = await inv
 			.from("stock_adjustment_item")
@@ -608,10 +631,10 @@ export const quarantineLotFn = createServerFn({ method: "POST" })
 	.validator(z.object({ lotId: z.uuid(), reason: z.string().min(5).max(300) }))
 	.handler(async ({ data }) => {
 		const inv = inventory()
-		const { data: lot, error: lotError } = await inv.from("stock_lot").select("id, kitchen_id, quarantined_at").eq("id", data.lotId).maybeSingle()
+		const { data: lot, error: lotError } = await inv.from("stock_lot").select("id, location_id, quarantined_at").eq("id", data.lotId).maybeSingle()
 		if (lotError) throw new Error(`Erro ao carregar o lote: ${publicDbMessage(lotError)}`)
 		if (!lot) throw new Error("Lote não encontrado")
-		const { userId } = await requireStorageForKitchen(2, Number(lot.kitchen_id))
+		const { userId } = await requireStorageForLocation(2, Number(lot.location_id))
 		if (lot.quarantined_at != null) throw new Error("Lote já está em quarentena")
 
 		const { error } = await inv
@@ -630,10 +653,10 @@ export const releaseQuarantineFn = createServerFn({ method: "POST" })
 	.validator(z.object({ lotId: z.uuid(), reason: z.string().min(5).max(300) }))
 	.handler(async ({ data }) => {
 		const inv = inventory()
-		const { data: lot, error: lotError } = await inv.from("stock_lot").select("id, kitchen_id, quarantined_at").eq("id", data.lotId).maybeSingle()
+		const { data: lot, error: lotError } = await inv.from("stock_lot").select("id, location_id, quarantined_at").eq("id", data.lotId).maybeSingle()
 		if (lotError) throw new Error(`Erro ao carregar o lote: ${publicDbMessage(lotError)}`)
 		if (!lot) throw new Error("Lote não encontrado")
-		await requireStorageForKitchen(3, Number(lot.kitchen_id))
+		await requireStorageForLocation(3, Number(lot.location_id))
 		if (lot.quarantined_at == null) throw new Error("Lote não está em quarentena")
 
 		const { error } = await inv
@@ -660,10 +683,10 @@ export const splitLotFn = createServerFn({ method: "POST" })
 	)
 	.handler(async ({ data }) => {
 		const inv = inventory()
-		const { data: lot, error: lotError } = await inv.from("stock_lot").select("id, kitchen_id").eq("id", data.lotId).maybeSingle()
+		const { data: lot, error: lotError } = await inv.from("stock_lot").select("id, location_id").eq("id", data.lotId).maybeSingle()
 		if (lotError) throw new Error(`Erro ao carregar o lote: ${publicDbMessage(lotError)}`)
 		if (!lot) throw new Error("Lote não encontrado")
-		const { userId } = await requireStorageForKitchen(2, Number(lot.kitchen_id))
+		const { userId } = await requireStorageForLocation(2, Number(lot.location_id))
 
 		const { data: result, error } = await inv.rpc("split_lot", {
 			p_lot_id: data.lotId,
@@ -689,14 +712,14 @@ export const listAdjustmentsFn = createServerFn({ method: "GET" })
 		})
 	)
 	.handler(async ({ data }) => {
-		await requireStorageForKitchen(1, data.kitchenId)
+		const { location } = await requireStockForKitchen(1, data.kitchenId)
 		const inv = inventory()
 		let query = inv
 			.from("stock_adjustment")
 			.select("id, status, notes, evidence_status, posted_value, created_by, created_at, decided_by, decided_at, approval_exception_reason", {
 				count: "exact",
 			})
-			.eq("kitchen_id", data.kitchenId)
+			.eq("location_id", location.id)
 			.order("created_at", { ascending: false })
 			.limit(data.limit)
 		if (data.status) query = query.eq("status", data.status)
@@ -741,12 +764,12 @@ export const fetchLossReportFn = createServerFn({ method: "GET" })
 		})
 	)
 	.handler(async ({ data }) => {
-		await requireStorageForKitchen(1, data.kitchenId)
+		const { location } = await requireStockForKitchen(1, data.kitchenId)
 		const inv = inventory()
 		const { data: rows, error } = await inv
 			.from("stock_movement")
-			.select("reason_code, quantity, total_cost, ingredient_id")
-			.eq("kitchen_id", data.kitchenId)
+			.select("reason_code, quantity, total_cost, item_id")
+			.eq("location_id", location.id)
 			.not("reason_code", "is", null)
 			// período civil em Brasília, como o resto do módulo
 			.gte("occurred_at", `${data.from}T00:00:00-03:00`)
@@ -800,22 +823,27 @@ export const fetchLossReportFn = createServerFn({ method: "GET" })
 		}
 	})
 
-/** Lotes em quarentena da cozinha — a fila que o nível 3 precisa resolver. */
+/** Lotes em quarentena do local de estoque da cozinha — a fila que o nível 3 precisa resolver. */
 export const listQuarantinedLotsFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive() }))
 	.handler(async ({ data }) => {
-		await requireStorageForKitchen(1, data.kitchenId)
+		const { location } = await requireStockForKitchen(1, data.kitchenId)
 		const inv = inventory()
-		const { data: lots, error } = await inv
+		const { data: rows, error } = await inv
 			.from("stock_lot")
-			.select("id, short_code, lot_code, expiry_date, location, ingredient_id, frozen_preparation_id, quarantined_at, quarantined_by, quarantine_reason")
-			.eq("kitchen_id", data.kitchenId)
+			.select("id, short_code, lot_code, expiry_date, location, item_id, quarantined_at, quarantined_by, quarantine_reason")
+			.eq("location_id", location.id)
 			.not("quarantined_at", "is", null)
 			.order("quarantined_at", { ascending: true })
 			.limit(100)
 		if (error) throw new Error(`Erro ao listar lotes em quarentena: ${publicDbMessage(error)}`)
+		const refs = await classifyFoodItems((rows ?? []).map((lot) => lot.item_id))
+		const lots = (rows ?? []).map(({ item_id, ...lot }) => {
+			const ref = foodRefOf(refs, item_id)
+			return { ...lot, ingredient_id: ref.ingredientId, frozen_preparation_id: ref.frozenPreparationId }
+		})
 
-		const ingredientIds = (lots ?? []).map((lot) => lot.ingredient_id).filter((id) => id != null)
+		const ingredientIds = lots.map((lot) => lot.ingredient_id).filter((id) => id != null)
 		// Uma requisição: a lista tem no máximo 100 lotes, abaixo da fatia e do teto de linhas.
 		const names = new Map<string, string | null>()
 		if (ingredientIds.length > 0) {
@@ -827,7 +855,7 @@ export const listQuarantinedLotsFn = createServerFn({ method: "GET" })
 			for (const ingredient of ingredients ?? []) names.set(ingredient.id, ingredient.description)
 		}
 
-		return (lots ?? []).map((lot) => ({
+		return lots.map((lot) => ({
 			...lot,
 			description: lot.ingredient_id ? (names.get(lot.ingredient_id) ?? "—") : "(preparação congelada)",
 		}))

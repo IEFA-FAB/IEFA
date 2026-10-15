@@ -22,7 +22,7 @@ import {
 } from "@/lib/incoming-rows"
 
 const TODAY = "2026-10-13"
-const KITCHEN = 7
+const LOCATION = 7
 
 function order(partial: Partial<IncomingOrder> = {}): IncomingOrder {
 	return { id: "of-1", empenho_id: "ne-1", number: "12/2026", expected_delivery: "2026-10-20", status: "sent", ...partial }
@@ -41,12 +41,12 @@ function note(partial: Partial<IncomingNote> = {}): IncomingNote {
 		total_value: "150.50",
 		status: "available",
 		situation_result: null,
-		kitchen_id: KITCHEN,
+		location_id: LOCATION,
 		...partial,
 	}
 }
 
-const noIndex = indexNoteReceipts([], KITCHEN)
+const noIndex = indexNoteReceipts([], LOCATION)
 
 describe("daysLateFrom e civilDate", () => {
 	test("sem previsão não há atraso", () => {
@@ -152,9 +152,9 @@ describe("OF enviada com saldo a receber", () => {
 })
 
 describe("NF-e sem recebimento efetivado", () => {
-	test("escopo: só a cozinha sem unidade compradora; com ela, também a nota não reivindicada da unidade", () => {
-		expect(buildIncomingNoteScope(KITCHEN, null)).toBe("kitchen_id.eq.7")
-		expect(buildIncomingNoteScope(KITCHEN, 5)).toBe("kitchen_id.eq.7,and(kitchen_id.is.null,unit_id.eq.5)")
+	test("escopo: só o local da cozinha sem unidade compradora; com ela, também a nota não reivindicada da unidade", () => {
+		expect(buildIncomingNoteScope(LOCATION, null)).toBe("location_id.eq.7")
+		expect(buildIncomingNoteScope(LOCATION, 5)).toBe("location_id.eq.7,and(location_id.is.null,unit_id.eq.5)")
 	})
 
 	test("nota disponível sem pendência: registrar o recebimento", () => {
@@ -178,16 +178,16 @@ describe("NF-e sem recebimento efetivado", () => {
 	})
 
 	test("cancelada na SEFAZ vence todo o resto", () => {
-		const index = indexNoteReceipts([{ id: "gr-1", nfe_document_id: "nf-1", kitchen_id: KITCHEN, definitive_at: null }], KITCHEN)
-		const [row] = buildNfeRows([note({ situation_result: "cancelled", kitchen_id: null, status: "announced" })], index, new Map([["nf-1", 2]]))
+		const index = indexNoteReceipts([{ id: "gr-1", nfe_document_id: "nf-1", location_id: LOCATION, definitive_at: null }], LOCATION)
+		const [row] = buildNfeRows([note({ situation_result: "cancelled", location_id: null, status: "announced" })], index, new Map([["nf-1", 2]]))
 		expect(row?.summary).toBe("Cancelada na SEFAZ")
 		expect(row?.nextAction).toBe("Não receber — confirme com o fornecedor")
 		expect(row?.goodsReceiptId).toBe("gr-1")
 	})
 
 	test("recebimento em andamento nesta cozinha: concluir", () => {
-		const index = indexNoteReceipts([{ id: "gr-1", nfe_document_id: "nf-1", kitchen_id: String(KITCHEN), definitive_at: null }], KITCHEN)
-		const [row] = buildNfeRows([note({ kitchen_id: null, status: "announced" })], index, new Map([["nf-1", 2]]))
+		const index = indexNoteReceipts([{ id: "gr-1", nfe_document_id: "nf-1", location_id: String(LOCATION), definitive_at: null }], LOCATION)
+		const [row] = buildNfeRows([note({ location_id: null, status: "announced" })], index, new Map([["nf-1", 2]]))
 		expect(row?.summary).toBe("Recebimento em andamento")
 		expect(row?.nextAction).toBe("Concluir o recebimento")
 		expect(row?.goodsReceiptId).toBe("gr-1")
@@ -196,7 +196,7 @@ describe("NF-e sem recebimento efetivado", () => {
 	})
 
 	test("sem cozinha: assumir a nota", () => {
-		const [row] = buildNfeRows([note({ kitchen_id: null, status: "announced" })], noIndex, new Map([["nf-1", 2]]))
+		const [row] = buildNfeRows([note({ location_id: null, status: "announced" })], noIndex, new Map([["nf-1", 2]]))
 		expect(row?.summary).toBe("Enviada à unidade, ainda sem cozinha")
 		expect(row?.nextAction).toBe("Assumir a nota para esta cozinha")
 		expect(row?.unclaimedNote).toBe(true)
@@ -235,13 +235,13 @@ describe("NF-e sem recebimento efetivado", () => {
 	test("nota efetivada sai; recebida em outra cozinha sai; em andamento aqui e lá fica", () => {
 		const index = indexNoteReceipts(
 			[
-				{ id: "gr-a", nfe_document_id: "a", kitchen_id: KITCHEN, definitive_at: "2026-10-01T10:00:00Z" },
-				{ id: "gr-b", nfe_document_id: "b", kitchen_id: 99, definitive_at: null },
-				{ id: "gr-c1", nfe_document_id: "c", kitchen_id: 99, definitive_at: null },
-				{ id: "gr-c2", nfe_document_id: "c", kitchen_id: KITCHEN, definitive_at: null },
-				{ id: "gr-x", nfe_document_id: null, kitchen_id: KITCHEN, definitive_at: "2026-10-01T10:00:00Z" },
+				{ id: "gr-a", nfe_document_id: "a", location_id: LOCATION, definitive_at: "2026-10-01T10:00:00Z" },
+				{ id: "gr-b", nfe_document_id: "b", location_id: 99, definitive_at: null },
+				{ id: "gr-c1", nfe_document_id: "c", location_id: 99, definitive_at: null },
+				{ id: "gr-c2", nfe_document_id: "c", location_id: LOCATION, definitive_at: null },
+				{ id: "gr-x", nfe_document_id: null, location_id: LOCATION, definitive_at: "2026-10-01T10:00:00Z" },
 			],
-			KITCHEN
+			LOCATION
 		)
 		const rows = buildNfeRows([note({ id: "a" }), note({ id: "b" }), note({ id: "c" }), note({ id: "d" })], index, new Map())
 		expect(rows.map((row) => row.nfeDocumentId)).toEqual(["c", "d"])

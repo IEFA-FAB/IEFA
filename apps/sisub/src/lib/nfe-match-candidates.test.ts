@@ -188,7 +188,7 @@ describe("resultado do matching", () => {
 			match_status: "matched",
 			ingredient_item_id: "ii",
 			purchase_item_id: "pi",
-			ingredient_id: "ing",
+			item_id: "ing",
 			matched_qty_base: 50,
 			updated_at: "2026-10-13T00:00:00.000Z",
 		})

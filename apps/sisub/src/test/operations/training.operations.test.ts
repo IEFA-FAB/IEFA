@@ -54,6 +54,14 @@ const RESET_EXCLUSIONS: Record<string, string> = {
 	"inventory.stock_policy": "parâmetro de reposição, não dado operacional de treino",
 	"inventory.kitchen_stock_settings":
 		"configuração da cozinha (tolerância, alçada, segregação), como stock_policy — sem linha valem os defaults, então apagar não 'limpa' nada e sim descalibra a cozinha sentinela",
+	// `inventory_multiclass` (sisprov-foundation): o estoque passa a ser por local. Declaradas ANTES
+	// do apply; `kitchen_stock_settings` acima sai quando a migration estiver aplicada.
+	"inventory.stock_location_settings":
+		"a mesma configuração de kitchen_stock_settings, agora por local de estoque — sem linha valem os defaults, apagar só descalibra o local sentinela",
+	"inventory.storage_position":
+		"endereçamento do local (depósito, setor, estante, prateleira) é estrutura, como o próprio local: apagar tiraria o endereço dos lotes do treino seguinte",
+	"inventory.stock_location":
+		"local de estoque é estrutura, como a cozinha e a OM sentinelas: o da cozinha nasce e acompanha a cozinha por trigger; apagar quebraria o ledger do próprio treino",
 	"inventory.scanner_profile":
 		"calibração do leitor por usuário × cozinha — é preferência de dispositivo de quem opera, não dado gerado pelo treinamento; apagar tiraria a calibração do próprio instrutor, como em access_control.user_permissions",
 	// ── Declaradas ANTES das migrations que as criam, de propósito ──────────────
@@ -124,13 +132,14 @@ describeSupabaseIntegration("training operations (integração)", () => {
 	test("a lista de reset cobre toda tabela escopada, ou a exclusão é explícita", async () => {
 		if (!db) return
 
-		// Catálogo: tabelas com coluna de escopo, fora dos schemas de sistema.
+		// Catálogo: tabelas com coluna de escopo, fora dos schemas de sistema. `location_id` é o
+		// escopo do estoque desde `inventory_multiclass` (local de estoque, dono SISPROV).
 		const rows = (await db.execute(sql`
 			select distinct c.table_schema || '.' || c.table_name as qualified
 			from information_schema.columns c
 			join information_schema.tables t
 				on t.table_schema = c.table_schema and t.table_name = c.table_name
-			where c.column_name in ('kitchen_id', 'unit_id', 'mess_hall_id')
+			where c.column_name in ('kitchen_id', 'unit_id', 'mess_hall_id', 'location_id')
 				and t.table_type = 'BASE TABLE'
 				and c.table_schema not in ('pg_catalog', 'information_schema', 'auth', 'storage', 'realtime', 'extensions', 'vault')
 			order by qualified

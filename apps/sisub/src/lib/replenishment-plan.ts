@@ -33,20 +33,23 @@ export interface StockEntry {
 	expiring: number
 }
 
-/** Saldo positivo por insumo; lote que vence dentro do horizonte não conta como disponível. */
+/**
+ * Saldo positivo por insumo (o `item_id` do estoque é o id do insumo); lote que vence dentro do
+ * horizonte não conta como disponível.
+ */
 export function indexStockByIngredient(
-	balances: ReadonlyArray<{ ingredient_id: string | null; balance: Numeric; expiry_date: string | null }>,
+	balances: ReadonlyArray<{ item_id: string | null; balance: Numeric; expiry_date: string | null }>,
 	horizonEnd: string
 ): Map<string, StockEntry> {
 	const stockById = new Map<string, StockEntry>()
 	for (const row of balances) {
-		if (row.ingredient_id == null) continue // filtrado no `.in()`; coluna de view sai nulável
-		const entry = stockById.get(row.ingredient_id) ?? { available: 0, expiring: 0 }
+		if (row.item_id == null) continue // filtrado no `.in()`; coluna de view sai nulável
+		const entry = stockById.get(row.item_id) ?? { available: 0, expiring: 0 }
 		const qty = Number(row.balance)
 		if (qty <= 0) continue
 		if (row.expiry_date != null && row.expiry_date <= horizonEnd) entry.expiring += qty
 		else entry.available += qty
-		stockById.set(row.ingredient_id, entry)
+		stockById.set(row.item_id, entry)
 	}
 	return stockById
 }
@@ -97,12 +100,12 @@ export function indexDefaultPurchaseLinks(
 	return { defaultPurchaseByIngredient, priceByIngredient, catmatByIngredient, catmatCodeByIngredient }
 }
 
-/** O que já entrou em definitivo das OFs em trânsito, por insumo. */
-export function sumReceivedByIngredient(receiptItems: ReadonlyArray<{ ingredient_id: string | null; received_qty_base: Numeric }>): Map<string, number> {
+/** O que já entrou em definitivo das OFs em trânsito, por insumo (`item_id` do item recebido). */
+export function sumReceivedByIngredient(receiptItems: ReadonlyArray<{ item_id: string | null; received_qty_base: Numeric }>): Map<string, number> {
 	const receivedByIngredient = new Map<string, number>()
 	for (const item of receiptItems) {
-		if (!item.ingredient_id) continue
-		receivedByIngredient.set(item.ingredient_id, (receivedByIngredient.get(item.ingredient_id) ?? 0) + Number(item.received_qty_base))
+		if (!item.item_id) continue
+		receivedByIngredient.set(item.item_id, (receivedByIngredient.get(item.item_id) ?? 0) + Number(item.received_qty_base))
 	}
 	return receivedByIngredient
 }

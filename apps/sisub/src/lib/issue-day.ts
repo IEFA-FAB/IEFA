@@ -114,9 +114,10 @@ export function isAdHocMissingOwner(data: Pick<IssueRequestOpenInput, "origin" |
 	return data.origin === "ad_hoc" && (!data.purpose?.trim() || !data.destination?.trim())
 }
 
-export function buildIssueRequestValues(data: IssueRequestOpenInput, issueDate: string, userId: string) {
+/** Valores da abertura. A requisição é do local de estoque da cozinha (`locationId`), não da cozinha. */
+export function buildIssueRequestValues(data: IssueRequestOpenInput, locationId: number, issueDate: string, userId: string) {
 	return {
-		kitchen_id: data.kitchenId,
+		location_id: locationId,
 		issue_date: issueDate,
 		origin: data.origin,
 		destination: data.destination?.trim() || null,
@@ -128,8 +129,15 @@ export function buildIssueRequestValues(data: IssueRequestOpenInput, issueDate: 
 
 // ─── Retrato do dia ──────────────────────────────────────────────────────────
 
-/** Emitido, devolvido e o último custo unitário por insumo, a partir dos movimentos da requisição. */
-export function tallyIssueMovements(movements: ReadonlyArray<{ ingredient_id: string | null; type: string; quantity: Numeric; unit_cost: Numeric }>): {
+/**
+ * Emitido, devolvido e o último custo unitário por insumo, a partir dos movimentos da requisição.
+ * A requisição da cozinha é de insumo: `ingredientIdOf` devolve `null` para o item que não é insumo
+ * (preparação congelada), e o movimento dele não entra no retrato.
+ */
+export function tallyIssueMovements(
+	movements: ReadonlyArray<{ item_id: string; type: string; quantity: Numeric; unit_cost: Numeric }>,
+	ingredientIdOf: (itemId: string) => string | null
+): {
 	issued: Map<string, number>
 	returned: Map<string, number>
 	costs: Map<string, number>
@@ -138,30 +146,32 @@ export function tallyIssueMovements(movements: ReadonlyArray<{ ingredient_id: st
 	const returned = new Map<string, number>()
 	const costs = new Map<string, number>()
 	for (const move of movements) {
-		if (move.ingredient_id == null) continue
+		const ingredientId = ingredientIdOf(move.item_id)
+		if (ingredientId == null) continue
 		const target = move.type === "issue_return" ? returned : issued
-		target.set(move.ingredient_id, (target.get(move.ingredient_id) ?? 0) + Number(move.quantity))
-		if (move.unit_cost != null) costs.set(move.ingredient_id, Number(move.unit_cost))
+		target.set(ingredientId, (target.get(ingredientId) ?? 0) + Number(move.quantity))
+		if (move.unit_cost != null) costs.set(ingredientId, Number(move.unit_cost))
 	}
 	return { issued, returned, costs }
 }
 
-/** Insumos do retrato: os planejados e os que saíram sem plano, sem repetição. */
-export function collectIssueIngredientIds(rows: ReadonlyArray<{ ingredient_id: string }>, issued: ReadonlyMap<string, number>): string[] {
-	return [...new Set([...rows.map((row) => row.ingredient_id), ...issued.keys()])]
+/** Insumos do retrato: os planejados (`item_id` da linha é o id do insumo) e os que saíram sem plano, sem repetição. */
+export function collectIssueIngredientIds(rows: ReadonlyArray<{ item_id: string }>, issued: ReadonlyMap<string, number>): string[] {
+	return [...new Set([...rows.map((row) => row.item_id), ...issued.keys()])]
 }
 
 /** Custo médio só para o insumo que não teve movimento com custo nesta requisição (muta `costs`). */
-export function fillMissingAverageCosts(costs: Map<string, number>, averages: ReadonlyArray<{ ingredient_id: string | null; avg_unit_cost: Numeric }>): void {
+export function fillMissingAverageCosts(costs: Map<string, number>, averages: ReadonlyArray<{ item_id: string | null; avg_unit_cost: Numeric }>): void {
 	for (const row of averages) {
-		if (row.ingredient_id == null) continue
-		if (!costs.has(row.ingredient_id) && row.avg_unit_cost != null) costs.set(row.ingredient_id, Number(row.avg_unit_cost))
+		if (row.item_id == null) continue
+		if (!costs.has(row.item_id) && row.avg_unit_cost != null) costs.set(row.item_id, Number(row.avg_unit_cost))
 	}
 }
 
+/** Linha de `stock_issue_request_item`: o `item_id` é o id do insumo. */
 export interface IssueRequestItemRow {
 	id: string
-	ingredient_id: string
+	item_id: string
 	suggested_qty: Numeric
 	variance_reason: string | null
 }
@@ -175,7 +185,7 @@ export function buildIssueVarianceLines(input: {
 }): IssueLineForVariance[] {
 	const { rows, issued, returned, costs } = input
 	return input.ingredientIds.map((ingredientId) => {
-		const row = rows.find((item) => item.ingredient_id === ingredientId)
+		const row = rows.find((item) => item.item_id === ingredientId)
 		return {
 			ingredientId,
 			suggestedQty: row?.suggested_qty != null ? Number(row.suggested_qty) : null,
@@ -198,7 +208,7 @@ export function decorateIssueVerdicts(input: {
 	const { rows, names, lines } = input
 	return input.verdicts.map((verdict) => ({
 		...verdict,
-		itemId: rows.find((row) => row.ingredient_id === verdict.ingredientId)?.id ?? null,
+		itemId: rows.find((row) => row.item_id === verdict.ingredientId)?.id ?? null,
 		description: names.get(verdict.ingredientId)?.description ?? "—",
 		measureUnit: names.get(verdict.ingredientId)?.measure_unit ?? null,
 		reason: lines.find((line) => line.ingredientId === verdict.ingredientId)?.reason ?? null,

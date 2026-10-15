@@ -51,8 +51,8 @@ describeIf("goods receipt two-stage flow (DB)", () => {
 
 					// OF dentro do saldo
 					const [of] = await tx`
-						insert into procurement.supply_order (empenho_id, kitchen_id, sent_at, expected_delivery, status)
-						values (${empenho.id}, ${kitchenRow.id}, '2026-07-10', '2026-07-20', 'sent') returning id`
+						insert into procurement.supply_order (empenho_id, location_id, sent_at, expected_delivery, status)
+						values (${empenho.id}, inventory.kitchen_location(${kitchenRow.id}), '2026-07-10', '2026-07-20', 'sent') returning id`
 					await tx`insert into procurement.supply_order_item (supply_order_id, arp_item_id, ordered_qty) values (${of.id}, ${arpItem.id}, 60)`
 
 					// OF excedendo o empenho → trigger aborta
@@ -62,11 +62,11 @@ describeIf("goods receipt two-stage flow (DB)", () => {
 
 					// recebimento draft + item
 					const [receipt] = await tx`
-						insert into inventory.goods_receipt (kitchen_id, supply_order_id, empenho_id)
-						values (${kitchenRow.id}, ${of.id}, ${empenho.id}) returning id`
+						insert into inventory.goods_receipt (location_id, supply_order_id, empenho_id)
+						values (inventory.kitchen_location(${kitchenRow.id}), ${of.id}, ${empenho.id}) returning id`
 					const [item] = await tx`
 						insert into inventory.goods_receipt_item
-							(receipt_id, ingredient_id, invoiced_qty_base, received_qty_base, unit_cost)
+							(receipt_id, item_id, invoiced_qty_base, received_qty_base, unit_cost)
 						values (${receipt.id}, ${ingredient.id}, 60, 60, 5)
 						returning id`
 					// Lote é linha filha desde 20260901120200 — uma entrega traz caixas
@@ -123,11 +123,11 @@ describeIf("goods receipt two-stage flow (DB)", () => {
 					const [ingredient] = await tx`insert into kitchen.ingredient (description, measure_unit) values ('ARROZ TESTE FISC', 'KG') returning id`
 
 					const finalize = async (lines: Array<{ invoiced: number | null; received: number; cost: number | null }>) => {
-						const [receipt] = await tx`insert into inventory.goods_receipt (kitchen_id) values (${kitchenRow.id}) returning id`
+						const [receipt] = await tx`insert into inventory.goods_receipt (location_id) values (inventory.kitchen_location(${kitchenRow.id})) returning id`
 						for (const line of lines) {
 							await tx`
 								insert into inventory.goods_receipt_item
-									(receipt_id, ingredient_id, invoiced_qty_base, received_qty_base, unit_cost, divergence_reason)
+									(receipt_id, item_id, invoiced_qty_base, received_qty_base, unit_cost, divergence_reason)
 								values (${receipt.id}, ${ingredient.id}, ${line.invoiced}, ${line.received}, ${line.cost},
 									-- linha que difere da nota precisa de motivo para efetivar (20260920250000)
 									${line.invoiced != null && line.invoiced !== line.received ? "Divergência de teste" : null})`
@@ -169,10 +169,10 @@ describeIf("goods receipt two-stage flow (DB)", () => {
 					const [unit] = await tx`insert into core.units (code, display_name) values ('ZZTEST-CONF', 'unit teste conferência') returning id`
 					const [kitchenRow] = await tx`insert into core.kitchen (unit_id, display_name) values (${unit.id}, 'cozinha conferência') returning id`
 					const [ingredient] = await tx`insert into kitchen.ingredient (description, measure_unit) values ('LEITE TESTE CONF', 'L') returning id`
-					const [receipt] = await tx`insert into inventory.goods_receipt (kitchen_id) values (${kitchenRow.id}) returning id`
+					const [receipt] = await tx`insert into inventory.goods_receipt (location_id) values (inventory.kitchen_location(${kitchenRow.id})) returning id`
 					// como a importação da nota deixa a linha: faturado 10, recebido 10, lote da nota com 10
 					const [item] = await tx`
-						insert into inventory.goods_receipt_item (receipt_id, ingredient_id, invoiced_qty_base, received_qty_base, unit_cost)
+						insert into inventory.goods_receipt_item (receipt_id, item_id, invoiced_qty_base, received_qty_base, unit_cost)
 						values (${receipt.id}, ${ingredient.id}, 10, 10, 4) returning id`
 					await tx`insert into inventory.goods_receipt_item_lot (receipt_item_id, lot_code, quantity_base, unit_cost)
 						values (${item.id}, 'NF-L9', 10, 4)`
@@ -267,10 +267,10 @@ describeIf("goods receipt two-stage flow (DB)", () => {
 					const [nfeItem] = await tx`
 						insert into inventory.nfe_item (nfe_document_id, n_item, lot_code, expiry_date)
 						values (${nfe.id}, 1, 'NF-LOTE-A', '2027-03-31') returning id`
-					const [receipt] = await tx`insert into inventory.goods_receipt (kitchen_id) values (${kitchenRow.id}) returning id`
+					const [receipt] = await tx`insert into inventory.goods_receipt (location_id) values (inventory.kitchen_location(${kitchenRow.id})) returning id`
 					const line = async (invoiced: number, nfeItemId: string | null = null) => {
 						const [row] = await tx`
-							insert into inventory.goods_receipt_item (receipt_id, ingredient_id, nfe_item_id, invoiced_qty_base, received_qty_base, unit_cost)
+							insert into inventory.goods_receipt_item (receipt_id, item_id, nfe_item_id, invoiced_qty_base, received_qty_base, unit_cost)
 							values (${receipt.id}, ${ingredient.id}, ${nfeItemId}, ${invoiced}, ${invoiced}, 2) returning id`
 						return row.id as string
 					}
@@ -426,9 +426,9 @@ describeIf("goods receipt two-stage flow (DB)", () => {
 					const [spec] = await tx`
 						insert into procurement.purchase_item (description, purchase_measure_unit, conservation_class, storage_temp_max_c)
 						values ('CARNE BOVINA CONGELADA TESTE', 'KG', 'congelado', -12) returning id`
-					const [receipt] = await tx`insert into inventory.goods_receipt (kitchen_id) values (${kitchenRow.id}) returning id`
+					const [receipt] = await tx`insert into inventory.goods_receipt (location_id) values (inventory.kitchen_location(${kitchenRow.id})) returning id`
 					const [item] = await tx`
-						insert into inventory.goods_receipt_item (receipt_id, ingredient_id, purchase_item_id, invoiced_qty_base, received_qty_base, unit_cost)
+						insert into inventory.goods_receipt_item (receipt_id, item_id, purchase_item_id, invoiced_qty_base, received_qty_base, unit_cost)
 						values (${receipt.id}, ${ingredient.id}, ${spec.id}, 20, 20, 30) returning id`
 					// um lote chegou como sugerido, outro chegou resfriado (com o motivo que o servidor compõe)
 					await tx`
@@ -459,8 +459,9 @@ describeIf("goods receipt two-stage flow (DB)", () => {
 					expect(thawedRow.conservation_class).toBe("resfriado")
 
 					// transferência leva a classe para a cozinha de destino
-					await tx`select * from inventory.transfer_stock(${frozen?.id}, ${kitchenB.id}, 2, ${author.id})`
-					const [moved] = await tx`select conservation_class from inventory.stock_lot where kitchen_id = ${kitchenB.id} and lot_code = 'L-CONG'`
+					await tx`select * from inventory.transfer_stock(${frozen?.id}, inventory.kitchen_location(${kitchenB.id}), 2, ${author.id})`
+					const [moved] =
+						await tx`select conservation_class from inventory.stock_lot where location_id = inventory.kitchen_location(${kitchenB.id}) and lot_code = 'L-CONG'`
 					expect(moved.conservation_class).toBe("congelado")
 
 					throw new Rollback()

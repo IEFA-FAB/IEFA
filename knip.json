@@ -41,6 +41,10 @@
       "entry": ["src/client.tsx", "src/server.ts", "src/router.tsx", "vite.config.ts", "src/**/*.test.{ts,tsx}"],
       "project": ["src/**/*.{ts,tsx}"]
     },
+    "apps/sisprov": {
+      "entry": ["src/client.tsx", "src/server.ts", "src/router.tsx", "vite.config.ts", "src/**/*.test.{ts,tsx}"],
+      "project": ["src/**/*.{ts,tsx}"]
+    },
     "apps/forms": {
       "entry": ["src/client.tsx", "src/server.ts", "src/router.tsx", "vite.config.ts", "src/**/*.test.{ts,tsx}"],
       "project": ["src/**/*.{ts,tsx}"]
@@ -98,6 +102,10 @@
       "project": ["src/**/*.ts"]
     },
     "packages/pbac": {
+      "entry": ["src/index.ts", "src/**/*.test.{ts,tsx}"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/sisprov-domain": {
       "entry": ["src/index.ts", "src/**/*.test.{ts,tsx}"],
       "project": ["src/**/*.ts"]
     },

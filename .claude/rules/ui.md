@@ -18,6 +18,7 @@ paths:
 | `sucont` | Sistema do `sisub` (flat técnico), com contrato próprio pela dívida das 9 ferramentas portadas | `0.5rem` | `apps/sucont/STYLE_CONTRACT.md` |
 | `contrate` | Pale Brutalism do `portal`, sem variação. O contrato é cópia: mudança se faz nos dois | Zero | `apps/contrate/STYLE_CONTRACT.md` |
 | `rumaer` | Institucional Aeronáutico (navy do RCA 35-2 + dourado ≤10%, sombra macia). Não segue mais o portal | `0.625rem` | `apps/rumaer/STYLE_CONTRACT.md` |
+| `sisprov` | Sistema do `sisub` (flat técnico), com contrato próprio só para as diferenças (sem cozinha, casca por sidebar de três módulos) | `0.5rem` | `apps/sisprov/STYLE_CONTRACT.md` |
 
 Leia o `STYLE_CONTRACT.md` do app antes de mudar UI nele.
 

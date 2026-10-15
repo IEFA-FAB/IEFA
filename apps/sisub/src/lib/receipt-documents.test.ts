@@ -33,7 +33,7 @@ describe("isSwitchingNfe", () => {
 describe("planInvoiceLink", () => {
 	const line = (partial: Partial<LinkReceiptLine>): LinkReceiptLine => ({
 		id: "it-1",
-		ingredient_id: "ing-1",
+		item_id: "ing-1",
 		purchase_item_id: null,
 		nfe_item_id: null,
 		unit_cost: null,
@@ -44,7 +44,7 @@ describe("planInvoiceLink", () => {
 		id: "nf-1",
 		n_item: 1,
 		description: "Pão",
-		ingredient_id: "ing-1",
+		item_id: "ing-1",
 		purchase_item_id: null,
 		matched_qty_base: 10,
 		unit_price: 5,
@@ -55,7 +55,7 @@ describe("planInvoiceLink", () => {
 	test("casa pelo insumo e dá o custo da linha da nota à linha sem custo", () => {
 		expect(
 			planInvoiceLink({
-				lines: [line({}), line({ id: "it-2", ingredient_id: "ing-sem-nota" }), line({ id: "it-3", ingredient_id: null })],
+				lines: [line({}), line({ id: "it-2", item_id: "ing-sem-nota" }), line({ id: "it-3", item_id: null })],
 				invoiceItems: [item({})],
 				switchingNfe: false,
 				attested: false,
@@ -88,9 +88,9 @@ describe("planInvoiceLink", () => {
 		const plan = planInvoiceLink({
 			lines: [
 				line({ nfe_item_id: "nf-1", unit_cost: 3, unit_cost_source: "invoice_link" }),
-				line({ id: "it-2", ingredient_id: "ing-2", nfe_item_id: "nf-1", unit_cost: 7, unit_cost_source: "manual" }),
+				line({ id: "it-2", item_id: "ing-2", nfe_item_id: "nf-1", unit_cost: 7, unit_cost_source: "manual" }),
 			],
-			invoiceItems: [item({}), item({ id: "nf-2", n_item: 2, ingredient_id: "ing-2" })],
+			invoiceItems: [item({}), item({ id: "nf-2", n_item: 2, item_id: "ing-2" })],
 			switchingNfe: true,
 			attested: false,
 		})

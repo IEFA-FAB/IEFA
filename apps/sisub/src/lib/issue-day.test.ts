@@ -117,11 +117,13 @@ describe("abertura", () => {
 		expect(
 			buildIssueRequestValues(
 				{ kitchenId: 4, origin: "ad_hoc", destination: " pavilhão ", purpose: " evento ", authorizationReference: "  " },
+				// o local de estoque da cozinha 4, que não é o id da cozinha
+				17,
 				"2026-10-13",
 				"u"
 			)
 		).toEqual({
-			kitchen_id: 4,
+			location_id: 17,
 			issue_date: "2026-10-13",
 			origin: "ad_hoc",
 			destination: "pavilhão",
@@ -129,7 +131,7 @@ describe("abertura", () => {
 			authorization_reference: null,
 			created_by: "u",
 		})
-		expect(buildIssueRequestValues({ kitchenId: 4, origin: "production", authorizationReference: " BI 12 " }, "d", "u")).toMatchObject({
+		expect(buildIssueRequestValues({ kitchenId: 4, origin: "production", authorizationReference: " BI 12 " }, 17, "d", "u")).toMatchObject({
 			destination: null,
 			purpose: null,
 			authorization_reference: "BI 12",
@@ -139,12 +141,16 @@ describe("abertura", () => {
 
 describe("retrato do dia", () => {
 	it("tallyIssueMovements separa emissão de devolução e guarda o último custo", () => {
-		const { issued, returned, costs } = tallyIssueMovements([
-			{ ingredient_id: "a", type: "issue", quantity: 10, unit_cost: 2 },
-			{ ingredient_id: "a", type: "issue_return", quantity: "3", unit_cost: null },
-			{ ingredient_id: "a", type: "issue", quantity: 1, unit_cost: "2.5" },
-			{ ingredient_id: null, type: "issue", quantity: 99, unit_cost: 1 },
-		])
+		// "f" é uma preparação congelada: não é insumo, e a requisição é de insumo
+		const { issued, returned, costs } = tallyIssueMovements(
+			[
+				{ item_id: "a", type: "issue", quantity: 10, unit_cost: 2 },
+				{ item_id: "a", type: "issue_return", quantity: "3", unit_cost: null },
+				{ item_id: "a", type: "issue", quantity: 1, unit_cost: "2.5" },
+				{ item_id: "f", type: "issue", quantity: 99, unit_cost: 1 },
+			],
+			(itemId) => (itemId === "f" ? null : itemId)
+		)
 		expect([...issued]).toEqual([["a", 11]])
 		expect([...returned]).toEqual([["a", 3]])
 		expect([...costs]).toEqual([["a", 2.5]])
@@ -153,7 +159,7 @@ describe("retrato do dia", () => {
 	it("collectIssueIngredientIds junta planejados e emitidos sem plano", () => {
 		expect(
 			collectIssueIngredientIds(
-				[{ ingredient_id: "a" }, { ingredient_id: "b" }],
+				[{ item_id: "a" }, { item_id: "b" }],
 				new Map([
 					["b", 1],
 					["c", 2],
@@ -165,10 +171,10 @@ describe("retrato do dia", () => {
 	it("fillMissingAverageCosts só preenche quem não tem custo", () => {
 		const costs = new Map([["a", 5]])
 		fillMissingAverageCosts(costs, [
-			{ ingredient_id: "a", avg_unit_cost: 9 },
-			{ ingredient_id: "b", avg_unit_cost: "3" },
-			{ ingredient_id: "c", avg_unit_cost: null },
-			{ ingredient_id: null, avg_unit_cost: 1 },
+			{ item_id: "a", avg_unit_cost: 9 },
+			{ item_id: "b", avg_unit_cost: "3" },
+			{ item_id: "c", avg_unit_cost: null },
+			{ item_id: null, avg_unit_cost: 1 },
 		])
 		expect([...costs]).toEqual([
 			["a", 5],
@@ -178,8 +184,8 @@ describe("retrato do dia", () => {
 
 	it("buildIssueVarianceLines e decorateIssueVerdicts montam o retrato", () => {
 		const rows = [
-			{ id: "r1", ingredient_id: "a", suggested_qty: "10", variance_reason: "waste" },
-			{ id: "r2", ingredient_id: "b", suggested_qty: null, variance_reason: null },
+			{ id: "r1", item_id: "a", suggested_qty: "10", variance_reason: "waste" },
+			{ id: "r2", item_id: "b", suggested_qty: null, variance_reason: null },
 		]
 		const lines = buildIssueVarianceLines({
 			ingredientIds: ["a", "b", "c"],

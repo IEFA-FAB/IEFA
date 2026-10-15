@@ -100,7 +100,7 @@ export function createLotWriteError(error: { code?: string; message: string }, l
 
 /** Linha do recebimento criada da NF-e, com o rastro de lote/validade da nota. */
 export interface InvoiceLotSource {
-	row: { purchase_item_id: string | null; ingredient_id: string }
+	row: { purchase_item_id: string | null; item_id: string }
 	lotCode: string | null
 	expiryDate: string | null
 }

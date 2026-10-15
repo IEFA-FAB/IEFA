@@ -1,0 +1,11 @@
+# https://www.robotstxt.org/robotstxt.html
+#
+# O SISPROV é sistema de uso interno do COMAER, inteiro autenticado: não há vitrine
+# pública a rastrear. Só os documentos legais são públicos, e eles já estão no Portal.
+#
+# Content-Signal (https://contentsignals.org): nada aqui serve de insumo a busca ou IA.
+# Alterar esses valores é decisão institucional, não técnica.
+
+User-agent: *
+Content-Signal: search=no, ai-input=no, ai-train=no
+Disallow: /

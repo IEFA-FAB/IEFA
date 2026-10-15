@@ -79,8 +79,10 @@ describeSupabaseIntegration("recebimento sem NF-e, vínculo posterior e designa�
 	async function seedKitchen(tx: Tx, tag: string) {
 		const [unit] = await tx`insert into core.units (code, display_name) values (${uid(`ZZ-${tag}-`)}, ${`unit ${tag}`}) returning id`
 		const [kitchen] = await tx`insert into kitchen.kitchen (unit_id, display_name) values (${unit.id}, ${`cozinha ${tag}`}) returning id`
+		// o estoque é do local de estoque; o da cozinha nasce por trigger
+		const [location] = await tx`select inventory.kitchen_location(${kitchen.id}) as id`
 		const [ingredient] = await tx`insert into kitchen.ingredient (description, measure_unit) values (${uid("PAO FRANCES TESTE ")}, 'KG') returning id`
-		return { unitId: Number(unit.id), kitchenId: Number(kitchen.id), ingredientId: String(ingredient.id) }
+		return { unitId: Number(unit.id), kitchenId: Number(kitchen.id), locationId: Number(location.id), ingredientId: String(ingredient.id) }
 	}
 
 	/** Entrega registrada sem nota, com uma linha e o lote, e efetivada (provisório → definitivo). */
@@ -89,10 +91,10 @@ describeSupabaseIntegration("recebimento sem NF-e, vínculo posterior e designa�
 		input: { kitchenId: number; ingredientId: string; source: "delivery_note" | "ad_hoc"; number?: string; qty: number; finalize: boolean; expected?: boolean }
 	) {
 		const [receipt] = await tx`
-			insert into inventory.goods_receipt (kitchen_id, source, delivery_note_number, invoice_expected, supplier_document)
-			values (${input.kitchenId}, ${input.source}, ${input.number ?? null}, ${input.expected ?? true}, '12345678000190') returning id`
+			insert into inventory.goods_receipt (location_id, source, delivery_note_number, invoice_expected, supplier_document)
+			values (inventory.kitchen_location(${input.kitchenId}), ${input.source}, ${input.number ?? null}, ${input.expected ?? true}, '12345678000190') returning id`
 		const [item] = await tx`
-			insert into inventory.goods_receipt_item (receipt_id, ingredient_id, invoiced_qty_base, received_qty_base, unit_cost)
+			insert into inventory.goods_receipt_item (receipt_id, item_id, invoiced_qty_base, received_qty_base, unit_cost)
 			values (${receipt.id}, ${input.ingredientId}, null, ${input.qty}, null) returning id`
 		await tx`
 			insert into inventory.goods_receipt_item_lot (receipt_item_id, lot_code, expiry_date, quantity_base)
@@ -111,7 +113,7 @@ describeSupabaseIntegration("recebimento sem NF-e, vínculo posterior e designa�
 
 	test("pão: guia de remessa todo dia, NF-e semanal vinculada depois às entregas da semana", async () => {
 		await inRollback(async (tx) => {
-			const { unitId, kitchenId, ingredientId } = await seedKitchen(tx, "PAO")
+			const { unitId, kitchenId, locationId, ingredientId } = await seedKitchen(tx, "PAO")
 			const monday = await deliveredWithoutInvoice(tx, { kitchenId, ingredientId, source: "delivery_note", number: "G-SEG", qty: 7, finalize: true })
 			const tuesday = await deliveredWithoutInvoice(tx, { kitchenId, ingredientId, source: "delivery_note", number: "G-TER", qty: 7, finalize: true })
 			const [moves] =
@@ -125,11 +127,11 @@ describeSupabaseIntegration("recebimento sem NF-e, vínculo posterior e designa�
 
 			// A NF-e da semana chega: 14 kg a R$ 14/kg.
 			const [note] = await tx`
-				insert into inventory.nfe_document (access_key, supplier_cnpj, kitchen_id, unit_id, status, situation_result, situation_checked_at)
-				values (${`${"3".repeat(25)}${String(Date.now()).slice(-9)}${"1".repeat(10)}`}, '12345678000190', ${kitchenId}, ${unitId}, 'imported', 'authorized', now())
+				insert into inventory.nfe_document (access_key, supplier_cnpj, location_id, unit_id, status, situation_result, situation_checked_at)
+				values (${`${"3".repeat(25)}${String(Date.now()).slice(-9)}${"1".repeat(10)}`}, '12345678000190', ${locationId}, ${unitId}, 'imported', 'authorized', now())
 				returning id`
 			const [noteItem] = await tx`
-				insert into inventory.nfe_item (nfe_document_id, n_item, description, ingredient_id, matched_qty_base, unit_price, commercial_qty, match_status)
+				insert into inventory.nfe_item (nfe_document_id, n_item, description, item_id, matched_qty_base, unit_price, commercial_qty, match_status)
 				values (${note.id}, 1, 'PAO FRANCES', ${ingredientId}, 14, 14, 14, 'matched') returning id`
 
 			for (const delivery of [monday, tuesday]) {
@@ -172,14 +174,14 @@ describeSupabaseIntegration("recebimento sem NF-e, vínculo posterior e designa�
 
 			// A mesma nota não gera recebimento próprio: o pão seria contado duas vezes.
 			await expect(
-				tx.savepoint((sp) => sp`insert into inventory.goods_receipt (kitchen_id, source, nfe_document_id) values (${kitchenId}, 'nfe', ${note.id})`)
+				tx.savepoint((sp) => sp`insert into inventory.goods_receipt (location_id, source, nfe_document_id) values (${locationId}, 'nfe', ${note.id})`)
 			).rejects.toThrow(/contado duas vezes/)
 		})
 	})
 
 	test("entrega sem NF-e: a de compra fica pendente de nota; a remessa do depósito, não", async () => {
 		await inRollback(async (tx) => {
-			const { kitchenId, ingredientId } = await seedKitchen(tx, "SEMNF")
+			const { kitchenId, locationId, ingredientId } = await seedKitchen(tx, "SEMNF")
 			const purchase = await deliveredWithoutInvoice(tx, { kitchenId, ingredientId, source: "ad_hoc", qty: 3, finalize: true })
 			const depot = await deliveredWithoutInvoice(tx, {
 				kitchenId,
@@ -192,7 +194,7 @@ describeSupabaseIntegration("recebimento sem NF-e, vínculo posterior e designa�
 			})
 
 			// guia sem número não é guia
-			await expect(tx.savepoint((sp) => sp`insert into inventory.goods_receipt (kitchen_id, source) values (${kitchenId}, 'delivery_note')`)).rejects.toThrow(
+			await expect(tx.savepoint((sp) => sp`insert into inventory.goods_receipt (location_id, source) values (${locationId}, 'delivery_note')`)).rejects.toThrow(
 				/goods_receipt_delivery_note_number/
 			)
 
@@ -270,15 +272,15 @@ describeSupabaseIntegration("recebimento sem NF-e, vínculo posterior e designa�
 
 	test("SEFAZ fora do ar: o estoque entra com a consulta pendente; a liquidação continua exigindo", async () => {
 		await inRollback(async (tx) => {
-			const { unitId, kitchenId, ingredientId } = await seedKitchen(tx, "SEFAZ")
+			const { unitId, kitchenId, locationId, ingredientId } = await seedKitchen(tx, "SEFAZ")
 			const [note] = await tx`
-				insert into inventory.nfe_document (access_key, supplier_cnpj, kitchen_id, unit_id, status)
-				values (${`${"4".repeat(25)}${String(Date.now()).slice(-9)}${"2".repeat(10)}`}, '12345678000190', ${kitchenId}, ${unitId}, 'imported')
+				insert into inventory.nfe_document (access_key, supplier_cnpj, location_id, unit_id, status)
+				values (${`${"4".repeat(25)}${String(Date.now()).slice(-9)}${"2".repeat(10)}`}, '12345678000190', ${locationId}, ${unitId}, 'imported')
 				returning id`
 			const [receipt] =
-				await tx`insert into inventory.goods_receipt (kitchen_id, source, nfe_document_id) values (${kitchenId}, 'nfe', ${note.id}) returning id`
+				await tx`insert into inventory.goods_receipt (location_id, source, nfe_document_id) values (${locationId}, 'nfe', ${note.id}) returning id`
 			const [item] = await tx`
-				insert into inventory.goods_receipt_item (receipt_id, ingredient_id, invoiced_qty_base, received_qty_base, unit_cost)
+				insert into inventory.goods_receipt_item (receipt_id, item_id, invoiced_qty_base, received_qty_base, unit_cost)
 				values (${receipt.id}, ${ingredientId}, 10, 10, 30) returning id`
 
 			// A regra que o servidor aplica: sem consulta e com o motivo, efetiva com pendência.
@@ -330,7 +332,7 @@ describeSupabaseIntegration("recebimento sem NF-e, vínculo posterior e designa�
 
 	test("físico × contábil liga pela liquidação que aponta o recebimento, somando as parcelas", async () => {
 		await inRollback(async (tx) => {
-			const { unitId, kitchenId, ingredientId } = await seedKitchen(tx, "CONC")
+			const { unitId, locationId, ingredientId } = await seedKitchen(tx, "CONC")
 			const [list] = await tx`insert into procurement.quantity_estimate (unit_id, title) values (${unitId}, 'lista conc') returning id`
 			const [arp] = await tx`
 				insert into procurement.arp (unit_id, quantity_estimate_id, numero_ata, uasg_gerenciadora) values (${unitId}, ${list.id}, ${uid("ATA-")}, '160001') returning id`
@@ -342,9 +344,9 @@ describeSupabaseIntegration("recebimento sem NF-e, vínculo posterior e designa�
 				insert into finance.empenho_item (empenho_id, arp_item_id, quantity, unit_price, value)
 				values (${empenho.id}, ${arpItem.id}, 100, 10, 1000)`
 			const [receipt] =
-				await tx`insert into inventory.goods_receipt (kitchen_id, empenho_id, status) values (${kitchenId}, ${empenho.id}, 'provisional') returning id`
+				await tx`insert into inventory.goods_receipt (location_id, empenho_id, status) values (${locationId}, ${empenho.id}, 'provisional') returning id`
 			await tx`
-				insert into inventory.goods_receipt_item (receipt_id, ingredient_id, invoiced_qty_base, received_qty_base, unit_cost)
+				insert into inventory.goods_receipt_item (receipt_id, item_id, invoiced_qty_base, received_qty_base, unit_cost)
 				values (${receipt.id}, ${ingredientId}, 10, 10, 10)`
 			await tx`select * from inventory.finalize_goods_receipt(${receipt.id}, null)`
 
@@ -392,11 +394,11 @@ describeSupabaseIntegration("recebimento sem NF-e, vínculo posterior e designa�
 
 	test("OF de E1 não convive com o empenho E2, mesmo vinculando só a NE", async () => {
 		await inRollback(async (tx) => {
-			const { unitId, kitchenId, ingredientId } = await seedKitchen(tx, "OFNE")
+			const { unitId, kitchenId, locationId, ingredientId } = await seedKitchen(tx, "OFNE")
 			const e1 = await seedEmpenho(tx, unitId)
 			const e2 = await seedEmpenho(tx, unitId)
 			const [order] = await tx`
-				insert into procurement.supply_order (empenho_id, kitchen_id, sent_at, status) values (${e1}, ${kitchenId}, current_date, 'sent') returning id`
+				insert into procurement.supply_order (empenho_id, location_id, sent_at, status) values (${e1}, ${locationId}, current_date, 'sent') returning id`
 			const delivery = await deliveredWithoutInvoice(tx, { kitchenId, ingredientId, source: "ad_hoc", qty: 2, finalize: false })
 			await tx`select * from inventory.link_receipt_documents(${delivery.receiptId}, ${personId}, null, ${order.id}, null)`
 			const [linked] = await tx`select empenho_id from inventory.goods_receipt where id = ${delivery.receiptId}`
@@ -408,7 +410,7 @@ describeSupabaseIntegration("recebimento sem NF-e, vínculo posterior e designa�
 
 			// OF aguardando empenho: a NE entra na OF (SICAF), não só no recebimento
 			const [waiting] = await tx`
-				insert into procurement.supply_order (empenho_id, kitchen_id, sent_at, status) values (null, ${kitchenId}, current_date, 'sent') returning id`
+				insert into procurement.supply_order (empenho_id, location_id, sent_at, status) values (null, ${locationId}, current_date, 'sent') returning id`
 			const other = await deliveredWithoutInvoice(tx, { kitchenId, ingredientId, source: "ad_hoc", qty: 1, finalize: false })
 			await tx`select * from inventory.link_receipt_documents(${other.receiptId}, ${personId}, null, ${waiting.id}, null)`
 			await expect(
@@ -419,13 +421,13 @@ describeSupabaseIntegration("recebimento sem NF-e, vínculo posterior e designa�
 
 	test("trocar de NF-e desliga a linha que não casa com a nova e tira o custo que veio da antiga", async () => {
 		await inRollback(async (tx) => {
-			const { unitId, kitchenId, ingredientId } = await seedKitchen(tx, "TROCA")
+			const { unitId, kitchenId, locationId, ingredientId } = await seedKitchen(tx, "TROCA")
 			const delivery = await deliveredWithoutInvoice(tx, { kitchenId, ingredientId, source: "ad_hoc", qty: 7, finalize: false })
 			const key = (digit: string) => `${digit.repeat(25)}${String(Date.now()).slice(-9)}${digit.repeat(10)}`
 			const [noteA] =
-				await tx`insert into inventory.nfe_document (access_key, kitchen_id, unit_id, status) values (${key("5")}, ${kitchenId}, ${unitId}, 'imported') returning id`
+				await tx`insert into inventory.nfe_document (access_key, location_id, unit_id, status) values (${key("5")}, ${locationId}, ${unitId}, 'imported') returning id`
 			const [itemA] = await tx`
-				insert into inventory.nfe_item (nfe_document_id, n_item, description, ingredient_id, matched_qty_base, unit_price, commercial_qty, match_status)
+				insert into inventory.nfe_item (nfe_document_id, n_item, description, item_id, matched_qty_base, unit_price, commercial_qty, match_status)
 				values (${noteA.id}, 1, 'PAO', ${ingredientId}, 7, 14, 7, 'matched') returning id`
 			await tx`
 				select * from inventory.link_receipt_documents(${delivery.receiptId}, ${personId}, ${noteA.id}, null, null,
@@ -437,7 +439,7 @@ describeSupabaseIntegration("recebimento sem NF-e, vínculo posterior e designa�
 
 			// a nota B não tem o pão: a linha fica sem item e sem o custo de A
 			const [noteB] =
-				await tx`insert into inventory.nfe_document (access_key, kitchen_id, unit_id, status) values (${key("6")}, ${kitchenId}, ${unitId}, 'imported') returning id`
+				await tx`insert into inventory.nfe_document (access_key, location_id, unit_id, status) values (${key("6")}, ${locationId}, ${unitId}, 'imported') returning id`
 			await tx`select * from inventory.link_receipt_documents(${delivery.receiptId}, ${personId}, ${noteB.id}, null, null, ${JSON.stringify([])}::jsonb, ${JSON.stringify([])}::jsonb)`
 			const [withB] = await tx`select nfe_item_id, unit_cost, unit_cost_source from inventory.goods_receipt_item where id = ${delivery.itemId}`
 			expect(withB).toEqual({ nfe_item_id: null, unit_cost: null, unit_cost_source: null })

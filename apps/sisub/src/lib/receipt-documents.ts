@@ -23,7 +23,7 @@ export function isSwitchingNfe(requestedNfeId: string | null | undefined, curren
 
 export interface LinkReceiptLine {
 	id: string
-	ingredient_id: string | null
+	item_id: string | null
 	purchase_item_id: string | null
 	nfe_item_id: string | null
 	unit_cost: number | null
@@ -34,7 +34,7 @@ export interface LinkInvoiceItem {
 	id: string
 	n_item: number | null
 	description: string | null
-	ingredient_id: string | null
+	item_id: string | null
 	purchase_item_id: string | null
 	matched_qty_base: number | null
 	unit_price: number | null
@@ -64,7 +64,7 @@ export function planInvoiceLink(input: {
 	const match = matchReceiptLinesToInvoice(
 		input.lines.map((line) => ({
 			id: String(line.id),
-			ingredientId: line.ingredient_id ?? null,
+			ingredientId: line.item_id ?? null,
 			purchaseItemId: line.purchase_item_id ?? null,
 			nfeItemId: switchingNfe ? null : (line.nfe_item_id ?? null),
 			unitCost: switchingNfe && line.unit_cost_source === "invoice_link" ? null : toNumber(line.unit_cost),
@@ -73,7 +73,7 @@ export function planInvoiceLink(input: {
 			id: String(item.id),
 			nItem: toNumber(item.n_item),
 			description: item.description ?? null,
-			ingredientId: item.ingredient_id ?? null,
+			ingredientId: item.item_id ?? null,
 			purchaseItemId: item.purchase_item_id ?? null,
 			matchedQtyBase: toNumber(item.matched_qty_base),
 			unitPrice: toNumber(item.unit_price),
@@ -85,7 +85,7 @@ export function planInvoiceLink(input: {
 		links: match.links.map((link) => ({ receipt_item_id: link.receiptItemId, nfe_item_id: link.nfeItemId })),
 		// efetivado: o custo já está no estoque e não muda
 		costs: input.attested ? [] : match.costs.map((cost) => ({ receipt_item_id: cost.receiptItemId, unit_cost: cost.unitCost })),
-		unmatchedIngredientIds: input.lines.filter((line) => unmatchedIds.has(String(line.id)) && line.ingredient_id).map((line) => String(line.ingredient_id)),
+		unmatchedIngredientIds: input.lines.filter((line) => unmatchedIds.has(String(line.id)) && line.item_id).map((line) => String(line.item_id)),
 	}
 }
 

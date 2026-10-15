@@ -454,7 +454,7 @@ export async function fetchExecutionReviewStatus(db: SisubDb, ctx: UserContext, 
 			() =>
 				db.execute(sql`
 					select r.id, r.issue_date from inventory.stock_issue_request r
-					where r.kitchen_id = ${kitchenId} and r.status = 'closed_unexplained' and r.explained_at is null
+					where r.location_id = inventory.kitchen_location(${kitchenId}) and r.status = 'closed_unexplained' and r.explained_at is null
 					order by r.issue_date desc
 					limit 60
 				`),
@@ -531,7 +531,7 @@ export async function listPendingProvisionalFrozenPreparations(db: SisubDb, ctx:
 			db.execute(sql`
 				select fp.id, fp.description, fp.measure_unit, fp.shelf_life_days, fp.provisional_kitchen_id, fp.provisional_since,
 					coalesce(k.display_name, 'Cozinha ' || k.id) as kitchen_name, u.email as created_by,
-					(select count(*) from inventory.stock_lot l where l.frozen_preparation_id = fp.id) as lots
+					(select count(*) from inventory.stock_lot l where l.item_id = fp.id) as lots
 				from kitchen.frozen_preparation fp
 				join kitchen.kitchen k on k.id = fp.provisional_kitchen_id
 				left join core.user_data u on u.id = fp.provisional_by

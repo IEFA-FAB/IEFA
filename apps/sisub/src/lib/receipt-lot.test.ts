@@ -137,7 +137,7 @@ describe("createLotWriteError", () => {
 })
 
 describe("lote inicial da NF-e", () => {
-	const source = { row: { purchase_item_id: "pi-1", ingredient_id: "ing-1" }, lotCode: " ABC ", expiryDate: "2026-10-20" }
+	const source = { row: { purchase_item_id: "pi-1", item_id: "ing-1" }, lotCode: " ABC ", expiryDate: "2026-10-20" }
 
 	test("a linha de origem vem pelo item da nota", () => {
 		const byNfeItem = new Map([["nf-1", source]])

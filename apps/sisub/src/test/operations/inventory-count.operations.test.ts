@@ -55,6 +55,8 @@ describeIf("inventory count (DB)", () => {
 					const ago = agoIn(tx)
 					const [unit] = await tx`insert into core.units (code, display_name) values ('ZZTEST-CNT', 'unit teste contagem') returning id`
 					const [kitchenRow] = await tx`insert into core.kitchen (unit_id, display_name) values (${unit.id}, 'cozinha contagem') returning id`
+					// a contagem é do local de estoque; o da cozinha nasce por trigger
+					const [location] = await tx`select inventory.kitchen_location(${kitchenRow.id}) as id`
 					const [arroz] = await tx`insert into kitchen.ingredient (description, measure_unit) values ('ARROZ TESTE CNT', 'KG') returning id`
 					const [oleo] = await tx`insert into kitchen.ingredient (description, measure_unit) values ('OLEO TESTE CNT', 'L') returning id`
 					const [autor] = await tx`select id from auth.users limit 1`
@@ -63,28 +65,28 @@ describeIf("inventory count (DB)", () => {
 					expect(outro?.id).toBeTruthy()
 
 					const [lotArroz] = await tx`
-						insert into inventory.stock_lot (kitchen_id, ingredient_id, lot_code, unit_cost)
-						values (${kitchenRow.id}, ${arroz.id}, 'L-ARROZ-CNT', 4) returning id`
+						insert into inventory.stock_lot (location_id, item_id, lot_code, unit_cost)
+						values (${location.id}, ${arroz.id}, 'L-ARROZ-CNT', 4) returning id`
 					const [lotOleo] = await tx`
-						insert into inventory.stock_lot (kitchen_id, ingredient_id, lot_code, unit_cost)
-						values (${kitchenRow.id}, ${oleo.id}, 'L-OLEO-CNT', 8) returning id`
+						insert into inventory.stock_lot (location_id, item_id, lot_code, unit_cost)
+						values (${location.id}, ${oleo.id}, 'L-OLEO-CNT', 8) returning id`
 					// recebidos há 5 h: `occurred_at` retroativo só vale dentro do mesmo
 					// dia civil de Brasília, e o gatilho recusa o resto
 					await tx`
-						insert into inventory.stock_movement (kitchen_id, ingredient_id, lot_id, type, quantity, unit_cost, occurred_at)
-						values (${kitchenRow.id}, ${arroz.id}, ${lotArroz.id}, 'receipt', 50, 4, ${ago(5)}),
-						       (${kitchenRow.id}, ${oleo.id}, ${lotOleo.id}, 'receipt', 60, 8, ${ago(5)})`
+						insert into inventory.stock_movement (location_id, item_id, lot_id, type, quantity, unit_cost, occurred_at)
+						values (${location.id}, ${arroz.id}, ${lotArroz.id}, 'receipt', 50, 4, ${ago(5)}),
+						       (${location.id}, ${oleo.id}, ${lotOleo.id}, 'receipt', 60, 8, ${ago(5)})`
 
 					// ── abertura materializa o escopo ────────────────────────────────
 					const [aberta] = await tx`
-						select * from inventory.open_inventory_count(${kitchenRow.id}, 'rotativo', 'full', '{}'::jsonb, true, null, ${autor.id})`
+						select * from inventory.open_inventory_count(${location.id}, 'rotativo', 'full', '{}'::jsonb, true, null, ${autor.id})`
 					expect(Number(aberta.scope_items)).toBe(2)
 					// a contagem "abriu" há 4 h: o lançamento não pode ser anterior à abertura
 					await tx`update inventory.inventory_count set created_at = ${ago(4)} where id = ${aberta.count_id}`
 
 					// ── duas contagens abertas não disputam o mesmo item ─────────────
 					await expect(
-						tx.savepoint((sp) => sp`select * from inventory.open_inventory_count(${kitchenRow.id}, 'eventual', 'full', '{}'::jsonb, true, null, ${autor.id})`)
+						tx.savepoint((sp) => sp`select * from inventory.open_inventory_count(${location.id}, 'eventual', 'full', '{}'::jsonb, true, null, ${autor.id})`)
 					).rejects.toThrow(/Já existe contagem aberta/)
 
 					// ── duas pessoas contando a mesma prateleira SOMAM ───────────────
@@ -107,11 +109,11 @@ describeIf("inventory count (DB)", () => {
 
 					// ── a cozinha continua trabalhando: saída DEPOIS não vira falta ──
 					await tx`
-						insert into inventory.stock_movement (kitchen_id, ingredient_id, lot_id, type, quantity, unit_cost, occurred_at)
-						values (${kitchenRow.id}, ${arroz.id}, ${lotArroz.id}, 'production_issue', 10, 4, ${ago(1)})`
+						insert into inventory.stock_movement (location_id, item_id, lot_id, type, quantity, unit_cost, occurred_at)
+						values (${location.id}, ${arroz.id}, ${lotArroz.id}, 'production_issue', 10, 4, ${ago(1)})`
 					const [refs] = await tx`
-						select inventory.balance_at(${kitchenRow.id}, ${lotArroz.id}, null, null, ${ago(3)}) as no_instante,
-						       inventory.balance_at(${kitchenRow.id}, ${lotArroz.id}, null, null, now()) as agora`
+						select inventory.balance_at(${location.id}, ${lotArroz.id}, null, ${ago(3)}) as no_instante,
+						       inventory.balance_at(${location.id}, ${lotArroz.id}, null, now()) as agora`
 					expect(Number(refs.no_instante)).toBe(50) // contado 50 → diferença ZERO
 					expect(Number(refs.agora)).toBe(40)
 
@@ -138,13 +140,13 @@ describeIf("inventory count (DB)", () => {
 					const [prato] = await tx`insert into kitchen.menu_items default values returning id`
 					await tx`insert into kitchen.production_task (kitchen_id, menu_item_id, production_date, status)
 						values (${kitchenRow.id}, ${prato.id}, ${hoje}, 'DONE')`
-					await tx`insert into inventory.stock_issue_request (kitchen_id, issue_date, origin, purpose, destination, status, closed_at, created_by)
-						values (${kitchenRow.id}, ${hoje}, 'ad_hoc', 'apoio', 'ala', 'closed', now(), ${autor.id})`
+					await tx`insert into inventory.stock_issue_request (location_id, issue_date, origin, purpose, destination, status, closed_at, created_by)
+						values (${location.id}, ${hoje}, 'ad_hoc', 'apoio', 'ala', 'closed', now(), ${autor.id})`
 					await expect(tx.savepoint((sp) => sp`select * from inventory.approve_inventory_count(${aberta.count_id}, ${outro.id}, null)`)).rejects.toThrow(
 						/sem a requisição do dia fechada/
 					)
-					await tx`insert into inventory.stock_issue_request (kitchen_id, issue_date, origin, status, closed_at, created_by)
-						values (${kitchenRow.id}, ${hoje}, 'production', 'closed', now(), ${autor.id})`
+					await tx`insert into inventory.stock_issue_request (location_id, issue_date, origin, status, closed_at, created_by)
+						values (${location.id}, ${hoje}, 'production', 'closed', now(), ${autor.id})`
 
 					// ── aprovação por outra pessoa lança o ajuste ────────────────────
 					const [aprovada] = await tx`select * from inventory.approve_inventory_count(${aberta.count_id}, ${outro.id}, null)`
@@ -184,8 +186,8 @@ describeIf("inventory count (DB)", () => {
 						select id from auth.users where id <> ${autor.id} and id <> ${outro.id} limit 1`
 					expect(terceiro?.id).toBeTruthy()
 					const [limpa] = await tx`
-						select * from inventory.open_inventory_count(${kitchenRow.id}, 'eventual', 'item_list',
-							${tx.json({ ingredient_ids: [arroz.id] })}, true, null, ${autor.id})`
+						select * from inventory.open_inventory_count(${location.id}, 'eventual', 'item_list',
+							${tx.json({ item_ids: [arroz.id] })}, true, null, ${autor.id})`
 					await tx`update inventory.inventory_count set created_at = ${ago(1)} where id = ${limpa.count_id}`
 					await tx`
 						insert into inventory.inventory_count_entry (count_id, lot_id, quantity, client_event_id, counted_by, counted_at)
@@ -197,14 +199,14 @@ describeIf("inventory count (DB)", () => {
 
 					// ── encerrada, o escopo é liberado para a próxima ────────────────
 					const [seguinte] = await tx`
-						select * from inventory.open_inventory_count(${kitchenRow.id}, 'eventual', 'full', '{}'::jsonb, true, null, ${autor.id})`
+						select * from inventory.open_inventory_count(${location.id}, 'eventual', 'full', '{}'::jsonb, true, null, ${autor.id})`
 					expect(Number(seguinte.scope_items)).toBe(2)
 
 					// ── contagem não cega exige o motivo registrado ──────────────────
 					await expect(
 						tx.savepoint(
 							(sp) =>
-								sp`select * from inventory.open_inventory_count(${kitchenRow.id}, 'eventual', 'location', '{"location":"X"}'::jsonb, false, null, ${autor.id})`
+								sp`select * from inventory.open_inventory_count(${location.id}, 'eventual', 'location', '{"location":"X"}'::jsonb, false, null, ${autor.id})`
 						)
 					).rejects.toThrow(/não cega exige o motivo/)
 
@@ -224,7 +226,10 @@ describeIf("inventory count (DB)", () => {
 					const ago = agoIn(tx)
 					const [unit] = await tx`insert into core.units (code, display_name) values ('ZZTEST-CNT2', 'unit teste contagem 2') returning id`
 					const [kitchenRow] = await tx`insert into core.kitchen (unit_id, display_name) values (${unit.id}, 'cozinha contagem 2') returning id`
+					// a contagem é do local de estoque; o da cozinha nasce por trigger
+					const [location] = await tx`select inventory.kitchen_location(${kitchenRow.id}) as id`
 					const [outraCozinha] = await tx`insert into core.kitchen (unit_id, display_name) values (${unit.id}, 'cozinha vizinha') returning id`
+					const [outraLocation] = await tx`select inventory.kitchen_location(${outraCozinha.id}) as id`
 					const [arroz] = await tx`insert into kitchen.ingredient (description, measure_unit) values ('ARROZ TESTE CNT2', 'KG') returning id`
 					const [feijao] = await tx`insert into kitchen.ingredient (description, measure_unit) values ('FEIJAO TESTE CNT2', 'KG') returning id`
 					const [sal] = await tx`insert into kitchen.ingredient (description, measure_unit) values ('SAL TESTE CNT2', 'KG') returning id`
@@ -233,15 +238,15 @@ describeIf("inventory count (DB)", () => {
 					const [abre, conta, aprova] = users.map((row) => row.id as string)
 
 					// segregação ESTRITA e alçada baixa: toda divergência passa da alçada
-					await tx`insert into inventory.kitchen_stock_settings (kitchen_id, segregation, adjustment_approval_value)
-						values (${kitchenRow.id}, 'strict', 1)`
+					await tx`insert into inventory.stock_location_settings (location_id, segregation, adjustment_approval_value)
+						values (${location.id}, 'strict', 1)`
 
-					const lote = async (ingredientId: string, code: string, qty: number, expiry: string, kitchenId = kitchenRow.id) => {
+					const lote = async (ingredientId: string, code: string, qty: number, expiry: string, locationId = location.id) => {
 						const [row] = await tx`
-							insert into inventory.stock_lot (kitchen_id, ingredient_id, lot_code, unit_cost, expiry_date, received_at)
-							values (${kitchenId}, ${ingredientId}, ${code}, 5, ${expiry}::date, now() - interval '10 days') returning id`
-						await tx`insert into inventory.stock_movement (kitchen_id, ingredient_id, lot_id, type, quantity, unit_cost, occurred_at)
-							values (${kitchenId}, ${ingredientId}, ${row.id}, 'receipt', ${qty}, 5, ${ago(5)})`
+							insert into inventory.stock_lot (location_id, item_id, lot_code, unit_cost, expiry_date, received_at)
+							values (${locationId}, ${ingredientId}, ${code}, 5, ${expiry}::date, now() - interval '10 days') returning id`
+						await tx`insert into inventory.stock_movement (location_id, item_id, lot_id, type, quantity, unit_cost, occurred_at)
+							values (${locationId}, ${ingredientId}, ${row.id}, 'receipt', ${qty}, 5, ${ago(5)})`
 						return row.id as string
 					}
 					const arrozL1 = await lote(arroz.id, "ARZ-L1", 10, "2030-01-10")
@@ -251,21 +256,21 @@ describeIf("inventory count (DB)", () => {
 					// lote de feijão em QUARENTENA, que venceria antes: a falta não sai dele
 					const feijaoQ = await lote(feijao.id, "FEI-Q", 5, "2029-12-01")
 					await tx`update inventory.stock_lot set quarantined_at = now(), quarantine_reason = 'suspeito' where id = ${feijaoQ}`
-					const vizinho = await lote(arroz.id, "VIZ-L1", 4, "2030-01-01", outraCozinha.id)
+					const vizinho = await lote(arroz.id, "VIZ-L1", 4, "2030-01-01", outraLocation.id)
 
 					const [c] = await tx`
-						select * from inventory.open_inventory_count(${kitchenRow.id}, 'eventual', 'item_list',
-							${tx.json({ ingredient_ids: [arroz.id, feijao.id, sal.id] })}, true, null, ${abre})`
+						select * from inventory.open_inventory_count(${location.id}, 'eventual', 'item_list',
+							${tx.json({ item_ids: [arroz.id, feijao.id, sal.id] })}, true, null, ${abre})`
 					await tx`update inventory.inventory_count set created_at = ${ago(4)} where id = ${c.count_id}`
 					const lancar = (event: string, target: { lot?: string; ingredient?: string }, qty: number, countId = c.count_id) =>
-						tx`insert into inventory.inventory_count_entry (count_id, lot_id, ingredient_id, quantity, client_event_id, counted_by, counted_at)
+						tx`insert into inventory.inventory_count_entry (count_id, lot_id, item_id, quantity, client_event_id, counted_by, counted_at)
 							values (${countId}, ${target.lot ?? null}, ${target.ingredient ?? null}, ${qty}, ${event}, ${conta}, ${ago(3)})`
 
 					// ── lançamento fora do escopo, de outra cozinha ou fora do tempo ──
 					const [milho] = await tx`insert into kitchen.ingredient (description, measure_unit) values ('MILHO TESTE CNT2', 'KG') returning id`
 					await expect(
 						tx.savepoint(
-							(sp) => sp`insert into inventory.inventory_count_entry (count_id, ingredient_id, quantity, client_event_id, counted_by)
+							(sp) => sp`insert into inventory.inventory_count_entry (count_id, item_id, quantity, client_event_id, counted_by)
 						values (${c.count_id}, ${milho.id}, 1, 'fora-escopo', ${conta})`
 						)
 					).rejects.toThrow(/não está no escopo/)
@@ -274,7 +279,7 @@ describeIf("inventory count (DB)", () => {
 							(sp) => sp`insert into inventory.inventory_count_entry (count_id, lot_id, quantity, client_event_id, counted_by)
 						values (${c.count_id}, ${vizinho}, 1, 'outra-cozinha', ${conta})`
 						)
-					).rejects.toThrow(/outra cozinha/)
+					).rejects.toThrow(/outro local de estoque/)
 					await expect(
 						tx.savepoint(
 							(sp) => sp`insert into inventory.inventory_count_entry (count_id, lot_id, quantity, client_event_id, counted_by, counted_at)
@@ -283,9 +288,9 @@ describeIf("inventory count (DB)", () => {
 					).rejects.toThrow(/fora da contagem/)
 
 					// ── achado: entra no escopo; repetido é no-op ───────────────────
-					const [{ add_found_item: added }] = await tx`select inventory.add_found_item(${c.count_id}, ${milho.id}, null)`
+					const [{ add_found_item: added }] = await tx`select inventory.add_found_item(${c.count_id}, ${milho.id})`
 					expect(added).toBe(true)
-					const [{ add_found_item: again }] = await tx`select inventory.add_found_item(${c.count_id}, ${milho.id}, null)`
+					const [{ add_found_item: again }] = await tx`select inventory.add_found_item(${c.count_id}, ${milho.id})`
 					expect(again).toBe(false)
 
 					// ── arroz: L1 contado por lote (10) + 5 soltos → diferença ZERO ─
@@ -294,10 +299,10 @@ describeIf("inventory count (DB)", () => {
 					// feijão: contado a menor, SEM lote (8 no ledger, 6 na prateleira)
 					await lancar("fei-solto", { ingredient: feijao.id }, 6)
 					// sal: ninguém contou — aceito como não contado
-					await tx`select inventory.set_not_counted_accepted(${c.count_id}, ${sal.id}, null, true)`
+					await tx`select inventory.set_not_counted_accepted(${c.count_id}, ${sal.id}, true)`
 
 					const linhas = await tx`select * from inventory.count_lines(${c.count_id})`
-					const arrozSolto = linhas.find((row) => row.ingredient_id === arroz.id && row.lot_id == null)
+					const arrozSolto = linhas.find((row) => row.item_id === arroz.id && row.lot_id == null)
 					expect(Number(arrozSolto?.counted_qty)).toBe(5)
 					// saldo do item (15) − lote contado à parte (10) = 5: sem diferença
 					expect(Number(arrozSolto?.ledger_qty)).toBe(5)
@@ -305,11 +310,11 @@ describeIf("inventory count (DB)", () => {
 					// ── rodada 2: o feijão é recontado; o arroz fica da rodada 1 ─────
 					await tx`update inventory.inventory_count set status = 'review' where id = ${c.count_id}`
 					// o milho (achado) ficou sem lançamento e sem decisão: a recontagem não abre
-					await expect(tx.savepoint((sp) => sp`select inventory.open_recount(${c.count_id}, ${[feijao.id]}::uuid[], '{}'::uuid[], ${abre})`)).rejects.toThrow(
+					await expect(tx.savepoint((sp) => sp`select inventory.open_recount(${c.count_id}, ${[feijao.id]}::uuid[], ${abre})`)).rejects.toThrow(
 						/sem lançamento e sem decisão/
 					)
-					await tx`select inventory.set_not_counted_accepted(${c.count_id}, ${milho.id}, null, true)`
-					const [{ open_recount: filha }] = await tx`select inventory.open_recount(${c.count_id}, ${[feijao.id]}::uuid[], '{}'::uuid[], ${abre})`
+					await tx`select inventory.set_not_counted_accepted(${c.count_id}, ${milho.id}, true)`
+					const [{ open_recount: filha }] = await tx`select inventory.open_recount(${c.count_id}, ${[feijao.id]}::uuid[], ${abre})`
 					await tx`update inventory.inventory_count set created_at = ${ago(4)} where id = ${filha}`
 					// a rodada anterior não aceita mais lançamento nem aprovação
 					await expect(tx.savepoint((sp) => sp`select * from inventory.approve_inventory_count(${c.count_id}, ${aprova}, null)`)).rejects.toThrow(
@@ -369,51 +374,51 @@ describeIf("inventory count (DB)", () => {
 					expect(quarentena.quarantined_at).not.toBeNull()
 
 					// ── a rodada anterior vence com a cadeia, não sozinha ────────────
-					const [v1] = await tx`select * from inventory.open_inventory_count(${kitchenRow.id}, 'eventual', 'item_list',
-						${tx.json({ ingredient_ids: [sal.id] })}, true, null, ${abre})`
+					const [v1] = await tx`select * from inventory.open_inventory_count(${location.id}, 'eventual', 'item_list',
+						${tx.json({ item_ids: [sal.id] })}, true, null, ${abre})`
 					await tx`update inventory.inventory_count set status = 'review' where id = ${v1.count_id}`
-					await tx`select inventory.set_not_counted_accepted(${v1.count_id}, ${sal.id}, null, true)`
+					await tx`select inventory.set_not_counted_accepted(${v1.count_id}, ${sal.id}, true)`
 					await tx`update inventory.count_scope_item set not_counted_accepted = false where count_id = ${v1.count_id}`
-					const [{ open_recount: v2 }] = await tx`select inventory.open_recount(${v1.count_id}, ${[sal.id]}::uuid[], '{}'::uuid[], ${abre})`
+					const [{ open_recount: v2 }] = await tx`select inventory.open_recount(${v1.count_id}, ${[sal.id]}::uuid[], ${abre})`
 					// a mãe "venceu" no relógio, mas a recontagem dela vive: ela segue esperando
 					await tx`update inventory.inventory_count set expires_at = now() - interval '1 minute' where id = ${v1.count_id}`
 					// abrir outra contagem é o que dispara a expiração; ela é rejeitada logo
 					// em seguida para não segurar o arroz nos passos seguintes
-					const [gatilho] = await tx`select * from inventory.open_inventory_count(${kitchenRow.id}, 'eventual', 'item_list',
-						${tx.json({ ingredient_ids: [arroz.id] })}, true, null, ${abre})`
+					const [gatilho] = await tx`select * from inventory.open_inventory_count(${location.id}, 'eventual', 'item_list',
+						${tx.json({ item_ids: [arroz.id] })}, true, null, ${abre})`
 					await tx`select inventory.reject_inventory_count(${gatilho.count_id}, ${aprova}, 'só dispara a expiração')`
 					const [maeViva] = await tx`select status from inventory.inventory_count where id = ${v1.count_id}`
 					expect(maeViva.status).toBe("recount")
 					// vence a recontagem: a mãe vence junto
 					await tx`update inventory.inventory_count set expires_at = now() - interval '1 minute' where id = ${v2}`
-					const [gatilho2] = await tx`select * from inventory.open_inventory_count(${kitchenRow.id}, 'eventual', 'item_list',
-						${tx.json({ ingredient_ids: [arroz.id] })}, true, null, ${abre})`
+					const [gatilho2] = await tx`select * from inventory.open_inventory_count(${location.id}, 'eventual', 'item_list',
+						${tx.json({ item_ids: [arroz.id] })}, true, null, ${abre})`
 					await tx`select inventory.reject_inventory_count(${gatilho2.count_id}, ${aprova}, 'só dispara a expiração')`
 					const cadeia = await tx`select status from inventory.inventory_count where id in (${v1.count_id}, ${v2})`
 					expect(cadeia.every((row) => row.status === "expired")).toBe(true)
 
 					// ── achado que está em OUTRA contagem aberta ─────────────────────
-					const [a] = await tx`select * from inventory.open_inventory_count(${kitchenRow.id}, 'eventual', 'item_list',
-						${tx.json({ ingredient_ids: [arroz.id] })}, true, null, ${abre})`
-					const [b] = await tx`select * from inventory.open_inventory_count(${kitchenRow.id}, 'eventual', 'item_list',
-						${tx.json({ ingredient_ids: [feijao.id] })}, true, null, ${abre})`
-					await expect(tx.savepoint((sp) => sp`select inventory.add_found_item(${b.count_id}, ${arroz.id}, null)`)).rejects.toThrow(/outra contagem aberta/)
+					const [a] = await tx`select * from inventory.open_inventory_count(${location.id}, 'eventual', 'item_list',
+						${tx.json({ item_ids: [arroz.id] })}, true, null, ${abre})`
+					const [b] = await tx`select * from inventory.open_inventory_count(${location.id}, 'eventual', 'item_list',
+						${tx.json({ item_ids: [feijao.id] })}, true, null, ${abre})`
+					await expect(tx.savepoint((sp) => sp`select inventory.add_found_item(${b.count_id}, ${arroz.id})`)).rejects.toThrow(/outra contagem aberta/)
 					// rejeitar em coleta libera o escopo
 					await tx`select inventory.reject_inventory_count(${a.count_id}, ${aprova}, 'contagem errada')`
-					const [{ add_found_item: agora }] = await tx`select inventory.add_found_item(${b.count_id}, ${arroz.id}, null)`
+					const [{ add_found_item: agora }] = await tx`select inventory.add_found_item(${b.count_id}, ${arroz.id})`
 					expect(agora).toBe(true)
 
 					// ── a guarda de "sem decisão" vale também para preparação congelada ─
 					// (`NULL = any(...)` deixava passar a linha de preparação quando a
 					// recontagem era só de insumos)
 					const [congelado] = await tx`insert into kitchen.frozen_preparation (description) values ('CALDO TESTE CNT2') returning id`
-					const [w] = await tx`select * from inventory.open_inventory_count(${kitchenRow.id}, 'eventual', 'item_list',
-						${tx.json({ ingredient_ids: [sal.id] })}, true, null, ${abre})`
-					await tx`select inventory.add_found_item(${w.count_id}, null, ${congelado.id})`
-					await tx`insert into inventory.inventory_count_entry (count_id, ingredient_id, quantity, client_event_id, counted_by)
+					const [w] = await tx`select * from inventory.open_inventory_count(${location.id}, 'eventual', 'item_list',
+						${tx.json({ item_ids: [sal.id] })}, true, null, ${abre})`
+					await tx`select inventory.add_found_item(${w.count_id}, ${congelado.id})`
+					await tx`insert into inventory.inventory_count_entry (count_id, item_id, quantity, client_event_id, counted_by)
 						values (${w.count_id}, ${sal.id}, 1, 'sal-w', ${conta})`
 					await tx`update inventory.inventory_count set status = 'review' where id = ${w.count_id}`
-					await expect(tx.savepoint((sp) => sp`select inventory.open_recount(${w.count_id}, ${[sal.id]}::uuid[], '{}'::uuid[], ${abre})`)).rejects.toThrow(
+					await expect(tx.savepoint((sp) => sp`select inventory.open_recount(${w.count_id}, ${[sal.id]}::uuid[], ${abre})`)).rejects.toThrow(
 						/sem lançamento e sem decisão/
 					)
 

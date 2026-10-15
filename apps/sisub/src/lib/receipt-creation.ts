@@ -20,15 +20,15 @@ export function toNullableNumber(value: number | string | null | undefined): num
 export type Decision<T> = { ok: true; value: T } | { ok: false; problem: string }
 
 /**
- * A OF sustenta a entrega? Tem de ser desta cozinha e enviada, e o empenho pedido tem de ser o
+ * A OF sustenta a entrega? Tem de ser deste local de estoque (o da cozinha) e enviada, e o empenho pedido tem de ser o
  * dela. Devolve o empenho que vale (o da OF, quando ela tem).
  */
 export function resolveEmpenhoFromOrder(
-	order: { kitchen_id: number | string | null; empenho_id: string | null; status: string } | null,
-	kitchenId: number,
+	order: { location_id: number | string | null; empenho_id: string | null; status: string } | null,
+	locationId: number,
 	requestedEmpenhoId: string | null
 ): Decision<string | null> {
-	if (!order || Number(order.kitchen_id) !== kitchenId) return { ok: false, problem: "OF não encontrada ou de outra cozinha" }
+	if (!order || Number(order.location_id) !== locationId) return { ok: false, problem: "OF não encontrada ou de outra cozinha" }
 	if (order.status === "draft" || order.status === "cancelled")
 		return { ok: false, problem: "Só OF enviada sustenta a entrega — envie a OF ou registre sem ela" }
 	if (order.empenho_id) {
@@ -67,7 +67,7 @@ interface NfeItemForReceiving {
 	id: string
 	n_item: number | null
 	description: string | null
-	ingredient_id: string | null
+	item_id: string | null
 }
 
 /**
@@ -78,9 +78,9 @@ interface NfeItemForReceiving {
  * apontando quais faltam.
  */
 export function describeNfeItemsReceivingProblem(items: readonly NfeItemForReceiving[]): string | null {
-	const resolvable = items.filter((item) => item.ingredient_id != null)
+	const resolvable = items.filter((item) => item.item_id != null)
 	if (resolvable.length === 0) return "Nenhum item da NF-e está vinculado a um insumo — resolva o matching antes de receber"
-	const unresolved = items.filter((item) => item.ingredient_id == null)
+	const unresolved = items.filter((item) => item.item_id == null)
 	if (unresolved.length === 0) return null
 	// Nº do item na nota + descrição: é o que o conferente acha no DANFE. O id interno
 	// que ia aqui não dizia nada a ninguém.
@@ -99,7 +99,8 @@ export function formatNfeReceiptInsertMessage(error: DbErrorLike | null): string
 
 export interface NfeItemRow {
 	id: string
-	ingredient_id: string
+	/** `item_id` do estoque: o id do insumo casado. */
+	item_id: string
 	ingredient_item_id: string | null
 	purchase_item_id: string | null
 	matched_qty_base: number | null
@@ -120,8 +121,7 @@ export function prepareNfeReceiptItems(items: readonly NfeItemRow[], receiptId: 
 			row: {
 				receipt_id: receiptId,
 				nfe_item_id: item.id,
-				ingredient_id: item.ingredient_id,
-				frozen_preparation_id: null,
+				item_id: item.item_id,
 				ingredient_item_id: item.ingredient_item_id,
 				purchase_item_id: item.purchase_item_id,
 				invoiced_qty_base: invoiced,
@@ -198,12 +198,14 @@ export function defaultPurchaseItems(rows: ReadonlyArray<{ ingredient_id: string
 /** O `goods_receipt` da entrega sem nota; fornecedor em branco cai no favorecido do empenho. */
 export function buildWithoutInvoiceReceiptRow(
 	data: ReceiptWithoutInvoiceData,
+	locationId: number,
 	resolved: { empenhoId: string | null; empenho: { favorecido_nome: string | null; favorecido_cnpj: string | null } | null },
 	userId: string
 ) {
 	const { empenho } = resolved
 	return {
-		kitchen_id: data.kitchenId,
+		// o recebimento é do local de estoque da cozinha, não da cozinha
+		location_id: locationId,
 		source: data.source,
 		delivery_note_number: data.deliveryNoteNumber?.trim() || null,
 		supplier_name: data.supplierName?.trim() || empenho?.favorecido_nome || null,
@@ -219,8 +221,8 @@ export function buildWithoutInvoiceReceiptRow(
 export function buildWithoutInvoiceItemRows(lines: readonly ReceiptLine[], receiptId: string, purchaseItemBy: ReadonlyMap<string, string>) {
 	return lines.map((line) => ({
 		receipt_id: receiptId,
-		ingredient_id: line.ingredientId,
-		frozen_preparation_id: null,
+		// o id do insumo é o `item_id` do estoque
+		item_id: line.ingredientId,
 		purchase_item_id: purchaseItemBy.get(line.ingredientId) ?? null,
 		// sem nota, não há faturado: a linha não é "divergente" de nada
 		invoiced_qty_base: null,
@@ -235,15 +237,15 @@ export function itemsInsertFailureMessage(itemsError: DbErrorLike | null, rollba
 
 export interface InsertedReceiptItem {
 	id: string
-	ingredient_id: string
+	item_id: string
 	purchase_item_id: string | null
 }
 
 export function indexItemsByIngredient(
-	items: ReadonlyArray<{ id: string; ingredient_id: string | null; purchase_item_id: string | null }>
+	items: ReadonlyArray<{ id: string; item_id: string | null; purchase_item_id: string | null }>
 ): Map<string, InsertedReceiptItem> {
 	const itemByIngredient = new Map<string, InsertedReceiptItem>()
-	for (const item of items) if (item.ingredient_id) itemByIngredient.set(item.ingredient_id, { ...item, ingredient_id: item.ingredient_id })
+	for (const item of items) if (item.item_id) itemByIngredient.set(item.item_id, { ...item, item_id: item.item_id })
 	return itemByIngredient
 }
 

@@ -82,7 +82,7 @@ export function indexById<T extends { id: string }, V>(rows: readonly T[] | null
 
 interface ReceiptItemKeys {
 	id: string
-	ingredient_id: string | null
+	item_id: string | null
 	purchase_item_id: string | null
 	ingredient_item_id: string | null
 }
@@ -93,7 +93,7 @@ interface SpecLike {
 
 /** Linha com insumo cuja especificação de compra não existe ou não tem classe: cai na padrão do insumo. */
 export function isDefaultSpecNeededForItem(item: Omit<ReceiptItemKeys, "id" | "ingredient_item_id">, specById: ReadonlyMap<string, SpecLike>): boolean {
-	return !!item.ingredient_id && (!item.purchase_item_id || specById.get(item.purchase_item_id)?.conservation_class == null)
+	return !!item.item_id && (!item.purchase_item_id || specById.get(item.purchase_item_id)?.conservation_class == null)
 }
 
 /** Insumos cuja especificação padrão precisa ser lida, sem repetição. */
@@ -105,7 +105,7 @@ export function fallbackIngredientIds(
 		...new Set(
 			items
 				.filter((item) => isDefaultSpecNeededForItem(item, specById))
-				.map((item) => item.ingredient_id)
+				.map((item) => item.item_id)
 				.filter((id) => id != null)
 		),
 	]
@@ -136,8 +136,8 @@ export function buildReceiptItemDetails<LineSpec extends SpecLike, DefaultSpec e
 	lookup: ReceiptItemLookup<LineSpec, DefaultSpec, Lot>
 ) {
 	const lineSpec = item.purchase_item_id ? lookup.specById.get(item.purchase_item_id) : undefined
-	const defaultSpec = item.ingredient_id ? lookup.defaultSpecByIngredient.get(item.ingredient_id) : undefined
-	const name = item.ingredient_id ? lookup.names.get(item.ingredient_id) : undefined
+	const defaultSpec = item.item_id ? lookup.defaultSpecByIngredient.get(item.item_id) : undefined
+	const name = item.item_id ? lookup.names.get(item.item_id) : undefined
 	return {
 		description: name?.description ?? "—",
 		measure_unit: name?.measure_unit ?? null,

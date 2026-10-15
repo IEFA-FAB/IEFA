@@ -25,11 +25,13 @@ import {
 	collectLotIds,
 	listDescribableIds,
 	type StockBalanceItem,
+	type StockBalanceViewRow,
 	type StockLotBalanceRow,
 	type StockLotMeta,
 	selectVisibleStockItems,
 } from "@/lib/stock-balance"
-import { requireStorageForKitchen } from "@/lib/storage-auth.server"
+import { classifyFoodItems, foodRefOf } from "@/lib/stock-item.server"
+import { requireStockForKitchen, requireStockForLocation, resolveKitchenLocation } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 import { transferDestinationProblem } from "@/lib/transfer-destination"
 
@@ -56,7 +58,7 @@ async function describeItems(ingredientIds: string[], frozenIds: string[]) {
 	return names
 }
 
-/** Saldo por item (com lotes) de uma cozinha, a partir da view do ledger. */
+/** Saldo por item (com lotes) do local de estoque da cozinha, a partir da view do ledger. */
 export const fetchStockBalanceFn = createServerFn({ method: "GET" })
 	.validator(
 		z.object({
@@ -72,7 +74,7 @@ export const fetchStockBalanceFn = createServerFn({ method: "GET" })
 		})
 	)
 	.handler(async ({ data }): Promise<StockBalanceItem[]> => {
-		const ctx = await requireStorageForKitchen(data.operation ? 2 : 1, data.kitchenId)
+		const { ctx, location } = await requireStockForKitchen(data.operation ? 2 : 1, data.kitchenId)
 		const inv = inventory()
 
 		// páginas até o fim: o PostgREST corta em 1000 linhas calado, e cozinha
@@ -82,9 +84,8 @@ export const fetchStockBalanceFn = createServerFn({ method: "GET" })
 			inv
 				.from("v_stock_balance")
 				.select("*")
-				.eq("kitchen_id", data.kitchenId)
-				.order("ingredient_id", { ascending: true, nullsFirst: false })
-				.order("frozen_preparation_id", { ascending: true, nullsFirst: false })
+				.eq("location_id", location.id)
+				.order("item_id", { ascending: true, nullsFirst: false })
 				.order("lot_id", { ascending: true, nullsFirst: true })
 				.range(from, to)
 		)
@@ -100,7 +101,7 @@ export const fetchStockBalanceFn = createServerFn({ method: "GET" })
 		// Quem revisa e aprova (nível 3) continua vendo: é ele que compara. Para os
 		// demais, a ocultação vale enquanto a contagem está aberta, inclusive em
 		// revisão — é dali que sai a recontagem (`lib/blind-count.server.ts`).
-		const hidden = data.operation ? new Set<string>() : await hiddenByBlindCount(data.kitchenId, ctx)
+		const hidden = data.operation ? new Set<string>() : await hiddenByBlindCount(data.kitchenId, ctx, location.id)
 
 		// A view é a soma do ledger e não conhece o lote além do código: quarentena,
 		// etiqueta, local e "usar primeiro" vêm da tabela. Sem isso a tela mostra
@@ -113,7 +114,15 @@ export const fetchStockBalanceFn = createServerFn({ method: "GET" })
 			lotMeta.set(lot.id, lot)
 		}
 
-		const byItem = aggregateStockBalance(rows ?? [], lotMeta, getBrasiliaToday)
+		// A view é por `item_id`; a agregação fala a língua da tela (insumo ou preparação congelada).
+		const refs = await classifyFoodItems((rows ?? []).map((row: { item_id: string }) => row.item_id))
+		const viewRows: StockBalanceViewRow[] = (rows ?? []).map(
+			({ item_id, ...row }: { item_id: string } & Omit<StockBalanceViewRow, "ingredient_id" | "frozen_preparation_id">) => {
+				const ref = foodRefOf(refs, item_id)
+				return { ...row, ingredient_id: ref.ingredientId, frozen_preparation_id: ref.frozenPreparationId }
+			}
+		)
+		const byItem = aggregateStockBalance(viewRows, lotMeta, getBrasiliaToday)
 
 		const { ingredientIds, frozenIds } = listDescribableIds(byItem)
 		const names = await describeItems(ingredientIds, frozenIds)
@@ -121,25 +130,29 @@ export const fetchStockBalanceFn = createServerFn({ method: "GET" })
 		return selectVisibleStockItems(byItem, hidden)
 	})
 
-/** Movimentos recentes de uma cozinha (com descrição do item). */
+/** Movimentos recentes do local de estoque da cozinha (com descrição do item). */
 export const fetchStockMovementsFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive(), limit: z.number().int().min(1).max(200).default(50) }))
 	.handler(async ({ data }) => {
-		await requireStorageForKitchen(1, data.kitchenId)
+		const { location } = await requireStockForKitchen(1, data.kitchenId)
 		const { data: rows, error } = await inventory()
 			.from("stock_movement")
-			.select("id, ingredient_id, frozen_preparation_id, lot_id, type, quantity, unit_cost, total_cost, justification, created_at")
-			.eq("kitchen_id", data.kitchenId)
+			.select("id, item_id, lot_id, type, quantity, unit_cost, total_cost, justification, created_at")
+			.eq("location_id", location.id)
 			.order("created_at", { ascending: false })
 			.limit(data.limit)
 		if (error) throw new Error(`Erro ao consultar movimentos: ${publicDbMessage(error)}`)
 
-		const movements = rows ?? []
+		const refs = await classifyFoodItems((rows ?? []).map((m) => m.item_id))
+		const movements = (rows ?? []).map(({ item_id, ...m }) => {
+			const ref = foodRefOf(refs, item_id)
+			return { ...m, ingredient_id: ref.ingredientId, frozen_preparation_id: ref.frozenPreparationId }
+		})
 		const names = await describeItems(
-			[...new Set(movements.map((m: { ingredient_id: string | null }) => m.ingredient_id).filter(Boolean))] as string[],
-			[...new Set(movements.map((m: { frozen_preparation_id: string | null }) => m.frozen_preparation_id).filter(Boolean))] as string[]
+			[...new Set(movements.map((m) => m.ingredient_id).filter(Boolean))] as string[],
+			[...new Set(movements.map((m) => m.frozen_preparation_id).filter(Boolean))] as string[]
 		)
-		return movements.map((m: Record<string, unknown>) => ({
+		return movements.map((m) => ({
 			...m,
 			description: names.get(m.ingredient_id ? `i:${m.ingredient_id}` : `f:${m.frozen_preparation_id}`)?.description ?? "—",
 		}))
@@ -150,22 +163,27 @@ export const fetchStockMovementsFn = createServerFn({ method: "GET" })
 // lote numa request e o movimento na outra — a falha da segunda deixava lote
 // órfão — e gravava só texto livre, que não vira relatório de perdas.
 
-/** Transferência atômica entre cozinhas (função SQL: par transfer_out/in). */
+/**
+ * Transferência atômica entre cozinhas (função SQL: par transfer_out/in). A tela escolhe a
+ * cozinha de destino; a função recebe o LOCAL de estoque dela.
+ */
 export const createTransferFn = createServerFn({ method: "POST" })
 	.validator(z.object({ lotId: z.uuid(), toKitchenId: z.number().int().positive(), quantity: z.number().positive() }))
 	.handler(async ({ data }) => {
-		// escopo pela cozinha de ORIGEM do lote (quem cede precisa da permissão)
-		const { data: lotRow, error: lotRowError } = await inventory().from("stock_lot").select("kitchen_id").eq("id", data.lotId).maybeSingle()
+		// escopo pela cozinha de ORIGEM do lote (quem cede precisa da permissão): o lote guarda o
+		// local de estoque, e a cozinha sai do local
+		const { data: lotRow, error: lotRowError } = await inventory().from("stock_lot").select("location_id").eq("id", data.lotId).maybeSingle()
 		if (lotRowError) throw new Error(`Erro ao carregar o lote: ${publicDbMessage(lotRowError)}`)
 		if (!lotRow) throw new Error("Lote não encontrado")
-		const ctx = await requireStorageForKitchen(2, Number(lotRow.kitchen_id))
+		const { ctx, location: originLocation } = await requireStockForLocation(2, Number(lotRow.location_id))
+		const originKitchenId = originLocation.kitchenId
 		const { userId } = ctx
 
 		// O destino vinha do corpo sem conferência nenhuma — ver `transferDestinationProblem`.
 		const { data: kitchenRows, error: kitchenError } = await kitchen()
 			.from("kitchen")
 			.select("id, unit_id, purchase_unit_id")
-			.in("id", [Number(lotRow.kitchen_id), data.toKitchenId])
+			.in("id", originKitchenId == null ? [data.toKitchenId] : [originKitchenId, data.toKitchenId])
 		if (kitchenError) throw new Error(`Erro ao conferir as cozinhas da transferência: ${publicDbMessage(kitchenError)}`)
 		type KitchenUnitRow = { id: number; unit_id: number | null; purchase_unit_id: number | null }
 		const toUnits = (row: KitchenUnitRow | undefined) =>
@@ -174,7 +192,7 @@ export const createTransferFn = createServerFn({ method: "POST" })
 				: null
 		const byId = new Map<number, KitchenUnitRow>((kitchenRows ?? []).map((row) => [Number(row.id), row]))
 		const problem = transferDestinationProblem({
-			origin: toUnits(byId.get(Number(lotRow.kitchen_id))),
+			origin: toUnits(originKitchenId == null ? undefined : byId.get(originKitchenId)),
 			destination: toUnits(byId.get(data.toKitchenId)),
 			// OPERAR o estoque de destino é escrita: nível 2, como todo lançamento do módulo.
 			// Nível 1 é só leitura e não autoriza lançar no livro de outra OM.
@@ -182,9 +200,10 @@ export const createTransferFn = createServerFn({ method: "POST" })
 		})
 		if (problem) throw new Error(problem)
 
+		const destination = await resolveKitchenLocation(data.toKitchenId)
 		const { data: result, error } = await inventory().rpc("transfer_stock", {
 			p_lot_id: data.lotId,
-			p_to_kitchen: data.toKitchenId,
+			p_to_location: destination.id,
 			p_quantity: data.quantity,
 			p_user: userId,
 		})

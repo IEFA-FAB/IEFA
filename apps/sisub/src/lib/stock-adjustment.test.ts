@@ -8,31 +8,31 @@ import {
 } from "@/lib/stock-adjustment"
 
 describe("findAdjustmentLotProblem", () => {
-	it("lotes todos da cozinha e todos achados: sem problema", () => {
-		expect(findAdjustmentLotProblem([{ kitchen_id: 1 }, { kitchen_id: 1 }], 1, ["a", "b"])).toBeNull()
+	it("lotes todos do local e todos achados: sem problema", () => {
+		expect(findAdjustmentLotProblem([{ location_id: 1 }, { location_id: 1 }], 1, ["a", "b"])).toBeNull()
 	})
 
 	it("lote repetido no pedido conta uma vez", () => {
-		expect(findAdjustmentLotProblem([{ kitchen_id: 1 }], 1, ["a", "a"])).toBeNull()
+		expect(findAdjustmentLotProblem([{ location_id: 1 }], 1, ["a", "a"])).toBeNull()
 	})
 
-	it("lote de outra cozinha", () => {
-		expect(findAdjustmentLotProblem([{ kitchen_id: 1 }, { kitchen_id: 2 }], 1, ["a", "b"])).toBe("Lote de outra cozinha")
+	it("lote de outro local", () => {
+		expect(findAdjustmentLotProblem([{ location_id: 1 }, { location_id: 2 }], 1, ["a", "b"])).toBe("Lote de outra cozinha")
 	})
 
-	it("outra cozinha é conferido antes de lote faltando", () => {
-		expect(findAdjustmentLotProblem([{ kitchen_id: 2 }], 1, ["a", "b"])).toBe("Lote de outra cozinha")
+	it("outro local é conferido antes de lote faltando", () => {
+		expect(findAdjustmentLotProblem([{ location_id: 2 }], 1, ["a", "b"])).toBe("Lote de outra cozinha")
 	})
 
 	it("lote não encontrado", () => {
-		expect(findAdjustmentLotProblem([{ kitchen_id: 1 }], 1, ["a", "b"])).toBe("Lote não encontrado")
+		expect(findAdjustmentLotProblem([{ location_id: 1 }], 1, ["a", "b"])).toBe("Lote não encontrado")
 	})
 })
 
 describe("buildAdjustmentDocumentRow", () => {
 	it("apara a observação e marca evidência pendente", () => {
-		expect(buildAdjustmentDocumentRow({ kitchenId: 3, notes: "  quebra  ", isEvidencePending: true, userId: "u", submittedAt: "t" })).toEqual({
-			kitchen_id: 3,
+		expect(buildAdjustmentDocumentRow({ locationId: 3, notes: "  quebra  ", isEvidencePending: true, userId: "u", submittedAt: "t" })).toEqual({
+			location_id: 3,
 			notes: "quebra",
 			evidence_status: "pending",
 			created_by: "u",
@@ -41,11 +41,11 @@ describe("buildAdjustmentDocumentRow", () => {
 	})
 
 	it("observação vazia ou ausente vira null; evidência completa", () => {
-		expect(buildAdjustmentDocumentRow({ kitchenId: 3, notes: "   ", isEvidencePending: false, userId: "u", submittedAt: "t" })).toMatchObject({
+		expect(buildAdjustmentDocumentRow({ locationId: 3, notes: "   ", isEvidencePending: false, userId: "u", submittedAt: "t" })).toMatchObject({
 			notes: null,
 			evidence_status: "complete",
 		})
-		expect(buildAdjustmentDocumentRow({ kitchenId: 3, notes: undefined, isEvidencePending: false, userId: "u", submittedAt: "t" }).notes).toBeNull()
+		expect(buildAdjustmentDocumentRow({ locationId: 3, notes: undefined, isEvidencePending: false, userId: "u", submittedAt: "t" }).notes).toBeNull()
 	})
 })
 
@@ -55,7 +55,6 @@ describe("buildAdjustmentItemRow", () => {
 			buildAdjustmentItemRow("doc", {
 				lotId: "l",
 				ingredientId: "i",
-				frozenPreparationId: "f",
 				direction: "out",
 				quantity: 2,
 				unitCost: 3.5,
@@ -69,8 +68,7 @@ describe("buildAdjustmentItemRow", () => {
 		).toEqual({
 			adjustment_id: "doc",
 			lot_id: "l",
-			ingredient_id: "i",
-			frozen_preparation_id: "f",
+			item_id: "i",
 			direction: "out",
 			quantity: 2,
 			unit_cost: 3.5,
@@ -81,6 +79,10 @@ describe("buildAdjustmentItemRow", () => {
 			measured_temperature_c: 9,
 			corrected_movement_id: "m",
 		})
+	})
+
+	it("a preparação congelada também vira o `item_id`", () => {
+		expect(buildAdjustmentItemRow("doc", { frozenPreparationId: "f", direction: "out", quantity: 1, reasonCode: "spoiled" }).item_id).toBe("f")
 	})
 
 	it("ausentes e textos vazios viram null; zero continua zero", () => {
@@ -97,8 +99,7 @@ describe("buildAdjustmentItemRow", () => {
 		).toEqual({
 			adjustment_id: "doc",
 			lot_id: null,
-			ingredient_id: null,
-			frozen_preparation_id: null,
+			item_id: null,
 			direction: "in",
 			quantity: 1,
 			unit_cost: 0,

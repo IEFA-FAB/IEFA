@@ -70,6 +70,9 @@ describeIf("inventory full cycle E2E (DB)", () => {
 					const [unit] = await tx`insert into core.units (code, display_name) values ('ZZE2E-CYCLE', 'unit e2e') returning id`
 					const [kitchenA] = await tx`insert into core.kitchen (unit_id, display_name) values (${unit.id}, 'cozinha E2E A') returning id`
 					const [kitchenB] = await tx`insert into core.kitchen (unit_id, display_name) values (${unit.id}, 'cozinha E2E B') returning id`
+					// o estoque é do local de estoque; o de cada cozinha nasce por trigger
+					const [locationA] = await tx`select inventory.kitchen_location(${kitchenA.id}) as id`
+					const [locationB] = await tx`select inventory.kitchen_location(${kitchenB.id}) as id`
 					const [ingredient] =
 						await tx`insert into kitchen.ingredient (description, measure_unit, correction_factor) values ('ARROZ E2E', 'KG', 1.1) returning id`
 					const [purchaseItem] =
@@ -88,8 +91,8 @@ describeIf("inventory full cycle E2E (DB)", () => {
 					expect(parseGtin(parsed.items[0]?.gtin ?? "")).toBe(GTIN14)
 
 					const [nfeDoc] = await tx`
-						insert into inventory.nfe_document (access_key, supplier_cnpj, supplier_name, dest_cnpj, issued_at, total_value, xml, kitchen_id)
-						values (${parsed.accessKey}, ${parsed.supplierCnpj}, ${parsed.supplierName}, ${parsed.destCnpj}, ${parsed.issuedAt}, ${parsed.totalValue}, ${NFE_XML}, ${kitchenA.id})
+						insert into inventory.nfe_document (access_key, supplier_cnpj, supplier_name, dest_cnpj, issued_at, total_value, xml, location_id)
+						values (${parsed.accessKey}, ${parsed.supplierCnpj}, ${parsed.supplierName}, ${parsed.destCnpj}, ${parsed.issuedAt}, ${parsed.totalValue}, ${NFE_XML}, ${locationA.id})
 						returning id`
 					const item = parsed.items[0]
 					if (!item) throw new Error("parser sem itens")
@@ -121,7 +124,7 @@ describeIf("inventory full cycle E2E (DB)", () => {
 					expect(match.matchedQtyBase).toBe(50) // 10 FD × 5 KG
 					await tx`
 						update inventory.nfe_item set match_status = ${match.status}, ingredient_item_id = ${match.ingredientItemId},
-							purchase_item_id = ${match.purchaseItemId}, ingredient_id = ${match.ingredientId}, matched_qty_base = ${match.matchedQtyBase}
+							purchase_item_id = ${match.purchaseItemId}, item_id = ${match.ingredientId}, matched_qty_base = ${match.matchedQtyBase}
 						where id = ${nfeItem.id}`
 
 					// ════ Fase 1/4 — empenho → OF ════════════════════════════════════
@@ -137,17 +140,17 @@ describeIf("inventory full cycle E2E (DB)", () => {
 						insert into finance.empenho_item (empenho_id, arp_item_id, quantity, unit_price, value)
 						values (${empenho.id}, ${arpItem.id}, 100, 25, 2500)`
 					const [supplyOrder] = await tx`
-						insert into procurement.supply_order (empenho_id, kitchen_id, number, sent_at, expected_delivery, status)
-						values (${empenho.id}, ${kitchenA.id}, 'OF-E2E-1', '2026-07-22', '2026-07-28', 'sent') returning id`
+						insert into procurement.supply_order (empenho_id, location_id, number, sent_at, expected_delivery, status)
+						values (${empenho.id}, ${locationA.id}, 'OF-E2E-1', '2026-07-22', '2026-07-28', 'sent') returning id`
 					await tx`insert into procurement.supply_order_item (supply_order_id, arp_item_id, purchase_item_id, ordered_qty, unit_price) values (${supplyOrder.id}, ${arpItem.id}, ${purchaseItem.id}, 50, 25)`
 
 					// ════ Fase 4 — recebimento em 2 estágios (com divergência a menor) ═
 					const [receipt] = await tx`
-						insert into inventory.goods_receipt (kitchen_id, supply_order_id, nfe_document_id, empenho_id)
-						values (${kitchenA.id}, ${supplyOrder.id}, ${nfeDoc.id}, ${empenho.id}) returning id`
+						insert into inventory.goods_receipt (location_id, supply_order_id, nfe_document_id, empenho_id)
+						values (${locationA.id}, ${supplyOrder.id}, ${nfeDoc.id}, ${empenho.id}) returning id`
 					const [receiptItem] = await tx`
 						insert into inventory.goods_receipt_item
-							(receipt_id, nfe_item_id, ingredient_id, ingredient_item_id, purchase_item_id, invoiced_qty_base, received_qty_base, unit_cost, divergence_reason)
+							(receipt_id, nfe_item_id, item_id, ingredient_item_id, purchase_item_id, invoiced_qty_base, received_qty_base, unit_cost, divergence_reason)
 						values (${receipt.id}, ${nfeItem.id}, ${ingredient.id}, ${sku.id}, ${purchaseItem.id}, 50, 48, 2.5, 'Avaria em 2 KG no transporte')
 						returning id`
 
@@ -162,7 +165,7 @@ describeIf("inventory full cycle E2E (DB)", () => {
 					await expect(tx.savepoint((sp) => sp`select * from inventory.finalize_goods_receipt(${receipt.id}, null)`)).rejects.toThrow(/provisório/)
 					// provisório NÃO movimenta
 					await tx`update inventory.goods_receipt set status = 'provisional', provisional_at = now() where id = ${receipt.id}`
-					const [{ n: movesBefore }] = await tx`select count(*)::int as n from inventory.stock_movement where kitchen_id = ${kitchenA.id}`
+					const [{ n: movesBefore }] = await tx`select count(*)::int as n from inventory.stock_movement where location_id = ${locationA.id}`
 					expect(movesBefore).toBe(0)
 
 					// Soma dos lotes ≠ quantidade conferida → efetivação RECUSADA.
@@ -181,8 +184,7 @@ describeIf("inventory full cycle E2E (DB)", () => {
 					expect(grow.status).toBe("divergent") // divergência registrada
 					const [ofRow] = await tx`select status from procurement.supply_order where id = ${supplyOrder.id}`
 					expect(ofRow.status).toBe("partially_received") // 48 < 50
-					const [cost] =
-						await tx`select quantity, avg_unit_cost from inventory.stock_cost where kitchen_id = ${kitchenA.id} and ingredient_id = ${ingredient.id}`
+					const [cost] = await tx`select quantity, avg_unit_cost from inventory.stock_cost where location_id = ${locationA.id} and item_id = ${ingredient.id}`
 					expect(Number(cost.quantity)).toBe(48)
 					expect(Number(cost.avg_unit_cost)).toBe(2.5)
 
@@ -190,7 +192,7 @@ describeIf("inventory full cycle E2E (DB)", () => {
 					// FEFO consome na ordem certa, e o que o grão antigo perdia.
 					const stockLots = await tx`
 						select lot_code, expiry_date, conservation_class from inventory.stock_lot
-						where kitchen_id = ${kitchenA.id} and ingredient_id = ${ingredient.id} order by expiry_date`
+						where location_id = ${locationA.id} and item_id = ${ingredient.id} order by expiry_date`
 					expect(stockLots.map((row) => row.lot_code)).toEqual(["L-E2E-2", "L-E2E-1"])
 					// Classe de conservação copiada da especificação de compra, congelada no lote.
 					expect(stockLots.every((row) => row.conservation_class === "congelado")).toBe(true)
@@ -217,7 +219,7 @@ describeIf("inventory full cycle E2E (DB)", () => {
 					// as duas têm que dar no mesmo lote, senão a tela mente.
 					const lots = await tx`
 						select lot_id, balance, expiry_date from inventory.v_stock_balance
-						where kitchen_id = ${kitchenA.id} and ingredient_id = ${ingredient.id} and balance > 0`
+						where location_id = ${locationA.id} and item_id = ${ingredient.id} and balance > 0`
 					const { allocations, shortfall } = allocateFefo(
 						lots.map((l) => ({ lotId: l.lot_id as string, balance: Number(l.balance), expiryDate: l.expiry_date as string | null })),
 						theoretical[0]?.quantity ?? 0
@@ -225,8 +227,8 @@ describeIf("inventory full cycle E2E (DB)", () => {
 					expect(shortfall).toBe(0)
 					const linesPayload = [
 						{
-							kitchen_id: kitchenA.id,
-							ingredient_id: ingredient.id,
+							location_id: locationA.id,
+							item_id: ingredient.id,
 							quantity: theoretical[0]?.quantity ?? 0,
 							override_lot_id: null,
 							justification: null,
@@ -251,11 +253,11 @@ describeIf("inventory full cycle E2E (DB)", () => {
 						const [vencido] = await sp`
 							insert into kitchen.ingredient (description, measure_unit) values ('ARROZ VENCIDO E2E', 'KG') returning id`
 						const [lotVencido] = await sp`
-							insert into inventory.stock_lot (kitchen_id, ingredient_id, lot_code, expiry_date, unit_cost)
-							values (${kitchenA.id}, ${vencido.id}, 'L-VENCIDO', ((now() at time zone 'America/Sao_Paulo')::date - 1), 3) returning id`
+							insert into inventory.stock_lot (location_id, item_id, lot_code, expiry_date, unit_cost)
+							values (${locationA.id}, ${vencido.id}, 'L-VENCIDO', ((now() at time zone 'America/Sao_Paulo')::date - 1), 3) returning id`
 						await sp`
-							insert into inventory.stock_movement (kitchen_id, ingredient_id, lot_id, type, quantity, unit_cost)
-							values (${kitchenA.id}, ${vencido.id}, ${lotVencido.id}, 'receipt', 20, 3)`
+							insert into inventory.stock_movement (location_id, item_id, lot_id, type, quantity, unit_cost)
+							values (${locationA.id}, ${vencido.id}, ${lotVencido.id}, 'receipt', 20, 3)`
 						// menu_item próprio: production_task tem UNIQUE(menu_item_id)
 						const [menuItemVencido] = await sp`
 							insert into kitchen.menu_items (daily_menu_id, recipe, planned_portion_quantity)
@@ -264,7 +266,7 @@ describeIf("inventory full cycle E2E (DB)", () => {
 							insert into kitchen.production_task (kitchen_id, menu_item_id, production_date, status)
 							values (${kitchenA.id}, ${menuItemVencido.id}, '2026-07-30', 'DONE') returning id`
 						await sp`select * from inventory.register_production_issue(${taskVencido.id}, ${sp.json([
-							{ kitchen_id: kitchenA.id, ingredient_id: vencido.id, quantity: 4, override_lot_id: null, justification: null },
+							{ location_id: locationA.id, item_id: vencido.id, quantity: 4, override_lot_id: null, justification: null },
 						])}, null)`
 						const moves = await sp`
 							select lot_id, quantity from inventory.stock_movement
@@ -282,9 +284,9 @@ describeIf("inventory full cycle E2E (DB)", () => {
 					// ════ Fase 5 — sobra congelada (atômica) ═════════════════════════
 					const [frozen] = await tx`insert into kitchen.frozen_preparation (description, shelf_life_days) values ('ARROZ PRONTO E2E', 30) returning id`
 					const [leftover] =
-						await tx`select * from inventory.register_leftover(${kitchenA.id}, ${frozen.id}, 'SOBRA-2026-07-29', '2026-08-28', 2, ${task.id}, false, null, null)`
+						await tx`select * from inventory.register_leftover(${locationA.id}, ${frozen.id}, 'SOBRA-2026-07-29', '2026-08-28', 2, ${task.id}, false, null, null)`
 					const [frozenBal] = await tx`
-						select balance from inventory.v_stock_balance where kitchen_id = ${kitchenA.id} and frozen_preparation_id = ${frozen.id} and lot_id = ${leftover.lot_id}`
+						select balance from inventory.v_stock_balance where location_id = ${locationA.id} and item_id = ${frozen.id} and lot_id = ${leftover.lot_id}`
 					expect(Number(frozenBal.balance)).toBe(2)
 
 					// ════ Fase 3 — transferência A → B (par atômico) ═════════════════
@@ -293,11 +295,11 @@ describeIf("inventory full cycle E2E (DB)", () => {
 					// passa ou falha conforme o dia.
 					const [lotA] = await tx`
 						select lot_id, balance from inventory.v_stock_balance
-						where kitchen_id = ${kitchenA.id} and ingredient_id = ${ingredient.id} and balance > 0
+						where location_id = ${locationA.id} and item_id = ${ingredient.id} and balance > 0
 						order by expiry_date`
-					await tx`select * from inventory.transfer_stock(${lotA.lot_id}, ${kitchenB.id}, 5, null)`
+					await tx`select * from inventory.transfer_stock(${lotA.lot_id}, ${locationB.id}, 5, null)`
 					const [balB] = await tx`
-						select coalesce(sum(balance), 0) as b from inventory.v_stock_balance where kitchen_id = ${kitchenB.id} and ingredient_id = ${ingredient.id}`
+						select coalesce(sum(balance), 0) as b from inventory.v_stock_balance where location_id = ${locationB.id} and item_id = ${ingredient.id}`
 					expect(Number(balB.b)).toBe(5)
 					// o que sai de A entra em B pelo MESMO valor: o destino entrava ao
 					// unit_cost do lote (informativo) e o valor se perdia no caminho
@@ -315,12 +317,12 @@ describeIf("inventory full cycle E2E (DB)", () => {
 					// o outro intacto e o saldo total nunca fecharia no valor contado.
 					const saldos = await tx`
 						select lot_id, balance from inventory.v_stock_balance
-						where kitchen_id = ${kitchenA.id} and ingredient_id = ${ingredient.id} and balance > 0
+						where location_id = ${locationA.id} and item_id = ${ingredient.id} and balance > 0
 						order by expiry_date`
 					expect(saldos).toHaveLength(2)
 					expect(saldos.reduce((total, row) => total + Number(row.balance), 0)).toBe(33)
 
-					const [count] = await tx`insert into inventory.inventory_count (kitchen_id) values (${kitchenA.id}) returning id`
+					const [count] = await tx`insert into inventory.inventory_count (location_id) values (${locationA.id}) returning id`
 					// O lote que vence primeiro não foi achado na prateleira (0); o outro bate.
 					await tx`
 						insert into inventory.inventory_count_item (count_id, lot_id, counted_qty)
@@ -334,8 +336,8 @@ describeIf("inventory full cycle E2E (DB)", () => {
 					await expect(
 						tx.savepoint(async (sp) => {
 							const [avgBefore] = await sp`
-								select avg_unit_cost from inventory.stock_cost where kitchen_id = ${kitchenA.id} and ingredient_id = ${ingredient.id}`
-							const [sobraCount] = await sp`insert into inventory.inventory_count (kitchen_id) values (${kitchenA.id}) returning id`
+								select avg_unit_cost from inventory.stock_cost where location_id = ${locationA.id} and item_id = ${ingredient.id}`
+							const [sobraCount] = await sp`insert into inventory.inventory_count (location_id) values (${locationA.id}) returning id`
 							await sp`
 								insert into inventory.inventory_count_item (count_id, lot_id, counted_qty)
 								values (${sobraCount.id}, ${saldos[1]?.lot_id}, 32)`
@@ -345,7 +347,7 @@ describeIf("inventory full cycle E2E (DB)", () => {
 								where inventory_count_id = ${sobraCount.id} and type = 'adjustment_in'`
 							expect(Number(ajuste.unit_cost)).toBe(Number(avgBefore.avg_unit_cost))
 							const [avgAfter] = await sp`
-								select avg_unit_cost from inventory.stock_cost where kitchen_id = ${kitchenA.id} and ingredient_id = ${ingredient.id}`
+								select avg_unit_cost from inventory.stock_cost where location_id = ${locationA.id} and item_id = ${ingredient.id}`
 							expect(Number(avgAfter.avg_unit_cost)).toBe(Number(avgBefore.avg_unit_cost))
 							throw new Error(ROLLBACK_SOBRA)
 						})
@@ -353,24 +355,24 @@ describeIf("inventory full cycle E2E (DB)", () => {
 					// Um ajuste só: o lote conferido sem divergência não gera movimento.
 					expect(Number(counted.adjustments)).toBe(1)
 					const [balA] = await tx`
-						select coalesce(sum(balance), 0) as b from inventory.v_stock_balance where kitchen_id = ${kitchenA.id} and ingredient_id = ${ingredient.id}`
+						select coalesce(sum(balance), 0) as b from inventory.v_stock_balance where location_id = ${locationA.id} and item_id = ${ingredient.id}`
 					expect(Number(balA.b)).toBe(30)
 
 					// ════ Fase 6 — fechamento MCASP + lock de período ════════════════
 					const competencia = new Date().toISOString().substring(0, 7)
-					const [closing] = await tx`select * from inventory.close_month(${kitchenA.id}, ${`${competencia}-01`}, null)`
+					const [closing] = await tx`select * from inventory.close_month(${locationA.id}, ${`${competencia}-01`}, null)`
 					const [closingRow] = await tx`select closing_value, total_in, total_out from inventory.monthly_closing where id = ${closing.closing_id}`
 					// balancete = ledger: valor final derivado só dos movimentos
 					const [ledgerValue] = await tx`
 						select coalesce(sum(case when type in ('receipt','leftover_return','transfer_in','adjustment_in') then total_cost else -total_cost end), 0) as v
-						from inventory.stock_movement where kitchen_id = ${kitchenA.id}`
+						from inventory.stock_movement where location_id = ${locationA.id}`
 					expect(Number(closingRow.closing_value)).toBe(Number(ledgerValue.v))
 					// lançamento retroativo na competência fechada → bloqueado
 					await expect(
 						tx.savepoint(
 							(sp) => sp`
-								insert into inventory.stock_movement (kitchen_id, ingredient_id, lot_id, type, quantity, unit_cost)
-								values (${kitchenA.id}, ${ingredient.id}, ${lotA.lot_id}, 'receipt', 1, 1)`
+								insert into inventory.stock_movement (location_id, item_id, lot_id, type, quantity, unit_cost)
+								values (${locationA.id}, ${ingredient.id}, ${lotA.lot_id}, 'receipt', 1, 1)`
 						)
 					).rejects.toThrow(/fechada/)
 

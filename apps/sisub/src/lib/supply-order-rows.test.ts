@@ -28,7 +28,7 @@ describe("emissão", () => {
 		expect(
 			buildSupplyOrderRow({
 				empenhoId: "ne",
-				kitchenId: 3,
+				locationId: 3,
 				number: " OF-1 ",
 				sentAt: "2026-10-13",
 				expectedDelivery: "2026-10-20",
@@ -38,7 +38,7 @@ describe("emissão", () => {
 			})
 		).toEqual({
 			empenho_id: "ne",
-			kitchen_id: 3,
+			location_id: 3,
 			number: "OF-1",
 			sent_at: "2026-10-13",
 			expected_delivery: "2026-10-20",
@@ -53,7 +53,7 @@ describe("emissão", () => {
 		expect(
 			buildSupplyOrderRow({
 				empenhoId: undefined,
-				kitchenId: 3,
+				locationId: 3,
 				number: "  ",
 				sentAt: "s",
 				expectedDelivery: "e",
@@ -65,7 +65,7 @@ describe("emissão", () => {
 		expect(
 			buildSupplyOrderRow({
 				empenhoId: null,
-				kitchenId: 3,
+				locationId: 3,
 				number: undefined,
 				sentAt: "s",
 				expectedDelivery: "e",

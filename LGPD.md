@@ -66,6 +66,7 @@ ou peça ciência de novo.
 | portal | `_public/_pt/*` + `_public/_en/*` | rodapé do `AppLayout` | sim |
 | forms | raiz | landing, layout autenticado e **tela de resposta** | sim |
 | rumaer | `_public/*` | rodapé do `AppLayout` | sim |
+| sisprov | `_public/*` | rodapé da sidebar + tela de login | sim (`_protected`) |
 | sucont | raiz | rodapé da sidebar do `HubLayout` + tela de login | sim |
 | assignment-selection | raiz | rodapé fixo no `__root` (cobre o telão público) | sim |
 | contrate | raiz | rodapé do `AppLayout` + rodapé da sidebar do `ModuleShell` | sim (`AppLayout` e `ModuleShell`) |

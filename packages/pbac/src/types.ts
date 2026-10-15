@@ -16,7 +16,14 @@
  *                          alto risco). Backfill inicial concede `admin` a quem tinha `global`.
  * - analytics:           Análise sistêmica global — sisub
  * - local-analytics:     Análises da unidade — sisub, scoped by unit_id
- * - storage:             Estoque e almoxarifado — sisub
+ * - storage:             Estoque do SISPROV, de toda classe de suprimento (alimentação, auxiliar,
+ *                          fardamento…). Escopado por cozinha (o local de estoque da cozinha: é o
+ *                          grant que o sisub concede, lente da cozinha), por OM (`unit_id`: todos os
+ *                          locais da OM e das apoiadas, pela hierarquia de apoio) ou global.
+ *                          level 1 = consultar; 2 = operar (receber, transferir, contar, distribuir);
+ *                          3 = gestão do local (aprova ajuste e contagem, configura tolerâncias).
+ *                          Nasceu no sisub e mudou de dono, não de nome: decisão de 13/10/2026 em
+ *                          `openspec/changes/sisprov-foundation` (D3).
  * - rumaer:              Uniformes RUMAER — rumaer, unscoped/global
  *                          level 2 = editar uniformes; level 3 = gerenciar grants do rumaer.
  * - sucont-1:            SUCONT-1 (Custos / DGC) — sucont, unscoped/global.
@@ -57,6 +64,22 @@
  * o escopo do PBAC é um id numérico de unidade/cozinha/refeitório — a divisão da SUCONT não
  * é nenhum dos três. É o mesmo recorte que o sisub faz com `global` × `admin`: quem trabalha
  * na SUCONT-3 não passa a enxergar as telas da SUCONT-4 por ter acesso ao app.
+ *
+ * - sisprov-planning:    Elo SISPROV na OM — sisprov, escopado por `unit_id`
+ *                          (OM; nulo = global). level 1 = consultar previsão e adesão da coleta de
+ *                          tamanhos; level 2 = informar e ajustar a previsão de incorporação da OM.
+ * - sisprov-admin:       SDAB — sisprov. level 2 = gestão sistêmica (grupos de demanda, enxovais,
+ *                          curvas, períodos, aprovação de OF, locais de estoque); level 3 = gerenciar
+ *                          os grants do SISPROV (`storage` por OM, `sisprov-planning`,
+ *                          `sisprov-admin`). Sem escopo para a SDAB; escopável por OM se a gestão
+ *                          for delegada.
+ *
+ *                        Papéis são módulos (e não níveis de um `sisprov` único) pelo mesmo motivo
+ *                        do α: operador de estoque e elo são papéis diferentes na mesma OM, com o
+ *                        mesmo nível 2, e um não implica o outro. O escopo desce pela hierarquia de apoio, como
+ *                        nos módulos `alpha-*`. O militar que preenche a própria ficha de tamanhos ou
+ *                        confirma o próprio recebimento não tem módulo: é sessão autenticada, como o
+ *                        `diner`. Decisão registrada em `openspec/changes/sisprov-foundation`.
  */
 export type AppModule =
 	| "diner"
@@ -78,6 +101,8 @@ export type AppModule =
 	| "alpha-procurement"
 	| "alpha-aci"
 	| "alpha-admin"
+	| "sisprov-planning"
+	| "sisprov-admin"
 
 /**
  * Permissão individual de um usuário.

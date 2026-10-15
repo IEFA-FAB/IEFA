@@ -24,6 +24,7 @@ COPY apps/docs/package.json ./apps/docs/
 COPY apps/forms/package.json ./apps/forms/
 COPY apps/portal/package.json ./apps/portal/
 COPY apps/rumaer/package.json ./apps/rumaer/
+COPY apps/sisprov/package.json ./apps/sisprov/
 COPY apps/sisub/package.json ./apps/sisub/
 COPY apps/sisub-mcp/package.json ./apps/sisub-mcp/
 COPY apps/sucont/package.json ./apps/sucont/
@@ -37,6 +38,7 @@ COPY packages/database/package.json ./packages/database/
 COPY packages/hono-client/package.json ./packages/hono-client/
 COPY packages/legal-kit/package.json ./packages/legal-kit/
 COPY packages/pbac/package.json ./packages/pbac/
+COPY packages/sisprov-domain/package.json ./packages/sisprov-domain/
 COPY packages/sisub-domain/package.json ./packages/sisub-domain/
 COPY packages/supabase-kit/package.json ./packages/supabase-kit/
 COPY packages/tsconfig/package.json ./packages/tsconfig/
@@ -151,6 +153,46 @@ EXPOSE 3000
 CMD ["bun", "--no-install", "--preload", "./docker/bun-serve-idle-timeout.ts", ".output/server/index.mjs"]
 
 # =============================================================================
+# SISPROV (Sistema de Provisões — estoque de todas as classes)
+# =============================================================================
+FROM deps AS sisprov-build
+ARG VITE_SISPROV_SUPABASE_URL
+ARG VITE_SISPROV_SUPABASE_PUBLISHABLE_KEY
+COPY packages/auth-kit ./packages/auth-kit
+COPY packages/database ./packages/database
+COPY packages/legal-kit ./packages/legal-kit
+COPY packages/pbac ./packages/pbac
+COPY packages/sisprov-domain ./packages/sisprov-domain
+COPY packages/supabase-kit ./packages/supabase-kit
+COPY packages/tsconfig ./packages/tsconfig
+COPY apps/sisprov ./apps/sisprov
+RUN rm -rf apps/sisprov/.vite apps/sisprov/.tanstack apps/sisprov/node_modules/.vite
+RUN bun --filter='@iefa/sisprov' run build
+RUN test -f apps/sisprov/.output/server/index.mjs || \
+    (echo "❌ Build failed: output missing" && exit 1)
+
+# Confere que todo asset CSS/JS citado pelo bundle do servidor existe em public/.
+# Pega divergência de hash entre o build SSR e o do cliente ANTES da imagem subir.
+RUN grep -oE '"(/assets/[^"]+\.(css|js))"' apps/sisprov/.output/server/index.mjs \
+    | tr -d '"' \
+    | sort -u \
+    | while read asset; do \
+        if [ ! -f "apps/sisprov/.output/public${asset}" ]; then \
+          echo "❌ Asset referenced by server but missing from public: ${asset}"; exit 1; \
+        fi; \
+      done \
+    && echo "✅ All server-referenced assets present in public/"
+
+FROM ${BUN_IMAGE} AS sisprov
+ENV NODE_ENV=production
+WORKDIR /app
+COPY --from=sisprov-build /app/apps/sisprov/.output ./.output
+COPY docker/bun-serve-idle-timeout.ts ./docker/bun-serve-idle-timeout.ts
+USER bun
+EXPOSE 3000
+CMD ["bun", "--no-install", "--preload", "./docker/bun-serve-idle-timeout.ts", ".output/server/index.mjs"]
+
+# =============================================================================
 # SUCONT (HUB SUCONT-4 — acompanhamento contábil)
 # =============================================================================
 FROM deps AS sucont-build
@@ -250,6 +292,7 @@ COPY packages/compras-api ./packages/compras-api
 COPY packages/database ./packages/database
 COPY packages/legal-kit ./packages/legal-kit
 COPY packages/pbac ./packages/pbac
+COPY packages/sisprov-domain ./packages/sisprov-domain
 COPY packages/sisub-domain ./packages/sisub-domain
 COPY packages/supabase-kit ./packages/supabase-kit
 COPY packages/tsconfig ./packages/tsconfig

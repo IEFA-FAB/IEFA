@@ -27,7 +27,8 @@ import { hiddenByBlindCount } from "@/lib/blind-count.server"
 import { maskBlindCountIssueLines } from "@/lib/blind-count-mask"
 import { publicDbMessage } from "@/lib/db-error-message"
 import { readAllPages, readAllPagesIn } from "@/lib/read-all-pages"
-import { requireStorageForKitchen } from "@/lib/storage-auth.server"
+import { classifyFoodItems, foodRefOf, itemIdOf } from "@/lib/stock-item.server"
+import { requireStockForKitchen, requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient, rpcWithNulls } from "@/lib/supabase.server"
 
 const inventory = () => getServerClient("inventory")
@@ -57,22 +58,21 @@ async function fetchTask(taskId: string): Promise<{ task: TaskWithSnapshot; kitc
 	}
 }
 
-async function lotBalancesForIngredients(kitchenId: number, ingredientIds: string[]): Promise<Map<string, LotBalance[]>> {
+async function lotBalancesForIngredients(locationId: number, ingredientIds: string[]): Promise<Map<string, LotBalance[]>> {
 	const byIngredient = new Map<string, LotBalance[]>()
 	if (ingredientIds.length === 0) return byIngredient
 	const inv = inventory()
-	// Só lote com saldo, já no banco: a view guarda todo lote que a cozinha já teve, e com o tempo
+	// Só lote com saldo, já no banco: a view guarda todo lote que o local já teve, e com o tempo
 	// a leitura inteira passava do teto de 1000 linhas e cortava lote calada. Ordem pela chave da view.
 	const rows = await readAllPagesIn("o saldo dos insumos", ingredientIds, (chunk, from, to) =>
 		inv
 			.from("v_stock_balance")
-			.select("ingredient_id, lot_id, expiry_date, balance")
-			.eq("kitchen_id", kitchenId)
-			.in("ingredient_id", chunk)
+			.select("item_id, lot_id, expiry_date, balance")
+			.eq("location_id", locationId)
+			.in("item_id", chunk)
 			.gt("balance", 0)
 			.not("lot_id", "is", null)
-			.order("ingredient_id")
-			.order("frozen_preparation_id")
+			.order("item_id")
 			.order("lot_id")
 			.range(from, to)
 	)
@@ -99,10 +99,10 @@ async function lotBalancesForIngredients(kitchenId: number, ingredientIds: strin
 
 	for (const row of rows) {
 		// Coluna de view sai nulável no tipo gerado; a leitura já filtra lote, insumo e saldo.
-		if (row.lot_id == null || row.ingredient_id == null) continue
+		if (row.lot_id == null || row.item_id == null) continue
 		const meta = lotMeta.get(row.lot_id)
 		if (meta?.quarantined_at != null) continue
-		const list = byIngredient.get(row.ingredient_id) ?? []
+		const list = byIngredient.get(row.item_id) ?? []
 		list.push({
 			lotId: row.lot_id,
 			balance: Number(row.balance),
@@ -110,7 +110,7 @@ async function lotBalancesForIngredients(kitchenId: number, ingredientIds: strin
 			receivedAt: meta?.received_at ?? null,
 			useFirst: meta?.use_first ?? false,
 		})
-		byIngredient.set(row.ingredient_id, list)
+		byIngredient.set(row.item_id, list)
 	}
 	return byIngredient
 }
@@ -119,14 +119,14 @@ async function lotBalancesForIngredients(kitchenId: number, ingredientIds: strin
 const PENDING_ISSUES_LIMIT = 300
 
 /**
- * Primeiro dia da competência ABERTA da cozinha (fechamento mensal), e não mais "30 dias atrás":
- * a tarefa do mês aberto some da lista só quando o fechamento a torna imbaixável.
+ * Primeiro dia da competência ABERTA do local de estoque (fechamento mensal), e não mais "30 dias
+ * atrás": a tarefa do mês aberto some da lista só quando o fechamento a torna imbaixável.
  */
-async function openPeriodStart(kitchenId: number): Promise<string> {
+async function openPeriodStart(locationId: number): Promise<string> {
 	const inv = inventory()
 	const [{ data: closing, error: closingError }, { data: first, error: firstError }] = await Promise.all([
-		inv.from("monthly_closing").select("competencia").eq("kitchen_id", kitchenId).order("competencia", { ascending: false }).limit(1).maybeSingle(),
-		inv.from("stock_movement").select("occurred_at").eq("kitchen_id", kitchenId).order("occurred_at", { ascending: true }).limit(1).maybeSingle(),
+		inv.from("monthly_closing").select("competencia").eq("location_id", locationId).order("competencia", { ascending: false }).limit(1).maybeSingle(),
+		inv.from("stock_movement").select("occurred_at").eq("location_id", locationId).order("occurred_at", { ascending: true }).limit(1).maybeSingle(),
 	])
 	if (closingError) throw new Error(`Erro ao ler o fechamento mensal: ${publicDbMessage(closingError)}`)
 	if (firstError) throw new Error(`Erro ao ler o início do estoque: ${publicDbMessage(firstError)}`)
@@ -141,7 +141,7 @@ async function openPeriodStart(kitchenId: number): Promise<string> {
 export const fetchPendingIssuesFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive() }))
 	.handler(async ({ data }) => {
-		const ctx = await requireStorageForKitchen(1, data.kitchenId)
+		const { ctx, location } = await requireStockForKitchen(1, data.kitchenId)
 		const kit = kitchen()
 		const inv = inventory()
 		// Tela de OPERAÇÃO para quem confirma a baixa (nível 2): vê o disponível, como a saída e o
@@ -151,7 +151,7 @@ export const fetchPendingIssuesFn = createServerFn({ method: "GET" })
 			? new Set<string>()
 			: await hiddenByBlindCount(data.kitchenId, ctx)
 
-		const since = await openPeriodStart(data.kitchenId)
+		const since = await openPeriodStart(location.id)
 		const { data: tasks, error } = await kit
 			.from("production_task")
 			.select("id, menu_item_id, production_date, status")
@@ -172,7 +172,7 @@ export const fetchPendingIssuesFn = createServerFn({ method: "GET" })
 			(chunk, from, to) =>
 				inv
 					.from("stock_movement")
-					.select("id, production_task_id, ingredient_id, quantity, is_late_issue")
+					.select("id, production_task_id, item_id, quantity, is_late_issue")
 					.eq("type", "production_issue")
 					.in("production_task_id", chunk)
 					.order("id")
@@ -182,6 +182,9 @@ export const fetchPendingIssuesFn = createServerFn({ method: "GET" })
 		// insumo: a baixa segue pendente, com o que já saiu tarde descontado por insumo.
 		const issuedIds = new Set<string>()
 		const lateByTask = new Map<string, Map<string, number>>()
+		// A pendência é por insumo da receita: saída tardia de preparação congelada fica de fora,
+		// como antes, quando vinha sem `ingredient_id`.
+		const lateRefs = await classifyFoodItems(issued.filter((move) => move.is_late_issue).map((move) => move.item_id))
 		for (const move of issued) {
 			// `production_task_id` nunca vem nulo: a consulta filtra por ele.
 			if (move.production_task_id == null) continue
@@ -189,9 +192,9 @@ export const fetchPendingIssuesFn = createServerFn({ method: "GET" })
 				issuedIds.add(move.production_task_id)
 				continue
 			}
-			if (move.ingredient_id == null) continue
+			if (foodRefOf(lateRefs, move.item_id).ingredientId == null) continue
 			const byIngredient = lateByTask.get(move.production_task_id) ?? new Map<string, number>()
-			byIngredient.set(move.ingredient_id, (byIngredient.get(move.ingredient_id) ?? 0) + Number(move.quantity))
+			byIngredient.set(move.item_id, (byIngredient.get(move.item_id) ?? 0) + Number(move.quantity))
 			lateByTask.set(move.production_task_id, byIngredient)
 		}
 		const pending = taskList.filter((t) => !issuedIds.has(t.id))
@@ -212,7 +215,7 @@ export const fetchPendingIssuesFn = createServerFn({ method: "GET" })
 		})
 		// O saldo de cada insumo é o mesmo em toda tarefa da lista: uma leitura para todas, e não uma
 		// por tarefa (300 tarefas eram 300 agregações do ledger em série).
-		const balances = await lotBalancesForIngredients(data.kitchenId, [
+		const balances = await lotBalancesForIngredients(location.id, [
 			...new Set(theoreticalByTask.flatMap(({ theoretical }) => theoretical.map((t) => t.ingredientId))),
 		])
 		const today = getBrasiliaToday()
@@ -266,7 +269,10 @@ export const confirmIssueFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		const inv = inventory()
 		const { task, kitchenId } = await fetchTask(data.taskId)
-		const { userId } = await requireStorageForKitchen(2, kitchenId)
+		const {
+			ctx: { userId },
+			location,
+		} = await requireStockForKitchen(2, kitchenId)
 		// baixa só de produção CONCLUÍDA — task PENDING/IN_PROGRESS não desconta (review)
 		if (task.status !== "DONE") throw new Error(`Tarefa ainda não concluída (status ${task.status}) — conclua a produção antes da baixa`)
 
@@ -275,8 +281,8 @@ export const confirmIssueFn = createServerFn({ method: "POST" })
 				throw new Error("Override de lote (fora do FEFO) exige justificativa")
 			}
 			return {
-				kitchen_id: kitchenId,
-				ingredient_id: item.ingredientId,
+				location_id: location.id,
+				item_id: itemIdOf({ ingredientId: item.ingredientId }),
 				quantity: item.quantity,
 				override_lot_id: item.overrideLotId ?? null,
 				justification: item.justification?.trim() || null,
@@ -328,7 +334,10 @@ export const registerLeftoverFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		const kit = kitchen()
 		const { task, kitchenId } = await fetchTask(data.taskId)
-		const { userId } = await requireStorageForKitchen(2, kitchenId)
+		const {
+			ctx: { userId },
+			location,
+		} = await requireStockForKitchen(2, kitchenId)
 
 		if (data.discard && !data.discardReason?.trim()) throw new Error("Descarte exige motivo")
 
@@ -337,7 +346,7 @@ export const registerLeftoverFn = createServerFn({ method: "POST" })
 			// `p_measure_unit`, `p_shelf_life_days` e `p_reason` não têm default no SQL e aceitam nulo:
 			// o tipo gerado os declara não nulos, então esta RPC vai pela porta frouxa.
 			const { data: result, error } = await rpcWithNulls("inventory", "register_leftover_provisional", {
-				p_kitchen_id: kitchenId,
+				p_location_id: location.id,
 				p_description: data.newFrozenPreparation.description,
 				p_measure_unit: data.newFrozenPreparation.measureUnit ?? null,
 				p_shelf_life_days: data.newFrozenPreparation.shelfLifeDays ?? null,
@@ -364,7 +373,7 @@ export const registerLeftoverFn = createServerFn({ method: "POST" })
 		// órfão e retry duplicava o retorno)
 		// `p_reason` não tem default no SQL e é nulo sem descarte: ver `rpcWithNulls`.
 		const { data: result, error } = await rpcWithNulls("inventory", "register_leftover", {
-			p_kitchen_id: kitchenId,
+			p_location_id: location.id,
 			p_frozen_preparation_id: frozenPreparationId,
 			p_lot_code: `SOBRA-${task.production_date}`,
 			p_expiry_date: leftoverExpiryDate(task.production_date, prep.shelf_life_days),
@@ -412,7 +421,7 @@ export const fetchVarianceFn = createServerFn({ method: "GET" })
 		})
 	)
 	.handler(async ({ data }) => {
-		await requireStorageForKitchen(1, data.kitchenId)
+		const { location } = await requireStockForKitchen(1, data.kitchenId)
 		const kit = kitchen()
 		const inv = inventory()
 
@@ -454,8 +463,8 @@ export const fetchVarianceFn = createServerFn({ method: "GET" })
 		const moves = await readAllPages("as saídas para produção", (from, to) =>
 			inv
 				.from("stock_movement")
-				.select("id, ingredient_id, quantity")
-				.eq("kitchen_id", data.kitchenId)
+				.select("id, item_id, quantity")
+				.eq("location_id", location.id)
 				.eq("type", "production_issue")
 				// o período é civil (Brasília): sem o offset, saída das 22:30 do
 				// último dia do mês caía no mês seguinte
@@ -464,9 +473,13 @@ export const fetchVarianceFn = createServerFn({ method: "GET" })
 				.order("id")
 				.range(from, to)
 		)
+		// A variância é por insumo: a saída de preparação congelada fica de fora, como antes, quando
+		// vinha sem `ingredient_id`.
+		const refs = await classifyFoodItems(moves.map((move) => move.item_id))
 		for (const move of moves) {
-			if (move.ingredient_id == null) continue
-			real.set(move.ingredient_id, (real.get(move.ingredient_id) ?? 0) + Number(move.quantity))
+			const ingredientId = refs.get(move.item_id)?.ingredientId
+			if (ingredientId == null) continue
+			real.set(ingredientId, (real.get(ingredientId) ?? 0) + Number(move.quantity))
 		}
 
 		const ingredientIds = [...new Set([...theoretical.keys(), ...real.keys()])]

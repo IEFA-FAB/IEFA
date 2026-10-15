@@ -132,7 +132,8 @@ export function buildNfeItemMatchUpdate(
 		match_status: result.status,
 		ingredient_item_id: result.ingredientItemId,
 		purchase_item_id: result.purchaseItemId,
-		ingredient_id: result.ingredientId,
+		// A NF-e só traz insumo: o id do insumo é o `item_id` (`core.item`).
+		item_id: result.ingredientId,
 		matched_qty_base: result.matchedQtyBase,
 		updated_at: updatedAt,
 	}
