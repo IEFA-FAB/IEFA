@@ -8,13 +8,16 @@ const SAVE_RETRIES = 3
 const AMBIGUOUS_STATUSES: ReadonlySet<number> = new Set([0, 502, 504])
 
 /**
- * Falha em que o handler certamente não gravou: o transporte devolveu erro montado FORA do
- * handler (503 do ALB sem task, função que a task do deploy rolante não conhece, middleware).
- * Só essa se repete. Erro do próprio handler (validação, permissão, limite de gravações) é
- * permanente; queda de conexão, 502 e 504 podem ter gravado, e repetir duplicaria a mensagem.
+ * Falha em que o handler certamente não gravou e que pode passar sozinha: erro montado FORA do
+ * handler com status 5xx (503 do ALB sem task, erro de middleware) ou vindo de outro build (a
+ * task do deploy rolante não conhece a função). Só essa se repete. Não se repetem: erro do
+ * próprio handler (validação, permissão, limite de gravações), 4xx de fora do handler (403 do
+ * WAF/ALB em HTML não muda na próxima tentativa) e queda de conexão, 502 e 504, que podem ter
+ * gravado (repetir duplicaria a mensagem).
  */
 export function isRetryableSaveError(err: unknown): boolean {
-	return err instanceof ServerFnTransportError && err.status >= 400 && !AMBIGUOUS_STATUSES.has(err.status)
+	if (!(err instanceof ServerFnTransportError) || AMBIGUOUS_STATUSES.has(err.status)) return false
+	return err.status >= 500 || (err.fromOtherBuild && err.status >= 400)
 }
 
 /** A gravação pode ter acontecido mesmo com o erro (a resposta se perdeu no caminho). */

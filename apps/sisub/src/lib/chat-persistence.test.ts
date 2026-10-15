@@ -17,6 +17,10 @@ describe("isRetryableSaveError", () => {
 		expect(isRetryableSaveError(new ServerFnTransportError("x", 0))).toBe(false)
 		expect(isRetryableSaveError(new ServerFnTransportError("x", 502))).toBe(false)
 		expect(isRetryableSaveError(new ServerFnTransportError("x", 504))).toBe(false)
+		expect(isRetryableSaveError(new ServerFnTransportError("x", 404, true))).toBe(true)
+		// 4xx de fora do handler (WAF/ALB em HTML): não muda na próxima tentativa.
+		expect(isRetryableSaveError(new ServerFnTransportError("x", 403))).toBe(false)
+		expect(isRetryableSaveError(new ServerFnTransportError("x", 404))).toBe(false)
 		// Erro do handler (validação, permissão, limite): permanente.
 		expect(isRetryableSaveError(new Error("Limite de mensagens atingido"))).toBe(false)
 	})
