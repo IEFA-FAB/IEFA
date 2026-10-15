@@ -2,6 +2,7 @@
 // rótulos e linhas das tabelas da Nota Analítica, montadas a partir do `ReportDataset`.
 
 import { formatCurrency } from "./dataProcessor"
+import { NET_DIFFERENCE_LABEL } from "./net-difference"
 import type { ReportDataset, ReportOffender, ReportTrendItem } from "./report"
 
 export const GROUP_LABEL: Record<string, string> = {
@@ -32,7 +33,7 @@ export function buildPreviewRows(dataset: ReportDataset): string[][] {
 		["Unidades Gestoras", String(dataset.ugCount)],
 		["Registros (UG × grupo)", String(dataset.recordCount)],
 		["Divergência total", formatCurrency(dataset.totals.absoluteDifference)],
-		["Diferença líquida", formatCurrency(dataset.totals.netDifference)],
+		[NET_DIFFERENCE_LABEL, formatCurrency(dataset.totals.netDifference)],
 		["Competência anterior", dataset.previous ? dataset.previous.label : "não consta na base carregada"],
 	]
 }
@@ -43,7 +44,7 @@ export function buildSummaryRows(snapshot: ReportDataset): string[][] {
 		["Saldo total SIAFI", formatCurrency(snapshot.totals.siafi)],
 		["Saldo total SILOMS", formatCurrency(snapshot.totals.siloms)],
 		["Divergência total (soma dos módulos)", formatCurrency(snapshot.totals.absoluteDifference)],
-		["Diferença líquida (SIAFI − SILOMS)", formatCurrency(snapshot.totals.netDifference)],
+		[NET_DIFFERENCE_LABEL, formatCurrency(snapshot.totals.netDifference)],
 		["Unidades Gestoras analisadas", String(snapshot.ugCount)],
 		[
 			"Preponderância",
