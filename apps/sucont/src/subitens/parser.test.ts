@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import * as XLSX from "xlsx"
-import { GENERIC_SUBITEM_REGEX, parseWorkbook } from "#/subitens/parser"
+import { GENERIC_SUBITEM_REGEX, isGenericSubitem, parseWorkbook } from "#/subitens/parser"
 
 /** Relatório do Tesouro Gerencial: onze linhas de título antes do cabeçalho (linha 12). */
 function buildWorkbook(header: unknown[], rows: unknown[][], preamble = 11): ArrayBuffer {
@@ -128,5 +128,28 @@ describe("GENERIC_SUBITEM_REGEX", () => {
 		["33903099", false, "limite: subitem 99 colado à natureza de despesa não é visto"],
 	])("%p → %p (%s)", (value, expected) => {
 		expect(GENERIC_SUBITEM_REGEX.test(value)).toBe(expected)
+	})
+})
+
+describe("isGenericSubitem", () => {
+	it.each([
+		["P 99", true, "subitem 99 continua marcado"],
+		["999", true, "c/c 999 continua marcado"],
+		["12.345.678/0001-99", false, "CNPJ formatado com DV 99"],
+		["123.456.789-99", false, "CPF formatado com DV 99"],
+		["P 123.456.789-99", false, "ISF + CPF formatado"],
+		["123.456.789-99 / 99", true, "CPF formatado ao lado de um subitem 99"],
+		["12345678000199", false, "CNPJ só com dígitos, como o SIAFI grava"],
+		["12345678/0001-99", true, "limite: CNPJ com pontuação parcial ainda é marcado"],
+	])("%p → %p (%s)", (value, expected) => {
+		expect(isGenericSubitem(value)).toBe(expected)
+	})
+
+	it("parseWorkbook usa o mesmo critério", () => {
+		const buffer = buildWorkbook(HEADER, [
+			["120001", "1", "12.345.678/0001-99", 10],
+			["120001", "1", "P 99", 5],
+		])
+		expect(parseWorkbook(buffer)[0].occurrences.map((o) => o.contaCorrente)).toEqual(["P 99"])
 	})
 })

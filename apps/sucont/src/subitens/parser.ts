@@ -35,8 +35,19 @@ import type { ProcessedData, UgGroup } from "#/subitens/types"
  *   não é marcado;
  * - "999" e "P999" são marcados junto com o subitem 99, embora sejam favorecido genérico,
  *   outro problema (o texto da mensagem já cita a 02.03.18 por isso).
+ *
+ * O tipo 002 também grava CPF/CNPJ do favorecido. Formatado, o DV "-99" ficaria isolado e
+ * seria lido como subitem; por isso `isGenericSubitem` descarta antes CPF e CNPJ com
+ * pontuação completa (`FORMATTED_TAX_ID_REGEX`). Limite: CPF/CNPJ com pontuação parcial
+ * (ex.: "12345678/0001-99") ainda é marcado; só dígitos (o formato do SIAFI) nunca foi.
  */
 export const GENERIC_SUBITEM_REGEX = /(^|\D)(99|999)($|\D)/
+
+/** CNPJ `00.000.000/0000-00` ou CPF `000.000.000-00`, com a pontuação completa. */
+export const FORMATTED_TAX_ID_REGEX = /\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}|\d{3}\.\d{3}\.\d{3}-\d{2}/g
+
+/** Conta corrente com código genérico, ignorando CPF/CNPJ formatado do favorecido. */
+export const isGenericSubitem = (contaCorrente: string): boolean => GENERIC_SUBITEM_REGEX.test(contaCorrente.replace(FORMATTED_TAX_ID_REGEX, " "))
 
 interface ReportColumns {
 	ugCol: string
@@ -139,7 +150,7 @@ export function parseWorkbook(bstr: string | ArrayBuffer | null | undefined): Ug
 
 	const filtered: ProcessedData[] = jsonData
 		.map((row: Record<string, unknown>) => toProcessedRow(row, columns))
-		.filter((row: ProcessedData) => GENERIC_SUBITEM_REGEX.test(row.contaCorrente))
+		.filter((row: ProcessedData) => isGenericSubitem(row.contaCorrente))
 
 	return groupByUg(filtered)
 }
