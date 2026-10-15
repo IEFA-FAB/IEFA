@@ -5,12 +5,16 @@ import {
 	chatErrorText,
 	chunkLabel,
 	chunkText,
+	citedChunkIds,
 	fetchChunk,
 	fetchSessionMessages,
 	GENERIC_CHAT_ERROR,
+	isAlphaId,
 	isUnavailableSession,
 	openMessageStream,
+	parseCompleteEvent,
 	parseSseBuffer,
+	sendMessage,
 	toAlphaChatError,
 } from "./chat"
 import { ALPHA_BASE_URL } from "./client"
@@ -200,28 +204,78 @@ describe("ids no caminho das chamadas ao α", () => {
 		globalThis.fetch = originalFetch
 	})
 
-	/** Troca o `fetch` por um que guarda a URL pedida e responde `body`. */
-	function captureUrls(body: unknown): string[] {
-		const urls: string[] = []
+	const SESSION = "3f1c2a4e-9b7d-4e21-8c3a-5d6f7a8b9c0d"
+	const CHUNK = "0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d"
+
+	/**
+	 * Troca o `fetch` por um que guarda o caminho pedido, JÁ resolvido como o `fetch` o
+	 * resolve (`new URL`): é aí que um `..` some e a rota muda.
+	 */
+	function capturePaths(body: unknown): string[] {
+		const paths: string[] = []
 		globalThis.fetch = (async (input: string | URL | Request) => {
-			urls.push(String(input))
+			const url = new URL(String(input))
+			expect(url.origin).toBe(new URL(ALPHA_BASE_URL).origin)
+			paths.push(url.pathname + url.search)
 			return new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } })
 		}) as typeof fetch
-		return urls
+		return paths
 	}
 
 	it("o id de chunk citado pelo modelo não reescreve a rota", async () => {
 		// `cited_documents` é saída do modelo: um `../sessions?x=` não pode virar outra chamada
 		// feita com o token da pessoa.
-		const urls = captureUrls({ id: "x", content: "", chapter: null, article: null, section: null, chunk_index: 0, metadata: null })
+		const paths = capturePaths({ id: "x", content: "", chapter: null, article: null, section: null, chunk_index: 0, metadata: null })
 		await fetchChunk("t", "../sessions?x=")
-		expect(urls).toEqual([`${ALPHA_BASE_URL}/api/v1/chunks/..%2Fsessions%3Fx%3D`])
+		await fetchChunk("t", CHUNK)
+		expect(paths).toEqual(["/api/v1/chunks/..%2Fsessions%3Fx%3D", `/api/v1/chunks/${CHUNK}`])
 	})
 
-	it("o session_id guardado no navegador fica num único segmento", async () => {
-		const urls = captureUrls({ session_id: "s", messages: [] })
+	it("o session_id fica num único segmento", async () => {
+		const paths = capturePaths({ session_id: SESSION, messages: [] })
 		await fetchSessionMessages("t", "../chunks/1?")
 		await openMessageStream("t", "a/b", "oi")
-		expect(urls).toEqual([`${ALPHA_BASE_URL}/api/v1/sessions/..%2Fchunks%2F1%3F/messages`, `${ALPHA_BASE_URL}/api/v1/sessions/a%2Fb/messages/stream`])
+		await sendMessage("t", SESSION, "oi")
+		expect(paths).toEqual(["/api/v1/sessions/..%2Fchunks%2F1%3F/messages", "/api/v1/sessions/a%2Fb/messages/stream", `/api/v1/sessions/${SESSION}/messages`])
+	})
+
+	it("`.`, `..` e vazio são recusados antes de qualquer chamada", async () => {
+		// `encodeURIComponent` não toca em ponto: `..` chegava ao `fetch` como segmento de ponto
+		// e `/sessions/../messages` virava `POST /api/v1/messages` com o token da pessoa.
+		const paths = capturePaths({})
+		for (const id of [".", "..", ""]) {
+			await expect(fetchSessionMessages("t", id)).rejects.toThrow("alphaPath")
+			await expect(sendMessage("t", id, "oi")).rejects.toThrow("alphaPath")
+			await expect(openMessageStream("t", id, "oi")).rejects.toThrow("alphaPath")
+			await expect(fetchChunk("t", id)).rejects.toThrow("alphaPath")
+		}
+		expect(paths).toEqual([])
+	})
+
+	it("ids citados fora do formato não chegam à tela", async () => {
+		const answer = { session_id: SESSION, cited_documents: [CHUNK, "..", ".", "", 42, "../sessions"] }
+		capturePaths(answer)
+		expect((await sendMessage("t", SESSION, "oi")).cited_documents).toEqual([CHUNK])
+
+		capturePaths({
+			session_id: SESSION,
+			messages: [
+				{ role: "ai", content: "r", cited_documents: ["..", CHUNK] },
+				{ role: "human", content: "p" },
+			],
+		})
+		const messages = await fetchSessionMessages("t", SESSION)
+		expect(messages.map((m) => m.cited_documents)).toEqual([[CHUNK], []])
+
+		expect(parseCompleteEvent(JSON.stringify(answer)).cited_documents).toEqual([CHUNK])
+	})
+})
+
+describe("isAlphaId / citedChunkIds", () => {
+	it("aceita só UUID", () => {
+		expect(isAlphaId("3F1C2A4E-9B7D-4E21-8C3A-5D6F7A8B9C0D")).toBe(true)
+		for (const bad of ["", ".", "..", "abc", "3f1c2a4e-9b7d-4e21-8c3a-5d6f7a8b9c0d/..", null, undefined, 1]) expect(isAlphaId(bad)).toBe(false)
+		expect(citedChunkIds(undefined)).toEqual([])
+		expect(citedChunkIds("x")).toEqual([])
 	})
 })
