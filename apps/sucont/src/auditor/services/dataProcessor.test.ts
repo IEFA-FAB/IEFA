@@ -228,9 +228,7 @@ describe("applyRiskClassification — risco por (UG, grupo), não por UG", () =>
 	})
 })
 
-describe("applyRiskClassification — posição relativa: COMPORTAMENTO ATUAL A DECIDIR", () => {
-	// Trava o off-by-one e o empate descritos no comentário de `applyRiskClassification`.
-	// Não é o comportamento desejado: é o que vai nas mensagens hoje, até o mantenedor decidir.
+describe("applyRiskClassification — posição pela última ocorrência (decisão do mantenedor, #639)", () => {
 	const record = (ug: string, difference: number): FinancialRecord =>
 		({
 			id: ug,
@@ -250,26 +248,33 @@ describe("applyRiskClassification — posição relativa: COMPORTAMENTO ATUAL A 
 		}) as FinancialRecord
 	const classify = (diffs: number[]) => applyRiskClassification(diffs.map((d, i) => record(`UG-${i}`, d)))
 
-	it("com 4 chaves distintas nenhuma é CRÍTICO (maior posição é 75)", () => {
-		expect(classify([100, 200, 300, 400]).map((r) => r.riskLevel)).toEqual([RiskLevel.BAIXO, RiskLevel.BAIXO, RiskLevel.MEDIO, RiskLevel.ALTO])
+	it("com 4 chaves distintas a maior chega a CRÍTICO", () => {
+		expect(classify([100, 200, 300, 400]).map((r) => r.riskLevel)).toEqual([RiskLevel.BAIXO, RiskLevel.MEDIO, RiskLevel.ALTO, RiskLevel.CRITICO])
 	})
 
-	it("com 5 chaves distintas nenhuma é CATASTRÓFICO no impacto (maior posição é 80)", () => {
-		const r = classify([100, 200, 300, 400, 500])
-		expect(r.map((x) => x.impactLevel)).toEqual([
-			ImpactLevel.INSIGNIFICANTE,
+	it("com 5 chaves distintas a maior chega a CATASTRÓFICO no impacto", () => {
+		expect(classify([100, 200, 300, 400, 500]).map((x) => x.impactLevel)).toEqual([
 			ImpactLevel.INSIGNIFICANTE,
 			ImpactLevel.MENOR,
 			ImpactLevel.MODERADO,
 			ImpactLevel.MAIOR,
+			ImpactLevel.CATASTROFICO,
 		])
-		expect(r.at(-1)?.riskLevel).toBe(RiskLevel.CRITICO)
 	})
 
-	it("empate total cai inteiro no nível mais baixo", () => {
-		const r = classify([500, 500, 500, 500])
-		expect(new Set(r.map((x) => x.riskLevel))).toEqual(new Set([RiskLevel.BAIXO]))
-		expect(new Set(r.map((x) => x.impactLevel))).toEqual(new Set([ImpactLevel.INSIGNIFICANTE]))
+	it("empate fica no nível da última ocorrência, sem rebaixar ninguém", () => {
+		const r = classify([100, 500, 500, 500])
+		expect(r.map((x) => x.riskLevel)).toEqual([RiskLevel.BAIXO, RiskLevel.CRITICO, RiskLevel.CRITICO, RiskLevel.CRITICO])
+		expect(r.map((x) => x.impactLevel)).toEqual([ImpactLevel.MENOR, ImpactLevel.CATASTROFICO, ImpactLevel.CATASTROFICO, ImpactLevel.CATASTROFICO])
+	})
+
+	it("conta conciliada fica no piso mesmo empatada com outras conciliadas", () => {
+		const r = classify([0, 0, 300])
+		expect(r.map((x) => [x.riskLevel, x.impactLevel])).toEqual([
+			[RiskLevel.BAIXO, ImpactLevel.INSIGNIFICANTE],
+			[RiskLevel.BAIXO, ImpactLevel.INSIGNIFICANTE],
+			[RiskLevel.CRITICO, ImpactLevel.CATASTROFICO],
+		])
 	})
 })
 
