@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest"
-import { readAllPages, readAllPagesIn } from "@/lib/read-all-pages"
+import { readAllPages, readAllPagesByKey, readAllPagesIn } from "@/lib/read-all-pages"
 
 /**
  * Tabela falsa com o corte do PostgREST: `range` devolve no máximo o pedido E
@@ -47,6 +47,70 @@ describe("readAllPages", () => {
 			return n === 2 ? { data: null, error: { message: "boom" } } : { data: Array(10).fill({}), error: null }
 		}
 		await expect(readAllPages("itens", page, 10)).rejects.toThrow("Erro ao carregar itens: boom")
+	})
+})
+
+describe("readAllPagesByKey", () => {
+	/** Tabela ordenada por `id` com o teto `maxRows` da API; `.gt(id, after)` + `.limit(size)`. */
+	function keyedTable(ids: number[], maxRows = Number.POSITIVE_INFINITY) {
+		const rows = ids.map((id) => ({ id }))
+		const calls: Array<number | null> = []
+		const page = async (after: number | null, size: number) => {
+			calls.push(after)
+			const sorted = [...rows].sort((a, b) => a.id - b.id)
+			return { data: sorted.filter((row) => after === null || row.id > after).slice(0, Math.min(size, maxRows)), error: null }
+		}
+		return { rows, page, calls }
+	}
+
+	test("junta as páginas pela chave, além do teto", async () => {
+		const { page, calls } = keyedTable(
+			Array.from({ length: 2500 }, (_, i) => i + 1),
+			1000
+		)
+		const rows = await readAllPagesByKey("linhas", page, (row) => row.id, 1000)
+		expect(rows).toHaveLength(2500)
+		expect(calls).toEqual([null, 1000, 2000, 2500])
+	})
+
+	test("linha inserida antes da fronteira no meio da leitura não duplica a da fronteira", async () => {
+		// por offset, a inserção empurrava a linha 1000 para a página 2 e ela entrava duas vezes
+		const table = keyedTable(Array.from({ length: 1500 }, (_, i) => (i + 1) * 10))
+		let n = 0
+		const page = async (after: number | null, size: number) => {
+			n += 1
+			if (n === 2) table.rows.push({ id: 5 })
+			return table.page(after, size)
+		}
+		const rows = await readAllPagesByKey("linhas", page, (row) => row.id, 1000)
+		expect(rows).toHaveLength(1500)
+		expect(new Set(rows.map((row) => row.id)).size).toBe(1500)
+	})
+
+	test("deduplica pela chave como defesa", async () => {
+		let n = 0
+		const page = async () => {
+			n += 1
+			if (n === 1) return { data: [{ id: 1 }, { id: 2 }], error: null }
+			if (n === 2) return { data: [{ id: 2 }, { id: 3 }], error: null }
+			return { data: [], error: null }
+		}
+		const rows = await readAllPagesByKey("linhas", page, (row) => row.id, 2)
+		expect(rows.map((row) => row.id)).toEqual([1, 2, 3])
+	})
+
+	test("consulta sem o filtro de keyset lança em vez de girar para sempre", async () => {
+		const page = async () => ({ data: [{ id: 1 }, { id: 2 }], error: null })
+		await expect(readAllPagesByKey("linhas", page, (row) => row.id, 2)).rejects.toThrow("a paginação não avançou")
+	})
+
+	test("erro em qualquer página lança", async () => {
+		let n = 0
+		const page = async () => {
+			n += 1
+			return n === 2 ? { data: null, error: { message: "boom" } } : { data: [{ id: n }], error: null }
+		}
+		await expect(readAllPagesByKey("itens", page, (row: { id: number }) => row.id, 1)).rejects.toThrow("Erro ao carregar itens: boom")
 	})
 })
 

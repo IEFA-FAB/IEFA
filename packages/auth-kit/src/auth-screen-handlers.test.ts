@@ -9,6 +9,7 @@ import {
 	createAuthScreenHandlers,
 	resolveAuthScreenConfig,
 } from "./auth-screen-handlers.ts"
+import { INVALID_CREDENTIALS_MESSAGE } from "./errors.ts"
 
 /** Registra cada efeito, na ordem, como "nome(valor)". */
 function harness(opts: { state?: Partial<AuthScreenHandlerState>; config?: Partial<AuthScreenConfig>; actions?: Partial<AuthScreenActions> } = {}) {
@@ -80,7 +81,6 @@ describe("resolveAuthScreenConfig", () => {
 	test("defaults são os do portal", () => {
 		const c = resolveAuthScreenConfig({ rememberEmailKey: "k", messages: M })
 		expect(c.clearFeedbackOnTabSwitch).toBe(false)
-		expect(c.signUpSuccessAfterTabSwitch).toBe(false)
 		expect(c.redirectOnlyFromAuthView).toBe(false)
 		expect(c.resetSuccessFeedback).toBe("alert")
 		expect(c.emailPattern.test("a@fab.mil.br")).toBe(true)
@@ -94,13 +94,11 @@ describe("resolveAuthScreenConfig", () => {
 			emailPattern: pattern,
 			invalidCredentialsPattern: pattern,
 			clearFeedbackOnTabSwitch: true,
-			signUpSuccessAfterTabSwitch: true,
 			redirectOnlyFromAuthView: true,
 			resetSuccessFeedback: "banner",
 		})
 		expect(c).toMatchObject({
 			clearFeedbackOnTabSwitch: true,
-			signUpSuccessAfterTabSwitch: true,
 			redirectOnlyFromAuthView: true,
 			resetSuccessFeedback: "banner",
 		})
@@ -116,10 +114,10 @@ describe("navegação", () => {
 		handlers.goToAuth()
 		expect(log).toEqual(['onViewChange("forgot")', "onViewChange(null)"])
 	})
-	test("switchTab sem limpar feedback (portal)", () => {
+	test("switchTab limpa só o erro (portal, contrate)", () => {
 		const { log, handlers } = harness()
 		handlers.switchTab("register")
-		expect(log).toEqual(['setActiveTab("register")', 'onTabChange("register")'])
+		expect(log).toEqual(['setActiveTab("register")', 'setError("")', 'onTabChange("register")'])
 	})
 	test("switchTab limpando feedback (rumaer, sucont)", () => {
 		const { log, handlers } = harness({ config: { clearFeedbackOnTabSwitch: true } })
@@ -192,7 +190,7 @@ describe("handleLogin", () => {
 		await handlers.handleLogin(submit)
 		expect(log.slice(-3)).toEqual(['storage.remove("k")', 'navigate({"to":"/","replace":true})', "setIsSubmitting(false)"])
 	})
-	test("credencial recusada vai para o campo de senha", async () => {
+	test("credencial recusada vai para o banner, com o texto neutro", async () => {
 		const { log, handlers } = harness({
 			state: { loginEmail: "a@fab.mil.br", loginPassword: "pw" },
 			actions: {
@@ -202,7 +200,7 @@ describe("handleLogin", () => {
 			},
 		})
 		await handlers.handleLogin(submit)
-		expect(log.slice(-3)).toEqual(["onFailure()", `setPasswordError(${JSON.stringify(M.invalidCredentials)})`, "setIsSubmitting(false)"])
+		expect(log.slice(-3)).toEqual(["onFailure()", `setError(${JSON.stringify(M.invalidCredentials)})`, "setIsSubmitting(false)"])
 	})
 	test("outra falha vai para o banner", async () => {
 		const { log, handlers } = harness({
@@ -216,19 +214,143 @@ describe("handleLogin", () => {
 		await handlers.handleLogin(submit)
 		expect(log.slice(-3)).toEqual(["onFailure()", 'setError("Confirme seu e-mail antes de entrar")', "setIsSubmitting(false)"])
 	})
-	test("padrão de credencial do app é respeitado", async () => {
+	test("config default reconhece a recusa que o `signIn` do kit lança", async () => {
 		const { log, handlers } = harness({
-			config: { invalidCredentialsPattern: /e-mail ou senha incorretos/i },
 			state: { loginEmail: "a@fab.mil.br", loginPassword: "pw" },
 			actions: {
 				signIn: async () => {
-					throw new Error("E-mail ou senha incorretos")
+					throw new Error(INVALID_CREDENTIALS_MESSAGE)
 				},
 			},
 		})
 		await handlers.handleLogin(submit)
-		expect(log.at(-2)).toBe(`setPasswordError(${JSON.stringify(M.invalidCredentials)})`)
+		expect(log.slice(-3)).toEqual(["onFailure()", `setError(${JSON.stringify(M.invalidCredentials)})`, "setIsSubmitting(false)"])
 	})
+	test("padrão de credencial do app é respeitado", async () => {
+		const { log, handlers } = harness({
+			config: { invalidCredentialsPattern: /acesso negado/i },
+			state: { loginEmail: "a@fab.mil.br", loginPassword: "pw" },
+			actions: {
+				signIn: async () => {
+					throw new Error("Acesso negado")
+				},
+			},
+		})
+		await handlers.handleLogin(submit)
+		expect(log.at(-2)).toBe(`setError(${JSON.stringify(M.invalidCredentials)})`)
+	})
+})
+
+/**
+ * A tela de verdade: os setters gravam num estado e cada passo recria os handlers com ele,
+ * como o React faz a cada render. `isLoginSubmitBlocked` repete o `disabled` do botão Entrar
+ * de portal, contrate, rumaer e forms.
+ */
+function screen(config: Partial<AuthScreenConfig> = {}) {
+	const ui = {
+		activeTab: "login" as string,
+		isSubmitting: false,
+		error: "",
+		successMessage: "",
+		emailError: "",
+		passwordError: "",
+		loginEmail: "a@fab.mil.br",
+		loginPassword: "errada",
+	}
+	const handlers = () =>
+		createAuthScreenHandlers({
+			state: {
+				isLocked: false,
+				loginEmail: ui.loginEmail,
+				loginPassword: ui.loginPassword,
+				rememberMe: false,
+				registerData: { name: "", email: "", password: "", confirm: "" },
+				forgotEmail: "",
+				newPassword: "",
+				redirect: undefined,
+			},
+			set: {
+				setActiveTab: (v) => {
+					ui.activeTab = v
+				},
+				setIsSubmitting: (v) => {
+					ui.isSubmitting = v
+				},
+				setError: (v) => {
+					ui.error = v
+				},
+				setSuccessMessage: (v) => {
+					ui.successMessage = v
+				},
+				setLoginEmail: (v) => {
+					ui.loginEmail = v
+				},
+				setLoginPassword: (v) => {
+					ui.loginPassword = v
+				},
+				setRememberMe: () => {},
+				setEmailError: (v) => {
+					ui.emailError = v
+				},
+				setPasswordError: (v) => {
+					ui.passwordError = v
+				},
+				setRegisterData: () => {},
+				setRegisterEmailError: () => {},
+			},
+			config: resolveAuthScreenConfig({ rememberEmailKey: "k", messages: M, ...config }),
+			actions: {
+				signIn: async () => {
+					throw new Error(INVALID_CREDENTIALS_MESSAGE)
+				},
+				signUp: async () => {},
+				resetPassword: async () => {},
+				updateUserPassword: async () => ({ error: null }),
+				verifyOtp: async () => ({ error: null }),
+			},
+			onNavigate: () => {},
+			onSuccess: () => {},
+			onFailure: () => {},
+			getStorage: () => ({ getItem: () => null, setItem: () => {}, removeItem: () => {} }),
+			notify: () => {},
+		})
+	const isLoginSubmitBlocked = () => ui.isSubmitting || !!ui.emailError || !!ui.passwordError
+	return { ui, handlers, isLoginSubmitBlocked }
+}
+
+describe("credencial recusada na tela", () => {
+	test("mostra só o banner neutro, sem erro de campo, e o Entrar continua habilitado", async () => {
+		const { ui, handlers, isLoginSubmitBlocked } = screen()
+		await handlers().handleLogin(submit)
+		expect(ui.error).toBe(M.invalidCredentials)
+		expect(ui.emailError).toBe("")
+		expect(ui.passwordError).toBe("")
+		expect(isLoginSubmitBlocked()).toBe(false)
+	})
+	test("corrigir o e-mail limpa o banner", async () => {
+		const { ui, handlers, isLoginSubmitBlocked } = screen()
+		await handlers().handleLogin(submit)
+		handlers().handleLoginEmailChange(input("b@fab.mil.br"))
+		expect(ui.error).toBe("")
+		expect(isLoginSubmitBlocked()).toBe(false)
+	})
+	test("corrigir a senha limpa o banner", async () => {
+		const { ui, handlers } = screen()
+		await handlers().handleLogin(submit)
+		handlers().handleLoginPasswordChange(input("certa"))
+		expect(ui.error).toBe("")
+	})
+	for (const clearFeedbackOnTabSwitch of [false, true]) {
+		test(`trocar de aba limpa o banner (clearFeedbackOnTabSwitch: ${clearFeedbackOnTabSwitch})`, async () => {
+			const { ui, handlers, isLoginSubmitBlocked } = screen({ clearFeedbackOnTabSwitch })
+			await handlers().handleLogin(submit)
+			handlers().switchTab("register")
+			expect(ui.error).toBe("")
+			handlers().switchTab("login")
+			expect(ui.error).toBe("")
+			expect(isLoginSubmitBlocked()).toBe(false)
+		})
+	}
 })
 
 describe("cadastro", () => {
@@ -253,7 +375,8 @@ describe("cadastro", () => {
 		await handlers.handleRegister(submit)
 		expect(log).toEqual(['setError("Mínimo de 8 caracteres.")'])
 	})
-	test("sucesso: mensagem ANTES de trocar de aba (portal, rumaer)", async () => {
+	// A mensagem é gravada depois da troca de aba: sobrevive com ou sem limpeza na troca.
+	test("sucesso sem limpeza na troca de aba (portal, contrate)", async () => {
 		const { log, handlers } = harness({ state: { registerData: valid } })
 		await handlers.handleRegister(submit)
 		expect(log).toEqual([
@@ -261,24 +384,16 @@ describe("cadastro", () => {
 			'setError("")',
 			'setRegisterEmailError("")',
 			'signUp("a@fab.mil.br","Abcdefg1","Nome")',
-			`setSuccessMessage(${JSON.stringify(M.signUpSuccess)})`,
 			'setActiveTab("login")',
+			'setError("")',
 			'onTabChange("login")',
 			'setLoginEmail("a@fab.mil.br")',
+			`setSuccessMessage(${JSON.stringify(M.signUpSuccess)})`,
 			"setIsSubmitting(false)",
 		])
 	})
-	// rumaer: switchTab limpa o feedback depois da mensagem — ela some. Comportamento preservado.
-	test("sucesso com limpeza na troca de aba e mensagem antes: a mensagem é apagada (rumaer)", async () => {
+	test("sucesso com limpeza na troca de aba (sucont, rumaer)", async () => {
 		const { log, handlers } = harness({ state: { registerData: valid }, config: { clearFeedbackOnTabSwitch: true } })
-		await handlers.handleRegister(submit)
-		const success = log.indexOf(`setSuccessMessage(${JSON.stringify(M.signUpSuccess)})`)
-		const cleared = log.indexOf('setSuccessMessage("")')
-		expect(success).toBeGreaterThan(-1)
-		expect(cleared).toBeGreaterThan(success)
-	})
-	test("sucesso: mensagem DEPOIS de trocar de aba (sucont)", async () => {
-		const { log, handlers } = harness({ state: { registerData: valid }, config: { clearFeedbackOnTabSwitch: true, signUpSuccessAfterTabSwitch: true } })
 		await handlers.handleRegister(submit)
 		expect(log.slice(4)).toEqual([
 			'setActiveTab("login")',

@@ -1,5 +1,12 @@
 export { type BrowserClientOptions, createAppBrowserClient } from "./browser.ts"
 export { type CookieAuthClientOptions, createCookieAuthClient, parseCookieHeader } from "./cookie-auth-client.ts"
+export {
+	type CookieSessionOptions,
+	type CookieSessionResult,
+	readSessionAccessToken,
+	resolveCookieSessionUser,
+	sessionCookieName,
+} from "./cookie-session.ts"
 export { createServiceRoleClient, type ServiceRoleClientOptions } from "./service-client.ts"
 export { createStatelessAuthClient, type StatelessAuthClientOptions } from "./stateless-auth-client.ts"
 export {
