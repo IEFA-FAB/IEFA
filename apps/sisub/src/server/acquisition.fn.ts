@@ -39,6 +39,7 @@ import { withSensitiveAudit } from "@/lib/audit.server"
 import { requireAuth } from "@/lib/auth.server"
 import { publicDbMessage } from "@/lib/db-error-message"
 import { currentFiscalYear } from "@/lib/expense-execution"
+import { readAllPages } from "@/lib/read-all-pages"
 import { getServerClient } from "@/lib/supabase.server"
 import { requireUnitScope } from "@/lib/unit-auth.server"
 
@@ -393,14 +394,11 @@ export const listActivityLinesFn = createServerFn({ method: "GET" })
 	.validator(z.object({ unitId: z.number().int().positive() }))
 	.handler(async ({ data }): Promise<Array<{ code: string; name: string }>> => {
 		await requireUnitScope(1, data.unitId)
-		const { data: rows, error } = await comprasGov()
-			.from("compras_material_classe")
-			.select("codigo_classe, nome_classe")
-			.eq("status_classe", true)
-			.order("codigo_classe")
-			.limit(2000)
-		if (error) throw new Error(`Erro ao listar as classes de material: ${publicDbMessage(error)}`)
-		return (rows ?? []).map((row: { codigo_classe: number; nome_classe: string }) => ({ code: String(row.codigo_classe), name: row.nome_classe }))
+		// `codigo_classe` é a PK: ordem estável para paginar além do teto de 1000 do PostgREST.
+		const rows = await readAllPages("as classes de material", (from, to) =>
+			comprasGov().from("compras_material_classe").select("codigo_classe, nome_classe").eq("status_classe", true).order("codigo_classe").range(from, to)
+		)
+		return rows.map((row) => ({ code: String(row.codigo_classe), name: row.nome_classe }))
 	})
 
 // ─── Escrita ─────────────────────────────────────────────────────────────────
