@@ -47,7 +47,7 @@ import type {
 } from "../schemas/equipment.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
-import { OPEN_ISSUE_STATUSES } from "../utils/equipment-condition.ts"
+import { CLOSED_ISSUE_STATUSES, OPEN_ISSUE_STATUSES } from "../utils/equipment-condition.ts"
 import { resolveUnitRoleIds } from "../utils/equipment-matching.ts"
 import { insertOneOrFail, mutateOrFail, runQuery, toNumeric, toWire } from "../utils/index.ts"
 
@@ -118,82 +118,61 @@ export async function listEquipmentIssues(db: SisubDb, ctx: UserContext, input: 
 }
 
 /**
- * Carrega panes SEM guard. Só para quem já autorizou o escopo por outro caminho — hoje, o
- * carregamento do parque, que precisa das panes abertas para derivar a condição e que pode ler
- * a cozinha PRODUTORA quando ela é diferente da pedida (`resolveProducingKitchen`).
+ * Panes para a tela, SEM guard (quem chama já autorizou a cozinha). As ABERTAS vêm todas: o
+ * `limit` do cliente só corta as encerradas, senão a pane aberta antiga sumiria justamente de uma
+ * cozinha com histórico longo. Do relato mais recente ao mais antigo.
  */
 export async function loadKitchenIssues(db: SisubDb, input: ListEquipmentIssues): Promise<EquipmentIssueWire[]> {
-	const units = await runQuery("FETCH_FAILED", () =>
-		db
-			.select({ id: equipmentUnitInKitchen.id, label: equipmentUnitInKitchen.label, kitchenId: equipmentUnitInKitchen.kitchenId })
-			.from(equipmentUnitInKitchen)
-			.where(and(eq(equipmentUnitInKitchen.kitchenId, input.kitchenId), isNull(equipmentUnitInKitchen.deletedAt)))
-	)
-	const unitById = new Map(units.map((u) => [u.id, u]))
-	const targetIds = input.unitId != null ? units.filter((u) => u.id === input.unitId).map((u) => u.id) : units.map((u) => u.id)
-	if (targetIds.length === 0) return []
-
-	const filters: SQL[] = [inArray(equipmentIssueInKitchen.unitId, targetIds), isNull(equipmentIssueInKitchen.deletedAt)]
-	if (input.onlyOpen) filters.push(inArray(equipmentIssueInKitchen.status, [...OPEN_ISSUE_STATUSES]))
-
-	const rows = await runQuery("FETCH_FAILED", () =>
-		db
-			.select()
-			.from(equipmentIssueInKitchen)
-			.where(and(...filters))
-			.orderBy(desc(equipmentIssueInKitchen.reportedAt))
-			.limit(input.limit)
-	)
-	return rows.flatMap((r) => {
-		const unit = unitById.get(r.unitId)
-		return unit ? [toIssueWire(r, unit)] : []
-	})
+	const scope = { kitchenIds: [input.kitchenId], unitIds: input.unitId != null ? [input.unitId] : null }
+	const open = await loadIssues(db, { ...scope, status: "open" })
+	if (input.onlyOpen) return open
+	const closed = await loadIssues(db, { ...scope, status: "closed", limit: input.limit })
+	return [...open, ...closed].sort((a, b) => Date.parse(b.reported_at) - Date.parse(a.reported_at) || b.id.localeCompare(a.id))
 }
 
 /**
  * Panes ABERTAS (`open`/`in_repair`) das unidades vivas das cozinhas, SEM teto e sem guard. É o
  * insumo da condição derivada: uma pane aberta que ficasse de fora de um `limit` faria a unidade
- * parada aparecer operante. O universo já é pequeno (só o que ainda pesa), e uma consulta só cobre
- * várias cozinhas — a frota inteira, no relatório, sem uma ida ao banco por cozinha.
+ * parada aparecer operante. Uma consulta só cobre várias cozinhas (a frota inteira, no relatório);
+ * `unitIds` recorta às unidades pedidas.
  */
-export async function loadOpenIssues(db: SisubDb, input: { kitchenIds: readonly number[]; unitId?: string | null }): Promise<EquipmentIssueWire[]> {
-	if (input.kitchenIds.length === 0) return []
-	const filters: SQL[] = [
-		inArray(equipmentUnitInKitchen.kitchenId, [...input.kitchenIds]),
-		isNull(equipmentUnitInKitchen.deletedAt),
-		isNull(equipmentIssueInKitchen.deletedAt),
-		inArray(equipmentIssueInKitchen.status, [...OPEN_ISSUE_STATUSES]),
-	]
-	if (input.unitId != null) filters.push(eq(equipmentIssueInKitchen.unitId, input.unitId))
-	const rows = await runQuery("FETCH_FAILED", () =>
-		db
-			.select({ issue: equipmentIssueInKitchen, label: equipmentUnitInKitchen.label, kitchenId: equipmentUnitInKitchen.kitchenId })
-			.from(equipmentIssueInKitchen)
-			.innerJoin(equipmentUnitInKitchen, eq(equipmentUnitInKitchen.id, equipmentIssueInKitchen.unitId))
-			.where(and(...filters))
-			.orderBy(desc(equipmentIssueInKitchen.reportedAt))
-	)
-	return rows.map((r) => toIssueWire(r.issue, { label: r.label, kitchenId: r.kitchenId }))
+export async function loadOpenIssues(db: SisubDb, input: { kitchenIds: readonly number[]; unitIds?: readonly string[] | null }): Promise<EquipmentIssueWire[]> {
+	return loadIssues(db, { ...input, status: "open" })
 }
 
 /** Panes encerradas (resolvidas ou descartadas) da cozinha, da mais recente para a mais antiga, até `limit`. */
 export async function loadClosedIssues(db: SisubDb, input: { kitchenId: number; limit: number }): Promise<EquipmentIssueWire[]> {
-	const rows = await runQuery("FETCH_FAILED", () =>
-		db
-			.select({ issue: equipmentIssueInKitchen, label: equipmentUnitInKitchen.label, kitchenId: equipmentUnitInKitchen.kitchenId })
-			.from(equipmentIssueInKitchen)
-			.innerJoin(equipmentUnitInKitchen, eq(equipmentUnitInKitchen.id, equipmentIssueInKitchen.unitId))
-			.where(
-				and(
-					eq(equipmentUnitInKitchen.kitchenId, input.kitchenId),
-					isNull(equipmentUnitInKitchen.deletedAt),
-					isNull(equipmentIssueInKitchen.deletedAt),
-					inArray(equipmentIssueInKitchen.status, ["resolved", "dismissed"])
-				)
-			)
-			.orderBy(desc(sql`coalesce(${equipmentIssueInKitchen.resolvedAt}, ${equipmentIssueInKitchen.reportedAt})`))
-			.limit(input.limit)
-	)
+	return loadIssues(db, { kitchenIds: [input.kitchenId], status: "closed", limit: input.limit })
+}
+
+/**
+ * A leitura única de pane: unidade viva da cozinha, pane não apagada, hidratada com rótulo e
+ * cozinha. Abertas ordenadas pelo relato; encerradas pelo encerramento (ou relato, sem data de
+ * encerramento). O `id` desempata, para o corte do `limit` não mudar entre requisições.
+ */
+async function loadIssues(
+	db: SisubDb,
+	input: { kitchenIds: readonly number[]; unitIds?: readonly string[] | null; status: "open" | "closed"; limit?: number }
+): Promise<EquipmentIssueWire[]> {
+	if (input.kitchenIds.length === 0 || input.unitIds?.length === 0) return []
+	const isOpen = input.status === "open"
+	const filters: SQL[] = [
+		inArray(equipmentUnitInKitchen.kitchenId, [...input.kitchenIds]),
+		isNull(equipmentUnitInKitchen.deletedAt),
+		isNull(equipmentIssueInKitchen.deletedAt),
+		inArray(equipmentIssueInKitchen.status, isOpen ? [...OPEN_ISSUE_STATUSES] : [...CLOSED_ISSUE_STATUSES]),
+	]
+	if (input.unitIds != null) filters.push(inArray(equipmentIssueInKitchen.unitId, [...input.unitIds]))
+	const recency = isOpen
+		? desc(equipmentIssueInKitchen.reportedAt)
+		: desc(sql`coalesce(${equipmentIssueInKitchen.resolvedAt}, ${equipmentIssueInKitchen.reportedAt})`)
+	const query = db
+		.select({ issue: equipmentIssueInKitchen, label: equipmentUnitInKitchen.label, kitchenId: equipmentUnitInKitchen.kitchenId })
+		.from(equipmentIssueInKitchen)
+		.innerJoin(equipmentUnitInKitchen, eq(equipmentUnitInKitchen.id, equipmentIssueInKitchen.unitId))
+		.where(and(...filters))
+		.orderBy(recency, desc(equipmentIssueInKitchen.id))
+	const rows = await runQuery("FETCH_FAILED", () => (input.limit != null ? query.limit(input.limit) : query))
 	return rows.map((r) => toIssueWire(r.issue, { label: r.label, kitchenId: r.kitchenId }))
 }
 

@@ -78,13 +78,10 @@ export async function getKitchenEquipmentCondition(db: SisubDb, ctx: UserContext
 	// `includeInactive` LIGADO: o relatório de condição existe para mostrar o que está parado.
 	// Com o default, a unidade em manutenção sumiria justamente da tela que fala dela.
 	const units = await listKitchenEquipment(db, ctx, { kitchenId: input.kitchenId, includeInactive: true })
-	// Abertas SEM teto (cada uma muda a condição e a fila); encerradas só até o tamanho do histórico.
-	// Uma lista única com `limit` deixava a pane aberta antiga sair da fila numa cozinha com
-	// histórico longo.
-	const [open, closed] = await Promise.all([
-		loadOpenIssues(db, { kitchenIds: [input.kitchenId] }),
-		loadClosedIssues(db, { kitchenId: input.kitchenId, limit: input.historyLimit ?? 20 }),
-	])
+	// Abertas: as que o parque já trouxe, sem teto, em `open_issues` (com `includeInactive` nenhuma
+	// unidade fica de fora). Encerradas: só até o tamanho do histórico.
+	const open = units.flatMap((u) => u.open_issues)
+	const closed = await loadClosedIssues(db, { kitchenId: input.kitchenId, limit: input.historyLimit ?? 20 })
 
 	const counts: KitchenConditionCounts = { operational: 0, degraded: 0, down: 0, retired: 0 }
 	for (const unit of units) counts[unit.condition] += 1
@@ -280,10 +277,12 @@ export async function getFleetEquipmentReport(db: SisubDb, ctx: UserContext, inp
 	}
 
 	// Panes abertas de TODAS as cozinhas com parque numa consulta só, sem teto: uma por cozinha seria
-	// N+1 sobre a frota, e um `limit` tiraria a pane inoperante antiga da lista e da cobertura.
+	// N+1 sobre a frota, e um `limit` tiraria a pane inoperante antiga da lista e da cobertura. Com
+	// filtro de modelo, só as das unidades filtradas (o recorte por cozinha já cobre `kitchenId`).
 	const kitchenIdsWithPark = [...new Set(units.map((u) => u.kitchenId))]
+	const unitIdsFilter = input.modelId != null ? units.map((u) => u.id) : null
 	const openByUnit = new Map<string, EquipmentIssueWire[]>()
-	for (const issue of await loadOpenIssues(db, { kitchenIds: kitchenIdsWithPark })) {
+	for (const issue of await loadOpenIssues(db, { kitchenIds: kitchenIdsWithPark, unitIds: unitIdsFilter })) {
 		const bucket = openByUnit.get(issue.unit_id) ?? []
 		bucket.push(issue)
 		openByUnit.set(issue.unit_id, bucket)

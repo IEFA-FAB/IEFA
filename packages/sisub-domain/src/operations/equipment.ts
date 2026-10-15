@@ -814,7 +814,7 @@ async function hydrateUnit(db: SisubDb, unit: typeof equipmentUnitInKitchen.$inf
 			.from(equipmentUnitRoleInKitchen)
 			.where(and(eq(equipmentUnitRoleInKitchen.unitId, unit.id), isNull(equipmentUnitRoleInKitchen.deletedAt)))
 	)
-	const openIssues = await loadOpenIssues(db, { kitchenIds: [unit.kitchenId], unitId: unit.id })
+	const openIssues = await loadOpenIssues(db, { kitchenIds: [unit.kitchenId], unitIds: [unit.id] })
 	return toUnitWire(
 		unit,
 		model ? toModelWire(model, roles.get(unit.modelId) ?? []) : null,
