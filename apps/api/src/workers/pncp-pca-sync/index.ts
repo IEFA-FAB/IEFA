@@ -46,7 +46,7 @@ export interface PcaSyncYearResult {
 function getClient(): SupabaseClient<any, any> {
 	return createClient(env.API_SUPABASE_URL, env.API_SUPABASE_SERVICE_ROLE_KEY, {
 		db: { schema: "compras_gov_integration" },
-		auth: { persistSession: false },
+		auth: { persistSession: false, autoRefreshToken: false },
 	})
 }
 
