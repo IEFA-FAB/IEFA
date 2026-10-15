@@ -53,10 +53,11 @@ function asError(error: unknown): Error {
 export const INFRASTRUCTURE_ERROR_MESSAGE = "Serviço temporariamente indisponível. Tente novamente em instantes."
 
 /**
- * `statement_timeout` (57014): a consulta rodou e demorou demais, quase sempre pelo tamanho do
- * próprio pedido. Continua 400, e a mensagem diz o que fazer em vez de "tente de novo".
+ * `statement_timeout` (57014): o statement rodou e demorou demais, quase sempre pelo tamanho do
+ * próprio pedido. Continua 400. Vale para leitura e para escrita (salvamento, mudança de
+ * acesso, escrita parada em lock), por isso o texto é neutro e só sugere filtro para consulta.
  */
-export const STATEMENT_TIMEOUT_MESSAGE = "A consulta demorou demais e foi cancelada. Reduza o período ou os filtros e tente de novo."
+export const STATEMENT_TIMEOUT_MESSAGE = "A operação demorou demais e foi cancelada. Tente de novo; se for uma consulta, reduza o período ou os filtros."
 
 export function handleDomainError(error: unknown): never {
 	// Garantia de identidade vem ANTES do ramo de permissão e é relançada INTEIRA: é o

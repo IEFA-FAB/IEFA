@@ -63,10 +63,15 @@ const NOT_INFRASTRUCTURE_CODES = [
 	// `CONNECTION_*` fora dos três do postgres-js não conta
 	"CONNECTION_REFUSED",
 	"CONNECTION_LOST",
+	// classe 08 só com SQLSTATE de 5 caracteres
+	"08",
+	"080",
+	"0800",
+	"080000",
 	"",
 ]
 
-/** Mensagens reais do Supavisor (`lib/supavisor/errors/*.ex`), sempre com SQLSTATE `XX000`. */
+/** Prefixos reais do Supavisor (`lib/supavisor/errors/*.ex`), sempre com SQLSTATE `XX000`. */
 const SUPAVISOR_OVERLOAD_MESSAGES = [
 	"(EMAXCONN) max client connections reached, limit: 200",
 	"(EMAXCONNSESSION) max clients reached in session mode - max clients are limited to pool_size: 15",
@@ -75,6 +80,12 @@ const SUPAVISOR_OVERLOAD_MESSAGES = [
 	"(ECHECKOUTRETRIES) checkout retries exhausted",
 	"(EMAXPOOLSREACHED) max pools reached",
 	"(EDBHANDLEREXITED) DbHandler exited",
+	"(EPROXYSUPERVISORUNAVAILABLE) proxy supervisor unavailable after retries",
+	"(EPROXYSTARTFAILED) failed to start proxy connection",
+	"(EWORKERNOTFOUND) worker not found",
+	"(ECIRCUITBREAKER) too many failed attempts",
+	"(EPOOLCONFIGNOTFOUND) pool config not found",
+	"(EPOOLRANCHNOTFOUND) pool ranch not found",
 ]
 
 describe("isInfrastructureError", () => {
@@ -99,6 +110,8 @@ describe("isInfrastructureError", () => {
 	test("XX000 sem o prefixo do Supavisor é erro interno do Postgres, não infraestrutura", () => {
 		expect(isInfrastructureError(queryFailed("XX000", "could not open relation with OID 1234"))).toBe(false)
 		expect(isInfrastructureError(queryFailed("XX000", "falhou (EMAXCONN) no meio"))).toBe(false)
+		expect(isInfrastructureError(queryFailed("XX000", "(EMAXCONN)sem espaço"))).toBe(false)
+		expect(isInfrastructureError(queryFailed("XX000", "(Emaxconn) minúsculo"))).toBe(false)
 		expect(isInfrastructureError(queryFailed("P0001", "(EMAXCONN) texto de RAISE"))).toBe(false)
 	})
 

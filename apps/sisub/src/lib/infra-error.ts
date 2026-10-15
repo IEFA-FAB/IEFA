@@ -39,7 +39,7 @@ import { isTransientConnectionError, unwrapPgError } from "@iefa/sisub-domain/ut
  *   `throw error` final do `handleDomainError` e levava o host ao navegador.
  * - `53300` (too_many_connections): o que o Postgres responde direto; pelo Supavisor ele só
  *   chega repassado da conexão do pooler com o banco. O pooler cheio tem código próprio,
- *   ver {@link SUPAVISOR_OVERLOAD}.
+ *   ver {@link SUPAVISOR_FAILURE}.
  */
 const EXTRA_INFRASTRUCTURE_CODES: ReadonlySet<string> = new Set([
 	QUERY_DEADLINE_CODE,
@@ -52,19 +52,22 @@ const EXTRA_INFRASTRUCTURE_CODES: ReadonlySet<string> = new Set([
 ])
 
 /**
- * Pooler sem vaga ou sem conexão para entregar. O Supavisor responde `FATAL` com SQLSTATE
- * genérico `XX000` e o código dele entre parênteses no início da mensagem: `(EMAXCONN) max
- * client connections reached, limit: N`, `(EMAXCONNSESSION) max clients reached in session
- * mode…`, `(ECHECKOUTTIMEOUT) unable to check out connection from the pool after Nms…`.
- * Fonte: `supabase/supavisor`, `lib/supavisor/error.ex` (o `postgres_error` padrão é
- * `%{"S" => "FATAL", "C" => "XX000", "M" => "(<code>) <mensagem>"}`) e
- * `lib/supavisor/errors/{max_connections,checkout_timeout,pool_checkout,
- * checkout_retries_exhausted,max_pools_reached,db_handler_exited}_error.ex`, commit 5df5caf
- * (2026-10-08). Nos logs do projeto (24 h, `supavisor_logs`) não houve episódio para conferir.
+ * Falha do próprio pooler. O Supavisor responde `FATAL` com SQLSTATE genérico `XX000` e o
+ * código dele entre parênteses no início da mensagem: `(EMAXCONN) max client connections
+ * reached, limit: N`, `(ECHECKOUTTIMEOUT) unable to check out connection from the pool…`,
+ * `(EPROXYSUPERVISORUNAVAILABLE) …`. Fonte: `supabase/supavisor`, `lib/supavisor/error.ex`
+ * (o `postgres_error` padrão é `%{"S" => "FATAL", "C" => "XX000", "M" => "(<code>) <mensagem>"}`)
+ * e `lib/supavisor/errors/*_error.ex`, commit 5df5caf (2026-10-08). Nos logs do projeto (24 h,
+ * `supavisor_logs`) não houve episódio para conferir.
  *
- * `XX000` sozinho é o `internal_error` do Postgres e não entra: só com o prefixo do Supavisor.
+ * Qualquer prefixo `(E…)`, e não uma lista: o cliente do Supavisor é o nosso servidor, então
+ * toda recusa dele é do lado do servidor, e o Postgres não escreve `internal_error` nesse
+ * formato. Os erros de configuração (senha, tenant) usam outro SQLSTATE (`28P01`, `08P01`) ou
+ * também são indisponibilidade do ponto de vista de quem usa a tela.
+ *
+ * `XX000` sem o prefixo é o `internal_error` do Postgres e não entra.
  */
-const SUPAVISOR_OVERLOAD = /^\((EMAXCONN|EMAXCONNSESSION|ECHECKOUTTIMEOUT|EPOOLCHECKOUT|ECHECKOUTRETRIES|EMAXPOOLSREACHED|EDBHANDLEREXITED)\)/
+const SUPAVISOR_FAILURE = /^\(E[A-Z]+\) /
 
 /** O erro do driver por trás do erro recebido; `undefined` quando é regra de negócio. */
 function driverErrorOf(error: unknown): unknown {
@@ -80,7 +83,7 @@ export function isInfrastructureError(error: unknown): boolean {
 	if (isTransientConnectionError(driver)) return true
 	const { code, message } = unwrapPgError(driver)
 	if (!code) return false
-	return EXTRA_INFRASTRUCTURE_CODES.has(code) || (code === "XX000" && SUPAVISOR_OVERLOAD.test(message ?? ""))
+	return EXTRA_INFRASTRUCTURE_CODES.has(code) || (code === "XX000" && SUPAVISOR_FAILURE.test(message ?? ""))
 }
 
 /** `57014`: o `statement_timeout` cancelou a consulta (ou alguém a cancelou no banco). */

@@ -207,11 +207,14 @@ const TRANSIENT_CONNECTION_CODES: ReadonlySet<string> = new Set([
 	"57P03",
 ])
 
+/** SQLSTATE da classe 08: exatamente 5 caracteres. Só o prefixo `08` aceitaria código de outra origem. */
+const CONNECTION_EXCEPTION_SQLSTATE = /^08[0-9A-Z]{3}$/
+
 /** A falha foi de conexão (ver {@link TRANSIENT_CONNECTION_CODES}), não do que a query pediu? */
 export function isTransientConnectionError(e: unknown): boolean {
 	const code = unwrapPgError(e).code
 	if (!code) return false
-	return TRANSIENT_CONNECTION_CODES.has(code) || code.startsWith("08")
+	return TRANSIENT_CONNECTION_CODES.has(code) || CONNECTION_EXCEPTION_SQLSTATE.test(code)
 }
 
 /**
