@@ -68,14 +68,16 @@ export async function upsertArranchamento(db: SisubDb, ctx: UserContext, input: 
 	await runQuery(
 		"UPSERT_FAILED",
 		() =>
-			retryOnceOnTransientConnectionError(() =>
-				db
-					.insert(arranchamentoInKitchen)
-					.values(row)
-					.onConflictDoUpdate({
-						target: [arranchamentoInKitchen.userId, arranchamentoInKitchen.date, arranchamentoInKitchen.meal],
-						set: { willEat: input.willEat, messHallId: input.messHallId },
-					})
+			retryOnceOnTransientConnectionError(
+				() =>
+					db
+						.insert(arranchamentoInKitchen)
+						.values(row)
+						.onConflictDoUpdate({
+							target: [arranchamentoInKitchen.userId, arranchamentoInKitchen.date, arranchamentoInKitchen.meal],
+							set: { willEat: input.willEat, messHallId: input.messHallId },
+						}),
+				{ label: "arranchamento.upsert" }
 			),
 		{ mapError: toUpsertError }
 	)

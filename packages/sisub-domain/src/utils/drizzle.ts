@@ -189,7 +189,9 @@ export async function runQuery<T>(code: string, op: () => Promise<T>, opts?: Run
  *
  * Fora, de propósito: `QUERY_DEADLINE` (45 s; repetir estoura os 60 s do ALB), `57014`
  * (`statement_timeout`: a query rodou e foi lenta, repetir dobra a carga) e qualquer erro de
- * dado ou permissão.
+ * dado ou permissão. `CONNECTION_ENDED`/`CONNECTION_DESTROYED` também chegam à query que
+ * esperava atrás de uma conexão travada quando o reset por prazo derruba o pool; esse caso não
+ * repete pelo orçamento de tempo de {@link retryOnceOnTransientConnectionError}, não pelo código.
  */
 const TRANSIENT_CONNECTION_CODES: ReadonlySet<string> = new Set([
 	"CONNECT_TIMEOUT",
@@ -213,14 +215,47 @@ export function isTransientConnectionError(e: unknown): boolean {
 }
 
 /**
- * Roda `op` e, se falhar por conexão, repete UMA vez. Só para escrita idempotente (upsert por
- * chave única, delete por chave): o statement pode ter sido aplicado antes de a conexão cair.
+ * Orçamento da 1ª tentativa para valer a 2ª. A 2ª tem teto próprio no `QUERY_DEADLINE` (45 s
+ * do `postgres-pool.ts`): 10 s + 45 s cabe nos 60 s do ALB. Uma 1ª tentativa mais longa que
+ * isso não foi "soluço": ou esperou atrás de uma conexão travada até o reset do pool (e caiu
+ * com `CONNECTION_ENDED`/`CONNECTION_DESTROYED`), ou o banco está lento, e repetir só leva o
+ * request ao 504 com a escrita ainda podendo ser aplicada depois.
  */
-export async function retryOnceOnTransientConnectionError<T>(op: () => Promise<T>): Promise<T> {
+const TRANSIENT_RETRY_BUDGET_MS = 10_000
+
+interface TransientRetryOptions {
+	/** Nome da operação no log da falha descartada (ex.: "arranchamento.upsert"). Sem dado do usuário. */
+	label: string
+	/** Ver {@link TRANSIENT_RETRY_BUDGET_MS}. */
+	budgetMs?: number
+	/** Relógio injetável (teste). */
+	now?: () => number
+}
+
+/**
+ * Roda `op` e, se falhar por conexão ({@link isTransientConnectionError}) dentro do orçamento
+ * de tempo, repete UMA vez. A 1ª falha vai para o log antes da 2ª tentativa (só código e texto
+ * do driver, sem SQL nem parâmetros), para queda recorrente de conexão aparecer no
+ * monitoramento mesmo quando a 2ª dá certo, e para não sumir quando a 2ª falha por outro motivo.
+ *
+ * - Só para leitura ou escrita idempotente (upsert por chave única, delete por chave): o
+ *   statement pode ter sido aplicado antes de a conexão cair.
+ * - **Não use com handle de transação** (`tx` de `db.transaction`): depois da queda a
+ *   transação está perdida, e repetir na mesma `tx` só troca o erro original por um
+ *   `CONNECTION_*` ou `25P02`. Para repetir uma transação, envolva o `db.transaction` inteiro.
+ */
+export async function retryOnceOnTransientConnectionError<T>(op: () => Promise<T>, opts: TransientRetryOptions): Promise<T> {
+	const { label, budgetMs = TRANSIENT_RETRY_BUDGET_MS, now = Date.now } = opts
+	const startedAt = now()
 	try {
 		return await op()
 	} catch (e) {
 		if (!isTransientConnectionError(e)) throw e
+		const elapsedMs = now() - startedAt
+		if (elapsedMs >= budgetMs) throw e
+		const pg = unwrapPgError(e)
+		// biome-ignore lint/suspicious/noConsole: sinal operacional — é o único rastro da queda quando a 2ª tentativa dá certo
+		console.warn(`[db] ${label}: falha de conexão em ${elapsedMs} ms (${pg.code}: ${pg.message ?? ""}); repetindo uma vez`)
 		return await op()
 	}
 }

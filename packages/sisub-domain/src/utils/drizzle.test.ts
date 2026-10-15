@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test"
+import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test"
 import { DomainError, GENERIC_DB_ERROR_MESSAGE, QueryFailedError } from "../types/errors.ts"
 import { isTransientConnectionError, retryOnceOnTransientConnectionError, runQuery, toNumeric, unwrapPgError } from "./drizzle.ts"
 
@@ -205,35 +205,89 @@ describe("isTransientConnectionError", () => {
 })
 
 describe("retryOnceOnTransientConnectionError", () => {
-	test("queda de conexão: repete uma vez e devolve o resultado", async () => {
+	// A 1ª falha vai para o log; aqui o spy confere o que sai e mantém a saída do teste limpa.
+	let warn: ReturnType<typeof spyOn>
+	beforeEach(() => {
+		warn = spyOn(console, "warn").mockImplementation(() => {})
+	})
+	afterEach(() => warn.mockRestore())
+
+	const LABEL = { label: "teste.upsert" }
+
+	test("queda de conexão: repete uma vez, devolve o resultado e loga a 1ª falha sem SQL", async () => {
 		let calls = 0
 		const result = await retryOnceOnTransientConnectionError(() => {
 			calls++
-			return calls === 1 ? Promise.reject(drizzleQueryError("insert …", CONNECT_TIMEOUT)) : Promise.resolve("ok")
-		})
+			return calls === 1 ? Promise.reject(drizzleQueryError("insert into t values ('fulano@fab.mil.br')", CONNECT_TIMEOUT)) : Promise.resolve("ok")
+		}, LABEL)
 		expect(result).toBe("ok")
 		expect(calls).toBe(2)
+		expect(warn).toHaveBeenCalledTimes(1)
+		const line = String(warn.mock.calls[0]?.[0])
+		expect(line).toContain("teste.upsert")
+		expect(line).toContain("CONNECT_TIMEOUT")
+		expect(line).not.toContain("fulano")
+		expect(line).not.toContain("insert into")
 	})
 
-	test("segunda queda seguida: desiste e lança o erro da segunda", async () => {
+	test("segunda queda seguida: desiste e lança o erro da segunda; a 1ª ficou no log", async () => {
 		let calls = 0
 		const second = drizzleQueryError("insert …", { code: "ECONNRESET", message: "reset" })
 		const error = await retryOnceOnTransientConnectionError(() => {
 			calls++
 			return Promise.reject(calls === 1 ? drizzleQueryError("insert …", CONNECT_TIMEOUT) : second)
-		}).catch((e) => e)
+		}, LABEL).catch((e) => e)
 		expect(error).toBe(second)
 		expect(calls).toBe(2)
+		expect(String(warn.mock.calls[0]?.[0])).toContain("CONNECT_TIMEOUT")
 	})
 
-	test("erro de dado não repete", async () => {
+	test("erro de dado não repete nem loga", async () => {
 		let calls = 0
 		const fk = drizzleQueryError("insert …", { code: "23503", message: "violates foreign key constraint" })
 		const error = await retryOnceOnTransientConnectionError(() => {
 			calls++
 			return Promise.reject(fk)
-		}).catch((e) => e)
+		}, LABEL).catch((e) => e)
 		expect(error).toBe(fk)
 		expect(calls).toBe(1)
+		expect(warn).not.toHaveBeenCalled()
+	})
+
+	test("1ª tentativa além do orçamento (fila atrás de conexão travada até o reset do pool): não repete", async () => {
+		let clock = 0
+		let calls = 0
+		const ended = drizzleQueryError("insert …", { code: "CONNECTION_ENDED", message: "write CONNECTION_ENDED" })
+		const error = await retryOnceOnTransientConnectionError(
+			() => {
+				calls++
+				clock += 45_000
+				return Promise.reject(ended)
+			},
+			{ ...LABEL, now: () => clock }
+		).catch((e) => e)
+		expect(error).toBe(ended)
+		expect(calls).toBe(1)
+		expect(warn).not.toHaveBeenCalled()
+	})
+
+	test("orçamento padrão de 10 s: 9,9 s repete, 10 s não", async () => {
+		for (const [spentMs, expectedCalls] of [
+			[9_900, 2],
+			[10_000, 1],
+		] as const) {
+			let clock = 0
+			let calls = 0
+			await retryOnceOnTransientConnectionError(
+				() => {
+					calls++
+					if (calls > 1) return Promise.resolve("ok")
+					clock += spentMs
+					return Promise.reject(drizzleQueryError("insert …", CONNECT_TIMEOUT))
+				},
+				{ ...LABEL, now: () => clock }
+			).catch(() => undefined)
+			expect(calls).toBe(expectedCalls)
+		}
 	})
 })
