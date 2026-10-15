@@ -32,7 +32,7 @@ import { assertGrantable, GrantNotAllowedError, hasPermission } from "@iefa/pbac
 import { type SQL, sql } from "drizzle-orm"
 import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
-import { describeDriverError, unwrapPgError } from "../utils/index.ts"
+import { describeDriverError, driverFailure, unwrapPgError } from "../utils/index.ts"
 
 /** Grau registrado no log. `none` não existe aqui: a coluna só aceita os dois. */
 export type AuditGrade = "session" | "fresh"
@@ -95,9 +95,11 @@ export function toAccessDomainError(
 	const known = ACCESS_ERRORS[token]
 	if (known?.notFound) return new NotFoundError(known.notFound, options.notFoundId ?? "?")
 	if (known) return new DomainError(known.code, known.message, describeDriverError(error))
-	// Falha que não é do contrato (conexão, timeout): o código do chamador, com a CAUSA do driver
-	// — `DrizzleQueryError.message` é só o SQL.
-	return new DomainError(options.fallbackCode ?? "ACCESS_CHANGE_FAILED", describeDriverError(error))
+	// Falha que não é do contrato (conexão, timeout): o código do chamador, como `QueryFailedError`.
+	// O diagnóstico (SQL da função auditada, parâmetros, host do pooler) fica na `message`, para
+	// o log; o cliente lê a `publicMessage` genérica, e o erro do driver segue no `cause`, que é
+	// por onde o app distingue queda de conexão (503) de erro de dado (400).
+	return driverFailure(options.fallbackCode ?? "ACCESS_CHANGE_FAILED", error, "função de acesso")
 }
 
 /**
