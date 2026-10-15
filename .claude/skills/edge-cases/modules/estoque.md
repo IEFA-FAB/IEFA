@@ -277,9 +277,12 @@ Hipóteses a verificar; a suíte `inventory-cycle.e2e.operations.test.ts` e as d
   Configurações do estoque (nível 3), o campo "Prazo de entrega padrão (dias)", vazio por padrão;
   a edição fica em rascunho local por conta até salvar; salvar confere a versão no servidor e, se
   outra pessoa salvou, oferece abrir a atual levando as alterações (o prazo vai como o texto
-  digitado: inválido continua inválido, nunca vira "não configurado").
+  digitado: inválido continua inválido, nunca vira "não configurado"). Rascunho reaberto depois que
+  outra pessoa salvou passa pelo mesmo merge: só o que o usuário mudou volta, e campo mudado pelos
+  dois aparece num aviso fixo com os dois valores.
 - **Cobertura:** `apps/sisub/src/lib/replenishment-plan.test.ts › prazo de entrega: histórico →
   prazo da cozinha → pendência` (os três casos e o limiar do item) · `apps/sisub/src/test/unit/replenishment.test.ts
   › estimateLeadTime`, `› urgência indeterminada…` · `apps/sisub/src/lib/kitchen-stock-settings.test.ts`
-  (campo, rascunho, merge com prazo inválido e recusa por versão). **LACUNA:** integração da gravação com versão
+  (campo, rascunho, merge com prazo inválido, rascunho restaurado sobre outra versão e recusa por
+  versão). **LACUNA:** integração da gravação com versão
   (`writeKitchenStockSettings`) contra o banco real, depois de aplicada a 20261014120000; e2e do aviso.

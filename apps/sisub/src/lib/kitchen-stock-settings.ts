@@ -8,6 +8,8 @@
  * default: nulo é "não configurado", e a reposição mostra a pendência em vez de presumir um número.
  */
 
+import { rebaseDraftValues } from "@/lib/drafts/rebase-draft"
+
 export type Segregation = "strict" | "dual"
 
 // `type`, não `interface`: o merge de três vias (`rebaseDraftValues`) e o rascunho pedem um Record.
@@ -128,6 +130,49 @@ export function stockSettingsFromDraft(draft: StockSettingsDraft): StockSettings
 	const leadTime = parseLeadTimeInput(defaultLeadTimeText)
 	if (leadTime.invalid) return null
 	return { ...rest, defaultLeadTimeDays: leadTime.value }
+}
+
+/**
+ * Assinatura do rascunho (`baseStamp` do `useDraft`): a versão sobre a qual ele começou E os valores
+ * dela. Só a versão diria que o rascunho ficou velho; os valores são a base do merge de três vias
+ * quando ele é restaurado sobre uma versão mais nova.
+ */
+export function encodeStockSettingsDraftBase(settings: StockSettings): string {
+	return JSON.stringify({ version: settings.version, values: toStockSettingsDraft(settings) })
+}
+
+export function decodeStockSettingsDraftBase(stamp: string | null | undefined): { version: string | null; values: StockSettingsDraft } | null {
+	if (!stamp) return null
+	try {
+		const parsed = JSON.parse(stamp) as { version?: unknown; values?: unknown }
+		if (parsed.values == null || typeof parsed.values !== "object") return null
+		const version = typeof parsed.version === "string" ? parsed.version : null
+		return { version, values: parsed.values as StockSettingsDraft }
+	} catch {
+		return null
+	}
+}
+
+export interface RestoredDraft {
+	values: StockSettingsDraft
+	/** O rascunho começou numa versão que não é a atual e foi levado para ela. */
+	rebased: boolean
+	carried: string[]
+	/** Campos que o usuário E a outra pessoa mudaram: vale o do usuário, e a tela avisa. */
+	overlapping: string[]
+}
+
+/**
+ * Rascunho restaurado sobre a versão ATUAL. Se ele começou noutra versão, só os campos que o
+ * usuário mudou (rascunho ≠ base dele) saem do rascunho; o resto vem da atual. Sem isso, os campos
+ * que ele nem tocou voltavam com o valor antigo e o Salvar (que leva a versão atual) desfazia o
+ * que outra pessoa gravou. Base ilegível: o rascunho vale inteiro, como antes.
+ */
+export function restoreStockSettingsDraft(restored: StockSettingsDraft, stamp: string | null | undefined, current: StockSettings): RestoredDraft {
+	const base = decodeStockSettingsDraftBase(stamp)
+	if (!base || base.version === current.version) return { values: restored, rebased: false, carried: [], overlapping: [] }
+	const { values, carried, overlapping } = rebaseDraftValues(base.values, restored, toStockSettingsDraft(current))
+	return { values, rebased: true, carried, overlapping }
 }
 
 /** Chave do rascunho local (por conta, pelo `draftStore`): uma por cozinha. */

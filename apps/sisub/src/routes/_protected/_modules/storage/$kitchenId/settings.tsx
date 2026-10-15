@@ -1,5 +1,5 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router"
-import { RefreshCw, Save, SlidersHorizontal, TriangleAlert } from "lucide-react"
+import { GitMerge, RefreshCw, Save, SlidersHorizontal, TriangleAlert, X } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { requirePermission } from "@/auth/pbac"
 import { PendingChanges } from "@/components/features/shared/PendingChanges"
@@ -12,12 +12,15 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/components/ui/toast"
 import { useDraft } from "@/hooks/forms/useDraft"
-import type { DraftFields } from "@/lib/drafts/draft-diff"
+import { type DraftFields, formatDraftValue, isDraftValueEqual } from "@/lib/drafts/draft-diff"
+import { draftStore } from "@/lib/drafts/draft-store"
 import { rebaseDraftValues } from "@/lib/drafts/rebase-draft"
 import {
+	encodeStockSettingsDraftBase,
 	isStockSettingsConflict,
 	MAX_LEAD_TIME_DAYS,
 	parseLeadTimeInput,
+	restoreStockSettingsDraft,
 	type StockSettings,
 	type StockSettingsDraft,
 	stockSettingsDraftKey,
@@ -44,7 +47,10 @@ import { fetchStockSettingsFn, saveStockSettingsFn } from "@/server/adjustment.f
  *   com as alterações pendentes ao lado do Salvar;
  * - a gravação leva a versão aberta e o servidor recusa se outra pessoa salvou no meio-tempo;
  * - a versão é relida no foco da janela; divergiu com edição pendente, a tela congela e oferece
- *   abrir a atual levando as alterações (merge de três vias). Sem edição pendente, só atualiza.
+ *   abrir a atual levando as alterações (merge de três vias). Sem edição pendente, só atualiza;
+ * - rascunho restaurado que começou numa versão que não é a atual passa pelo mesmo merge: a
+ *   assinatura do rascunho guarda a versão-base e os valores dela, então só o que o usuário mudou
+ *   sai do rascunho. Campo que os dois mudaram fica num aviso fixo, com os dois valores.
  */
 
 export const Route = createFileRoute("/_protected/_modules/storage/$kitchenId/settings")({
@@ -79,26 +85,63 @@ function StockSettingsPage() {
 /** `head: null` = o servidor recusou por versão e a releitura da atual ainda não voltou. */
 type Conflict = { head: StockSettings | null }
 
+/** Resultado de levar a edição para a versão atual, mostrado até o usuário salvar ou fechar. */
+interface MergeNotice {
+	reason: "restored" | "carried"
+	overlapping: Array<{ field: string; label: string; mine: string; theirs: string }>
+}
+
+function formatField(field: keyof StockSettingsDraft, value: unknown): string {
+	const format = DRAFT_FIELDS[field]?.format as ((value: unknown) => string) | undefined
+	return format ? format(value) : formatDraftValue(value)
+}
+
+function describeOverlap(overlapping: readonly string[], mine: StockSettingsDraft, theirs: StockSettingsDraft): MergeNotice["overlapping"] {
+	return overlapping.map((name) => {
+		const field = name as keyof StockSettingsDraft
+		return { field: name, label: DRAFT_FIELDS[field]?.label ?? name, mine: formatField(field, mine[field]), theirs: formatField(field, theirs[field]) }
+	})
+}
+
 function StockSettingsEditor({ kitchenId, settings }: { kitchenId: number; settings: StockSettings }) {
 	const router = useRouter()
 	// `opened` é a versão sobre a qual a edição começou: base do merge, do rascunho e da gravação.
 	const [opened, setOpened] = useState<StockSettings>(settings)
 	const [form, setForm] = useState<StockSettingsDraft>(() => toStockSettingsDraft(settings))
 	const [conflict, setConflict] = useState<Conflict | null>(null)
+	const [mergeNotice, setMergeNotice] = useState<MergeNotice | null>(null)
 	const [busy, setBusy] = useState(false)
 
 	const baseline = toStockSettingsDraft(opened)
 	const toSave = stockSettingsFromDraft(form)
 	const leadTimeInvalid = parseLeadTimeInput(form.defaultLeadTimeText).invalid
+	const draftKey = stockSettingsDraftKey(kitchenId)
+	// Versão-base E os valores dela: a base do merge quando o rascunho volta sobre outra versão.
+	const baseStamp = encodeStockSettingsDraftBase(opened)
+
+	function restoreDraft(values: StockSettingsDraft) {
+		const entry = draftStore.get<StockSettingsDraft>(draftKey)
+		const restored = restoreStockSettingsDraft(values, entry?.baseStamp, opened)
+		setForm(restored.values)
+		if (!restored.rebased) return
+		// O rascunho passa a valer sobre a versão atual: assinatura nova (senão ficaria "desatualizado"
+		// para sempre); se o merge não deixou nada do usuário, ele sai.
+		if (entry) {
+			if (isDraftValueEqual(restored.values, baseline)) draftStore.delete(draftKey)
+			else draftStore.set<StockSettingsDraft>({ ...entry, values: restored.values, baseStamp })
+		}
+		setMergeNotice({ reason: "restored", overlapping: describeOverlap(restored.overlapping, restored.values, baseline) })
+	}
+
 	const draft = useDraft<StockSettingsDraft>({
-		key: stockSettingsDraftKey(kitchenId),
+		key: draftKey,
 		title: "Configurações de estoque",
 		href: `/storage/${kitchenId}/settings`,
 		baseline,
 		current: form,
-		baseStamp: opened.version ?? "sem-linha",
+		baseStamp,
 		fields: DRAFT_FIELDS,
-		onRestore: setForm,
+		onRestore: restoreDraft,
 	})
 
 	// O que a releitura do foco consulta DEPOIS do await: a renderização em que o foco disparou
@@ -159,12 +202,7 @@ function StockSettingsEditor({ kitchenId, settings }: { kitchenId: number; setti
 		// O rascunho renasce com a assinatura da versão atual; com a antiga, ficaria "desatualizado".
 		draft.clear()
 		applyBaseline(head, merged)
-		if (overlapping.length > 0) {
-			const labels = overlapping.map((field) => DRAFT_FIELDS[field as keyof StockSettingsDraft]?.label ?? field)
-			toast.warning(`Confira: ${labels.join(", ")} também foi alterado por outra pessoa. Vale o seu valor.`)
-		} else if (carried.length > 0) {
-			toast.success("Suas alterações foram levadas para a versão atual. Confira e salve.")
-		}
+		if (carried.length > 0) setMergeNotice({ reason: "carried", overlapping: describeOverlap(overlapping, merged, toStockSettingsDraft(head)) })
 	}
 
 	async function save() {
@@ -177,6 +215,7 @@ function StockSettingsEditor({ kitchenId, settings }: { kitchenId: number; setti
 			// O baseline passa a ser o gravado (texto normalizado: "05" vira "5"); com o form igual a
 			// ele, o rascunho se apaga sozinho.
 			applyBaseline({ ...toSave, version })
+			setMergeNotice(null)
 			toast.success("Configurações salvas")
 			await router.invalidate()
 		} catch (error) {
@@ -224,6 +263,36 @@ function StockSettingsEditor({ kitchenId, settings }: { kitchenId: number; setti
 								Ler a versão atual de novo
 							</Button>
 						)}
+					</AlertDescription>
+				</Alert>
+			)}
+
+			{mergeNotice && !frozen && (
+				<Alert variant={mergeNotice.overlapping.length > 0 ? "warning" : "info"}>
+					<GitMerge />
+					<AlertTitle>
+						{mergeNotice.reason === "restored" ? "Seu rascunho foi levado para a versão atual" : "Suas alterações foram levadas para a versão atual"}
+					</AlertTitle>
+					<AlertDescription>
+						<p>
+							{mergeNotice.reason === "restored"
+								? "Ele começou numa versão que outra pessoa já alterou. Só os campos que você mudou ficaram com o seu valor; o resto é o que está salvo agora."
+								: "Só os campos que você mudou ficaram com o seu valor; o resto é o que está salvo agora."}{" "}
+							Confira antes de salvar.
+						</p>
+						{mergeNotice.overlapping.length > 0 && (
+							<ul className="mt-2 space-y-1">
+								{mergeNotice.overlapping.map((item) => (
+									<li key={item.field}>
+										<span className="text-foreground">{item.label}</span>: a outra pessoa salvou {item.theirs}; ficou o seu valor, {item.mine}.
+									</li>
+								))}
+							</ul>
+						)}
+						<Button type="button" variant="ghost" size="sm" className="mt-2" onClick={() => setMergeNotice(null)}>
+							<X className="mr-2 size-4" />
+							Entendi
+						</Button>
 					</AlertDescription>
 				</Alert>
 			)}

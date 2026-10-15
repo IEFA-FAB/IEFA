@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest"
 import { rebaseDraftValues } from "@/lib/drafts/rebase-draft"
 import {
+	decodeStockSettingsDraftBase,
+	encodeStockSettingsDraftBase,
 	isStockSettingsConflict,
 	parseLeadTimeInput,
 	parseStockSettingsRow,
+	restoreStockSettingsDraft,
 	STOCK_SETTINGS_COLUMNS,
 	STOCK_SETTINGS_CONFLICT_MESSAGE,
 	STOCK_SETTINGS_VERSION_PATTERN,
@@ -117,5 +120,47 @@ describe("versão", () => {
 	it("a recusa por versão é reconhecida pela tela", () => {
 		expect(isStockSettingsConflict(STOCK_SETTINGS_CONFLICT_MESSAGE)).toBe(true)
 		expect(isStockSettingsConflict("Erro ao salvar")).toBe(false)
+	})
+})
+
+describe("rascunho restaurado sobre outra versão", () => {
+	// A altera a tolerância da contagem sobre v1 e fecha a aba; B muda a alçada de 500 para 800 e
+	// salva (v2); A reabre a tela.
+	const v1 = parseStockSettingsRow(row({ updated_at: "2026-10-14 12:00:00.000001+00" }))
+	const v2 = { ...v1, adjustmentApprovalValue: 800, version: "2026-10-15 09:00:00.000002+00" }
+	const draftOfA = { ...toStockSettingsDraft(v1), countTolerancePct: 7 }
+	const stampOfA = encodeStockSettingsDraftBase(v1)
+
+	it("a assinatura guarda a versão-base e os valores dela", () => {
+		expect(decodeStockSettingsDraftBase(stampOfA)).toEqual({ version: v1.version, values: toStockSettingsDraft(v1) })
+		expect(decodeStockSettingsDraftBase("2026-10-14 12:00:00+00")).toBeNull()
+	})
+
+	it("só o que A mudou sai do rascunho: a alçada de B fica 800 e o Salvar não a desfaz", () => {
+		const restored = restoreStockSettingsDraft(draftOfA, stampOfA, v2)
+		expect(restored.rebased).toBe(true)
+		expect(restored.values.adjustmentApprovalValue).toBe(800)
+		expect(restored.values.countTolerancePct).toBe(7)
+		expect(restored.overlapping).toEqual([])
+		expect(stockSettingsFromDraft(restored.values)).toMatchObject({ adjustmentApprovalValue: 800, countTolerancePct: 7 })
+	})
+
+	it("campo que os dois mudaram fica com o valor de A e é apontado", () => {
+		const v2b = { ...v2, countTolerancePct: 6 }
+		const restored = restoreStockSettingsDraft(draftOfA, stampOfA, v2b)
+		expect(restored.values.countTolerancePct).toBe(7)
+		expect(restored.values.adjustmentApprovalValue).toBe(800)
+		expect(restored.overlapping).toEqual(["countTolerancePct"])
+	})
+
+	it("mesma versão: o rascunho volta como está", () => {
+		expect(restoreStockSettingsDraft(draftOfA, stampOfA, v1)).toEqual({ values: draftOfA, rebased: false, carried: [], overlapping: [] })
+	})
+
+	it("cozinha sem linha quando o rascunho começou, e alguém criou a linha depois", () => {
+		const empty = { ...v1, version: null }
+		const created = { ...v1, adjustmentApprovalValue: 800, version: "2026-10-15 09:00:00+00" }
+		const restored = restoreStockSettingsDraft({ ...toStockSettingsDraft(empty), countTolerancePct: 7 }, encodeStockSettingsDraftBase(empty), created)
+		expect(restored).toMatchObject({ rebased: true, values: { adjustmentApprovalValue: 800, countTolerancePct: 7 } })
 	})
 })

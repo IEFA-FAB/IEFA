@@ -361,6 +361,31 @@ describe("buildReplenishmentSuggestion", () => {
 		})
 	})
 
+	it("urgência indeterminada não passa à frente da conhecida na disputa pela folga da dispensa", () => {
+		// "a" sem prazo nenhum (indeterminada); "b" com limiar 5 e zerada (urgente). Os dois sem
+		// CATMAT, valor 140 cada, folga para um só: vai para "b".
+		const dispensaRoom = new Map<string, number | null>([["89", 150]])
+		const shared = { unitPrice: 1, conversionFactor: 1 }
+		const ctx = baseContext({
+			policyById: new Map([["b", { min_stock: 0, urgency_threshold_days: 5 }]]),
+			priceByIngredient: new Map([
+				["a", shared],
+				["b", shared],
+			]),
+			catmatCodeByIngredient: new Map([
+				["a", 1],
+				["b", 1],
+			]),
+			classByCatmat: new Map([[1, "89"]]),
+			dispensaRoom,
+		})
+		const [a, b] = buildReplenishmentSuggestions([need, { ...need, ingredient_id: "b", ingredient_name: "Feijão" }], ctx)
+		expect(a?.urgency).toBe("undetermined")
+		expect(a?.channel).toBe("licitacao")
+		expect(b?.channel).toBe("contrata_mais")
+		expect(dispensaRoom.get("89")).toBe(10)
+	})
+
 	it("buildReplenishmentSuggestions dá a folga da dispensa ao mais urgente, não ao primeiro em ordem alfabética", () => {
 		const dispensaRoom = new Map<string, number | null>([["89", 150]])
 		const policy = { min_stock: 0, coverage_days: 7, urgency_threshold_days: 5 }
