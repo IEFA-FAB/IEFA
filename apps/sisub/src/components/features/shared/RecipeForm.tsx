@@ -604,7 +604,6 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 			})
 		},
 		onSubmit: async ({ value }) => {
-			"use no memo"
 			// Salvar a preparação cria a versão nova copiando o fluxo e os equipamentos PERSISTIDOS.
 			// Com alteração deles pendente, ela ficaria para trás na versão superada, onde não se
 			// salva mais: grave ou descarte antes.

@@ -13,7 +13,7 @@ export type { AuthView } from "@iefa/auth-kit"
 
 /**
  * Regras da tela vêm de @iefa/auth-kit; aqui o que é deste app:
- * - textos com "e-mail" e credencial recusada reconhecida sem caixa e com hífen;
+ * - textos com "e-mail";
  * - trocar entre login e cadastro limpa os banners, e a mensagem de conta criada
  *   é gravada depois dessa troca para sobreviver na aba de login;
  * - quem já está autenticado só é redirecionado a partir da view de login (não
@@ -34,9 +34,7 @@ const AUTH_SCREEN_CONFIG: AuthScreenConfig = {
 		signUpSuccess: "Conta criada! Verifique seu e-mail para confirmar.",
 		forgotFallback: "Erro ao enviar e-mail.",
 	},
-	invalidCredentialsPattern: /e-mail ou senha incorretos|invalid login credentials/i,
 	clearFeedbackOnTabSwitch: true,
-	signUpSuccessAfterTabSwitch: true,
 	redirectOnlyFromAuthView: true,
 	resetSuccessFeedback: "banner",
 }
@@ -178,11 +176,18 @@ function FieldError({ id, children }: { id?: string; children: React.ReactNode }
 	)
 }
 
-function ErrorBanner({ message }: { message: string }) {
+/**
+ * Só a `message` fica na região anunciada (`role="alert"`). O `detail` fica fora dela: a contagem
+ * da trava muda a cada segundo e, dentro do alerta, o leitor de tela a anunciaria a cada troca.
+ */
+function ErrorBanner({ message, detail }: { message: string; detail?: string }) {
 	return (
 		<div className="flex items-start gap-2 rounded-xl border border-destructive/20 bg-destructive/5 px-3.5 py-2.5 text-caption text-destructive">
 			<CircleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-			{message}
+			<span>
+				<span role="alert">{message}</span>
+				{detail && ` ${detail}`}
+			</span>
 		</div>
 	)
 }
@@ -414,7 +419,7 @@ function LoginForm({ screen }: ScreenProps) {
 	} = screen
 	return (
 		<form onSubmit={handleLogin} className="flex flex-col gap-4">
-			{isLocked && <ErrorBanner message={`Muitas tentativas. Tente novamente em ${retryAfter}s.`} />}
+			{isLocked && <ErrorBanner message="Muitas tentativas." detail={`Tente novamente em ${retryAfter}s.`} />}
 			{error && !isLocked && <ErrorBanner message={error} />}
 			{successMessage && <SuccessBanner message={successMessage} />}
 

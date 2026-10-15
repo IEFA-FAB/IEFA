@@ -22,6 +22,7 @@ import { localAnalyticsTools } from "./local-analytics"
 import { APPROVAL_TOOL_NAMES, getModuleConfig } from "./registry"
 import {
 	getMaxLevel,
+	isUncertainDbOutcome,
 	type ModuleToolDefinition,
 	parseToolArgs,
 	requireKitchenPermission,
@@ -160,6 +161,30 @@ describe("module-chat result helpers", () => {
 		try {
 			expect(sanitizeDbError(new Error("relation secret_table does not exist"), "list_recipes")).toBe("Erro ao executar list_recipes. Tente novamente.")
 			expect(consoleSpy).toHaveBeenCalled()
+		} finally {
+			consoleSpy.mockRestore()
+		}
+	})
+
+	// Insert que comita depois do deadline de 10 s do kit: mandar "tente novamente" duplicaria o item.
+	test("sem resposta do banco, sanitizeDbError não manda repetir: a gravação pode ter acontecido", () => {
+		const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {})
+		try {
+			const uncertain = [
+				{ message: "Error: Supabase request timed out after 10000ms", code: "" },
+				{ message: "AbortError: This operation was aborted", code: "" },
+				{ message: "<html>504 Gateway Time-out</html>" },
+				new Error("Supabase request timed out after 10000ms"),
+			]
+			for (const error of uncertain) {
+				expect(isUncertainDbOutcome(error)).toBe(true)
+				const message = sanitizeDbError(error, "add_menu_item")
+				expect(message).toContain("PODE ter sido concluída")
+				expect(message).not.toContain("Tente novamente")
+			}
+			// Resposta do PostgREST (com código) é recusa certa: nada foi gravado.
+			expect(isUncertainDbOutcome({ message: "duplicate key value", code: "23505" })).toBe(false)
+			expect(sanitizeDbError({ message: "duplicate key value", code: "23505" }, "add_menu_item")).toBe("Erro ao executar add_menu_item. Tente novamente.")
 		} finally {
 			consoleSpy.mockRestore()
 		}

@@ -23,7 +23,7 @@ import { z } from "zod"
 import { publicDbMessage } from "@/lib/db-error-message"
 import { handleDomainError } from "@/lib/domain-errors"
 import { MAX_LEAD_TIME_DAYS, STOCK_SETTINGS_VERSION_PATTERN, type StockSettings } from "@/lib/kitchen-stock-settings"
-import { readKitchenStockSettings, writeKitchenStockSettings } from "@/lib/kitchen-stock-settings.server"
+import { readStockSettingsForEdit, writeKitchenStockSettings } from "@/lib/kitchen-stock-settings-edit.server"
 import { readAllPagesIn } from "@/lib/read-all-pages"
 import { buildAdjustmentDocumentRow, buildAdjustmentItemRow, buildPostFailureRecovery, findAdjustmentLotProblem } from "@/lib/stock-adjustment"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
@@ -229,14 +229,14 @@ async function hasOtherApprover(kitchenId: number, actorId: string): Promise<boo
 
 /**
  * Configuração de estoque da cozinha, com a versão que a tela leva de volta ao salvar. Leitura e
- * gravação em `kitchen-stock-settings.server.ts` (versão conferida no `WHERE`, EDIT-SAFETY.md).
+ * gravação em `kitchen-stock-settings-edit.server.ts` (versão conferida no `WHERE`, EDIT-SAFETY.md).
  */
 export const fetchStockSettingsFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive() }))
 	.handler(async ({ data }): Promise<StockSettings> => {
 		await requireStorageForKitchen(1, data.kitchenId)
 		// erro do driver (SQL, parâmetros) fica no log; o cliente lê a mensagem de negócio
-		return readKitchenStockSettings(data.kitchenId).catch(handleDomainError)
+		return readStockSettingsForEdit(data.kitchenId).catch(handleDomainError)
 	})
 
 export const saveStockSettingsFn = createServerFn({ method: "POST" })

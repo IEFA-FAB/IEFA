@@ -8,13 +8,16 @@ import {
 	describeKeptStaleItems,
 	formatNumeroAtaFromInput,
 	hasDuplicateItemNumbers,
+	hasItemProportion,
 	indexArpItemsByNumero,
 	indexQuantityEstimateItemsByCatmat,
 	listStaleArpItemIds,
 	planArpItemReconciliation,
+	readItemTotalsByEmpenho,
 	resolveArpLinks,
 	resolveImportedSaldo,
 	splitDeletableArpItems,
+	sumItemValuesByEmpenho,
 } from "@/lib/arp-import"
 import type { ComprasArpItemResult } from "@/types/domain/arp"
 
@@ -385,6 +388,63 @@ describe("cadastro manual", () => {
 	})
 })
 
+describe("hasItemProportion / sumItemValuesByEmpenho", () => {
+	it("soma por NE e só há proporção com total positivo", () => {
+		const totals = sumItemValuesByEmpenho([
+			{ empenho_id: "a", value: "10" },
+			{ empenho_id: "a", value: 5 },
+			{ empenho_id: "b", value: 0 },
+			{ empenho_id: "c", value: null },
+		])
+		expect(Object.fromEntries(totals)).toEqual({ a: 15, b: 0, c: 0 })
+		expect(hasItemProportion(totals.get("a"))).toBe(true)
+		expect(hasItemProportion(totals.get("b"))).toBe(false)
+		expect(hasItemProportion(totals.get("c"))).toBe(false)
+		expect(hasItemProportion(undefined)).toBe(false)
+		expect(hasItemProportion(-1)).toBe(false)
+	})
+})
+
+describe("readItemTotalsByEmpenho", () => {
+	/** `empenho_item` falso com o teto do PostgREST: `.in()`, `.gt("id")`, `.order("id")`, `.limit()`. */
+	function itemTable(itemsPerEmpenho: number, empenhoCount: number, maxRows = 1000) {
+		const rows = Array.from({ length: empenhoCount * itemsPerEmpenho }, (_, i) => ({
+			id: `item-${String(i).padStart(6, "0")}`,
+			empenho_id: `ne-${String(i % empenhoCount).padStart(4, "0")}`,
+			value: 1,
+		}))
+		const chunks: number[] = []
+		const page = async (chunk: string[], after: string | null, pageSize: number) => {
+			if (after === null) chunks.push(chunk.length)
+			const data = rows.filter((row) => chunk.includes(row.empenho_id) && (after === null || row.id > after)).slice(0, Math.min(pageSize, maxRows))
+			return { data, error: null }
+		}
+		const ids = Array.from({ length: empenhoCount }, (_, i) => `ne-${String(i).padStart(4, "0")}`)
+		return { ids, page, chunks }
+	}
+
+	it("lê além do teto de 1000 linhas: nenhuma NE fica sem total (o badge falso)", async () => {
+		// 15 NEs de 80 itens = 1200 linhas; lida de uma vez, o corte deixava NEs sem linha nenhuma
+		const { ids, page } = itemTable(80, 15)
+		const totals = await readItemTotalsByEmpenho(ids, page)
+		expect(totals.size).toBe(15)
+		for (const id of ids) {
+			expect(totals.get(id), id).toBe(80)
+			expect(hasItemProportion(totals.get(id))).toBe(true)
+		}
+	})
+
+	it("fatia os ids do .in() e não consulta com lista vazia", async () => {
+		const { ids, page, chunks } = itemTable(2, 250)
+		const totals = await readItemTotalsByEmpenho([...ids, ids[0]], page)
+		expect(chunks).toEqual([100, 100, 50])
+		expect([...totals.values()].every((total) => total === 2)).toBe(true)
+		const empty = itemTable(1, 1)
+		expect((await readItemTotalsByEmpenho([], empty.page)).size).toBe(0)
+		expect(empty.chunks).toEqual([])
+	})
+})
+
 describe("computeArpExecutionByItem", () => {
 	const saldo = (empenho_id: string, liquidado: number | null, pago: number | null, aLiquidar: number | null) => ({
 		empenho_id,
@@ -406,11 +466,12 @@ describe("computeArpExecutionByItem", () => {
 			],
 			saldos: [saldo("ne1", 100, 50, 0)],
 		})
-		expect(result.a).toEqual({ liquidado: 30, pago: 15, aLiquidar: 0 })
-		expect(result.b).toEqual({ liquidado: 70, pago: 35, aLiquidar: 0 })
+		expect(result.byItem.a).toEqual({ liquidado: 30, pago: 15, aLiquidar: 0 })
+		expect(result.byItem.b).toEqual({ liquidado: 70, pago: 35, aLiquidar: 0 })
+		expect(result.incompleteEmpenhoIds).toEqual([])
 	})
 
-	it("NE inativa, sem saldo ou item nulo ficam de fora; total zero dá o saldo inteiro", () => {
+	it("NE inativa, sem saldo ou item nulo ficam de fora; total zero não reparte e marca a NE incompleta", () => {
 		const result = computeArpExecutionByItem({
 			arpNeItems: [
 				{ empenho_id: "inativa", arp_item_id: "a", value: 10 },
@@ -423,8 +484,34 @@ describe("computeArpExecutionByItem", () => {
 			allItems: [{ empenho_id: "zero", value: 0 }],
 			saldos: [saldo("inativa", 1, 1, 1), saldo("zero", 10, null, 4), saldo("semItens", null, 2, null)],
 		})
-		expect(result.a).toBeUndefined()
-		expect(result.z).toEqual({ liquidado: 10, pago: 2, aLiquidar: 4 })
+		expect(result.byItem.a).toBeUndefined()
+		// sem proporção, nem zero: o item fica sem entrada e a NE sai como incompleta
+		expect(result.byItem.z).toBeUndefined()
+		expect(result.incompleteEmpenhoIds).toEqual(["semItens", "zero"])
+	})
+
+	it("NE com total zero e vários itens na ata não multiplica a execução pelo número de itens", () => {
+		const result = computeArpExecutionByItem({
+			arpNeItems: [
+				{ empenho_id: "zero", arp_item_id: "a", value: 0 },
+				{ empenho_id: "zero", arp_item_id: "b", value: 0 },
+				{ empenho_id: "zero", arp_item_id: "c", value: "0" },
+				{ empenho_id: "ne1", arp_item_id: "a", value: 50 },
+			],
+			activeIds: new Set(["zero", "ne1"]),
+			allItems: [
+				{ empenho_id: "zero", value: 0 },
+				{ empenho_id: "zero", value: 0 },
+				{ empenho_id: "zero", value: "0" },
+				{ empenho_id: "ne1", value: 50 },
+			],
+			saldos: [saldo("zero", 90, 60, 30), saldo("ne1", 20, 10, 30)],
+		})
+		// antes: 90 de liquidado em cada um dos três itens (270 numa NE de 90)
+		expect(result.byItem.a).toEqual({ liquidado: 20, pago: 10, aLiquidar: 30 })
+		expect(result.byItem.b).toBeUndefined()
+		expect(result.byItem.c).toBeUndefined()
+		expect(result.incompleteEmpenhoIds).toEqual(["zero"])
 	})
 
 	it("acumula duas NEs no mesmo item", () => {
@@ -440,6 +527,6 @@ describe("computeArpExecutionByItem", () => {
 			],
 			saldos: [saldo("ne1", 4, 2, 6), saldo("ne2", 8, 8, 2)],
 		})
-		expect(result.a).toEqual({ liquidado: 8, pago: 6, aLiquidar: 7 })
+		expect(result.byItem.a).toEqual({ liquidado: 8, pago: 6, aLiquidar: 7 })
 	})
 })

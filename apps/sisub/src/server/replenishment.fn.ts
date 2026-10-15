@@ -32,10 +32,10 @@ import { publicDbMessage } from "@/lib/db-error-message"
 import { handleDomainError } from "@/lib/domain-errors"
 import { currentFiscalYear } from "@/lib/expense-execution"
 import { purchaseUnitIdOfKitchen } from "@/lib/kitchen-purchase-unit.server"
-import { readKitchenStockSettings } from "@/lib/kitchen-stock-settings.server"
+import { readStockSettingsForEdit } from "@/lib/kitchen-stock-settings-edit.server"
 import { readAllPages, readAllPagesIn } from "@/lib/read-all-pages"
 import {
-	buildReplenishmentSuggestion,
+	buildReplenishmentSuggestions,
 	computeTransitByIngredient,
 	groupObservedLeadTimes,
 	indexDefaultPurchaseLinks,
@@ -225,7 +225,7 @@ export const fetchReplenishmentSuggestionsFn = createServerFn({ method: "GET" })
 			purchaseUnitIdOfKitchen(data.kitchenId),
 			// (6b) prazo de entrega padrão da cozinha: o fallback do histórico do fornecedor. Nulo
 			// vira pendência na sugestão, nunca um número presumido.
-			readKitchenStockSettings(data.kitchenId).catch(handleDomainError),
+			readStockSettingsForEdit(data.kitchenId).catch(handleDomainError),
 		])
 
 		const factorsById = new Map(ingredients.map((i) => [i.id, i]))
@@ -323,7 +323,7 @@ export const fetchReplenishmentSuggestionsFn = createServerFn({ method: "GET" })
 			classByCatmat,
 			dispensaRoom,
 		}
-		return rankReplenishmentSuggestions(needs.map((need) => buildReplenishmentSuggestion(need, context)))
+		return rankReplenishmentSuggestions(buildReplenishmentSuggestions(needs, context))
 	})
 
 /**

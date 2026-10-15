@@ -27,10 +27,23 @@ export const ALPHA_BASE_URL = (import.meta.env.VITE_ALPHA_API_URL as string | un
  *
  * Os ids vêm de parâmetro de rota da URL do contrate — o usuário os escreve. Interpolado
  * cru, um `../aci/queue` ou um `?` no id reescrevia a chamada que o browser faz ao α com o
- * token da pessoa. Codificado, ele é sempre UM segmento.
+ * token da pessoa. Codificado, ele é sempre UM segmento; `.`, `..` e vazio são recusados.
+ *
+ * O portal tem uma cópia (`apps/portal/src/lib/alpha/client.ts`): correção aqui vale lá.
  */
 export function alphaPath(strings: TemplateStringsArray, ...values: Array<string | number | boolean>): string {
-	return strings.reduce((path, chunk, index) => path + chunk + (index < values.length ? encodeURIComponent(String(values[index])) : ""), "")
+	return strings.reduce((path, chunk, index) => path + chunk + (index < values.length ? encodeAlphaSegment(values[index]) : ""), "")
+}
+
+/**
+ * `encodeURIComponent` mantém `.` e `..` como estão, e o parser de URL do `fetch` os resolve
+ * como segmento de ponto: `/api/v1/sessions/../messages` vira `/api/v1/messages`. Vazio
+ * colapsa o segmento (`/sessions//messages`). Nenhum id legítimo tem essa forma: recusa.
+ */
+function encodeAlphaSegment(value: string | number | boolean): string {
+	const encoded = encodeURIComponent(String(value))
+	if (encoded === "" || encoded === "." || encoded === "..") throw new Error(`alphaPath: valor inválido no caminho do α: "${encoded}"`)
+	return encoded
 }
 
 /**

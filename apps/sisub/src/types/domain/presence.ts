@@ -66,14 +66,24 @@ export interface QueryResult {
 export interface ConfirmPresenceParams {
 	uuid: string
 	willEnter: boolean
+	/** Data, refeição e refeitório em que o crachá foi lido; sem ele, os filtros atuais da tela. */
+	scope?: FiscalFilters
 }
 
 /**
- * Result of a presence confirmation operation.
- * If skipped is true, the operation was intentionally not performed.
+ * O que `insertPresenceFn` devolve. A unicidade de `meal_presences` é pessoa + data + refeição,
+ * SEM o refeitório: `duplicate` traz o refeitório da presença existente (`null` se ela sumiu
+ * entre o insert e a leitura), e quem chama compara com o seu.
+ */
+export type InsertPresenceOutcome = { status: "inserted" } | { status: "duplicate"; messHallId: number | null; messHallName: string | null }
+
+/**
+ * Resultado da confirmação: `inserted` gravou agora; `duplicate` já estava gravada NESTE
+ * refeitório; `elsewhere` já há presença nesta refeição em outro refeitório (ou não se sabe
+ * onde), e nada foi gravado aqui; `skipped` o militar não vai entrar e nada foi gravado.
  */
 export interface ConfirmPresenceResult {
-	skipped: boolean
+	status: "inserted" | "duplicate" | "elsewhere" | "skipped"
 }
 
 /**
@@ -93,7 +103,7 @@ export interface UsePresenceManagementReturn {
 	isLoading: boolean
 	isConfirming: boolean
 	isRemoving: boolean
-	confirmPresence: (uuid: string, willEnter: boolean) => Promise<ConfirmPresenceResult>
+	confirmPresence: (uuid: string, willEnter: boolean, scope?: FiscalFilters) => Promise<ConfirmPresenceResult>
 	removePresence: (row: FiscalPresenceRecord) => Promise<void>
 }
 
@@ -110,4 +120,6 @@ export type DialogState = {
 	uuid: string | null
 	willEat: boolean | null
 	willEnter: "sim" | "nao"
+	/** Recusado, cancelado ou com presença em outro refeitório nesta refeição: sem fechamento automático. */
+	manual?: boolean
 }

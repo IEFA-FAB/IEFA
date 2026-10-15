@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
 import { toast } from "@/components/ui/toast"
 import { useAssuredAction } from "@/hooks/auth/useAssuredAction"
+import { useInvalidateArpEmpenhoViews } from "@/hooks/data/useArp"
 import { isElevationCancelled } from "@/lib/assurance/assurance-error"
 import { RECONCILIATION_CONFLICT_PREFIX } from "@/lib/reconciliation-decision"
 import { fetchPhysicalAccountingFn, fetchReconciliationFn, type ReconciliationRow, resolveDivergenceFn } from "@/server/reconciliation.fn"
@@ -139,6 +140,8 @@ function ReconciliationPage() {
 	const { documents, physical } = Route.useLoaderData()
 	const { unitId } = Route.useParams()
 	const router = useRouter()
+	// Adotar o valor do SIAFI lança evento na NE que o painel da ARP lê.
+	const invalidateArpViews = useInvalidateArpEmpenhoViews()
 
 	return (
 		<div className="space-y-6">
@@ -171,7 +174,15 @@ function ReconciliationPage() {
 							</thead>
 							<tbody className="divide-y divide-border/60">
 								{documents.map((row) => (
-									<DivergenceRow key={`${row.documento_tipo}:${row.numero_documento}`} row={row} unitId={unitId} onResolved={() => router.invalidate()} />
+									<DivergenceRow
+										key={`${row.documento_tipo}:${row.numero_documento}`}
+										row={row}
+										unitId={unitId}
+										onResolved={() => {
+											router.invalidate()
+											invalidateArpViews()
+										}}
+									/>
 								))}
 							</tbody>
 						</table>

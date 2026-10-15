@@ -17,7 +17,14 @@
  */
 
 import type { Json } from "@iefa/database"
-import { CONSERVATION_CLASSES, OPENING_BALANCE_SOURCES, OPENING_COST_SOURCES, type OpeningBalanceSource, type OpeningCostSource } from "@iefa/sisub-domain"
+import {
+	CONSERVATION_CLASSES,
+	OPENING_BALANCE_SOURCES,
+	OPENING_COST_SOURCES,
+	type OpeningBalanceSource,
+	type OpeningCostSource,
+	roundToCents,
+} from "@iefa/sisub-domain"
 import {
 	buildIngredientIndex,
 	buildOpeningCatalogSheet,
@@ -170,7 +177,7 @@ export const fetchOpeningBalanceFn = createServerFn({ method: "GET" })
 				lines,
 				missingCost,
 				suggestible: lines.filter((line) => line.unitCost == null && line.suggestion != null).length,
-				value: lines.reduce((sum, line) => sum + (line.unitCost ?? 0) * line.quantity, 0),
+				value: roundToCents(lines.reduce((sum, line) => sum + (line.unitCost ?? 0) * line.quantity, 0)),
 			}
 		}
 

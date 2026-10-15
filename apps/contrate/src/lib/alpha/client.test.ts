@@ -18,6 +18,14 @@ describe("alphaPath", () => {
 		expect(alphaPath`/api/v1/aci/queue?unit_id=${26}`).toBe("/api/v1/aci/queue?unit_id=26")
 		expect(alphaPath`/api/v1/rules`).toBe("/api/v1/rules")
 	})
+
+	it("recusa `.`, `..` e vazio, que o parser de URL resolveria como outro caminho", () => {
+		// `encodeURIComponent` não toca em ponto: cru, `/sessions/../messages` virava `/api/v1/messages`.
+		for (const bad of [".", "..", ""]) expect(() => alphaPath`/api/v1/sessions/${bad}/messages`).toThrow("alphaPath")
+		// Ponto dentro do valor não é segmento de ponto: passa, e o caminho resolvido fica onde está.
+		expect(new URL(`https://alpha.test${alphaPath`/api/v1/sessions/${"..."}/messages`}`).pathname).toBe("/api/v1/sessions/.../messages")
+		expect(new URL(`https://alpha.test${alphaPath`/api/v1/sessions/${"a/../.."}/messages`}`).pathname).toBe("/api/v1/sessions/a%2F..%2F../messages")
+	})
 })
 
 describe("alphaAuthHeaders", () => {

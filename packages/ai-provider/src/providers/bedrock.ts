@@ -154,6 +154,11 @@ function contentBlocksFromMessage(msg: TextOptions["messages"][number]): Content
 	// Tool calls do assistant → blocos toolUse.
 	if (msg.role === "assistant" && msg.toolCalls?.length) {
 		for (const tc of msg.toolCalls) {
+			// Tolerância deliberada, diferente do stream (ver `closePendingToolCalls`): aqui a
+			// tool call é HISTÓRICO reenviado, já executada ou recusada — inclusive a de argumento
+			// truncado, que volta na iteração seguinte junto com o resultado de erro dela. Trocar
+			// argumento ilegível por `{}` não executa nada; lançar derrubaria a reabertura da
+			// conversa (ou a própria correção do modelo) por causa de uma chamada que não roda mais.
 			let input: unknown = {}
 			try {
 				input = tc.function.arguments ? JSON.parse(tc.function.arguments) : {}
@@ -295,8 +300,13 @@ type ChatStreamState = {
 	stopReason: StopReason | undefined
 	usage: Usage | undefined
 	// Blocos de tool em aberto, indexados por contentBlockIndex.
-	toolBlocks: Map<number, { toolCallId: string; name: string; args: string }>
+	toolBlocks: Map<number, ToolBlock>
+	// Blocos fechados com argumento ilegível: só viram evento no fim, com o stopReason conhecido.
+	invalidToolBlocks: ToolBlock[]
+	logger: TextOptions["logger"] | undefined
 }
+
+type ToolBlock = { toolCallId: string; name: string; args: string }
 
 /** Início de um bloco toolUse. */
 function* handleToolUseStart(state: ChatStreamState, index: number, startTool: ToolUseBlockStart): Generator<StreamChunk> {
@@ -352,26 +362,89 @@ function* handleContentDelta(state: ChatStreamState, index: number, delta: Conte
 	else if (delta.toolUse?.input != null) yield* handleToolInputDelta(state, index, delta.toolUse.input)
 }
 
-/** Fim de um bloco: se for tool, fecha com o input acumulado. */
-function* handleContentBlockStop(state: ChatStreamState, index: number): Generator<StreamChunk> {
-	const block = state.toolBlocks.get(index)
-	if (!block) return
-	let parsedInput: unknown = {}
+/** Argumento acumulado de uma tool. Vazio vale `{}`: é a tool sem parâmetro. */
+function parseToolArgs(args: string): { ok: true; input: unknown } | { ok: false } {
+	if (!args) return { ok: true, input: {} }
 	try {
-		parsedInput = block.args ? JSON.parse(block.args) : {}
+		return { ok: true, input: JSON.parse(args) }
 	} catch {
-		parsedInput = {}
+		return { ok: false }
 	}
-	yield asChunk({
+}
+
+function toolCallEnd(state: ChatStreamState, block: ToolBlock, extra: Record<string, unknown>): StreamChunk {
+	return asChunk({
 		type: "TOOL_CALL_END",
 		toolCallId: block.toolCallId,
 		toolCallName: block.name,
 		toolName: block.name,
 		model: state.model,
 		timestamp: state.timestamp,
-		input: parsedInput,
+		...extra,
 	})
+}
+
+/**
+ * Fim de um bloco: se for tool com argumento legível, fecha com o input acumulado.
+ *
+ * Argumento ilegível NÃO vira `{}`: o engine do @tanstack/ai executaria a tool sem argumento
+ * nenhum, sobre o recorte padrão, como se o modelo tivesse pedido isso. O bloco fica para
+ * `closePendingToolCalls`, que roda quando o `messageStop` já disse por que o stream parou.
+ */
+function* handleContentBlockStop(state: ChatStreamState, index: number): Generator<StreamChunk> {
+	const block = state.toolBlocks.get(index)
+	if (!block) return
 	state.toolBlocks.delete(index)
+	const parsed = parseToolArgs(block.args)
+	if (!parsed.ok) {
+		state.invalidToolBlocks.push(block)
+		return
+	}
+	yield toolCallEnd(state, block, { input: parsed.input })
+}
+
+/**
+ * Fim do stream: fecha toda tool call que ficou aberta, para o protocolo AG-UI não terminar
+ * com uma chamada "em andamento".
+ *
+ * Bloco sem `contentBlockStop` (stream que acabou no meio dele) fecha como os outros. Argumento
+ * ilegível fecha como RESULTADO DE ERRO (`state: "output-error"` + `result`): o engine não
+ * executa a tool e devolve o erro ao modelo como resultado dela, e o modelo pode refazer a
+ * chamada no mesmo run. Encerrar o run com `RUN_ERROR` deixaria o usuário sem saída quando o
+ * argumento é, de forma determinística, maior que o `maxTokens`. O run segue até o
+ * `RUN_FINISHED`, que leva o `usage` com a saída gasta até o corte: é dele que o teto de
+ * consumo (`withRateLimit`) tira a conta.
+ *
+ * A causa só é afirmada quando o `stopReason` a confirma (`max_tokens`).
+ */
+function* closePendingToolCalls(state: ChatStreamState): Generator<StreamChunk> {
+	for (const block of state.toolBlocks.values()) {
+		const parsed = parseToolArgs(block.args)
+		if (parsed.ok) yield toolCallEnd(state, block, { input: parsed.input })
+		else state.invalidToolBlocks.push(block)
+	}
+	state.toolBlocks.clear()
+
+	const truncated = state.stopReason === "max_tokens"
+	for (const block of state.invalidToolBlocks) {
+		state.logger?.errors?.("bedrock.chatStream tool-args JSON inválido", {
+			source: "bedrock.chatStream",
+			toolName: block.name,
+			argsLength: block.args.length,
+			stopReason: state.stopReason ?? "desconhecido",
+		})
+		const reason = truncated
+			? "a resposta foi cortada pelo limite de tokens de saída antes de os argumentos fecharem"
+			: "os argumentos recebidos não formam um JSON válido"
+		const error = `Chamada não executada: ${reason}. Refaça a chamada com argumentos completos${truncated ? " e menores" : ""}.`
+		yield toolCallEnd(state, block, {
+			// `state` e `result` são lidos pelo engine (`handleToolCallEndEvent`), mesmo fora do tipo.
+			state: "output-error",
+			result: JSON.stringify({ error }),
+			metadata: { tanstack: { state: "output-error" } },
+		})
+	}
+	state.invalidToolBlocks = []
 }
 
 function toStreamUsage(u: TokenUsage): Usage {
@@ -438,6 +511,8 @@ export function createBedrockChat(model: string, region?: string, client?: Bedro
 			stopReason: undefined,
 			usage: undefined,
 			toolBlocks: new Map(),
+			invalidToolBlocks: [],
+			logger,
 		}
 
 		try {
@@ -460,6 +535,8 @@ export function createBedrockChat(model: string, region?: string, client?: Bedro
 				logger?.provider?.("provider=bedrock", { chunk: ev })
 				yield* handleStreamEvent(state, ev)
 			}
+
+			yield* closePendingToolCalls(state)
 
 			if (state.textStarted) {
 				yield asChunk({ type: "TEXT_MESSAGE_END", messageId: state.messageId, model, timestamp })

@@ -7,6 +7,7 @@ import {
 	type MinOrderSource,
 	type QuantityLimitWarning,
 } from "@iefa/sisub-domain"
+import { roundToCents } from "@iefa/sisub-domain/money"
 import type { ProcurementNeed } from "@iefa/sisub-domain/types"
 import { csvCell } from "@/lib/csv"
 import type { QuantityEstimateSnapshotComponent } from "@/types/domain/quantity-estimate"
@@ -186,7 +187,8 @@ export function buildSnapshotAnnexRows(
 
 /** Valor do anexo sobre a quantidade MÁXIMA — é o valor que a ata de registro de preços registrará, não o da estimada. */
 export function annexMaxValue(rows: QuantityEstimateAnnexRow[]): number {
-	return rows.reduce((sum, r) => (r.unitPrice != null && r.maxQuantity != null ? sum + r.maxQuantity * r.unitPrice : sum), 0)
+	// soma as linhas já fechadas em centavo: o total bate com o que o CSV mostra linha a linha
+	return roundToCents(rows.reduce((sum, r) => (r.unitPrice != null && r.maxQuantity != null ? sum + roundToCents(r.maxQuantity * r.unitPrice) : sum), 0))
 }
 
 const CYCLE_CSV: Record<DeliveryCycle, string> = { weekly: "Semanal", monthly: "Mensal" }
@@ -226,7 +228,8 @@ export function buildAnnexCsv(rows: QuantityEstimateAnnexRow[], maxQuantityJusti
 		r.deliveryCycle ? CYCLE_CSV[r.deliveryCycle] : "",
 		csvNumber(r.minOrderQuantity, r.minOrderQuantity != null && Number.isInteger(r.minOrderQuantity) ? 0 : 4),
 		csvNumber(r.unitPrice, 4),
-		r.unitPrice != null && r.maxQuantity != null ? (r.maxQuantity * r.unitPrice).toFixed(2) : "",
+		// preço a 4 casas: o produto cai no meio-centavo, e `toFixed(2)` sozinho o desce
+		r.unitPrice != null && r.maxQuantity != null ? roundToCents(r.maxQuantity * r.unitPrice).toFixed(2) : "",
 	])
 	if (maxQuantityJustification?.trim()) lines.push([], ["Justificativa da quantidade máxima", maxQuantityJustification.trim()])
 	// Orçamento sigiloso (Lei 14.133/2021, art. 24): as duas últimas colunas (preço e valor) não saem.
