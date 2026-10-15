@@ -13,13 +13,7 @@
       "inputs": ["$TURBO_DEFAULT$", "!**/*.test.*", "!*.md", "!e2e/**", "!tests/**", "!src/test/**", "!playwright.config.*", "!vitest.config.*"]
     },
     "lint": {
-      "inputs": [
-        "$TURBO_DEFAULT$",
-        "$TURBO_ROOT$/biome.json",
-        "$TURBO_ROOT$/.oxlintrc.tailwind.jsonc",
-        "$TURBO_ROOT$/scripts/lint-tailwind.ts",
-        "$TURBO_ROOT$/scripts/lint-react-doctor.ts"
-      ],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/biome.json", "$TURBO_ROOT$/.oxlintrc.tailwind.jsonc", "$TURBO_ROOT$/scripts/lint-tailwind.ts"],
       "outputs": []
     },
     "typecheck": {

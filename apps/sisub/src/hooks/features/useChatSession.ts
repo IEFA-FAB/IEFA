@@ -61,6 +61,8 @@ export function useChatSession({ sessionId, onSessionCreated }: UseChatSessionOp
 	const sessionPromiseRef = useRef<Promise<string> | null>(null)
 	const pendingChartOverridesRef = useRef<Map<string, ChartType>>(new Map())
 
+	// `sessionIdRef` fica à mão de propósito: o envio grava nele a sessão recém-criada antes de a
+	// prop chegar, e o `useLatest` o devolveria à prop antiga no próximo render.
 	useEffect(() => {
 		sessionIdRef.current = sessionId
 	}, [sessionId])
@@ -73,22 +75,10 @@ export function useChatSession({ sessionId, onSessionCreated }: UseChatSessionOp
 	const updateChartType = useUpdateMessageChartType()
 
 	// Stable refs so callbacks never capture stale mutations
-	const saveMessageRef = useRef(saveMessage)
-	const createSessionRef = useRef(createSession)
-	const updateChartTypeRef = useRef(updateChartType)
-	const onSessionCreatedRef = useRef(onSessionCreated)
-	useEffect(() => {
-		saveMessageRef.current = saveMessage
-	})
-	useEffect(() => {
-		createSessionRef.current = createSession
-	})
-	useEffect(() => {
-		updateChartTypeRef.current = updateChartType
-	})
-	useEffect(() => {
-		onSessionCreatedRef.current = onSessionCreated
-	})
+	const saveMessageRef = useLatest(saveMessage)
+	const createSessionRef = useLatest(createSession)
+	const updateChartTypeRef = useLatest(updateChartType)
+	const onSessionCreatedRef = useLatest(onSessionCreated)
 
 	// ── Chart state ───────────────────────────────────────────────────────────
 
@@ -101,40 +91,43 @@ export function useChatSession({ sessionId, onSessionCreated }: UseChatSessionOp
 
 	// ── useChat ───────────────────────────────────────────────────────────────
 
-	const onFinish = useCallback((msg: UIMessage) => {
-		if (msg.role !== "assistant") return
-		const content = extractText(msg.parts)
-		const chart = extractChart(msg.parts)
-		if (!hasMessagePayload(content, chart)) return
+	const onFinish = useCallback(
+		(msg: UIMessage) => {
+			if (msg.role !== "assistant") return
+			const content = extractText(msg.parts)
+			const chart = extractChart(msg.parts)
+			if (!hasMessagePayload(content, chart)) return
 
-		// Store chart so the DB sync effect can retrieve it by message ID
-		if (chart) {
-			setChartDataMap((prev) => new Map(prev).set(msg.id, chart))
-		}
+			// Store chart so the DB sync effect can retrieve it by message ID
+			if (chart) {
+				setChartDataMap((prev) => new Map(prev).set(msg.id, chart))
+			}
 
-		// Persist assistant message. Await the session promise in case it is still
-		// pending (first message of a new session creates the session concurrently).
-		void sessionPromiseRef.current
-			?.then(async (sid) => {
-				const doSave = async (attempt = 0): Promise<void> => {
-					try {
-						await saveMessageRef.current.mutateAsync({
-							sessionId: sid,
-							role: "assistant",
-							content,
-							chart,
-						})
-					} catch {
-						if (attempt < 3) {
-							await new Promise<void>((r) => setTimeout(r, 1000 * 2 ** attempt))
-							return doSave(attempt + 1)
+			// Persist assistant message. Await the session promise in case it is still
+			// pending (first message of a new session creates the session concurrently).
+			void sessionPromiseRef.current
+				?.then(async (sid) => {
+					const doSave = async (attempt = 0): Promise<void> => {
+						try {
+							await saveMessageRef.current.mutateAsync({
+								sessionId: sid,
+								role: "assistant",
+								content,
+								chart,
+							})
+						} catch {
+							if (attempt < 3) {
+								await new Promise<void>((r) => setTimeout(r, 1000 * 2 ** attempt))
+								return doSave(attempt + 1)
+							}
 						}
 					}
-				}
-				await doSave()
-			})
-			.catch((_err: unknown) => {})
-	}, [])
+					await doSave()
+				})
+				.catch((_err: unknown) => {})
+		},
+		[saveMessageRef]
+	)
 
 	const {
 		messages: uiMessages,
@@ -216,7 +209,7 @@ export function useChatSession({ sessionId, onSessionCreated }: UseChatSessionOp
 			if (m.chart) dbCharts.set(m.id, m.chart as unknown as ChartSpec)
 		}
 		setChartDataMap(dbCharts)
-	}, [sessionId, loadedMessages, isLoading, setMessages, uiMessagesRef])
+	}, [sessionId, loadedMessages, isLoading, setMessages, uiMessagesRef, updateChartTypeRef])
 
 	// ── Derived messages ──────────────────────────────────────────────────────
 
@@ -258,22 +251,25 @@ export function useChatSession({ sessionId, onSessionCreated }: UseChatSessionOp
 			}
 			void sendMessage(message)
 		},
-		[sendMessage]
+		[sendMessage, saveMessageRef, createSessionRef, onSessionCreatedRef]
 	)
 
-	const handleChartTypeChange = useCallback((messageId: string, type: ChartType) => {
-		const sid = sessionIdRef.current
-		if (!sid) return
+	const handleChartTypeChange = useCallback(
+		(messageId: string, type: ChartType) => {
+			const sid = sessionIdRef.current
+			if (!sid) return
 
-		setChartTypeOverrides((prev) => new Map(prev).set(messageId, type))
+			setChartTypeOverrides((prev) => new Map(prev).set(messageId, type))
 
-		const isDbUuid = messageId.length === 36 && messageId[8] === "-"
-		if (isDbUuid) {
-			updateChartTypeRef.current.mutate({ messageId, sessionId: sid, chartTypeOverride: type })
-		} else {
-			pendingChartOverridesRef.current.set(messageId, type)
-		}
-	}, [])
+			const isDbUuid = messageId.length === 36 && messageId[8] === "-"
+			if (isDbUuid) {
+				updateChartTypeRef.current.mutate({ messageId, sessionId: sid, chartTypeOverride: type })
+			} else {
+				pendingChartOverridesRef.current.set(messageId, type)
+			}
+		},
+		[updateChartTypeRef]
+	)
 
 	return {
 		messages,

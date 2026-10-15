@@ -141,7 +141,10 @@ function NewQuantityEstimatePage() {
 	const currentStep = ((step as number) || 1) as QuantityEstimateStep
 
 	const { data: kitchens, isLoading: isLoadingKitchens } = useUnitKitchens(unitId)
-	const { data: existingDraft, isLoading: isLoadingDraft } = useQuantityEstimateDraft(draftId ?? null)
+	// O cache do rascunho pode ser de uma visita anterior (gcTime de 5 min): restaurar dele traria
+	// título e cozinhas velhos, e o próximo `goToStep` os gravaria por cima do banco. A restauração
+	// espera a leitura feita depois da montagem.
+	const { data: existingDraft, isLoading: isLoadingDraft, isFetchedAfterMount: isDraftFetchedAfterMount } = useQuantityEstimateDraft(draftId ?? null)
 
 	const { mutate: createDraft, isPending: isCreatingDraft } = useCreateQuantityEstimateDraft()
 	const { mutate: updateDraft } = useUpdateQuantityEstimateDraft()
@@ -200,7 +203,7 @@ function NewQuantityEstimatePage() {
 
 	// Restaurar estado do wizard a partir do draft existente (one-time)
 	useEffect(() => {
-		if (!existingDraft || draftRestoredRef.current) return
+		if (!existingDraft || !isDraftFetchedAfterMount || draftRestoredRef.current) return
 		draftRestoredRef.current = true
 
 		const restoredValidity = (existingDraft as typeof existingDraft & { validity_months?: number | null }).validity_months ?? DEFAULT_VALIDITY_MONTHS
@@ -262,7 +265,7 @@ function NewQuantityEstimatePage() {
 				replace: true,
 			})
 		}
-	}, [existingDraft, currentStep, unitIdStr, navigate])
+	}, [existingDraft, isDraftFetchedAfterMount, currentStep, unitIdStr, navigate])
 
 	// Sincronizar savedItems com o banco sempre que existingDraft.items mudar — garante que
 	// preços pesquisados persistem quando dados do cache ficam obsoletos entre sessões.
@@ -550,7 +553,9 @@ function NewQuantityEstimatePage() {
 		(ks) => ks.templateSelections.length > 0 || ks.eventSelections.length > 0 || ks.supportMenuSelections.length > 0
 	)
 
-	if (isLoadingKitchens || (draftId && isLoadingDraft) || isCreatingDraft) {
+	// Até a leitura fresca chegar o assistente não aparece: campo digitado antes da restauração seria
+	// sobrescrito por ela.
+	if (isLoadingKitchens || (draftId && (isLoadingDraft || !isDraftFetchedAfterMount)) || isCreatingDraft) {
 		return (
 			<div className="space-y-6">
 				<div className="h-16 animate-pulse rounded bg-muted" aria-hidden="true" />

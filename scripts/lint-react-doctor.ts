@@ -51,10 +51,10 @@ if (unknown.length > 0) {
 }
 const apps = requested.length > 0 ? requested : doctorApps
 
-const ruleOf = (d: Diagnostic) => `${d.plugin}/${d.rule}`
+const getRuleName = (d: Diagnostic) => `${d.plugin}/${d.rule}`
 const isRatcheted = (rule: string): boolean => (RATCHETED_RULES as readonly string[]).includes(rule)
 
-function scan(app: string): Diagnostic[] {
+function scanApp(app: string): Diagnostic[] {
 	const outDir = mkdtempSync(join(tmpdir(), "react-doctor-"))
 	const out = join(outDir, "report.json")
 	try {
@@ -91,25 +91,26 @@ function scan(app: string): Diagnostic[] {
 
 /** Arquivos alterados desde a main (mesmo critério do lint-tailwind): o achado novo quase sempre está neles. */
 let changed: Set<string> | undefined
-function changedFiles(): Set<string> {
+function listChangedFiles(): Set<string> {
 	if (changed) return changed
-	const git = (...argv: string[]) => {
+	const runGit = (...argv: string[]) => {
 		const r = Bun.spawnSync(["git", "-c", "core.quotePath=false", ...argv], { cwd: ROOT, stdout: "pipe", stderr: "pipe" })
 		return r.exitCode === 0 ? r.stdout.toString().split("\n").filter(Boolean) : []
 	}
-	const [base] = git("merge-base", "HEAD", "origin/main")
-	changed = new Set([...(base ? git("diff", "--name-only", base) : []), ...git("ls-files", "--others", "--exclude-standard")])
+	const [base] = runGit("merge-base", "HEAD", "origin/main")
+	changed = new Set([...(base ? runGit("diff", "--name-only", base) : []), ...runGit("ls-files", "--others", "--exclude-standard")])
 	return changed
 }
 
 let failed = false
 for (const app of apps) {
-	const repoPath = (d: Diagnostic) => `apps/${app}/${d.filePath}`
-	const format = (d: Diagnostic) => `  ${repoPath(d)}:${d.line}:${d.column}  ${ruleOf(d)}  ${d.help?.startsWith("Todo:") ? d.help : d.message}`
-	const debt = scan(app).filter((d) => isRatcheted(ruleOf(d)))
+	const toRepoPath = (d: Diagnostic) => `apps/${app}/${d.filePath}`
+	const formatDiagnostic = (d: Diagnostic) => `  ${toRepoPath(d)}:${d.line}:${d.column}  ${getRuleName(d)}  ${d.help?.startsWith("Todo:") ? d.help : d.message}`
+	let appFailed = false
+	const debt = scanApp(app).filter((d) => isRatcheted(getRuleName(d)))
 
 	const counts: Counts = {}
-	for (const d of debt) counts[ruleOf(d)] = (counts[ruleOf(d)] ?? 0) + 1
+	for (const d of debt) counts[getRuleName(d)] = (counts[getRuleName(d)] ?? 0) + 1
 	const baselinePath = join(ROOT, "apps", app, BASELINE_FILE)
 
 	if (update) {
@@ -125,23 +126,24 @@ for (const app of apps) {
 	const stray = Object.keys(baseline).filter((rule) => !isRatcheted(rule))
 	if (stray.length > 0) {
 		console.error(`\n${app}: o baseline conta regra fora de RATCHETED_RULES (${stray.join(", ")}). Regrave: bun scripts/lint-react-doctor.ts ${app} --update`)
-		failed = true
+		appFailed = true
 	}
 	for (const rule of RATCHETED_RULES) {
 		const found = counts[rule] ?? 0
 		const allowed = baseline[rule] ?? 0
 		if (found > allowed) {
-			const all = debt.filter((d) => ruleOf(d) === rule)
-			const touched = all.filter((d) => changedFiles().has(repoPath(d)))
+			const all = debt.filter((d) => getRuleName(d) === rule)
+			const touched = all.filter((d) => listChangedFiles().has(toRepoPath(d)))
 			const [list, where] = touched.length >= found - allowed ? [touched, "nos arquivos alterados desde a main"] : [all, "em todo o app"]
-			console.error(`\n${app}: ${rule} subiu de ${allowed} para ${found}. Corrija o que entrou (${where}):\n${list.map(format).join("\n")}`)
-			failed = true
+			console.error(`\n${app}: ${rule} subiu de ${allowed} para ${found}. Corrija o que entrou (${where}):\n${list.map(formatDiagnostic).join("\n")}`)
+			appFailed = true
 		} else if (found < allowed) {
 			console.error(`\n${app}: ${rule} desceu de ${allowed} para ${found}. Baixe o baseline: bun scripts/lint-react-doctor.ts ${app} --update`)
-			failed = true
+			appFailed = true
 		}
 	}
-	if (!failed) console.log(`${app}: ok ${JSON.stringify(counts)}`)
+	if (appFailed) failed = true
+	else console.log(`${app}: ok ${JSON.stringify(counts)}`)
 }
 
 process.exit(failed ? 1 : 0)

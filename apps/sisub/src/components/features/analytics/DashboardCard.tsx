@@ -19,11 +19,13 @@ export default function DashboardCard({ unitId }: { unitId: number }) {
 		const today = getBrasiliaToday()
 		return { start: today, end: addCivilDays(today, 6) }
 	})
-	// A escolha vale só para a unidade em que foi feita: trocar de unidade volta a "todos" já no
-	// mesmo render. Refeitório de outra unidade agora é 404 da leitura inteira, não filtro sem
-	// resultado — e o painel morreria em vez de mostrar a unidade nova. Zerar num efeito deixava
-	// sair uma leitura com a unidade nova e o refeitório da antiga antes do reset.
+	// Trocar de unidade zera a seleção: refeitório de outra unidade agora é 404 da leitura inteira,
+	// não filtro sem resultado — e o painel morreria em vez de mostrar a unidade nova. O reset é
+	// feito no render (o React refaz o render antes de confirmar), não num efeito: pelo efeito saía
+	// uma leitura com a unidade nova e o refeitório da antiga antes do reset. E grava "todos", em
+	// vez de só esconder a escolha: voltar à unidade anterior não ressuscita o filtro de antes.
 	const [messHallChoice, setMessHallChoice] = useState({ unitId, messHall: "all" })
+	if (messHallChoice.unitId !== unitId) setMessHallChoice({ unitId, messHall: "all" })
 	const selectedMessHall = messHallChoice.unitId === unitId ? messHallChoice.messHall : "all"
 	const setSelectedMessHall = (messHall: string) => setMessHallChoice({ unitId, messHall })
 

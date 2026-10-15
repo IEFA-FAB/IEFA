@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
-import { Link } from "@tanstack/react-router"
+import { Link, useHydrated } from "@tanstack/react-router"
 import { ArrowLeft, Loader2, Printer } from "lucide-react"
 import { useState } from "react"
 import { createPortal } from "react-dom"
@@ -8,7 +8,6 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { useRecipe } from "@/hooks/data/useRecipe"
 import { useRecipeFolders } from "@/hooks/data/useRecipeFolders"
 import { recipeLastReviewQueryOptions } from "@/hooks/data/useRecipes"
-import { useIsClient } from "@/hooks/ui/useIsClient"
 import { queryKeys } from "@/lib/query-keys"
 import { type FetchedStep, orderStepsForExecution } from "@/lib/recipe-flow/transform"
 import {
@@ -111,7 +110,7 @@ export function RecipeTechnicalSheetPrint({ recipeId, back }: RecipeTechnicalShe
 	})
 
 	// A cópia de impressão só existe no cliente — createPortal exige `document`.
-	const mounted = useIsClient()
+	const mounted = useHydrated()
 
 	// Base da PARTE 02. Não é persistida: a escolha vale para a folha que está sendo tirada
 	// agora, e herdar a base da última impressão de OUTRA ficha é como se imprime a

@@ -2,9 +2,9 @@
 // Uses centralized types from @/types/domain as per design system guidelines.
 
 import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useHydrated } from "@tanstack/react-router"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useAuth } from "@/hooks/auth/useAuth"
-import { useIsClient } from "@/hooks/ui/useIsClient"
 import type { DayMeals } from "@/lib/meal"
 import { queryKeys } from "@/lib/query-keys"
 import {
@@ -111,7 +111,7 @@ export const useArranchamento = (): ArranchamentoHook => {
 	const { user } = useAuth()
 	const queryClient = useQueryClient()
 
-	const isClient = useIsClient()
+	const isClient = useHydrated()
 
 	const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null)
 	const successTimerRef = useRef<NodeJS.Timeout | null>(null)

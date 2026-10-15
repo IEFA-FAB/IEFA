@@ -68,6 +68,8 @@ export function useModuleChatSession({ sessionId, module, scopeId, onSessionCrea
 	const turnSessionRef = useRef<string | undefined>(undefined)
 	const turnRef = useRef<TurnState>(CLOSED_TURN)
 
+	// `sessionIdRef` fica à mão de propósito: o envio grava nele a sessão recém-criada antes de a
+	// prop chegar, e o `useLatest` o devolveria à prop antiga no próximo render.
 	useEffect(() => {
 		sessionIdRef.current = sessionId
 	}, [sessionId])
@@ -78,18 +80,9 @@ export function useModuleChatSession({ sessionId, module, scopeId, onSessionCrea
 	const createSession = useCreateModuleChatSession(module, scopeId)
 	const saveMessage = useSaveModuleChatMessage(module, scopeId)
 
-	const saveMessageRef = useRef(saveMessage)
-	const createSessionRef = useRef(createSession)
-	const onSessionCreatedRef = useRef(onSessionCreated)
-	useEffect(() => {
-		saveMessageRef.current = saveMessage
-	})
-	useEffect(() => {
-		createSessionRef.current = createSession
-	})
-	useEffect(() => {
-		onSessionCreatedRef.current = onSessionCreated
-	})
+	const saveMessageRef = useLatest(saveMessage)
+	const createSessionRef = useLatest(createSession)
+	const onSessionCreatedRef = useLatest(onSessionCreated)
 
 	// ── Tool calls map (display data from DB load) ──────────────────────────────
 
@@ -130,30 +123,33 @@ export function useModuleChatSession({ sessionId, module, scopeId, onSessionCrea
 	// recarregar como se tivesse executado (ou ficaria pendente para sempre). A gravação vem
 	// depois da decisão, com a ação e a resposta do modelo juntas.
 
-	const persistTurn = useCallback((messages: readonly UIMessage[]) => {
-		const record = collectTurnRecord(messages)
-		if (!record) return
-		void sessionPromiseRef.current
-			?.then(async (sid) => {
-				const doSave = async (attempt = 0): Promise<void> => {
-					try {
-						await saveMessageRef.current.mutateAsync({
-							sessionId: sid,
-							role: "assistant",
-							content: record.content,
-							toolCalls: record.toolCalls.length > 0 ? record.toolCalls : undefined,
-						})
-					} catch {
-						if (attempt < 3) {
-							await new Promise<void>((r) => setTimeout(r, 1000 * 2 ** attempt))
-							return doSave(attempt + 1)
+	const persistTurn = useCallback(
+		(messages: readonly UIMessage[]) => {
+			const record = collectTurnRecord(messages)
+			if (!record) return
+			void sessionPromiseRef.current
+				?.then(async (sid) => {
+					const doSave = async (attempt = 0): Promise<void> => {
+						try {
+							await saveMessageRef.current.mutateAsync({
+								sessionId: sid,
+								role: "assistant",
+								content: record.content,
+								toolCalls: record.toolCalls.length > 0 ? record.toolCalls : undefined,
+							})
+						} catch {
+							if (attempt < 3) {
+								await new Promise<void>((r) => setTimeout(r, 1000 * 2 ** attempt))
+								return doSave(attempt + 1)
+							}
 						}
 					}
-				}
-				await doSave()
-			})
-			.catch((_err: unknown) => {})
-	}, [])
+					await doSave()
+				})
+				.catch((_err: unknown) => {})
+		},
+		[saveMessageRef]
+	)
 
 	useEffect(() => {
 		const { turn, persist } = stepTurn(turnRef.current, { isLoading, awaitingApproval })
@@ -275,7 +271,7 @@ export function useModuleChatSession({ sessionId, module, scopeId, onSessionCrea
 			turnRef.current = OPENED_TURN
 			void sendMessage(message)
 		},
-		[sendMessage, awaitingApproval]
+		[sendMessage, awaitingApproval, saveMessageRef, createSessionRef, onSessionCreatedRef]
 	)
 
 	const handleApprovalDecision = useCallback(

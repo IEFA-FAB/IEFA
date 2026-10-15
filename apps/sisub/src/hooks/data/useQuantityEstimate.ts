@@ -148,11 +148,13 @@ export function useUpdateQuantityEstimateDraft() {
 			kitchenSelections?: QuantityEstimateWizardState["kitchenSelections"]
 			segmentId?: string | null
 		}) => updateQuantityEstimateDraftFn({ data: params }),
-		// Título e passo aparecem na listagem e no detalhe (5 min de staleTime). O rascunho aberto
-		// (`draft`) fica de fora: o assistente o restaura uma vez e segue pelo estado local.
+		// Título, cozinhas e passo aparecem na listagem e no detalhe (5 min de staleTime) e no próprio
+		// rascunho, que o assistente restaura ao reabrir. Com o assistente aberto, o refetch do
+		// rascunho não muda a tela: a restauração já aconteceu e não se repete.
 		onSuccess: (_data, { draftId }) => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.quantityEstimate.listAll() })
 			queryClient.invalidateQueries({ queryKey: queryKeys.quantityEstimate.details(draftId) })
+			queryClient.invalidateQueries({ queryKey: queryKeys.quantityEstimate.draft(draftId) })
 		},
 		onError: (error) => toast.error(`Erro ao salvar rascunho: ${error.message}`),
 	})

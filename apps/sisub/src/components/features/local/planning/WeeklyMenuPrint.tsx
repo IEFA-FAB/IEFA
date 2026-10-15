@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
-import { Link, useNavigate } from "@tanstack/react-router"
+import { Link, useHydrated, useNavigate } from "@tanstack/react-router"
 import { format, parseISO, startOfWeek } from "date-fns"
 import { ArrowLeft, FileText, Loader2, Printer } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
@@ -44,7 +44,6 @@ import { useTemplateRecipeVersions } from "@/hooks/business/useTemplateRecipeVer
 import { useMealTypeGroups } from "@/hooks/data/useMenuGroups"
 import { useRecipes } from "@/hooks/data/useRecipes"
 import { useTemplate } from "@/hooks/data/useTemplates"
-import { useIsClient } from "@/hooks/ui/useIsClient"
 import {
 	buildPreparationEntries,
 	type CardapioPrintOptions,
@@ -142,7 +141,7 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 	const originIds = useMemo(() => [...new Set(printedItems.flatMap((i) => (i.recipe_origin?.id ? [i.recipe_origin.id] : [])))], [printedItems])
 	const { digestsById, pending: ingredientsPending, isError: digestsError, retry: retryDigests } = usePreparationDigests(originIds, options.ingredients)
 	// A cópia de impressão só existe no cliente — createPortal exige `document`.
-	const mounted = useIsClient()
+	const mounted = useHydrated()
 
 	useEffect(() => {
 		setHeader(loadHeader(storageScope, organizationName))

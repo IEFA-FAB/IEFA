@@ -16,8 +16,7 @@
  * que ela consome é descartado.
  */
 
-import { useEffect, useRef } from "react"
-import { useLatest } from "@/hooks/ui/useLatest"
+import { useEffect, useEffectEvent, useRef } from "react"
 import { type BurstConfig, type BurstState, closeOnIdle, EMPTY_BURST, feedKey, isStale } from "@/lib/scanner-burst"
 
 export type ScannerTiming = BurstConfig
@@ -50,17 +49,17 @@ interface UseGlobalBarcodeCaptureOptions {
 export function useGlobalBarcodeCapture({ onScan, timing = DEFAULT_TIMING, enabled = true }: UseGlobalBarcodeCaptureOptions) {
 	const stateRef = useRef<BurstState>(EMPTY_BURST)
 	const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-	const onScanRef = useLatest(onScan)
-	// `timing` também por ref, e pelo mesmo motivo que `onScan`: todo ponto de
-	// chamada monta o objeto no render (`{...scannerPropsFrom(profile)}`), então
-	// a identidade muda a cada render. Com ele nas dependências o listener era
-	// removido e recriado no meio da rajada do leitor: o buffer parcial e o
+	const emitScan = useEffectEvent((value: string) => onScan(value))
+	// `timing` também fora das dependências, e pelo mesmo motivo que `onScan`: todo
+	// ponto de chamada monta o objeto no render (`{...scannerPropsFrom(profile)}`),
+	// então a identidade muda a cada render. Com ele nas dependências o listener
+	// era removido e recriado no meio da rajada do leitor: o buffer parcial e o
 	// timer de fechamento por ociosidade iam junto, o Enter final deixava de ser
 	// barrado e a leitura sumia sem nenhum aviso na tela.
 	//
-	// Pela ref, recalibrar o leitor passa a valer na tecla seguinte — que é o
-	// que se quer — sem derrubar a captura.
-	const timingRef = useLatest(timing)
+	// Lido na hora da tecla, recalibrar o leitor passa a valer na tecla seguinte —
+	// que é o que se quer — sem derrubar a captura.
+	const readTiming = useEffectEvent(() => timing)
 
 	useEffect(() => {
 		if (!enabled) return
@@ -77,7 +76,7 @@ export function useGlobalBarcodeCapture({ onScan, timing = DEFAULT_TIMING, enabl
 			// já trata a própria leitura
 			if (isEditableTarget(event.target)) return
 
-			const currentTiming = timingRef.current
+			const currentTiming = readTiming()
 			const now = performance.now()
 			if (isStale(stateRef.current, now, currentTiming)) stateRef.current = EMPTY_BURST
 
@@ -91,7 +90,7 @@ export function useGlobalBarcodeCapture({ onScan, timing = DEFAULT_TIMING, enabl
 					event.stopPropagation()
 				}
 				clearTimer()
-				onScanRef.current(outcome.value)
+				emitScan(outcome.value)
 				return
 			}
 
@@ -104,10 +103,10 @@ export function useGlobalBarcodeCapture({ onScan, timing = DEFAULT_TIMING, enabl
 			if (currentTiming.terminator === "none") {
 				// leitor sem terminador: a leitura fecha quando as teclas param
 				idleTimerRef.current = setTimeout(() => {
-					const value = closeOnIdle(stateRef.current, timingRef.current)
+					const value = closeOnIdle(stateRef.current, readTiming())
 					stateRef.current = EMPTY_BURST
 					idleTimerRef.current = null
-					if (value) onScanRef.current(value)
+					if (value) emitScan(value)
 				}, currentTiming.idleTimeoutMs)
 			}
 		}
@@ -119,5 +118,5 @@ export function useGlobalBarcodeCapture({ onScan, timing = DEFAULT_TIMING, enabl
 			clearTimer()
 			stateRef.current = EMPTY_BURST
 		}
-	}, [enabled, onScanRef, timingRef])
+	}, [enabled])
 }

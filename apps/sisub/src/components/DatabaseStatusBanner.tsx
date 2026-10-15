@@ -1,6 +1,6 @@
 import { queryOptions, useQuery } from "@tanstack/react-query"
+import { useHydrated } from "@tanstack/react-router"
 import { TriangleAlert } from "lucide-react"
-import { useIsClient } from "@/hooks/ui/useIsClient"
 import { cn } from "@/lib/cn"
 import { checkDatabaseStatusFn } from "@/server/database-status.fn"
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert"
@@ -17,7 +17,7 @@ const databaseStatusQueryOptions = () =>
 	})
 
 export function DatabaseStatusBanner({ className }: { className?: string }) {
-	const isClient = useIsClient()
+	const isClient = useHydrated()
 
 	const status = useQuery({
 		...databaseStatusQueryOptions(),

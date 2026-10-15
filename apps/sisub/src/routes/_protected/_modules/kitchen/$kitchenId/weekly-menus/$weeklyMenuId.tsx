@@ -1,7 +1,7 @@
 import type { EditScope } from "@iefa/sisub-domain"
 import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-router"
 import { AlertCircle, CheckCheck, CheckCircle2, Circle, ClipboardPaste, GitFork, ListChecks, Loader2, Percent, Plus, Printer, Save, Users } from "lucide-react"
-import { useEffect, useMemo, useReducer, useRef, useState } from "react"
+import { useEffect, useEffectEvent, useMemo, useReducer, useRef, useState } from "react"
 import { requirePermission } from "@/auth/pbac"
 import { type BoardArrangement, type BoardItem, type DemandType, MealGroupBoard } from "@/components/features/local/planning/MealGroupBoard"
 import type { MealTypeInfo } from "@/components/features/local/planning/MealTypeSection"
@@ -587,32 +587,28 @@ function WeeklyMenuEditorPage() {
 		)
 	}
 
-	// O listener de atalho é montado uma vez; estes refs entregam o estado corrente a ele.
-	const selectedKeysRef = useLatest(selectedKeys)
-	const activeCellRef = useLatest(activeCell)
-	const copyKeysRef = useLatest(handleCopyKeys)
-	const pasteRef = useLatest(handlePaste)
-
 	// Ctrl+C copia a seleção, Ctrl+V cola na última refeição tocada. Campo de texto em foco
-	// fica de fora: ali o atalho é o do navegador, copiando o texto digitado.
-	useEffect(() => {
-		const onKeyDown = (event: KeyboardEvent) => {
-			if (!(event.ctrlKey || event.metaKey)) return
-			const target = event.target as HTMLElement | null
-			if (target?.closest("input, textarea, [contenteditable='true']")) return
-			const key = event.key.toLowerCase()
-			if (key === "c" && selectedKeysRef.current.size > 0) {
-				event.preventDefault()
-				copyKeysRef.current(selectedKeysRef.current)
-			}
-			if (key === "v" && activeCellRef.current) {
-				event.preventDefault()
-				pasteRef.current(activeCellRef.current.day, activeCellRef.current.mealTypeId)
-			}
+	// fica de fora: ali o atalho é o do navegador, copiando o texto digitado. O listener é montado
+	// uma vez e lê seleção, célula e handlers da hora da tecla.
+	const handleShortcut = useEffectEvent((event: KeyboardEvent) => {
+		if (!(event.ctrlKey || event.metaKey)) return
+		const target = event.target as HTMLElement | null
+		if (target?.closest("input, textarea, [contenteditable='true']")) return
+		const key = event.key.toLowerCase()
+		if (key === "c" && selectedKeys.size > 0) {
+			event.preventDefault()
+			handleCopyKeys(selectedKeys)
 		}
+		if (key === "v" && activeCell) {
+			event.preventDefault()
+			handlePaste(activeCell.day, activeCell.mealTypeId)
+		}
+	})
+	useEffect(() => {
+		const onKeyDown = (event: KeyboardEvent) => handleShortcut(event)
 		window.addEventListener("keydown", onKeyDown)
 		return () => window.removeEventListener("keydown", onKeyDown)
-	}, [selectedKeysRef, activeCellRef, copyKeysRef, pasteRef])
+	}, [])
 
 	const recipeMap = new Map([...recipeById].map(([id, r]) => [id, r.name]))
 	const mealTypeIds = (mealTypes ?? []).map((m) => m.id)
