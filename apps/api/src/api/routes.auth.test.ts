@@ -23,15 +23,24 @@ import { afterAll, describe, expect, test } from "bun:test"
 
 /** Quantas requisições chegaram ao dublê — é o que prova que o guard deixou passar. */
 let upstreamHits = 0
+/** URL da última consulta que chegou ao dublê (os testes de cursor leem `limit`, `or`, `select`). */
+let lastUpstreamUrl: URL | null = null
+/** Linhas que o dublê devolve; os testes de cursor trocam e voltam a `[]`. */
+let upstreamRows: unknown[] = []
+/** Erro que o dublê devolve no lugar das linhas (status 400 do PostgREST); `null` = sem erro. */
+let upstreamError: { code: string; message: string } | null = null
 
-// PostgREST de mentira: responde `[]` a qualquer consulta. Sem ele o caso positivo do guard
-// dependeria de rede — e um handler pendurado num socket remoto transforma o contrato de
-// autorização num teste de latência de terceiros.
+// PostgREST de mentira: responde `upstreamRows` (por padrão `[]`) a qualquer consulta. Sem ele o
+// caso positivo do guard dependeria de rede — e um handler pendurado num socket remoto
+// transforma o contrato de autorização num teste de latência de terceiros.
 const stub = Bun.serve({
 	port: 0,
-	fetch: () => {
+	fetch: (req) => {
 		upstreamHits++
-		return new Response("[]", { headers: { "Content-Type": "application/json" } })
+		lastUpstreamUrl = new URL(req.url)
+		if (upstreamError)
+			return new Response(JSON.stringify({ ...upstreamError, details: null, hint: null }), { status: 400, headers: { "Content-Type": "application/json" } })
+		return new Response(JSON.stringify(upstreamRows), { headers: { "Content-Type": "application/json" } })
 	},
 })
 
@@ -211,6 +220,107 @@ describe("rotas de estrutura organizacional seguem públicas", () => {
 	test.each(PUBLIC)("%s não exige credencial", async (path) => {
 		const res = await api.request(path)
 		expect(res.status).toBe(200)
+	})
+})
+
+/**
+ * Teto de 1000 e cursor de keyset (`cursor.ts`). Moram aqui porque este é o arquivo que carrega
+ * `routes.ts` contra o dublê; outro arquivo que o carregasse brigaria pelo mesmo env.
+ */
+describe("lista com teto de 1000 e cursor para a próxima página", () => {
+	const fullPage = Array.from({ length: 1000 }, (_, i) => ({ id: i + 1, code: `U${String(i + 1).padStart(4, "0")}`, display_name: null }))
+
+	test("limit acima do teto vira 1000 na consulta, e o OpenAPI anuncia o teto real", async () => {
+		await api.request("/units?limit=100000")
+		expect(lastUpstreamUrl?.searchParams.get("limit")).toBe("1000")
+		const doc = api.getOpenAPIDocument({ openapi: "3.0.0", info: { title: "limit-probe", version: "0" } })
+		const params = (doc.paths as Record<string, { get?: { parameters?: Array<{ name: string; schema?: { maximum?: number; default?: number } }> } }>)["/units"]
+			?.get?.parameters
+		expect(params?.find((p) => p.name === "limit")?.schema).toMatchObject({ maximum: 1000, default: 1000 })
+		expect(params?.some((p) => p.name === "cursor")).toBe(true)
+	})
+
+	test("página cheia devolve X-Next-Cursor; seguir o cursor pede as linhas depois da última", async () => {
+		upstreamRows = fullPage
+		try {
+			const first = await api.request("/units")
+			const cursor = first.headers.get("X-Next-Cursor")
+			expect(cursor).toBeTruthy()
+
+			upstreamRows = [{ id: 1001, code: "U1001", display_name: null }]
+			const second = await api.request(`/units?cursor=${cursor}`)
+			expect(second.status).toBe(200)
+			// ordem padrão de /units: code, id — o keyset parte da última linha da primeira página
+			expect(lastUpstreamUrl?.searchParams.get("or")).toBe('(or(code.gt."U1000",code.is.null),and(code.eq."U1000",or(id.gt."1000",id.is.null)))')
+			// página incompleta: acabou, sem cursor
+			expect(second.headers.get("X-Next-Cursor")).toBeNull()
+		} finally {
+			upstreamRows = []
+		}
+	})
+
+	test("cursor malformado ou de outra ordenação é 400 e não vai ao banco", async () => {
+		upstreamRows = fullPage
+		let cursor: string | null
+		try {
+			cursor = (await api.request("/units")).headers.get("X-Next-Cursor")
+		} finally {
+			upstreamRows = []
+		}
+		const before = upstreamHits
+		expect((await api.request("/units?cursor=lixo!")).status).toBe(400)
+		const mismatch = await api.request(`/units?cursor=${cursor}&order=id:desc`)
+		expect(mismatch.status).toBe(400)
+		expect(((await mismatch.json()) as { error: string }).error).toContain("outra ordenação")
+		expect(upstreamHits).toBe(before)
+	})
+
+	test("cursor bem formado com valor de tipo errado é 400, não 500", async () => {
+		// `date` = "x" em /arranchamentos: passa no zod, e o Postgres recusa o cast (22007)
+		upstreamError = { code: "22007", message: 'invalid input syntax for type date: "x"' }
+		try {
+			const cursor = Buffer.from(
+				JSON.stringify({
+					o: [
+						["date", "d"],
+						["mess_hall_id", "a"],
+						["meal", "a"],
+						["user_id", "a"],
+					],
+					v: ["x", 1, "almoco", "u"],
+				})
+			).toString("base64url")
+			const res = await api.request(`${ARRANCHAMENTO_PATH}?cursor=${cursor}`, { headers: { "x-admin-secret": ADMIN_SECRET } })
+			expect(res.status).toBe(400)
+			const body = (await res.json()) as { error: string }
+			expect(body.error).toContain("tipo da coluna")
+			// a mensagem do Postgres não sai na resposta
+			expect(JSON.stringify(body)).not.toContain("invalid input syntax")
+		} finally {
+			upstreamError = null
+		}
+	})
+
+	test("erro do banco que não é de entrada do cliente segue 500", async () => {
+		upstreamError = { code: "42P01", message: "relation does not exist" }
+		try {
+			expect((await api.request("/units")).status).toBe(500)
+		} finally {
+			upstreamError = null
+		}
+	})
+
+	test("chave fora da projeção entra só no cursor, nunca na resposta", async () => {
+		upstreamRows = Array.from({ length: 1000 }, (_, i) => ({ nmGuerra: "X", __cursor_id: i + 1 }))
+		try {
+			const res = await api.request("/user-military-data", { headers: { "x-admin-secret": ADMIN_SECRET } })
+			expect(lastUpstreamUrl?.searchParams.get("select")).toContain('__cursor_id:"id"')
+			const body = (await res.json()) as Array<Record<string, unknown>>
+			expect(Object.keys(body[0] ?? {})).not.toContain("__cursor_id")
+			expect(res.headers.get("X-Next-Cursor")).toBeTruthy()
+		} finally {
+			upstreamRows = []
+		}
 	})
 })
 
