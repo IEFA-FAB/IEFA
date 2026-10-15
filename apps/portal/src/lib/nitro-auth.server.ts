@@ -29,6 +29,12 @@ export async function requirePortalUser(event: H3Event): Promise<{ id: string }>
 		cookieHeader: event.req.headers.get("cookie") ?? undefined,
 	})
 	if (!session.ok) {
+		// Sem sessão é o caso comum. Recusa do GoTrue/gateway e GoTrue fora ficam no log: uma chave
+		// publishable inválida no env dá 401 a todo mundo e, sem isto, pareceria sessão perdida.
+		if (session.kind !== "no-session") {
+			// biome-ignore lint/suspicious/noConsole: server-side auth diagnostics
+			console.warn(`[portal:nitro-auth] ${session.status} ${session.kind}: ${session.reason}`)
+		}
 		throw new HTTPError({ status: session.status, message: session.status === 401 ? "Não autenticado" : "Autenticação indisponível, tente de novo" })
 	}
 	const user = session.user

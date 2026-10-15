@@ -44,11 +44,18 @@ export type CookieSessionOptions = {
 }
 
 /**
- * - `401`: sem sessão, ou token que o GoTrue recusou (vencido, adulterado, sessão encerrada).
- * - `503`: o GoTrue não respondeu (deadline, rede, 5xx). Quem tem sessão válida não pode
- *   receber 401 por isso: o cliente trata 401 como sessão perdida.
+ * - `no-session` (401): não há sessão no cookie. É o caso comum, não vale log.
+ * - `rejected` (401): o GoTrue ou o gateway recusou (token vencido, adulterado, sessão encerrada
+ *   — ou chave publishable inválida no env, que derruba TODO mundo e só aparece no log).
+ * - `unavailable` (503): o GoTrue não respondeu (deadline, rede, 5xx). Quem tem sessão válida não
+ *   pode receber 401 por isso: o cliente trata 401 como sessão perdida.
+ *
+ * `reason` é a mensagem do auth-js, sem token: pode ir para o log.
  */
-export type CookieSessionResult = { ok: true; user: User } | { ok: false; status: 401 | 503; reason: string }
+export type CookieSessionResult =
+	| { ok: true; user: User }
+	| { ok: false; kind: "no-session" | "rejected"; status: 401; reason: string }
+	| { ok: false; kind: "unavailable"; status: 503; reason: string }
 
 /** Nome do cookie de sessão que o `@supabase/ssr` grava sem `cookieOptions.name`: `sb-<ref>-auth-token`. */
 export function sessionCookieName(url: string): string {
@@ -96,7 +103,7 @@ function isSessionRejected(error: AuthError): boolean {
 /** Usuário da sessão do cookie, validado no GoTrue sem renovar a sessão. Nunca lança. */
 export async function resolveCookieSessionUser({ url, publishableKey, cookieHeader, fetch }: CookieSessionOptions): Promise<CookieSessionResult> {
 	const accessToken = await readSessionAccessToken(url, cookieHeader)
-	if (!accessToken) return { ok: false, status: 401, reason: "sem sessão" }
+	if (!accessToken) return { ok: false, kind: "no-session", status: 401, reason: "sem sessão no cookie" }
 
 	try {
 		const auth = createStatelessAuthClient({ url, publishableKey, fetch })
@@ -105,9 +112,9 @@ export async function resolveCookieSessionUser({ url, publishableKey, cookieHead
 			error,
 		} = await auth.auth.getUser(accessToken)
 		if (user && !error) return { ok: true, user }
-		if (error && isSessionRejected(error)) return { ok: false, status: 401, reason: error.message }
-		return { ok: false, status: 503, reason: error?.message ?? "GoTrue sem usuário" }
+		if (error && isSessionRejected(error)) return { ok: false, kind: "rejected", status: 401, reason: error.message }
+		return { ok: false, kind: "unavailable", status: 503, reason: error?.message ?? "GoTrue sem usuário" }
 	} catch (error) {
-		return { ok: false, status: 503, reason: error instanceof Error ? error.message : String(error) }
+		return { ok: false, kind: "unavailable", status: 503, reason: error instanceof Error ? error.message : String(error) }
 	}
 }

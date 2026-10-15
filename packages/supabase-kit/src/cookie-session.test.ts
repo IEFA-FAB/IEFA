@@ -71,7 +71,11 @@ describe("resolveCookieSessionUser", () => {
 
 	it("sem cookie é 401 sem ir ao GoTrue", async () => {
 		const { fetch, calls } = fakeFetch(() => json(200, {}))
-		expect(await resolveCookieSessionUser({ url: URL_, publishableKey: "pk", cookieHeader: undefined, fetch })).toMatchObject({ ok: false, status: 401 })
+		expect(await resolveCookieSessionUser({ url: URL_, publishableKey: "pk", cookieHeader: undefined, fetch })).toMatchObject({
+			ok: false,
+			kind: "no-session",
+			status: 401,
+		})
 		expect(calls).toHaveLength(0)
 	})
 
@@ -79,6 +83,7 @@ describe("resolveCookieSessionUser", () => {
 		const { fetch } = fakeFetch(() => json(403, { code: "bad_jwt", msg: "token is expired" }))
 		expect(await resolveCookieSessionUser({ url: URL_, publishableKey: "pk", cookieHeader: sessionCookieHeader(EXPIRED_SESSION), fetch })).toMatchObject({
 			ok: false,
+			kind: "rejected",
 			status: 401,
 		})
 	})
@@ -87,7 +92,20 @@ describe("resolveCookieSessionUser", () => {
 		const { fetch } = fakeFetch(() => json(403, { code: "session_not_found", msg: "Session from session_id claim in JWT does not exist" }))
 		expect(await resolveCookieSessionUser({ url: URL_, publishableKey: "pk", cookieHeader: sessionCookieHeader(EXPIRED_SESSION), fetch })).toMatchObject({
 			ok: false,
+			kind: "rejected",
 			status: 401,
+		})
+	})
+
+	// Chave publishable velha no env: o gateway recusa TODO mundo. Continua 401, mas como `rejected`
+	// (com o motivo), para o app logar e não confundir com sessão perdida.
+	it("chave inválida no gateway é recusa com motivo, não falta de sessão", async () => {
+		const { fetch } = fakeFetch(() => json(401, { message: "Invalid API key" }))
+		expect(await resolveCookieSessionUser({ url: URL_, publishableKey: "pk", cookieHeader: sessionCookieHeader(EXPIRED_SESSION), fetch })).toMatchObject({
+			ok: false,
+			kind: "rejected",
+			status: 401,
+			reason: "Invalid API key",
 		})
 	})
 
@@ -95,11 +113,11 @@ describe("resolveCookieSessionUser", () => {
 		const timeout = fakeFetch(() => Promise.reject(new Error("Supabase request timed out after 5000ms")))
 		expect(
 			await resolveCookieSessionUser({ url: URL_, publishableKey: "pk", cookieHeader: sessionCookieHeader(EXPIRED_SESSION), fetch: timeout.fetch })
-		).toMatchObject({ ok: false, status: 503 })
+		).toMatchObject({ ok: false, kind: "unavailable", status: 503 })
 
 		const badGateway = fakeFetch(() => new Response("<html>502</html>", { status: 502 }))
 		expect(
 			await resolveCookieSessionUser({ url: URL_, publishableKey: "pk", cookieHeader: sessionCookieHeader(EXPIRED_SESSION), fetch: badGateway.fetch })
-		).toMatchObject({ ok: false, status: 503 })
+		).toMatchObject({ ok: false, kind: "unavailable", status: 503 })
 	})
 })
