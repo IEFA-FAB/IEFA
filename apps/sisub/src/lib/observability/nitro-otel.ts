@@ -5,7 +5,7 @@
  * no boot do servidor e engancha o hook `error` do Nitro, que dispara em
  * exceptions de SSR e de qualquer handler/server fn que faça rethrow.
  *
- * Domain errors (`handleDomainError` → 403/404/400) NÃO chegam aqui — são
+ * Domain errors (`handleDomainError` → 403/404/400/503) NÃO chegam aqui — são
  * respostas HTTP, não throws. Exatamente o que queremos: sem ruído de
  * telemetria para erros de negócio esperados.
  */
