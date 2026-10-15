@@ -29,6 +29,7 @@ import { z } from "zod"
 import { PENDING_PRODUCTION_SQLSTATE, parsePendingProductionDays } from "@/lib/count-waiver"
 import { publicDbMessage } from "@/lib/db-error-message"
 import { itemDescription } from "@/lib/item-description"
+import { readKitchenStockSettings } from "@/lib/kitchen-stock-settings.server"
 import { readAllPages, readAllPagesIn } from "@/lib/read-all-pages"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient, rpcWithNulls } from "@/lib/supabase.server"
@@ -284,15 +285,10 @@ export const fetchCountSheetFn = createServerFn({ method: "GET" })
  * folha usava a tolerância da SAÍDA do dia — outra regra, de outro documento.
  */
 async function countToleranceFor(kitchenId: number) {
-	const { data: row, error } = await inventory()
-		.from("kitchen_stock_settings")
-		.select("count_tolerance_pct, count_tolerance_value")
-		.eq("kitchen_id", kitchenId)
-		.maybeSingle()
-	if (error) throw new Error(`Erro ao carregar a tolerância da contagem: ${publicDbMessage(error)}`)
+	const settings = await readKitchenStockSettings(kitchenId)
 	return {
-		percent: Number(row?.count_tolerance_pct ?? 5),
-		floorValue: Number(row?.count_tolerance_value ?? 50),
+		percent: Number(settings.count_tolerance_pct),
+		floorValue: Number(settings.count_tolerance_value),
 	}
 }
 
