@@ -1,9 +1,7 @@
 import { StartClient } from "@tanstack/react-start/client"
 import { hydrateRoot } from "react-dom/client"
-import { getRouter } from "./router"
 
-const router = getRouter()
-
-// biome-ignore lint/suspicious/noExplicitAny: Temporary fix for StartClient type mismatch with React 19
-const StartClientAny = StartClient as any
-hydrateRoot(document, <StartClientAny router={router} />)
+// Sem prop: o `StartClient` cria o router sozinho, chamando o `getRouter()` de `router.tsx`
+// na hidratação. Chamar `getRouter()` aqui também criava um segundo router, com outro
+// QueryClient, que ninguém usava.
+hydrateRoot(document, <StartClient />)

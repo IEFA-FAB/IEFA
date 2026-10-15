@@ -1,4 +1,5 @@
 import { HIGH_CV_PERCENT, type PriceResearchReport, SAMPLE_MAX_AGE_DAYS } from "@iefa/sisub-domain"
+import { roundToCents } from "@iefa/sisub-domain/money"
 
 const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
 const PRICE = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 4 })
@@ -19,7 +20,10 @@ export function PriceResearchReportDocument({ report }: { report: PriceResearchR
 	const agents = [...new Set(items.map((i) => i.research?.createdByName).filter((n): n is string => Boolean(n)))]
 	const withResearch = items.filter((i) => i.research)
 	const periods = [...new Set(withResearch.map((i) => i.research?.periodMonths).filter((p): p is number => p != null))]
-	const total = items.reduce((sum, i) => (i.unitPrice != null && i.maxQuantity != null ? sum + i.unitPrice * i.maxQuantity : sum), 0)
+	// soma as linhas já fechadas em centavo: o total do relatório bate com a coluna
+	const total = roundToCents(
+		items.reduce((sum, i) => (i.unitPrice != null && i.maxQuantity != null ? sum + roundToCents(i.unitPrice * i.maxQuantity) : sum), 0)
+	)
 	const checksByOrder = new Map(report.checks.map((c) => [c.order, c.checks]))
 	const blocking = report.checks.filter((c) => c.checks.some((k) => k.severity === "blocking"))
 	// Excepcionalidades da emissão (congeladas nela, ou pela regra da época nas antigas): uma linha
@@ -140,7 +144,7 @@ export function PriceResearchReportDocument({ report }: { report: PriceResearchR
 								<td>{r?.method ? (METHOD[r.method] ?? r.method) : "—"}</td>
 								<td data-num="">{i.unitPrice != null ? PRICE.format(i.unitPrice) : "—"}</td>
 								<td data-num="">{i.maxQuantity != null ? INT.format(i.maxQuantity) : "—"}</td>
-								<td data-num="">{i.unitPrice != null && i.maxQuantity != null ? BRL.format(i.unitPrice * i.maxQuantity) : "—"}</td>
+								<td data-num="">{i.unitPrice != null && i.maxQuantity != null ? BRL.format(roundToCents(i.unitPrice * i.maxQuantity)) : "—"}</td>
 							</tr>
 						)
 					})}

@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button"
 import { toast } from "@/components/ui/toast"
 import { useAuth } from "@/hooks/auth/useAuth"
 import { useSaramStatus } from "@/hooks/business/useUserSaram"
-import { inferDefaultMeal, MEAL_LABEL } from "@/lib/fiscal"
+import { classifyInsertOutcome, inferDefaultMeal, MEAL_LABEL } from "@/lib/fiscal"
 import { insertPresenceFn } from "@/server/presence.fn"
 import { messHallByCodeQueryOptions, userArranchamentoQueryOptions } from "@/services/SelfCheckInService"
 import type { WillEnter } from "@/types/domain/presence"
@@ -37,13 +37,6 @@ function todayISO(): string {
 
 function todayDisplay(): string {
 	return new Date().toLocaleDateString("pt-BR")
-}
-
-function isDuplicateOrConflict(err: unknown): boolean {
-	if (!err || typeof err !== "object") return false
-	const e = err as { code?: string | number; status?: number; message?: string }
-	const msg = String(e.message || "").toLowerCase()
-	return e.code === "23505" || e.code === 23505 || e.code === "409" || e.status === 409 || msg.includes("duplicate key") || msg.includes("conflict")
 }
 
 // ─── Reducer ─────────────────────────────────────────────────────────────────
@@ -196,7 +189,6 @@ function SelfCheckin() {
 	}
 
 	const handleSubmit = async () => {
-		"use no memo"
 		if (submitting || !userId || !messHall) return
 		dispatch({ type: "SET_SUBMITTING", value: true })
 
@@ -207,16 +199,20 @@ function SelfCheckin() {
 				return
 			}
 
-			await insertPresenceFn({ data: { user_id: userId, date, meal, messHallId: messHall.id } })
-
-			toast.success("Presença registrada", { description: `Bom apetite! Redirecionando em ${REDIRECT_DELAY}s...` })
-			scheduleRedirect()
-		} catch (err) {
-			if (isDuplicateOrConflict(err)) {
-				toast.info("Já registrado", { description: `Presença já registrada para esta refeição. Redirecionando em ${REDIRECT_DELAY}s...` })
+			// Duplicidade volta como resultado da fn (o transporte não leva o código do erro).
+			const outcome = await insertPresenceFn({ data: { user_id: userId, date, meal, messHallId: messHall.id } })
+			if (outcome.status === "duplicate") {
+				// A unicidade é por refeição, não por refeitório: diz onde a presença está.
+				const where =
+					classifyInsertOutcome(outcome, messHall.id) === "duplicate" ? "" : outcome.messHallName ? ` em ${outcome.messHallName}` : " em outro refeitório"
+				toast.info("Já registrado", { description: `Presença já registrada para esta refeição${where}. Redirecionando em ${REDIRECT_DELAY}s...` })
 				scheduleRedirect()
 				return
 			}
+
+			toast.success("Presença registrada", { description: `Bom apetite! Redirecionando em ${REDIRECT_DELAY}s...` })
+			scheduleRedirect()
+		} catch {
 			toast.error("Erro", { description: "Não foi possível registrar sua presença." })
 		} finally {
 			dispatch({ type: "SET_SUBMITTING", value: false })

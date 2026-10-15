@@ -76,7 +76,9 @@ export function BulkMealSelector({ targetDates, initialTemplate, onApply, onCanc
 		if (!hasCardsToApply || isApplying) return
 		try {
 			await onApply(template, { mode: applyMode })
-		} catch (_err) {}
+		} catch {
+			// Quem mostra o erro é o onApply (arranchamento: aviso de erro da página); aqui só não deixa a rejeição escapar.
+		}
 	}
 
 	const handleCancel = () => {

@@ -47,4 +47,12 @@ describe("planEmpenhoCancellation — anulação total pelo valor lido sob o loc
 	test("vigente zerado por eventos: cancela zero e marca o status", () => {
 		expect(planEmpenhoCancellation({ ...base, vigente: 0 })).toEqual({ ok: true, valor: 0 })
 	})
+
+	test("vigente com meio-centavo fecha para cima (roundToCents), mesmo quando o binário guarda menos", () => {
+		// 1,005 × 100 = 100,4999… em binário: o `Math.round` antigo anulava 1,00
+		expect(planEmpenhoCancellation({ ...base, vigente: 1.005 })).toEqual({ ok: true, valor: 1.01 })
+		expect(planEmpenhoCancellation({ ...base, vigente: 10.005 })).toEqual({ ok: true, valor: 10.01 })
+		// negativo não se anula: o piso em zero continua valendo
+		expect(planEmpenhoCancellation({ ...base, vigente: -10.005 })).toEqual({ ok: true, valor: 0 })
+	})
 })

@@ -112,7 +112,7 @@ O item "Relatório Depreciação > Bem" manda reportar UGs com "saldo de depreci
 
 Passou a existir **`src/lib/analysis/tolerancia.ts`**, usado pelas três: `TOLERANCIA_SALDO` (meio centavo), `arredondarCentavos`, `saldosDivergem` e `saldoZerado`. No Auditor isso não é cosmético — a contagem de competências com divergência era `difference > 0`, então resíduo de sub-centavo do parse de moeda contava competência e empurrava a probabilidade e, com ela, o nível de risco.
 
-`arredondarCentavos` normaliza a representação com `toPrecision(12)` antes de arredondar, como o `roundToCents` do sisub: `toFixed(2)` e `Math.round` crus derrubam o meio-centavo sempre para baixo (`(1.005).toFixed(2)` é `"1.00"`), e numa soma de dezenas de linhas o viés é sistemático.
+`arredondarCentavos` normaliza a representação com `toPrecision` antes de arredondar, como o `roundToCents` do sisub: `toFixed(2)` e `Math.round` crus derrubam o meio-centavo para baixo (`(1.005).toFixed(2)` é `"1.00"`), e numa soma de dezenas de linhas o viés é sistemático. O meio-centavo vai para longe do zero também no negativo (-10,005 → -10,01), para que débito e crédito do mesmo valor fechem no mesmo centavo; `Math.round` sozinho levaria -10,005 a -10,00.
 
 É tolerância de **arredondamento**, não piso de materialidade — o comentário do módulo diz isso, para que ninguém a converta em critério de cobrança sem decisão.
 

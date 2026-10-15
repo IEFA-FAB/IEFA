@@ -99,6 +99,36 @@ acesso vale até ser desfeito. Referência: cabeçalhos de
   `select set_config('iefa.audit_bypass', '<motivo>', true);`. Sem ele, a migration falha. No código
   TS o bypass só é permitido nos arquivos da allowlist de `.opengrep/rules/access-audit.yaml`.
 
+## Advisory locks e ordem de trigger
+
+- **Advisory lock só exclui quem calcula a MESMA chave.** `hashtext` (int4) e
+  `hashtextextended(…, seed)` (int8) dão números diferentes para o mesmo texto, e seeds diferentes
+  também: duas funções que "travam o empenho" com esquemas diferentes não se esperam. Esquemas em
+  uso:
+  - `hashtextextended('<prefixo>:' || id, 42)`: inventory (`inv_close:`, `leftover:`,
+    `late-issue:`, `adjustment_threshold:`, `provisional-frozen:`; e `p_task_id::text` sem
+    prefixo), finance (`empenho_event:`, `liq_empenho:`, `liq_receipt:`, `of_empenho:`,
+    `pag_liq:`) e siafi_integration (`siafi_batch:`). O TS do sisub que serializa contra esses
+    triggers repete a chave e o seed (`empenho-events.server.ts`, `reconciliation-decision.server.ts`,
+    `restos-a-pagar.fn.ts`).
+  - `hashtextextended(…, 0)`: `access_control.user_permissions:` (concessão de módulo),
+    `access_control.attach_policy:`, `alpha.claim_usage:` e o receiving (`nfe_document_id::text`,
+    sem prefixo).
+  - `hashtext('saram:' || saram)`: o vínculo de SARAM (`20261001100200`, `20261003100000`).
+    No TS de `@iefa/sisub-domain`, `hashtext` também (`execution.ts` `provisional-recipe:`,
+    `ingredient-versions.ts`, `recipe-head.ts`, `templates.ts`); hoje nenhuma dessas chaves é
+    disputada com o SQL.
+  - Chave numérica fixa: o reset de treino (`RESET_LOCK_KEY` em `training.ts`).
+  - Padrão para lock novo: `pg_advisory_xact_lock(hashtextextended('<schema-ou-recurso>:' || id, 42))`,
+    com prefixo sempre (id cru de duas tabelas pode colidir), e quem disputa com um lock que já
+    existe copia a função, o seed e o prefixo dele, nunca "o equivalente".
+- **Triggers BEFORE de `inventory.stock_movement` rodam em ordem alfabética de nome**, como todo
+  trigger do mesmo evento no Postgres: `stock_movement_costing_before`, `…_occurred_at_guard`,
+  `…_period_lock`, `…_require_module`. O custeio, portanto, roda antes da recusa de módulo: lê e
+  trava `stock_cost` (`for update`) e fixa `unit_cost`/`total_cost` a partir de `NEW`. Trigger novo
+  que altere `NEW` (quantidade, tipo, custo, item) precisa de nome que ordene antes de
+  `stock_movement_costing_before`, senão o custo é calculado sobre o valor antigo.
+
 ## Migrations
 
 O banco é um só, compartilhado por todas as branches, e a suíte da `main` tem de passar contra ele

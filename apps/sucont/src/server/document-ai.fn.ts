@@ -48,6 +48,10 @@ export interface DataAnalysisData {
 }
 
 // ── Server Function ──────────────────────────────────────────
+
+/** Mensagem do prazo (`SERVER_FN_AI_DEADLINE_MS` em `#/lib/ai.server`) nesta tela. */
+const TIMEOUT_MESSAGE = "O processamento demorou mais que o esperado (timeout). Tente com um rascunho mais curto."
+
 export const adaptDraftFn = createServerFn({ method: "POST" })
 	.validator(adaptDraftInputSchema)
 	.handler(async ({ data }) => {
@@ -60,15 +64,16 @@ export const adaptDraftFn = createServerFn({ method: "POST" })
 		// Persona, regras e formato no `system`; o rascunho vai delimitado no `user`.
 		const { system, user } = buildDocumentPrompt({ type, draft, nonce: createPromptNonce() })
 
-		const timeoutPromise = new Promise<never>((_, reject) =>
-			setTimeout(() => reject(new Error("O processamento demorou mais que o esperado (timeout). Tente com um rascunho mais curto.")), 60000)
-		)
-
-		const generated = await Promise.race([
+		// Prazo abaixo do idle do ALB e abort no provider (pelo prazo ou pelo cliente que foi
+		// embora) vivem em `generateJson`, ver `#/lib/ai.server`.
+		const generated = await generateJson<FabDocumentData | DataAnalysisData>({
 			// Dono da chamada vem da sessão, nunca do input — é a chave dos tetos por usuário.
-			generateJson<FabDocumentData | DataAnalysisData>({ userId: ctx.userId, system, user, schema: isFab ? fabSchema : analysisSchema }),
-			timeoutPromise,
-		])
+			userId: ctx.userId,
+			system,
+			user,
+			schema: isFab ? fabSchema : analysisSchema,
+			timeoutMessage: TIMEOUT_MESSAGE,
+		})
 
 		// Persiste no histórico de documentos da seção (não bloqueia o retorno em caso de falha).
 		try {

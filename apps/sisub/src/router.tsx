@@ -47,8 +47,8 @@ export const getRouter = () => {
 
 	setupRouterSsrQueryIntegration({
 		router,
-		// Cast through unknown: tsc resolves @tanstack/query-core from two paths due to
-		// Bun workspace hoisting; both resolve to the same runtime package (5.100.x).
+		// Cast via unknown: o type checker acha @tanstack/query-core por dois caminhos (hoisting do
+		// workspace do Bun), mas em runtime é um pacote só, na versão fixada pelo `overrides` da raiz.
 		queryClient: rqContext.queryClient as unknown as Parameters<typeof setupRouterSsrQueryIntegration>[0]["queryClient"],
 	})
 

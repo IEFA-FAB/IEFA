@@ -2,6 +2,7 @@
  * Derivações puras do detalhe do anexo quantitativo (`unit/$unitId/quantity-estimates/$quantityEstimateId`).
  */
 
+import { roundToCents } from "@iefa/sisub-domain/money"
 import type { ProcurementNeed } from "@iefa/sisub-domain/types"
 import { buildDraftAnnexRows, buildSnapshotAnnexRows, type QuantityEstimateAnnexRow, type QuantityEstimateAnnexSettings } from "@/lib/quantity-estimate-annex"
 import type { QuantityEstimateWithDetails } from "@/types/domain/quantity-estimate"
@@ -63,6 +64,9 @@ export function summarizePrices(items: { unit_price: number | string | null; est
 	grandTotal: number
 } {
 	const hasPrices = items.some((item) => item.unit_price !== null)
-	const grandTotal = items.reduce((sum, item) => sum + (item.unit_price !== null ? Number(item.estimated_quantity) * Number(item.unit_price) : 0), 0)
+	// soma as linhas fechadas em centavo, como o anexo e a tabela de itens mostram cada uma
+	const grandTotal = roundToCents(
+		items.reduce((sum, item) => sum + (item.unit_price !== null ? roundToCents(Number(item.estimated_quantity) * Number(item.unit_price)) : 0), 0)
+	)
 	return { hasPrices, grandTotal }
 }

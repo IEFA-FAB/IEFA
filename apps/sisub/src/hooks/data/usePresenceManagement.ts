@@ -4,6 +4,7 @@ import type { PostgrestError } from "@supabase/supabase-js"
 import { type UseMutationResult, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useCallback } from "react"
 import { toast } from "@/components/ui/toast"
+import { classifyInsertOutcome, describePresenceElsewhere } from "@/lib/fiscal"
 import { queryKeys } from "@/lib/query-keys"
 import { deletePresenceFn, fetchArranchamentoMapFn, fetchPresencesFn, insertPresenceFn } from "@/server/presence.fn"
 import type {
@@ -26,10 +27,6 @@ class UnitRequiredError extends Error {
 	}
 }
 
-const isPostgrestError = (e: unknown): e is PostgrestError => {
-	return typeof e === "object" && e !== null && "code" in e && typeof (e as Record<string, unknown>).code === "string"
-}
-
 type MutationError = UnitRequiredError | PostgrestError
 
 // ============================================================================
@@ -46,13 +43,6 @@ const handleConfirmPresenceError = (error: unknown): void => {
 	if (error instanceof UnitRequiredError) {
 		toast.error("Refeitório não identificado", {
 			description: "O refeitório não foi encontrado.",
-		})
-		return
-	}
-
-	if (isPostgrestError(error) && (error.code === "23505" || (error instanceof Error && error.message.includes("23505")))) {
-		toast.info("Já registrado", {
-			description: "Este militar já foi marcado presente.",
 		})
 		return
 	}
@@ -117,28 +107,48 @@ export function usePresenceManagement(filters: FiscalFilters): UsePresenceManage
 				toast.info("Registro atualizado", {
 					description: "Decisão registrada. Militar não entrará para a refeição.",
 				})
-				return { skipped: true }
+				return { status: "skipped" }
 			}
 
-			if (!filters.messHallId) throw new UnitRequiredError()
+			// Grava onde o crachá foi lido, não nos filtros de agora: o fiscal pode ter trocado a
+			// refeição enquanto o diálogo estava aberto.
+			const target = params.scope ?? filters
+			if (!target.messHallId) throw new UnitRequiredError()
 
-			await insertPresenceFn({
+			const outcome = await insertPresenceFn({
 				data: {
 					user_id: params.uuid,
-					date: filters.date,
-					meal: filters.meal,
-					messHallId: filters.messHallId,
+					date: target.date,
+					meal: target.meal,
+					messHallId: target.messHallId,
 				},
 			})
+
+			// Duplicidade chega como resultado: o transporte da server fn não leva o código do erro.
+			// E a unicidade é por refeição, não por refeitório: pode ser presença em outro.
+			const status = classifyInsertOutcome(outcome, target.messHallId)
+			if (status === "elsewhere") {
+				toast.warning("Presença em outro refeitório", {
+					description: describePresenceElsewhere(outcome.status === "duplicate" ? outcome.messHallName : null),
+				})
+				return { status }
+			}
+			if (status === "duplicate") {
+				toast.info("Já registrado", {
+					description: "Este militar já foi marcado presente.",
+				})
+				return { status }
+			}
 
 			toast.success("Presença registrada", {
 				description: `UUID ${params.uuid} marcado.`,
 			})
-			return { skipped: false }
+			return { status }
 		},
-		onSuccess: () => {
+		onSuccess: (_result, params) => {
+			const target = params.scope ?? filters
 			queryClient.invalidateQueries({
-				queryKey: queryKeys.presences.list(filters.date, filters.meal, filters.messHallId),
+				queryKey: queryKeys.presences.list(target.date, target.meal, target.messHallId),
 			})
 		},
 		onError: handleConfirmPresenceError,
@@ -165,8 +175,8 @@ export function usePresenceManagement(filters: FiscalFilters): UsePresenceManage
 	// CALLBACKS
 	// ============================================================================
 	const confirmPresence = useCallback(
-		async (uuid: string, willEnter: boolean): Promise<ConfirmPresenceResult> => {
-			return await confirmPresenceMutation.mutateAsync({ uuid, willEnter })
+		async (uuid: string, willEnter: boolean, scope?: FiscalFilters): Promise<ConfirmPresenceResult> => {
+			return await confirmPresenceMutation.mutateAsync({ uuid, willEnter, scope })
 		},
 		[confirmPresenceMutation]
 	)

@@ -27,7 +27,9 @@ import { getBrasiliaCurrentMonth, getBrasiliaToday } from "@iefa/sisub-domain/ci
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { withSensitiveAudit } from "@/lib/audit.server"
+import { compareCreditLines, compareCreditNotes, empenhoExercicioFilter, valorVigenteFromEvents, yearOfDate } from "@/lib/budget-reads"
 import { publicDbMessage } from "@/lib/db-error-message"
+import { readAllPagesByKey } from "@/lib/read-all-pages"
 import { selectColumns } from "@/lib/select-columns"
 import { getServerClient } from "@/lib/supabase.server"
 import { requireUnitScope } from "@/lib/unit-auth.server"
@@ -115,43 +117,68 @@ function toCreditLineSnapshot(row: BudgetCreditDbRow): CreditLineSnapshot & { id
  * Empenhos da unidade com classificação, valor VIGENTE e eventos — a base do
  * comprometimento filtrado. Anulados entram também: a anulação posterior ao
  * snapshot devolve crédito à linha.
+ *
+ * Só os exercícios em `years` (o das linhas de crédito conferidas): NE de outro ano
+ * não consome a linha (`empenhoConsumesCreditLine`), e sem o filtro cada conferência
+ * carregava o histórico inteiro da unidade.
+ *
+ * Por keyset (`id`), não por offset: é soma de dinheiro, e uma NE registrada durante a
+ * leitura não pode fazer outra entrar duas vezes. O vigente sai dos eventos embutidos na
+ * MESMA linha, não de `v_empenho_vigente` lida em outra requisição (outro snapshot).
  */
-async function fetchClassifiedEmpenhos(unitId: number): Promise<ClassifiedEmpenhoEntry[]> {
-	const fin = finance()
-	const [{ data: rows, error }, { data: vigentes, error: vigenteError }] = await Promise.all([
-		fin
-			.from("empenho")
-			.select("id, data_empenho, status, nd, ptres, fonte, issuer_ug, exercicio, empenho_event(tipo, valor, data)")
-			.eq("unit_id", unitId)
-			.order("data_empenho", { ascending: false })
-			.limit(2000),
-		fin.from("v_empenho_vigente").select("empenho_id, valor_vigente").eq("unit_id", unitId).limit(2000),
-	])
-	if (error) throw new Error(`Erro ao consultar empenhos: ${publicDbMessage(error)}`)
-	if (vigenteError) throw new Error(`Erro ao consultar o valor vigente dos empenhos: ${publicDbMessage(vigenteError)}`)
-	const vigenteById = new Map((vigentes ?? []).map((row) => [row.empenho_id, Number(row.valor_vigente)]))
-	return (rows ?? []).map((row) => ({
-		id: row.id,
-		dataEmpenho: row.data_empenho,
-		status: row.status,
-		nd: row.nd,
-		ptres: row.ptres,
-		fonte: row.fonte,
-		ug: row.issuer_ug,
-		exercicio: row.exercicio,
-		valorVigente: vigenteById.get(row.id) ?? 0,
-		events: (row.empenho_event ?? []).map((event) => ({ tipo: event.tipo, valor: Number(event.valor), data: event.data })),
-	}))
+async function fetchClassifiedEmpenhos(unitId: number, years: readonly number[]): Promise<ClassifiedEmpenhoEntry[]> {
+	const exercicioFilter = empenhoExercicioFilter(years)
+	if (!exercicioFilter) return []
+	const rows = await readAllPagesByKey(
+		"os empenhos",
+		(after, pageSize) => {
+			let query = finance()
+				.from("empenho")
+				.select("id, data_empenho, status, nd, ptres, fonte, issuer_ug, exercicio, valor_total, empenho_event(tipo, valor, data)")
+				.eq("unit_id", unitId)
+				.or(exercicioFilter)
+			if (after !== null) query = query.gt("id", after)
+			return query.order("id").limit(pageSize)
+		},
+		(row) => row.id
+	)
+	return rows.map((row) => {
+		const events = (row.empenho_event ?? []).map((event) => ({ tipo: event.tipo, valor: Number(event.valor), data: event.data }))
+		return {
+			id: row.id,
+			dataEmpenho: row.data_empenho,
+			status: row.status,
+			nd: row.nd,
+			ptres: row.ptres,
+			fonte: row.fonte,
+			ug: row.issuer_ug,
+			exercicio: row.exercicio,
+			valorVigente: valorVigenteFromEvents(Number(row.valor_total), events),
+			events,
+		}
+	})
 }
 
-async function fetchCreditNoteEntries(unitId: number): Promise<CreditNoteEntry[]> {
-	const { data, error } = await finance()
-		.from("credit_note")
-		.select("kind, amount, issued_on, beneficiary_ug, nd, ptres, fonte")
-		.eq("unit_id", unitId)
-		.limit(2000)
-	if (error) throw new Error(`Erro ao consultar notas de crédito: ${publicDbMessage(error)}`)
-	return (data ?? []).map((row) => ({
+/** NC da unidade emitidas em `years`: NC de outro ano não alimenta a linha (`sumCreditNotesForLine`). */
+async function fetchCreditNoteEntries(unitId: number, years: readonly number[]): Promise<CreditNoteEntry[]> {
+	if (years.length === 0) return []
+	const min = Math.min(...years)
+	const max = Math.max(...years)
+	const data = await readAllPagesByKey(
+		"as notas de crédito",
+		(after, pageSize) => {
+			let query = finance()
+				.from("credit_note")
+				.select("id, kind, amount, issued_on, beneficiary_ug, nd, ptres, fonte")
+				.eq("unit_id", unitId)
+				.gte("issued_on", `${min}-01-01`)
+				.lte("issued_on", `${max}-12-31`)
+			if (after !== null) query = query.gt("id", after)
+			return query.order("id").limit(pageSize)
+		},
+		(row) => row.id
+	)
+	return data.map((row) => ({
 		tipo: row.kind,
 		valor: Number(row.amount),
 		dataEmissao: row.issued_on,
@@ -176,21 +203,24 @@ export const fetchBudgetCreditFn = createServerFn({ method: "GET" })
 	.handler(async ({ data }): Promise<BudgetCreditLine[]> => {
 		await requireUnitScope(1, data.unitId)
 
-		let query = finance()
-			.from("budget_credit")
-			.select(selectColumns(BUDGET_CREDIT_COLUMNS))
-			.eq("unit_id", data.unitId)
-			.order("competencia", { ascending: false })
-			.order("nd")
-		if (data.competencia) query = query.eq("competencia", `${data.competencia}-01`)
+		// Todas as linhas, por keyset: a leitura única cortava calada em 1000.
+		const rows = await readAllPagesByKey(
+			"o crédito",
+			(after, pageSize) => {
+				let query = finance().from("budget_credit").select(selectColumns(BUDGET_CREDIT_COLUMNS)).eq("unit_id", data.unitId)
+				if (data.competencia) query = query.eq("competencia", `${data.competencia}-01`)
+				if (after !== null) query = query.gt("id", after)
+				return query.order("id").limit(pageSize)
+			},
+			(row) => row.id
+		)
+		if (rows.length === 0) return []
+		rows.sort(compareCreditLines)
 
-		const { data: rows, error } = await query
-		if (error) throw new Error(`Erro ao consultar crédito: ${publicDbMessage(error)}`)
-		if ((rows ?? []).length === 0) return []
-
-		const [empenhos, notes] = await Promise.all([fetchClassifiedEmpenhos(data.unitId), fetchCreditNoteEntries(data.unitId)])
+		const years = [...new Set(rows.map((row) => yearOfDate(row.competencia)).filter((year) => year != null))]
+		const [empenhos, notes] = await Promise.all([fetchClassifiedEmpenhos(data.unitId, years), fetchCreditNoteEntries(data.unitId, years)])
 		const now = Date.now()
-		return (rows ?? []).map((row) => {
+		return rows.map((row) => {
 			const line = toCreditLineSnapshot(row)
 			return {
 				...line,
@@ -235,17 +265,28 @@ export const checkBudgetForEmpenhoFn = createServerFn({ method: "GET" })
 	.handler(async ({ data }): Promise<ClassifiedCreditCheck> => {
 		await requireUnitScope(1, data.unitId)
 
-		const { data: rows, error } = await finance()
-			.from("budget_credit")
-			.select(selectColumns(BUDGET_CREDIT_COLUMNS))
-			.eq("unit_id", data.unitId)
-			.order("competencia", { ascending: false })
-			.limit(500)
-		if (error) throw new Error(`Erro ao consultar crédito: ${publicDbMessage(error)}`)
-		const lines = (rows ?? []).map(toCreditLineSnapshot)
-
+		// Só a NE do exercício consome a linha do exercício (`empenhoConsumesCreditLine`): as linhas e as
+		// NE vêm desse ano, TODAS. O `.limit(500)` de antes, por competência decrescente, podia deixar de
+		// fora justamente a linha da classificação conferida e acusar falta de crédito que não havia.
 		const dataEmpenho = data.dataEmpenho ?? getBrasiliaToday()
-		const empenhos = lines.length > 0 ? await fetchClassifiedEmpenhos(data.unitId) : []
+		const exercicio = data.exercicio ?? Number(dataEmpenho.substring(0, 4))
+		const rows = await readAllPagesByKey(
+			"o crédito",
+			(after, pageSize) => {
+				let query = finance()
+					.from("budget_credit")
+					.select(selectColumns(BUDGET_CREDIT_COLUMNS))
+					.eq("unit_id", data.unitId)
+					.gte("competencia", `${exercicio}-01-01`)
+					.lte("competencia", `${exercicio}-12-31`)
+				if (after !== null) query = query.gt("id", after)
+				return query.order("id").limit(pageSize)
+			},
+			(row) => row.id
+		)
+		const lines = rows.sort(compareCreditLines).map(toCreditLineSnapshot)
+
+		const empenhos = lines.length > 0 ? await fetchClassifiedEmpenhos(data.unitId, [exercicio]) : []
 		return checkCreditForClassifiedEmpenho(
 			data.valor,
 			{
@@ -253,7 +294,7 @@ export const checkBudgetForEmpenhoFn = createServerFn({ method: "GET" })
 				ptres: data.ptres || null,
 				fonte: data.fonte || null,
 				ug: data.ug || null,
-				exercicio: data.exercicio ?? Number(dataEmpenho.substring(0, 4)),
+				exercicio,
 				dataEmpenho,
 			},
 			lines,
@@ -342,17 +383,19 @@ export const listCreditNotesFn = createServerFn({ method: "GET" })
 	.validator(z.object({ unitId: z.number().int().positive(), exercicio: z.number().int().optional() }))
 	.handler(async ({ data }): Promise<CreditNoteRow[]> => {
 		await requireUnitScope(1, data.unitId)
-		let query = finance()
-			.from("credit_note")
-			.select(selectColumns(CREDIT_NOTE_COLUMNS))
-			.eq("unit_id", data.unitId)
-			.order("issued_on", { ascending: false })
-			.order("created_at", { ascending: false })
-			.limit(500)
-		if (data.exercicio) query = query.gte("issued_on", `${data.exercicio}-01-01`).lte("issued_on", `${data.exercicio}-12-31`)
-		const { data: rows, error } = await query
-		if (error) throw new Error(`Erro ao listar notas de crédito: ${publicDbMessage(error)}`)
-		return (rows ?? []).map((row) => ({
+		// Todas, por keyset: a tela soma estas NC (`creditNotesAboveLines`), e o `.limit(500)` de antes
+		// tirava da soma as mais antigas sem aviso.
+		const rows = await readAllPagesByKey(
+			"as notas de crédito",
+			(after, pageSize) => {
+				let query = finance().from("credit_note").select(selectColumns(CREDIT_NOTE_COLUMNS)).eq("unit_id", data.unitId)
+				if (data.exercicio) query = query.gte("issued_on", `${data.exercicio}-01-01`).lte("issued_on", `${data.exercicio}-12-31`)
+				if (after !== null) query = query.gt("id", after)
+				return query.order("id").limit(pageSize)
+			},
+			(row) => row.id
+		)
+		return rows.sort(compareCreditNotes).map((row) => ({
 			...row,
 			amount: Number(row.amount),
 			kind: row.kind as CreditNoteRow["kind"],

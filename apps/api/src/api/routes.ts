@@ -3,6 +3,7 @@ import type { Context } from "hono"
 import { env } from "../env.ts"
 import { secureCompare } from "../lib/secure-compare.ts"
 import { ARRANCHAMENTO_PATH, arranchamentoDeprecationHeaders, LEGACY_ARRANCHAMENTO_PATH, logDeprecatedArranchamentoPath } from "./arranchamento-path.ts"
+import { MAX_CURSOR_LENGTH, NEXT_CURSOR_HEADER, POSTGREST_MAX_ROWS } from "./cursor.ts"
 import { createApiHandler } from "./factory.js"
 import { LEGACY_SARAM_FIELD, MIRROR_SARAM_COLUMN } from "./saram-field.ts"
 
@@ -119,10 +120,16 @@ function defineDocRoute<TSchema extends z.ZodType>(config: {
 				schema: {
 					type: "integer",
 					minimum: 1,
-					maximum: 100000,
-					default: 100000,
+					maximum: POSTGREST_MAX_ROWS,
+					default: POSTGREST_MAX_ROWS,
 				},
-				description: "Número máximo de registros",
+				description: `Número máximo de registros por resposta (teto ${POSTGREST_MAX_ROWS}). Para ler além, siga o cabeçalho ${NEXT_CURSOR_HEADER}.`,
+			},
+			{
+				name: "cursor",
+				in: "query" as const,
+				schema: { type: "string", maxLength: MAX_CURSOR_LENGTH },
+				description: `Próxima página: o valor do cabeçalho ${NEXT_CURSOR_HEADER} da resposta anterior, sem alterar. Repita os mesmos filtros e o mesmo \`order\`; cursor de outra ordenação é 400. Linha inserida ou apagada entre as páginas não faz outra repetir nem sumir; linha cuja coluna da ordem muda no meio da leitura pode vir duas vezes ou não vir: quem precisa de leitura exata deduplica pela chave ou relê.`,
 			},
 			{
 				name: "order",
@@ -134,6 +141,12 @@ function defineDocRoute<TSchema extends z.ZodType>(config: {
 		responses: {
 			200: {
 				description: "Sucesso",
+				headers: {
+					[NEXT_CURSOR_HEADER]: {
+						description: `Presente quando a página veio cheia (\`limit\` linhas): passe-o em \`cursor\` para as seguintes. Ausente, não há mais linhas.`,
+						schema: { type: "string" },
+					},
+				},
 				content: {
 					"application/json": {
 						schema: z.array(config.responseSchema),
@@ -141,7 +154,8 @@ function defineDocRoute<TSchema extends z.ZodType>(config: {
 				},
 			},
 			400: {
-				description: "Parâmetro inválido — ordenação por coluna fora da resposta, ou colunas demais",
+				description:
+					"Parâmetro inválido — ordenação por coluna fora da resposta, colunas demais, cursor inválido ou de outra ordenação, ou valor de filtro ou cursor que não converte no tipo da coluna",
 				content: {
 					"application/json": {
 						schema: ErrorSchema,
@@ -175,6 +189,7 @@ function defineDocRoute<TSchema extends z.ZodType>(config: {
 // /api/opinion -> opinions
 const [, opinionHandler] = createApiHandler({
 	table: "opinions",
+	uniqueKey: ["id"],
 	schema: "kitchen",
 	select: 'id, created_at, value, question, "userId"',
 	dateColumn: "created_at",
@@ -217,6 +232,7 @@ const opinionRoute = defineDocRoute({
 // /api/arranchamentos -> kitchen.arranchamento
 const [, arranchamentoHandler] = createApiHandler({
 	table: "arranchamento",
+	uniqueKey: ["user_id", "date", "meal"],
 	schema: "kitchen",
 	select: "user_id, date, meal, will_eat, mess_hall_id, created_at, updated_at",
 	dateColumn: "date",
@@ -298,6 +314,7 @@ async function legacyArranchamentoHandler(c: Context): Promise<Response> {
 // /api/wherewhowhen -> meal_presences
 const [, presenceHandler] = createApiHandler({
 	table: "meal_presences",
+	uniqueKey: ["user_id", "date", "meal"],
 	schema: "kitchen",
 	select: "user_id, date, meal, mess_hall_id, created_at, updated_at",
 	dateColumn: "date",
@@ -348,6 +365,11 @@ const presenceRoute = defineDocRoute({
 // /api/user-military-data -> user_military_data
 const [, militaryDataHandler] = createApiHandler({
 	table: "user_military_data",
+	// Nenhuma coluna publicada é única (o SARAM espelho não tem UNIQUE; o CPF tem, mas não sai):
+	// o `id` sintético entra só como desempate e no cursor. Rota restrita por `x-admin-secret`.
+	// Sem chave publicada o cliente não deduplica: a carga do espelho, que muda `dataAtualizacao`
+	// (primeira coluna da ordem), pode repetir ou pular uma linha numa leitura em várias páginas.
+	uniqueKey: ["id"],
 	schema: "core",
 	select: `"${MIRROR_SARAM_COLUMN}", "nmGuerra", "nmPessoa", "sgPosto", "sgOrg", "dataAtualizacao"`,
 	dateColumn: "dataAtualizacao",
@@ -428,6 +450,7 @@ const militaryDataRoute = defineDocRoute({
 // /api/user-data -> user_data
 const [, userDataHandler] = createApiHandler({
 	table: "user_data",
+	uniqueKey: ["id"],
 	schema: "core",
 	// O campo obsoleto sai com o mesmo valor, lido da coluna nova (ver `saram-field.ts`).
 	select: `id, created_at, email, saram, ${LEGACY_SARAM_FIELD}:saram`,
@@ -503,6 +526,7 @@ const userDataRoute = defineDocRoute({
 // /api/units -> sisub.units
 const [, unitsHandler] = createApiHandler({
 	table: "units",
+	uniqueKey: ["id"],
 	schema: "core",
 	select: "id, code, display_name",
 	defaultOrder: [
@@ -559,6 +583,7 @@ const unitsRoute = defineDocRoute({
 // /api/mess-halls -> sisub.mess_halls
 const [, messHallsHandler] = createApiHandler({
 	table: "mess_halls",
+	uniqueKey: ["id"],
 	schema: "kitchen",
 	select: "id, unit_id, code, display_name",
 	defaultOrder: [
@@ -637,12 +662,14 @@ for (const path of RESTRICTED_PATHS) {
 }
 
 // A cadeia continua sendo o valor exportado: é dela que sai o tipo consumido pelos clients RPC.
+// Esse tipo vem da rota (`BoundRouteResponseTypes<R>["output"]` no `.openapi()`), não do
+// handler, e o handler do `createApiHandler` recebe `c: any`: por isso não precisa de cast.
 export const api = apiBase
-	.openapi(opinionRoute, opinionHandler as any)
-	.openapi(arranchamentoRoute, arranchamentoHandler as any)
-	.openapi(legacyArranchamentoRoute, legacyArranchamentoHandler as any)
-	.openapi(presenceRoute, presenceHandler as any)
-	.openapi(militaryDataRoute, militaryDataHandler as any)
-	.openapi(userDataRoute, userDataHandler as any)
-	.openapi(unitsRoute, unitsHandler as any)
-	.openapi(messHallsRoute, messHallsHandler as any)
+	.openapi(opinionRoute, opinionHandler)
+	.openapi(arranchamentoRoute, arranchamentoHandler)
+	.openapi(legacyArranchamentoRoute, legacyArranchamentoHandler)
+	.openapi(presenceRoute, presenceHandler)
+	.openapi(militaryDataRoute, militaryDataHandler)
+	.openapi(userDataRoute, userDataHandler)
+	.openapi(unitsRoute, unitsHandler)
+	.openapi(messHallsRoute, messHallsHandler)

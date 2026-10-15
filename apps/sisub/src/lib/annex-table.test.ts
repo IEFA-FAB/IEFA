@@ -52,6 +52,12 @@ describe("buildAnnexTable", () => {
 		])
 	})
 
+	test("valor máximo fecha o meio-centavo igual ao CSV e ao total", () => {
+		// 3 × 0,155 = 0,46499999999999997 em binário: o `Intl` sozinho mostrava 0,46, o CSV 0.47
+		const table = buildAnnexTable([row({ maxQuantity: 3, unitPrice: 0.155 })], { confidential: false })
+		expect(table.body[0]?.at(-1)).toBe("0,47")
+	})
+
 	test("orçamento sigiloso tira preço e valor", () => {
 		const table = buildAnnexTable([row()], { confidential: true })
 		expect(table.headers).not.toContain("Preço unitário estimado (R$)")

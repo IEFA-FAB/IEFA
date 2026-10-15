@@ -10,6 +10,11 @@
  * Somente leitura de sessão: `setAll` é no-op de propósito. Um endpoint SSE não
  * tem como reescrever cookie depois que o stream abre, e um refresh silencioso
  * emitiria `Set-Cookie` que o cliente já não vai processar.
+ *
+ * **Para saber QUEM é o usuário, use `resolveCookieSessionUser`, não este client.** O
+ * `auth.getUser()` sem argumento renova a sessão com o access token perto de vencer, o GoTrue
+ * rotaciona o refresh token, e como o `setAll` aqui é no-op o navegador fica com o antigo e é
+ * deslogado no próximo refresh (detecção de reuso). Ver `cookie-session.ts`.
  */
 import type { Database, SchemaName } from "@iefa/database"
 import { createServerClient } from "@supabase/ssr"

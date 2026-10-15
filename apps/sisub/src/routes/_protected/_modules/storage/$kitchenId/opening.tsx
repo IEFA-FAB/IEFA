@@ -1,4 +1,5 @@
 import { CONSERVATION_CLASSES, CONSERVATION_LABELS, type ConservationClass, OPENING_COST_SOURCE_LABELS, type OpeningCostSource } from "@iefa/sisub-domain"
+import { roundToCents } from "@iefa/sisub-domain/money"
 import { createFileRoute, useRouter } from "@tanstack/react-router"
 import { AlertTriangle, Download, FileUp, PackagePlus, Sparkles, Trash2 } from "lucide-react"
 import { useRef, useState } from "react"
@@ -419,7 +420,9 @@ function OpeningBalancePage() {
 												)}
 											</div>
 										</TableCell>
-										<TableCell className="text-right tabular-nums">{line.unitCost != null ? BRL.format(line.unitCost * line.quantity) : "—"}</TableCell>
+										<TableCell className="text-right tabular-nums">
+											{line.unitCost != null ? BRL.format(roundToCents(line.unitCost * line.quantity)) : "—"}
+										</TableCell>
 									</TableRow>
 								))}
 							</TableBody>

@@ -141,6 +141,52 @@ export async function claimSync(supabase: Db, opts: ClaimSyncOptions): Promise<C
 	return { claimed: true, syncId: data.id as number }
 }
 
+/** O que a rota de disparo manual sabe da execução no momento de responder. */
+export type LaunchOutcome =
+	| { status: "claimed"; syncId: number }
+	| { status: "already_running" }
+	| { status: "failed"; error: unknown }
+	/** A reivindicação não terminou no prazo; a execução segue e o painel a mostra. */
+	| { status: "pending" }
+
+/** Quanto a rota espera pela reivindicação antes de responder sem o id. */
+export const LAUNCH_CLAIM_TIMEOUT_MS = 10_000
+
+/**
+ * Dispara uma execução sem esperá-la terminar e devolve o resultado do `claimSync` dela.
+ *
+ * O id vem da própria reivindicação, entregue pelo `onClaimed` que o runner chama logo depois
+ * do `claimSync`. Antes a rota dormia 200 ms e procurava a linha mais nova em `running`: se a
+ * recuperação de execuções mortas dentro do `claimSync` passasse disso, a leitura achava a
+ * execução MORTA (ainda `running`) e devolvia o id dela como se fosse o da nova.
+ *
+ * `run` é a execução inteira: quem chama trata o fim dela (log de sucesso e de falha). Falha
+ * antes da reivindicação vira `failed`; depois dela, o resultado já foi entregue e não muda.
+ */
+export function launchSync(run: Promise<unknown>, claimed: Promise<ClaimResult>, timeoutMs = LAUNCH_CLAIM_TIMEOUT_MS): Promise<LaunchOutcome> {
+	return new Promise((resolve) => {
+		const timer = setTimeout(() => resolve({ status: "pending" }), timeoutMs)
+		const settle = (outcome: LaunchOutcome) => {
+			clearTimeout(timer)
+			resolve(outcome)
+		}
+		claimed.then((claim) => settle(claim.claimed ? { status: "claimed", syncId: claim.syncId } : { status: "already_running" }))
+		run.catch((error) => settle({ status: "failed", error }))
+	})
+}
+
+/**
+ * Par `onClaimed` + promessa do resultado, para ligar o runner ao `launchSync`:
+ * `const { onClaimed, claimed } = claimSignal()` e `runX({ ..., onClaimed })`.
+ */
+export function claimSignal(): { onClaimed: (claim: ClaimResult) => void; claimed: Promise<ClaimResult> } {
+	let onClaimed!: (claim: ClaimResult) => void
+	const claimed = new Promise<ClaimResult>((resolve) => {
+		onClaimed = resolve
+	})
+	return { onClaimed, claimed }
+}
+
 /** Bate o heartbeat. Deve ser chamado DENTRO de etapa longa, não só entre etapas. */
 export async function beatSync(supabase: Db, syncId: number): Promise<void> {
 	await supabase.from(SYNC_LOG_TABLE).update({ heartbeat_at: new Date().toISOString() }).eq("id", syncId)

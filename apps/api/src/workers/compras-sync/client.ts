@@ -19,6 +19,9 @@ const MAX_ATTEMPTS = RETRY_BASE_DELAYS_MS.length + 1
  *
  * 400 está incluído explicitamente: o ComprasGov emite HTTP 400 durante
  * sobrecarga de forma inconsistente (não indica requisição inválida nesses casos).
+ *
+ * A pesquisa de preço (`workers/price-research/client.ts`) tem outra política, de
+ * propósito: roda dentro de um request e retenta pouco e rápido. Ver o porquê lá.
  */
 const RETRYABLE_HTTP_CODES = new Set([400, 408, 429, 500, 502, 503, 504])
 

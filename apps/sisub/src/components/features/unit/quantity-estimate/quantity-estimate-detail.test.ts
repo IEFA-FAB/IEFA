@@ -74,4 +74,13 @@ describe("summarizePrices", () => {
 			])
 		).toEqual({ hasPrices: true, grandTotal: 10 })
 	})
+	test("soma as linhas fechadas em centavo, com o meio-centavo para cima", () => {
+		// 3 × 0,155 = 0,46499… em binário: cada linha aparece como 0,47, e o total acompanha
+		expect(
+			summarizePrices([
+				{ unit_price: 0.155, estimated_quantity: 3 },
+				{ unit_price: 0.155, estimated_quantity: 3 },
+			]).grandTotal
+		).toBe(0.94)
+	})
 })

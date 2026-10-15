@@ -168,7 +168,13 @@ const textArray = (roles: readonly DesignationRole[]) =>
 		sql`, `
 	)}]::text[]`
 
-/** Recebimentos das cozinhas: os abertos, e os efetivados nos últimos 90 dias. */
+/**
+ * Recebimentos das cozinhas: os abertos, e os efetivados nos últimos 90 dias.
+ *
+ * Sem teto: as contagens de pendência (`countReceiptPending`) saem destas linhas, e um `limit`
+ * por data de criação tiraria justamente o recebimento aberto mais antigo — o que mais pesa. O
+ * limite do volume é a janela de 90 dias, mais os abertos.
+ */
 async function loadReceiptRows(db: SisubDb, kitchenIds: readonly number[]): Promise<ReceiptPendingRow[]> {
 	if (kitchenIds.length === 0) return []
 	const rows = (await runQuery(
@@ -198,7 +204,6 @@ async function loadReceiptRows(db: SisubDb, kitchenIds: readonly number[]): Prom
 					and gr.status <> 'rejected'
 					and (gr.definitive_at is null or gr.definitive_at > now() - interval '90 days')
 				order by gr.created_at desc
-				limit 500
 			`),
 		{ prefix: "Erro ao ler os recebimentos" }
 	)) as unknown as Row[]
@@ -245,7 +250,7 @@ export interface ReceivingPendingStatus {
 	/** Só os recebimentos com alguma pendência, do mais recente ao mais antigo. */
 	receipts: Array<ReceiptPendingRow & { pending: ReceiptPendingKind[] }>
 	counts: ReceiptPendingCounts
-	/** Quem lê pode designar ali mesmo (`unit:2` numa OM da cozinha). */
+	/** Quem lê pode designar ali mesmo: `unit:2` na OM compradora da cozinha, ou sem escopo (`canDesignateInUnit`). */
 	canDesignate: boolean
 }
 
@@ -285,13 +290,16 @@ export interface SiafiWaitingGroup {
 	parents: string[]
 }
 
-/** Agrupa as linhas estacionadas do SIAFI pelo tipo e pelo documento pai que falta. */
-export function groupSiafiWaiting(rows: ReadonlyArray<{ reportType: string; parent: string | null }>): SiafiWaitingGroup[] {
+/**
+ * Agrupa as linhas estacionadas do SIAFI pelo tipo e pelo documento pai que falta. `count` é
+ * quantas linhas a entrada representa (a leitura já vem contada por tipo e pai); ausente, uma.
+ */
+export function groupSiafiWaiting(rows: ReadonlyArray<{ reportType: string; parent: string | null; count?: number }>): SiafiWaitingGroup[] {
 	const groups = new Map<"ns" | "ob", { count: number; parents: Set<string> }>()
 	for (const row of rows) {
 		if (row.reportType !== "ns" && row.reportType !== "ob") continue
 		const group = groups.get(row.reportType) ?? { count: 0, parents: new Set<string>() }
-		group.count++
+		group.count += row.count ?? 1
 		if (row.parent?.trim()) group.parents.add(row.parent.trim().toUpperCase())
 		groups.set(row.reportType, group)
 	}
@@ -432,6 +440,10 @@ export async function fetchExpenseExecutionStatus(db: SisubDb, ctx: UserContext,
 		runQuery(
 			"QUERY_FAILED",
 			() =>
+				// Todas as contratações vivas da OM, sem teto: o somatório da dispensa (Lei 14.133/2021,
+				// art. 75, § 1º) soma os pares do exercício e do ramo, e a contagem de incompletas é
+				// sobre todas. Um corte pela data de criação somaria menos do que foi contratado e
+				// deixaria passar dispensa acima do limite.
 				db.execute(sql`
 					select a.id, a.kind, a.srp_role, a.legal_basis, a.direct_contract_clause, a.nd, a.activity_line, a.object,
 						a.supplier_cnpj, a.supplier_name, a.valid_from, a.valid_to, a.estimated_value, a.over_limit_justification,
@@ -442,7 +454,6 @@ export async function fetchExpenseExecutionStatus(db: SisubDb, ctx: UserContext,
 					from procurement.acquisition a
 					where a.unit_id = ${unitId} and a.deleted_at is null
 					order by a.created_at desc
-					limit 1000
 				`),
 			{ prefix: "Erro ao ler as contratações" }
 		) as unknown as Promise<Row[]>,
@@ -480,16 +491,19 @@ export async function fetchExpenseExecutionStatus(db: SisubDb, ctx: UserContext,
 			() =>
 				// Mesma chave do documento pai que `siafi_integration.apply_document_row` usa para
 				// estacionar (20260926214000): NS → `ne_origem`/`numero_ne`; OB → `ns_origem`/`numero_ns`.
+				// Contado no banco por (tipo, pai): a contagem é o que a tela mostra, e um `limit` sobre
+				// as linhas a cortaria calada.
 				db.execute(sql`
 					select b.report_type,
 						case b.report_type
 							when 'ns' then coalesce(r.parsed ->> 'ne_origem', r.parsed ->> 'numero_ne')
 							else coalesce(r.parsed ->> 'ns_origem', r.parsed ->> 'numero_ns')
-						end as parent
+						end as parent,
+						count(*) as waiting
 					from siafi_integration.import_row r
 					join siafi_integration.import_batch b on b.id = r.batch_id
 					where b.unit_id = ${unitId} and r.parse_status = 'waiting_parent'
-					limit 500
+					group by 1, 2
 				`),
 			{ prefix: "Erro ao ler as linhas do SIAFI aguardando" }
 		) as unknown as Promise<Row[]>,
@@ -559,7 +573,7 @@ export async function fetchExpenseExecutionStatus(db: SisubDb, ctx: UserContext,
 			sentAt: str(r.sent_at),
 		})),
 		designations: { provisional: num(designations.provisional), definitive: num(designations.definitive) },
-		siafiWaiting: groupSiafiWaiting(siafiRows.map((r) => ({ reportType: String(r.report_type), parent: str(r.parent) }))),
+		siafiWaiting: groupSiafiWaiting(siafiRows.map((r) => ({ reportType: String(r.report_type), parent: str(r.parent), count: num(r.waiting) }))),
 		unliquidated: {
 			count: num(unliquidated.unliquidated),
 			oldestDays: unliquidated.oldest == null ? null : num(unliquidated.oldest),

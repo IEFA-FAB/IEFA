@@ -240,6 +240,10 @@ export const queryKeys = {
 		list: (unitId: number | null) => ["quantity_estimate", "list", unitId] as const,
 		details: (quantityEstimateId: string | null) => ["quantity_estimate", "details", quantityEstimateId] as const,
 		draft: (draftId: string | null) => ["quantity_estimate_draft", draftId] as const,
+		/** Prefixo de tudo da ARP (ata, comprometimento local) — invalidação depois de mexer em NE. */
+		arpAll: ["arp"] as const,
+		/** Prefixo dos empenhos por item da ARP. */
+		empenhosAll: ["empenho"] as const,
 		arp: (quantityEstimateId: string | null) => ["arp", "quantity_estimate", quantityEstimateId] as const,
 		arpCommitments: (arpId: string | null) => ["arp", "local-commitments", arpId] as const,
 		empenhos: (arpItemId: string | null) => ["empenho", "item", arpItemId] as const,

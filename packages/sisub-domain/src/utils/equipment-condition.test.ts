@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test"
 import type { EquipmentIssueSeverity, EquipmentIssueStatus } from "../schemas/equipment.ts"
+import { EQUIPMENT_ISSUE_STATUSES } from "../schemas/equipment.ts"
 import {
+	CLOSED_ISSUE_STATUSES,
 	type ConditionIssue,
 	deriveEquipmentCondition,
 	EQUIPMENT_CONDITIONS,
@@ -38,6 +40,10 @@ describe("isIssueOpen", () => {
 	test("cobre exatamente os status declarados em OPEN_ISSUE_STATUSES", () => {
 		const all: EquipmentIssueStatus[] = ["open", "in_repair", "resolved", "dismissed"]
 		expect(all.filter((s) => isIssueOpen(issue("degraded", s)))).toEqual([...OPEN_ISSUE_STATUSES])
+	})
+
+	test("abertas e encerradas partem os status sem sobra nem sobreposição", () => {
+		expect([...OPEN_ISSUE_STATUSES, ...CLOSED_ISSUE_STATUSES].sort()).toEqual([...EQUIPMENT_ISSUE_STATUSES].sort())
 	})
 })
 

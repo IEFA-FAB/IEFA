@@ -2,14 +2,15 @@
  * Clientes Supabase para o sisub-mcp server, via `@iefa/supabase-kit`.
  *
  * getDataClient()  — service role, bypass RLS, para todas as queries de dados.
- * getAuthClient()  — chave anon/publishable, para validar o JWT do usuário via auth.getUser().
+ * getAuthClient()  — chave anon/publishable, para validar o JWT Bearer via auth.getUser(jwt).
  *
  * Ambos criam um client por chamada (não são singletons) para segurança em
  * ambientes com múltiplas sessões concorrentes.
  *
- * O kit é o que põe deadline no fetch (10 s dados, 5 s auth). Sem ele, um GoTrue ou
- * PostgREST que trava sem responder segura o request MCP até o ALB cortar — e o
- * `auth.getUser` roda em TODO request autenticado por JWT.
+ * O kit é o que põe deadline no fetch (dados e auth). Sem ele, um GoTrue ou PostgREST
+ * que trava sem responder segura o request MCP até o ALB cortar — e o `auth.getUser`
+ * roda em TODO request autenticado por JWT. Quando o prazo estoura, `auth.ts` responde
+ * "serviço indisponível", não "credencial inválida".
  */
 
 import type { SchemaName } from "@iefa/database"
@@ -36,8 +37,9 @@ export function getDataClient<S extends SchemaName>(schema: S) {
 }
 
 /**
- * Cliente sem sessão com a chave anon — usado APENAS para validar o JWT do usuário
- * (`auth.getUser(jwt)`). Nunca use para queries de dados (sem bypass RLS).
+ * Cliente sem sessão com a chave anon — usado APENAS para validar o JWT que chega no
+ * header `Authorization: Bearer` (`auth.getUser(jwt)`), o caso "token explícito" do
+ * contrato de `createStatelessAuthClient`. Nunca use para queries de dados (sem bypass RLS).
  *
  * A variável continua `SISUB_SUPABASE_ANON_KEY` porque é o nome do segredo da task
  * em produção; a chave anon legada é aceita onde o kit pede a publishable.

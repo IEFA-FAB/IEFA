@@ -5,7 +5,7 @@
  */
 
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi"
-import { computeNfeItemCosts, resolvePurchaseUnitId } from "@iefa/sisub-domain"
+import { computeNfeItemCosts, NfeCostError, resolvePurchaseUnitId } from "@iefa/sisub-domain"
 import { createClient } from "@supabase/supabase-js"
 import { secureCompare } from "../../lib/secure-compare.ts"
 import { MAX_NFE_XML_BODY_BYTES, uploadBodyLimit } from "../../lib/upload-limit.ts"
@@ -265,20 +265,27 @@ export function createNfeAdminRoutes(deps: NfeAdminRoutesDeps = {}) {
 			kitchenPurchaseUnitId: unitId == null ? null : await purchaseUnitOfKitchen(supabase, kitchen_id ?? null),
 		})
 
-		const costs = computeNfeItemCosts(
-			parsed.items.map((item) => ({
-				nItem: item.nItem,
-				productValue: item.productValue ?? (item.commercialQty ?? 0) * (item.unitPrice ?? 0),
-				discount: item.discount,
-				freight: item.freight,
-				insurance: item.insurance,
-				otherExpenses: item.otherExpenses,
-				ipi: item.ipi,
-				icmsSt: item.icmsSt,
-				fcpSt: item.fcpSt,
-			})),
-			parsed.totalValue
-		)
+		let costs: ReturnType<typeof computeNfeItemCosts>
+		try {
+			costs = computeNfeItemCosts(
+				parsed.items.map((item) => ({
+					nItem: item.nItem,
+					productValue: item.productValue ?? (item.commercialQty ?? 0) * (item.unitPrice ?? 0),
+					discount: item.discount,
+					freight: item.freight,
+					insurance: item.insurance,
+					otherExpenses: item.otherExpenses,
+					ipi: item.ipi,
+					icmsSt: item.icmsSt,
+					fcpSt: item.fcpSt,
+				})),
+				parsed.totalValue
+			)
+		} catch (err) {
+			// valor não numérico na nota: recusa como XML inválido, em vez de gravar custo zero
+			if (err instanceof NfeCostError) return c.json({ error: err.message }, 422)
+			throw err
+		}
 		const costByItem = new Map(costs.items.map((item) => [item.nItem, item.totalCost]))
 
 		const documentFields = {

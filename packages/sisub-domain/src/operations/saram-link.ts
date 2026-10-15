@@ -53,7 +53,7 @@ import type {
 } from "../schemas/saram-link.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError } from "../types/errors.ts"
-import { containsPattern, driverFailure, runQuery, unwrapPgError } from "../utils/index.ts"
+import { containsPattern, driverFailure, retryOnceOnTransientConnectionError, runQuery, unwrapPgError } from "../utils/index.ts"
 import { type AccessAudit, defaultAccessAudit, runAccessFunction, toAccessDomainError } from "./access-change.ts"
 
 // ── Tipos do contrato (`@iefa/database/saram-link`, compartilhado com o sucont e o rumaer) ──
@@ -197,10 +197,15 @@ export async function fetchVisibleSaram(db: SisubDb, input: { userId: string }):
 
 /**
  * Recusa antecipada (o trigger do banco é a garantia): conta institucional não tem
- * arranchamento nem presença própria.
+ * arranchamento nem presença própria. É a 1ª query do arranchamento, a que pega conexão nova
+ * ou morta: leitura, então repete uma vez em queda de conexão, como o upsert que vem depois.
  */
 export async function assertAccountCanEat(db: SisubDb, userId: string): Promise<void> {
-	const rows = await runQuery("FETCH_FAILED", () => db.execute(sql`select account_kind from core.user_data where id = ${userId}::uuid`))
+	const rows = await runQuery("FETCH_FAILED", () =>
+		retryOnceOnTransientConnectionError(() => db.execute(sql`select account_kind from core.user_data where id = ${userId}::uuid`), {
+			label: "user_data.account_kind",
+		})
+	)
 	const kind = (rows as unknown as Array<{ account_kind: string | null }>)[0]?.account_kind
 	if (kind === "institucional") {
 		const refusal = SARAM_ERRORS.ACCOUNT_INSTITUTIONAL_NO_MEALS
