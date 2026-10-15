@@ -300,24 +300,41 @@ function settleCharge(store: RateLimitStore, key: string, charge: Charge, actual
 }
 
 /**
- * Saída presumida de uma `structuredOutput` ABORTADA quando a chamada não pediu `maxTokens`.
+ * Saída presumida de uma `structuredOutput` ABORTADA pelo PRAZO quando a chamada não pediu
+ * `maxTokens`.
  *
  * Abortada, a chamada não devolve `usage`, mas o provider fatura a saída gerada até o corte.
  * Sem cobrança nenhuma, o prazo virava atalho: a geração cortada saía quase de graça para o
  * teto e continuava cara na fatura. Não há como medir a saída de uma chamada não-stream, então
- * a conta é conservadora: o `maxTokens` pedido, ou este valor, que é a ordem de grandeza do que
- * um modelo da casa gera em ~50 s (o prazo das server functions do sucont) a dezenas de tokens
- * por segundo. Erra para mais de propósito: quem esgota o teto assim está batendo no prazo.
+ * a conta do prazo é conservadora: o `maxTokens` pedido, ou este valor, que é a ordem de
+ * grandeza do que um modelo da casa gera em ~50 s (o prazo das server functions do sucont).
+ * Erra para mais de propósito: quem esgota o teto assim está batendo no prazo.
+ *
+ * O prazo se reconhece pelo `reason` do abort com nome `TimeoutError`, a convenção do
+ * `AbortSignal.timeout()` da plataforma, que o `withGenerationDeadline` do sucont segue.
  */
 export const ABORTED_OUTPUT_ALLOWANCE_TOKENS = 4_096
 
-function isAborted(options: unknown): boolean {
-	return (options as { abortController?: AbortController } | undefined)?.abortController?.signal.aborted === true
+/**
+ * Taxa presumida de saída para o abort que NÃO é prazo (cliente fechou a aba, apertou
+ * "Interromper"). Cobrar o teto cheio aí punia quem desiste cedo: no SAC-DGC, com `maxTokens`
+ * de 16 mil, sete cancelamentos em um minuto bloqueavam o usuário em toda a IA do sucont. A
+ * conta passa a ser proporcional ao tempo da chamada, limitada ao mesmo teto do prazo:
+ * ~4 096 tokens em ~50 s dá esta taxa, a mesma régua do abono acima.
+ */
+export const ABORTED_OUTPUT_TOKENS_PER_SECOND = 80
+
+function abortSignalOf(options: unknown): AbortSignal | undefined {
+	return (options as { abortController?: AbortController } | undefined)?.abortController?.signal
 }
 
-function abortedOutputAllowance(options: unknown): number {
+/** Saída cobrada de uma `structuredOutput` abortada: teto cheio no prazo, proporcional no cancelamento. */
+function abortedOutputCharge(options: unknown, elapsedMs: number): number {
 	const maxTokens = (options as { modelOptions?: { maxTokens?: unknown } } | undefined)?.modelOptions?.maxTokens
-	return typeof maxTokens === "number" && maxTokens > 0 ? maxTokens : ABORTED_OUTPUT_ALLOWANCE_TOKENS
+	const ceiling = typeof maxTokens === "number" && maxTokens > 0 ? maxTokens : ABORTED_OUTPUT_ALLOWANCE_TOKENS
+	const reason = abortSignalOf(options)?.reason as { name?: unknown } | undefined
+	if (reason?.name === "TimeoutError") return ceiling
+	return Math.min(ceiling, Math.ceil((Math.max(0, elapsedMs) / 1000) * ABORTED_OUTPUT_TOKENS_PER_SECOND))
 }
 
 /** Caracteres de conteúdo GERADO num evento do stream (texto, raciocínio, argumento de tool). */
@@ -392,9 +409,9 @@ export function withRateLimit<
 			try {
 				result = (await adapter.structuredOutput(options)) as typeof result
 			} catch (error) {
-				// Abortada (prazo ou cliente que foi embora), a saída gerada até o corte foi faturada
-				// sem `usage`. Ver `ABORTED_OUTPUT_ALLOWANCE_TOKENS`.
-				if (isAborted(chatOptions)) store.recordTokens(key, abortedOutputAllowance(chatOptions))
+				// Abortada, a saída gerada até o corte foi faturada sem `usage`. Ver
+				// `ABORTED_OUTPUT_ALLOWANCE_TOKENS` e `ABORTED_OUTPUT_TOKENS_PER_SECOND`.
+				if (abortSignalOf(chatOptions)?.aborted) store.recordTokens(key, abortedOutputCharge(chatOptions, Date.now() - charge.chargedAt))
 				throw error
 			}
 			settleCharge(store, key, charge, totalTokensOf(result))
