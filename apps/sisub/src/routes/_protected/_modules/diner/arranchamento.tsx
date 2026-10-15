@@ -292,7 +292,6 @@ function ArranchamentoPage() {
 	}
 
 	const applyDefaultMessHallToAll = async (): Promise<void> => {
-		"use no memo"
 		const { cardsWithoutMessHall } = computedData
 		if (cardsWithoutMessHall.length === 0) return
 
@@ -337,15 +336,12 @@ function ArranchamentoPage() {
 			}
 
 			setSuccess(`Refeitório padrão "${defaultMessHallCode}" aplicado a ${cardsWithoutMessHall.length} ${labelCard(cardsWithoutMessHall.length)}!`)
-			setIsApplyingDefaultMessHall(false)
 		} catch (_err) {
 			setError("Erro ao aplicar refeitório padrão. Tente novamente.")
-			setIsApplyingDefaultMessHall(false)
 		}
 	}
 
 	const applyMealTemplateToAll = async (template: DayMeals, options: { mode: "fill-missing" | "override" }): Promise<void> => {
-		"use no memo"
 		const targetDates = weekdayTargets
 		if (!targetDates.length) {
 			setShowBulkMealSelector(false)
@@ -420,15 +416,17 @@ function ArranchamentoPage() {
 
 			setSuccess(`Template de refeições aplicado a ${diasStr} no modo ${modoStr}: ${alteracoesStr}.`)
 			setShowBulkMealSelector(false)
-			setIsApplyingMealTemplate(false)
 		} catch (_err) {
 			setError("Erro ao aplicar template de refeições. Tente novamente.")
+		} finally {
+			// No finally: o retorno antecipado de "nenhuma alteração" deixava o seletor travado em "aplicando".
 			setIsApplyingMealTemplate(false)
 		}
 	}
 
+	// O flag "aplicando" é só daqui: destrava o botão quando persistir, aplicar e recarregar
+	// terminam (antes, applyDefaultMessHallToAll o soltava no meio e permitia duplo clique).
 	const handleApplyDefault = async () => {
-		"use no memo"
 		setIsApplyingDefaultMessHall(true)
 		try {
 			// Persiste o default no user_data e aplica aos cards em paralelo
@@ -436,8 +434,9 @@ function ArranchamentoPage() {
 
 			// Refaz fetch (default + arranchamentos) para refletir tudo da fonte de verdade
 			await loadExistingArranchamentos()
-			setIsApplyingDefaultMessHall(false)
 		} catch {
+			// persistDefaultMessHallId e applyDefaultMessHallToAll mostram o próprio erro; o refetch do React Query não lança.
+		} finally {
 			setIsApplyingDefaultMessHall(false)
 		}
 	}

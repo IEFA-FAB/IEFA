@@ -34,7 +34,6 @@ export function DefaultMessHallSelector({ defaultMessHallCode, setDefaultMessHal
 	}
 
 	const handleApply = async () => {
-		"use no memo"
 		if (isApplying || saving) return
 
 		if (!defaultMessHallCode) {

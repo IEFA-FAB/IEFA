@@ -139,7 +139,8 @@ export default defineConfig(async ({ mode, isSsrBuild }) => {
 				output: {
 					// Nome fixo (sem hash) para o CSS principal — previne mismatch de hash entre
 					// o build SSR e o build client: Tailwind gera output diferente em cada pass.
-					// Cache-busting feito server-side via Cache-Control: no-cache em /assets/styles.css.
+					// Sem hash não há cache-busting pelo nome: a routeRule de /assets/styles.css (acima) serve
+					// max-age=0 + stale-while-revalidate, e o deploy novo chega no load seguinte.
 					assetFileNames: (asset: { names: string[] }) => (asset.names?.includes("styles.css") ? "assets/styles.css" : "assets/[name]-[hash][extname]"),
 				},
 			},
