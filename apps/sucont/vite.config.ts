@@ -13,7 +13,13 @@ const config = defineConfig({
 	plugins: [
 		devtools(),
 		nitro({
-			rollupConfig: { external: [/^@sentry\//] },
+			// Preset explícito, como nos demais apps. Sem ele o Nitro escolhe pelo runtime do
+			// BUILD: com Node no PATH sai `node-server`, e o servidor vira `node:http`, que no Bun
+			// fecha a conexão keep-alive ociosa em ~5 s (`keepAliveTimeout` do Node) e passa
+			// `idleTimeout: 0` explícito ao `Bun.serve`, anulando o piso de 120 s do preload
+			// `docker/bun-serve-idle-timeout.ts`. Servidor que fecha antes dos 60 s do ALB é o 502
+			// que esse preload existe para evitar. O `--bun` do script de build fixa o runtime.
+			preset: "bun",
 			// Rota Nitro só existe se estiver declarada aqui. Sem isto o arquivo em
 			// `routes/` é compilado e nunca registrado: o pedido cai no catch-all do SSR
 			// do TanStack Start, que devolve 307 para /auth — foi o que aconteceu com o
