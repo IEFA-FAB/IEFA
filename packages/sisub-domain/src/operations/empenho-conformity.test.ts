@@ -129,4 +129,10 @@ describe("meio-centavo no valor do item (roundToCents)", () => {
 		expect(empenhoItemProblems([{ quantity: 1, unitPrice: 1.005, value: 1 }])).toEqual([])
 		expect(empenhoItemProblems([{ quantity: 1, unitPrice: 1.02, value: 1 }])).toHaveLength(1)
 	})
+
+	test("a recusa mostra os valores conferidos, em reais pt-BR", () => {
+		// 1,005 é conferido como 1,01; o `toFixed(2)` antigo da mensagem dizia 1.00
+		const [problem] = empenhoItemProblems([{ quantity: 1, unitPrice: 1.03, value: 1.005 }])
+		expect(problem?.message.replace(/\s/g, " ")).toBe("Item 1: quantidade × preço (R$ 1,03) não fecha com o valor (R$ 1,01)")
+	})
 })

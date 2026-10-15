@@ -155,6 +155,17 @@ export interface LiquidacaoNetBalance {
 }
 
 /**
+ * Dedução sugerida pela alíquota (%) sobre o bruto da NS, em centavos fechados.
+ *
+ * A tela preenchia com `Math.round(bruto * pct) / 100`: bruto 1,15 a 50 % sugeria 0,57 (1,15 × 50
+ * é 57,4999… em binário), e a dedução era gravada com um centavo a menos do que o saldo conferido
+ * pelo `liquidacaoNetBalance`, que arredonda pelo `roundToCents`.
+ */
+export function deductionFromRate(bruto: number, ratePct: number): number {
+	return roundToCents((bruto * ratePct) / 100)
+}
+
+/**
  * Saldo da NS separado entre credor e fisco. O credor recebe o LÍQUIDO; a retenção
  * é paga ao fisco pelo DARF/DAR/GPS. Sem dedução, `liquido = bruto` e nada muda.
  */

@@ -38,6 +38,17 @@ describe("buildSnapshotAnnexRows", () => {
 		expect(buildAnnexCsv(rows)).toContain('"12.5000"')
 	})
 
+	test("valor máximo no meio-centavo fecha para cima na linha e no total", () => {
+		// 1 × 1,005 = 1,00499… em binário: com `toFixed(2)` o anexo publicava 1.00
+		const rows = buildSnapshotAnnexRows(
+			[component({ estimated_quantity: 1, max_increase_percent: 0, max_quantity: 1, min_order_quantity: 1 })],
+			[{ ingredient_id: "ing-1", item_description: null, catmat_item_descricao: null, unit_price: 1.005 }]
+		)
+		expect(rows[0]?.maxQuantity).toBe(1)
+		expect(buildAnnexCsv(rows)).toContain('"1.01"')
+		expect(annexMaxValue(rows)).toBe(1.01)
+	})
+
 	test("sem item vivo, cai no preço congelado do snapshot", () => {
 		const rows = buildSnapshotAnnexRows([component({})], [])
 		expect(rows[0]?.unitPrice).toBe(10)

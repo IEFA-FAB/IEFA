@@ -64,6 +64,21 @@ export interface NfeCostResult {
 	invoiceDifference: number
 }
 
+/**
+ * Valor não numérico num item (ou no `vNF`): o cálculo recusa em vez de seguir.
+ *
+ * O `roundToCents` transforma NaN em 0, então um `vProd` ou `vDesc` que o parser deixou passar
+ * entraria como custo zero legítimo, e total e diferença fechariam sem acusar nada.
+ */
+export class NfeCostError extends Error {
+	readonly invalidItems: readonly number[]
+	constructor(message: string, invalidItems: readonly number[]) {
+		super(message)
+		this.name = "NfeCostError"
+		this.invalidItems = invalidItems
+	}
+}
+
 function itemTotal(item: NfeItemValues): number {
 	return (
 		item.productValue -
@@ -82,9 +97,20 @@ function itemTotal(item: NfeItemValues): number {
  *
  * `invoiceTotal` ausente desliga a conferência (nota sem total é nota que o
  * parser já deveria ter recusado, mas o cálculo não depende dela).
+ *
+ * @throws {NfeCostError} item com valor não finito, ou `invoiceTotal` presente e não finito.
  */
 export function computeNfeItemCosts(items: readonly NfeItemValues[], invoiceTotal?: number | null): NfeCostResult {
-	const computed = items.map((item) => ({ item, total: roundToCents(itemTotal(item)) }))
+	const raw = items.map((item) => ({ item, total: itemTotal(item) }))
+	const invalidItems = raw.filter((entry) => !Number.isFinite(entry.total)).map((entry) => entry.item.nItem)
+	if (invalidItems.length > 0) {
+		throw new NfeCostError(
+			`NF-e com valor não numérico no(s) item(ns) ${invalidItems.join(", ")}: confira vProd, vDesc, vFrete, vSeg, vOutro, vIPI e vST`,
+			invalidItems
+		)
+	}
+	if (invoiceTotal != null && !Number.isFinite(invoiceTotal)) throw new NfeCostError("NF-e com valor total (vNF) não numérico", [])
+	const computed = raw.map((entry) => ({ item: entry.item, total: roundToCents(entry.total) }))
 	const sum = roundToCents(computed.reduce((acc, entry) => acc + entry.total, 0))
 
 	let adjustment = 0

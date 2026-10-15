@@ -493,6 +493,7 @@ export {
 	type DeductionEntry,
 	type DeductionKind,
 	deductionExceedsProblem,
+	deductionFromRate,
 	deductionRemittanceProblem,
 	isLiquidacaoWithoutReceipt,
 	type KitchenUnitRef,
@@ -543,7 +544,7 @@ export {
 	revokeRecoveryCodes,
 } from "./mfa-recovery.ts"
 export { roundToCents } from "./money.ts"
-export { computeNfeItemCosts, type NfeCostResult, type NfeItemCost, type NfeItemValues } from "./nfe-cost.ts"
+export { computeNfeItemCosts, NfeCostError, type NfeCostResult, type NfeItemCost, type NfeItemValues } from "./nfe-cost.ts"
 export {
 	type IngredientItemLink,
 	matchNfeItem,

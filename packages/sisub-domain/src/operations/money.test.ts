@@ -40,4 +40,19 @@ describe("roundToCents", () => {
 		expect(roundToCents(Number.NaN)).toBe(0)
 		expect(roundToCents(Number.POSITIVE_INFINITY)).toBe(0)
 	})
+
+	test("soma longa com erro acumulado ainda fecha o meio-centavo", () => {
+		// 25 × 0,347 = 8,675 exatos; em ponto flutuante a soma dá 8,674999999999994
+		let total = 0
+		for (let i = 0; i < 25; i++) total += 0.347
+		expect(roundToCents(total)).toBe(8.68)
+	})
+
+	test("valores grandes mantêm o centavo até a escala de numeric(14,2)", () => {
+		expect(roundToCents(12_345_678_901.23)).toBe(12_345_678_901.23)
+		expect(roundToCents(99_999_999_999.99)).toBe(99_999_999_999.99)
+		expect(roundToCents(999_999_999_999.99)).toBe(999_999_999_999.99)
+		expect(roundToCents(-999_999_999_999.99)).toBe(-999_999_999_999.99)
+		expect(roundToCents(123_456_789_012.345)).toBe(123_456_789_012.35)
+	})
 })

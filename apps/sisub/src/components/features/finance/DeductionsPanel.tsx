@@ -1,5 +1,12 @@
 import { getBrasiliaToday } from "@iefa/sisub-domain/civil-date"
-import { DEDUCTION_DOCUMENT_KINDS, DEDUCTION_KINDS, DEDUCTION_LABELS, type DeductionDocumentKind, type DeductionKind } from "@iefa/sisub-domain/operations"
+import {
+	DEDUCTION_DOCUMENT_KINDS,
+	DEDUCTION_KINDS,
+	DEDUCTION_LABELS,
+	type DeductionDocumentKind,
+	type DeductionKind,
+	deductionFromRate,
+} from "@iefa/sisub-domain/operations"
 import { Trash2 } from "lucide-react"
 import { useState } from "react"
 import { Badge } from "@/components/ui/badge"
@@ -104,7 +111,7 @@ export function DeductionsPanel({
 	function applyRate(value: string) {
 		setRate(value)
 		const pct = Number(value.replace(",", "."))
-		if (pct > 0) setAmount((Math.round(bruto * pct) / 100).toFixed(2))
+		if (pct > 0) setAmount(deductionFromRate(bruto, pct).toFixed(2))
 	}
 
 	async function add(event: React.SyntheticEvent) {

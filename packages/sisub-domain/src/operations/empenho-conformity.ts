@@ -10,6 +10,8 @@
 
 import { roundToCents } from "./money.ts"
 
+const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
+
 export const EMPENHO_TYPES = ["ordinario", "estimativo", "global"] as const
 export type EmpenhoType = (typeof EMPENHO_TYPES)[number]
 
@@ -50,10 +52,12 @@ export function empenhoItemProblems(items: readonly EmpenhoItemDraft[]): Empenho
 		if (item.unitPrice != null && item.unitPrice < 0) problems.push({ index, message: `Item ${index + 1}: preço não pode ser negativo` })
 		if (item.quantity != null && item.unitPrice != null && item.value > 0) {
 			const product = roundToCents(item.quantity * item.unitPrice)
+			const value = roundToCents(item.value)
 			// Tolerância de 1 centavo por arredondamento do preço unitário a 4 casas. Compara em
 			// centavos inteiros: em reais, 1,01 − 1,00 dá 0,010000000000000009 e passaria do limite.
-			if (Math.abs(Math.round((product - roundToCents(item.value)) * 100)) > 1) {
-				problems.push({ index, message: `Item ${index + 1}: quantidade × preço (${product.toFixed(2)}) não fecha com o valor (${item.value.toFixed(2)})` })
+			// A mensagem mostra os MESMOS valores conferidos, não o `toFixed(2)` do digitado.
+			if (Math.abs(Math.round((product - value) * 100)) > 1) {
+				problems.push({ index, message: `Item ${index + 1}: quantidade × preço (${BRL.format(product)}) não fecha com o valor (${BRL.format(value)})` })
 			}
 		}
 	})
