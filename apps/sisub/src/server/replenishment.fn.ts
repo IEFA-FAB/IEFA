@@ -29,6 +29,7 @@ import { requireAuthWithPermission } from "@/lib/auth.server"
 import { assertNoBlindCountHides } from "@/lib/blind-count.server"
 import { getDb } from "@/lib/db.server"
 import { publicDbMessage } from "@/lib/db-error-message"
+import { handleDomainError } from "@/lib/domain-errors"
 import { currentFiscalYear } from "@/lib/expense-execution"
 import { purchaseUnitIdOfKitchen } from "@/lib/kitchen-purchase-unit.server"
 import { readKitchenStockSettings } from "@/lib/kitchen-stock-settings.server"
@@ -224,7 +225,7 @@ export const fetchReplenishmentSuggestionsFn = createServerFn({ method: "GET" })
 			purchaseUnitIdOfKitchen(data.kitchenId),
 			// (6b) prazo de entrega padrão da cozinha: o fallback do histórico do fornecedor. Nulo
 			// vira pendência na sugestão, nunca um número presumido.
-			readKitchenStockSettings(data.kitchenId),
+			readKitchenStockSettings(data.kitchenId).catch(handleDomainError),
 		])
 
 		const factorsById = new Map(ingredients.map((i) => [i.id, i]))

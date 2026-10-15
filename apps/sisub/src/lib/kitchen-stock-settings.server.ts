@@ -1,42 +1,55 @@
 /**
  * Leitura e gravação de `inventory.kitchen_stock_settings`, com a versão conferida no servidor
  * (EDIT-SAFETY.md): a gravação leva o `updated_at` que a tela viu e o banco só aceita se ele ainda
- * for o atual, no `WHERE` do próprio comando. Divergiu: `STOCK_SETTINGS_CONFLICT_MESSAGE`.
+ * for o atual, no `WHERE` do próprio comando. Divergiu: `DomainError` com
+ * `STOCK_SETTINGS_CONFLICT_MESSAGE`.
  *
- * SQL pelo Drizzle (`getDb().execute`), não supabase-js: a coluna `default_lead_time_days`
- * (20261014120000) só entra em `generated.ts` e no schema Drizzle depois de aplicada (`db:types`,
- * `db:drizzle:pull`), e esses arquivos não se editam à mão. Mesmo caminho de `saram-link.ts`.
- * O guard de escopo (`requireStorageForKitchen`) é de quem chama.
+ * SQL pelo Drizzle (`getDb().execute`), não supabase-js nem query tipada: a coluna
+ * `default_lead_time_days` (20261014120000) só entra em `generated.ts` e no schema Drizzle depois
+ * de aplicada (`db:types`, `db:drizzle:pull`), e esses arquivos não se editam à mão. As colunas
+ * saem de uma lista só (`STOCK_SETTINGS_COLUMNS`), e os defaults de cozinha sem linha vêm de
+ * `inventory.kitchen_settings`. Regerados os tipos, isto vira query tipada do Drizzle.
+ *
+ * Toda consulta passa por `runQuery`: o erro do driver (SQL, parâmetros, uuid do ator) fica no
+ * log e o cliente lê só o prefixo. Quem chama traduz com `handleDomainError`, e o guard de escopo
+ * (`requireStorageForKitchen`) também é de quem chama.
  */
 
-import { sql } from "drizzle-orm"
+import { DomainError } from "@iefa/sisub-domain/types"
+import { runQuery } from "@iefa/sisub-domain/utils"
+import { type SQL, sql } from "drizzle-orm"
 import { getDb } from "@/lib/db.server"
 import {
 	parseStockSettingsRow,
+	STOCK_SETTINGS_COLUMNS,
 	STOCK_SETTINGS_CONFLICT_MESSAGE,
 	type StockSettings,
 	type StockSettingsRow,
 	type StockSettingsValues,
 } from "@/lib/kitchen-stock-settings"
 
-type Row = StockSettingsRow & Record<string, unknown>
+export const STOCK_SETTINGS_CONFLICT = "STOCK_SETTINGS_CONFLICT"
+
+const FIELDS = Object.entries(STOCK_SETTINGS_COLUMNS) as Array<[keyof StockSettingsValues, string]>
+const list = (parts: SQL[]) => sql.join(parts, sql`, `)
 
 export async function readKitchenStockSettings(kitchenId: number): Promise<StockSettings> {
-	// `updated_at::text` mantém os microssegundos: o `Date` do driver os perderia, e a versão
-	// conferida na gravação nunca bateria.
-	const rows = await getDb().execute<Row>(sql`
-		select segregation,
-		       adjustment_approval_value::text as adjustment_approval_value,
-		       issue_tolerance_pct::text as issue_tolerance_pct,
-		       issue_tolerance_floor_value::text as issue_tolerance_floor_value,
-		       count_tolerance_pct::text as count_tolerance_pct,
-		       count_tolerance_value::text as count_tolerance_value,
-		       default_lead_time_days,
-		       updated_at::text as updated_at
-		  from inventory.kitchen_stock_settings
-		 where kitchen_id = ${kitchenId}
-	`)
-	return parseStockSettingsRow([...rows][0])
+	// Tudo em texto: numeric sem arredondar e `updated_at` com os microssegundos, que o `Date` do
+	// driver perderia (a versão conferida na gravação nunca bateria).
+	const rows = await runQuery(
+		"STOCK_SETTINGS_READ",
+		() =>
+			getDb().execute<StockSettingsRow & Record<string, unknown>>(sql`
+				select ${list(FIELDS.map(([, column]) => sql`s.${sql.identifier(column)}::text as ${sql.identifier(column)}`))},
+				       s.updated_at::text as updated_at,
+				       exists (select 1 from inventory.kitchen_stock_settings k where k.kitchen_id = ${kitchenId}) as has_row
+				  from inventory.kitchen_settings(${kitchenId}) s
+			`),
+		{ prefix: "Erro ao carregar a configuração de estoque da cozinha" }
+	)
+	const row = [...rows][0]
+	if (!row) throw new DomainError("STOCK_SETTINGS_READ", "Erro ao carregar a configuração de estoque da cozinha")
+	return parseStockSettingsRow(row)
 }
 
 /**
@@ -51,34 +64,28 @@ export async function writeKitchenStockSettings(input: {
 	actorId: string
 }): Promise<{ version: string }> {
 	const { kitchenId, values, expectedVersion, actorId } = input
-	const rows =
+	const columns = FIELDS.map(([, column]) => sql`${sql.identifier(column)}`)
+	const params = FIELDS.map(([field]) => sql`${values[field]}`)
+	const assignments = FIELDS.map(([field, column]) => sql`${sql.identifier(column)} = ${values[field]}`)
+	const statement =
 		expectedVersion == null
-			? await getDb().execute<{ updated_at: string }>(sql`
-				insert into inventory.kitchen_stock_settings
-				       (kitchen_id, segregation, adjustment_approval_value, issue_tolerance_pct, issue_tolerance_floor_value,
-				        count_tolerance_pct, count_tolerance_value, default_lead_time_days, updated_by, updated_at)
-				values (${kitchenId}, ${values.segregation}, ${values.adjustmentApprovalValue}, ${values.issueTolerancePct},
-				        ${values.issueToleranceFloorValue}, ${values.countTolerancePct}, ${values.countToleranceValue},
-				        ${values.defaultLeadTimeDays}, ${actorId}::uuid, clock_timestamp())
+			? sql`
+				insert into inventory.kitchen_stock_settings (kitchen_id, ${list(columns)}, updated_by, updated_at)
+				values (${kitchenId}, ${list(params)}, ${actorId}::uuid, clock_timestamp())
 				on conflict (kitchen_id) do nothing
 				returning updated_at::text as updated_at
-			`)
-			: await getDb().execute<{ updated_at: string }>(sql`
+			`
+			: sql`
 				update inventory.kitchen_stock_settings
-				   set segregation = ${values.segregation},
-				       adjustment_approval_value = ${values.adjustmentApprovalValue},
-				       issue_tolerance_pct = ${values.issueTolerancePct},
-				       issue_tolerance_floor_value = ${values.issueToleranceFloorValue},
-				       count_tolerance_pct = ${values.countTolerancePct},
-				       count_tolerance_value = ${values.countToleranceValue},
-				       default_lead_time_days = ${values.defaultLeadTimeDays},
-				       updated_by = ${actorId}::uuid,
-				       updated_at = clock_timestamp()
+				   set ${list(assignments)}, updated_by = ${actorId}::uuid, updated_at = clock_timestamp()
 				 where kitchen_id = ${kitchenId}
 				   and updated_at = ${expectedVersion}::timestamptz
 				returning updated_at::text as updated_at
-			`)
+			`
+	const rows = await runQuery("STOCK_SETTINGS_WRITE", () => getDb().execute<{ updated_at: string }>(statement), {
+		prefix: "Erro ao salvar a configuração de estoque da cozinha",
+	})
 	const saved = [...rows][0]
-	if (!saved) throw new Error(STOCK_SETTINGS_CONFLICT_MESSAGE)
+	if (!saved) throw new DomainError(STOCK_SETTINGS_CONFLICT, STOCK_SETTINGS_CONFLICT_MESSAGE)
 	return { version: saved.updated_at }
 }

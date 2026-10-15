@@ -21,7 +21,8 @@ import { INFLOW_REASONS, OUTFLOW_REASONS, REASON_NATURE, STOCK_ADJUSTMENT_REASON
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { publicDbMessage } from "@/lib/db-error-message"
-import { MAX_LEAD_TIME_DAYS, type StockSettings } from "@/lib/kitchen-stock-settings"
+import { handleDomainError } from "@/lib/domain-errors"
+import { MAX_LEAD_TIME_DAYS, STOCK_SETTINGS_VERSION_PATTERN, type StockSettings } from "@/lib/kitchen-stock-settings"
 import { readKitchenStockSettings, writeKitchenStockSettings } from "@/lib/kitchen-stock-settings.server"
 import { readAllPagesIn } from "@/lib/read-all-pages"
 import { buildAdjustmentDocumentRow, buildAdjustmentItemRow, buildPostFailureRecovery, findAdjustmentLotProblem } from "@/lib/stock-adjustment"
@@ -234,7 +235,8 @@ export const fetchStockSettingsFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive() }))
 	.handler(async ({ data }): Promise<StockSettings> => {
 		await requireStorageForKitchen(1, data.kitchenId)
-		return readKitchenStockSettings(data.kitchenId)
+		// erro do driver (SQL, parâmetros) fica no log; o cliente lê a mensagem de negócio
+		return readKitchenStockSettings(data.kitchenId).catch(handleDomainError)
 	})
 
 export const saveStockSettingsFn = createServerFn({ method: "POST" })
@@ -243,7 +245,8 @@ export const saveStockSettingsFn = createServerFn({ method: "POST" })
 			kitchenId: z.number().int().positive(),
 			// Obrigatória (null = a tela viu a cozinha sem linha): versão opcional deixaria o
 			// cliente que não manda gravar por cima.
-			expectedVersion: z.string().min(1).nullable(),
+			// Formato do `updated_at::text`: lixo aqui seria erro de cast no banco, não conflito.
+			expectedVersion: z.string().regex(STOCK_SETTINGS_VERSION_PATTERN).nullable(),
 			segregation: z.enum(["strict", "dual"]),
 			adjustmentApprovalValue: z.number().nonnegative(),
 			issueTolerancePct: z.number().min(0).max(100),
@@ -257,7 +260,7 @@ export const saveStockSettingsFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }): Promise<{ version: string }> => {
 		const { userId } = await requireStorageForKitchen(3, data.kitchenId)
 		const { kitchenId, expectedVersion, ...values } = data
-		return writeKitchenStockSettings({ kitchenId, values, expectedVersion, actorId: userId })
+		return writeKitchenStockSettings({ kitchenId, values, expectedVersion, actorId: userId }).catch(handleDomainError)
 	})
 
 /** Lotes informados no ajuste, conferidos pela cozinha (`findAdjustmentLotProblem`). */
