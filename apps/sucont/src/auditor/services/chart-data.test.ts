@@ -6,7 +6,8 @@
 
 import { describe, expect, it } from "bun:test"
 import { AccountGroup, type FinancialRecord, RiskLevel } from "../types"
-import { aggregateComparisonData, buildTimeSeries, computeComparisonLayout, paretoOpacity, resolveTooltipValues } from "./chart-data"
+import { aggregateComparisonData, buildTimeSeries, computeComparisonLayout, computeTotalNetDifference, paretoOpacity, resolveTooltipValues } from "./chart-data"
+import { computeNetDifference, NET_DIFFERENCE_LABEL } from "./net-difference"
 
 const rec = (partial: Partial<FinancialRecord>): FinancialRecord => ({
 	id: "x",
@@ -63,7 +64,6 @@ describe("aggregateComparisonData", () => {
 			siafi: 115,
 			siloms: 90,
 			diff: 65,
-			netDiff: -25,
 			orgaoSuperior: "ORG-1",
 			ods: "ODS-1",
 			riskLevel: RiskLevel.ALTO,
@@ -71,8 +71,10 @@ describe("aggregateComparisonData", () => {
 			consumoDiff: 20,
 			intangivelDiff: 5,
 		})
-		expect(result.aggregated[0]).toMatchObject({ bmpDiff: 0, consumoDiff: 100, intangivelDiff: 0, netDiff: -100 })
-		expect(result.aggregated[2]).toMatchObject({ bmpDiff: 0, consumoDiff: 0, intangivelDiff: 15, netDiff: 15, diff: 15 })
+		expect(result.aggregated[0]).toMatchObject({ bmpDiff: 0, consumoDiff: 100, intangivelDiff: 0 })
+		expect(result.aggregated[2]).toMatchObject({ bmpDiff: 0, consumoDiff: 0, intangivelDiff: 15, diff: 15 })
+		// Mesmo sentido da Nota Analítica: SIAFI − SILOMS.
+		expect(computeTotalNetDifference(result.aggregated)).toBe(115 + 200 + 0 - (90 + 100 + 15))
 		expect(result.paretoData.map((p) => [p.name, p.totalAbsDiffContext, p.accumulatedPct])).toEqual([
 			["UG-B", 180, (100 / 180) * 100],
 			["UG-A", 180, (165 / 180) * 100],
@@ -80,9 +82,9 @@ describe("aggregateComparisonData", () => {
 		])
 	})
 
-	it("saldo NaN entra como 0 e `netDiff` é sempre `siloms − siafi`, na criação e na soma", () => {
+	it("saldo NaN entra como 0 nas colunas, na criação e na soma, e o líquido segue SIAFI − SILOMS", () => {
 		const first = aggregateComparisonData([rec({ ug: "UG-A", siafiValue: Number.NaN, silomsValue: Number.NaN, difference: 10 })], ["TODOS"], "UG")
-		expect(first.aggregated[0]).toMatchObject({ siafi: 0, siloms: 0, netDiff: 0, diff: 10 })
+		expect(first.aggregated[0]).toMatchObject({ siafi: 0, siloms: 0, diff: 10 })
 
 		const merged = aggregateComparisonData(
 			[
@@ -92,9 +94,10 @@ describe("aggregateComparisonData", () => {
 			["TODOS"],
 			"UG"
 		)
-		expect(merged.aggregated[0]).toMatchObject({ siafi: 10, siloms: 5, diff: 5, consumoDiff: 0, netDiff: -5 })
+		expect(merged.aggregated[0]).toMatchObject({ siafi: 10, siloms: 5, diff: 5, consumoDiff: 0 })
+		expect(computeTotalNetDifference(merged.aggregated)).toBe(5)
 
-		// Só um lado ausente: a diferença líquida é a do lado presente, nos dois caminhos.
+		// Só um lado ausente: o líquido é o do lado presente, nos dois caminhos.
 		const oneSide = aggregateComparisonData(
 			[
 				rec({ ug: "UG-A", siafiValue: Number.NaN, silomsValue: 7, difference: 7 }),
@@ -103,7 +106,8 @@ describe("aggregateComparisonData", () => {
 			["TODOS"],
 			"UG"
 		)
-		expect(oneSide.aggregated[0]).toMatchObject({ siafi: 3, siloms: 7, netDiff: 4 })
+		expect(oneSide.aggregated[0]).toMatchObject({ siafi: 3, siloms: 7 })
+		expect(computeTotalNetDifference(oneSide.aggregated)).toBe(-4)
 	})
 
 	it("difference NaN entra como 0 no grupo ao criar o item", () => {
@@ -170,6 +174,23 @@ describe("aggregateComparisonData", () => {
 })
 
 describe("buildTimeSeries", () => {
+	it("saldo NaN conta 0 na soma por competência, como no comparativo", () => {
+		const series = buildTimeSeries(
+			[
+				monthRec(2025, 0, { siafiValue: 10, silomsValue: 4, difference: 6 }),
+				monthRec(2025, 0, { group: AccountGroup.CONSUMO, siafiValue: Number.NaN, silomsValue: Number.NaN, difference: Number.NaN }),
+				monthRec(2025, 1, { siafiValue: Number.NaN, silomsValue: 2, difference: 2 }),
+			],
+			"MENSAL",
+			"total",
+			undefined
+		)
+		expect(series.map((s) => [s.totalSiafi, s.totalSiloms, s.totalDiff])).toEqual([
+			[10, 4, 6],
+			[0, 2, 2],
+		])
+	})
+
 	it("devolve vazio sem dado", () => {
 		expect(buildTimeSeries(undefined as unknown as FinancialRecord[], "MENSAL", "total", undefined)).toEqual([])
 		expect(buildTimeSeries([], "TRIMESTRAL", "total", undefined)).toEqual([])
@@ -329,5 +350,17 @@ describe("computeComparisonLayout", () => {
 		expect(layout.paretoRows[19].fillOpacity).toBe(1)
 		expect(layout.displayData[0]).not.toHaveProperty("fillOpacity")
 		expect(computeComparisonLayout([{ accumulatedPct: 90 }], 0, false, "ranking").paretoRows[0].fillOpacity).toBe(0.4)
+	})
+})
+
+describe("diferença líquida — um sentido só para gráfico e nota", () => {
+	it("é SIAFI − SILOMS e o rótulo diz o sentido", () => {
+		expect(computeNetDifference(100, 60)).toBe(40)
+		expect(computeNetDifference(60, 100)).toBe(-40)
+		expect(NET_DIFFERENCE_LABEL).toBe("Diferença líquida (SIAFI − SILOMS)")
+	})
+
+	it("conjunto vazio dá 0", () => {
+		expect(computeTotalNetDifference([])).toBe(0)
 	})
 })

@@ -78,7 +78,7 @@ describe("buildPreviewRows", () => {
 			["Unidades Gestoras", "12"],
 			["Registros (UG × grupo)", "30"],
 			["Divergência total", brl(250)],
-			["Diferença líquida", brl(200)],
+			["Diferença líquida (SIAFI − SILOMS)", brl(200)],
 			["Competência anterior", "JUN/25"],
 		])
 	})

@@ -28,6 +28,7 @@
 import { AccountGroup, type FinancialRecord, type TimeFilter } from "../types"
 import { recalculateDeltas, toShortDate } from "./dataProcessor"
 import { detectInterOmTransfers, type InterOmTransfer } from "./inter-om"
+import { computeNetDifference } from "./net-difference"
 
 /** Quantas UGs entram na tabela de maiores divergências. */
 export const TOP_OFFENDERS = 20
@@ -145,7 +146,7 @@ function sumTotals(records: FinancialRecord[]): ReportTotals {
 		siloms += r.silomsValue
 		absoluteDifference += r.difference
 	}
-	return { siafi, siloms, absoluteDifference, netDifference: siafi - siloms }
+	return { siafi, siloms, absoluteDifference, netDifference: computeNetDifference(siafi, siloms) }
 }
 
 /** `2025-07` menos `gap` meses. */
