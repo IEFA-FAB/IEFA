@@ -219,16 +219,6 @@ escritos e só rodam depois de aplicada a migration `20260926214000`.
 - **Cobertura:** `acquisition-origin.operations.test.ts › carona sem anexo → uma NE com três itens…`;
   `empenho-conformity.test.ts`; `supply-order-gate.test.ts › NE com três itens…`.
 
-### GU-NE-03 — "A NE com três itens da ata entrou com o valor dos itens zerado"
-- **Realidade:** a NE foi registrada só pelo total, ou veio do SIAFI sem o valor de cada item; os
-  itens da ata somam R$ 0,00 e a liquidação é da NE inteira.
-- **O sistema precisa:** sem proporção, a execução da NE (liquidado, pago, a liquidar) não se
-  reparte: cada item recebe zero, nunca o saldo inteiro (que multiplicava a execução pelo número
-  de itens), e a NE é marcada como dado incompleto.
-- **UX:** no painel da ARP, a linha do empenho mostra "Dado incompleto" com o motivo no tooltip.
-- **Cobertura:** `arp-import.test.ts › computeArpExecutionByItem › NE com total zero e vários
-  itens…`. A execução por item em si (liquidado/pago/a liquidar) ainda não aparece na tela.
-
 ### GU-NE-02 — "A NE saiu no SIAFI e ninguém importou; a carne chega amanhã"
 - **O sistema precisa:** registro rápido (número, data, valor, favorecido) no próprio lugar — Gestão
   Unidade ou, pelo almoxarife com `storage:2`, na cozinha —, idempotente pelo número. A OF pode sair
@@ -241,6 +231,21 @@ escritos e só rodam depois de aplicada a migration `20260926214000`.
 - **Cobertura:** `acquisition-origin.operations.test.ts` (OF aguardando empenho e vínculo depois;
   NE registrada à mão completada pelo número). **LACUNA:** o botão na tela da OF e do recebimento é do
   PR de Estoque (tarefas 3.x), que usa o componente.
+
+### GU-NE-03 — "A NE com três itens da ata entrou com o valor dos itens zerado"
+- **Realidade:** a NE foi registrada só pelo total, ou veio do SIAFI sem o valor de cada item; os
+  itens da ata somam R$ 0,00 e a liquidação é da NE inteira.
+- **O sistema precisa:** sem proporção, a execução da NE (liquidado, pago, a liquidar) não se
+  reparte: o item fica sem execução (nem zero, que se confundiria com "nada liquidado"), nunca com
+  o saldo inteiro (que multiplicava a execução pelo número de itens), e a NE é marcada como dado
+  incompleto. NE gravada em outra tela (Contratações, Empenhos, SIAFI, Conciliação) invalida o
+  painel da ARP.
+- **UX:** no painel da ARP, a linha do empenho mostra "Dado incompleto" com o motivo no tooltip
+  (`execution_incomplete` de `fetchEmpenhosFn`).
+- **Cobertura:** `arp-import.test.ts › computeArpExecutionByItem › NE com total zero e vários
+  itens…` e `› hasItemProportion…`. O badge e a invalidação entre telas não têm teste de
+  componente (**LACUNA**). A execução por item em si (liquidado/pago/a liquidar) ainda não aparece
+  na tela.
 
 ### GU-SIAFI-01 — "A NS foi importada antes da NE"
 - **O sistema precisa:** a NS fica estacionada (`import_row.parse_status = 'waiting_parent'`) com
@@ -294,10 +299,14 @@ escritos e só rodam depois de aplicada a migration `20260926214000`.
   cabe só uma das duas compras. A sugestão reservava na ordem alfabética: o arroz levava a dispensa
   e a batata, que ia faltar, caía em licitação.
 - **O sistema precisa:** a folga do art. 75, § 1º, é consumida do mais urgente para o menos
-  urgente: abaixo do limiar de urgência primeiro, depois a menor cobertura, a maior necessidade e
-  o insumo, nessa ordem, sem depender da ordem de leitura.
+  urgente: menor folga até o limiar de urgência (cobertura − limiar) primeiro, depois a maior
+  necessidade e o insumo, sem depender da ordem de leitura. Só consome folga quem sai com canal de
+  dispensa (Supermercado Virtual, Contrata+); o item coberto pela ARP própria não tira a folga de
+  ninguém.
 - **Cobertura:** `replenishment-plan.test.ts › buildReplenishmentSuggestions dá a folga da dispensa
-  ao mais urgente…` e `› desempata pela necessidade e depois pelo id…`.
+  ao mais urgente…`, `› o urgente coberto por ARP própria não tira a folga…`, `› ordena pela
+  distância até o limiar…` e `› desempata pela necessidade e depois pelo id…`.
+
 ## Execução da despesa (fluxo "Executar despesa", designação)
 
 ### GU-DES-01 — "Ninguém sabe quem é o fiscal do contrato"
