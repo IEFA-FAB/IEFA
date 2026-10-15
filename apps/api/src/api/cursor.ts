@@ -6,8 +6,12 @@
  * `X-Next-Cursor`; repetir a consulta com `?cursor=<valor>` traz as linhas seguintes.
  *
  * Keyset, não offset: a página seguinte começa DEPOIS da última linha vista pela ordem final
- * (a pedida + a chave única da tabela), então escrita entre uma página e outra não repete nem
- * pula linha, e cada página custa o mesmo para o banco.
+ * (a pedida + a chave única da tabela). Linha INSERIDA ou APAGADA entre uma página e outra não
+ * desloca as demais: nada repete nem some por causa dela, e cada página custa o mesmo para o
+ * banco. A garantia NÃO cobre UPDATE de coluna da ordem: a linha que muda de posição no meio
+ * da leitura (o arranchamento que troca de refeitório, o espelho com `dataAtualizacao` nova)
+ * pode vir de novo, se foi para depois do cursor, ou não vir, se foi para antes. Quem precisa
+ * de leitura exata deduplica pela chave (onde ela é publicada) ou relê a lista.
  *
  * O cursor é base64url de `{ o, v }`: a ordem final (`[coluna, "a" | "d"]`) e os valores da
  * última linha nessas colunas. A ordem viaja no cursor para que cursor de uma ordenação não
@@ -22,6 +26,18 @@ import type { OrderRule } from "./query-params.ts"
 
 /** Teto do `max_rows` do PostgREST do projeto: nenhuma resposta passa disso. */
 export const POSTGREST_MAX_ROWS = 1000
+
+/**
+ * Códigos do Postgres para valor que não converte no tipo da coluna (`22P02` texto inválido,
+ * `22007`/`22008` data ou hora inválida, `22003` número fora da faixa). Na rota de lista só vêm
+ * de entrada do cliente (filtro ou cursor adulterado): são 400, não 500.
+ */
+export const INVALID_INPUT_CODES: readonly string[] = ["22P02", "22007", "22008", "22003"]
+
+/** Erro do PostgREST causado por valor do cliente que não converte no tipo da coluna. */
+export function isInvalidInputError(error: { code?: string | null } | null | undefined): boolean {
+	return error?.code != null && INVALID_INPUT_CODES.includes(error.code)
+}
 
 /** Nome do cabeçalho com o cursor da próxima página. */
 export const NEXT_CURSOR_HEADER = "X-Next-Cursor"

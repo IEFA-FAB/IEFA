@@ -1,7 +1,7 @@
 import type { Context, MiddlewareHandler } from "hono"
 import { z } from "zod"
 import supabase from "../lib/supabase.js"
-import { type CursorValue, decodeCursor, encodeCursor, keysetFilter, NEXT_CURSOR_HEADER, POSTGREST_MAX_ROWS } from "./cursor.ts"
+import { type CursorValue, decodeCursor, encodeCursor, isInvalidInputError, keysetFilter, NEXT_CURSOR_HEADER, POSTGREST_MAX_ROWS } from "./cursor.ts"
 import {
 	clampLimit,
 	commaListToArray,
@@ -208,6 +208,11 @@ export function createApiHandler(config: ApiConfig): [MiddlewareHandler, (c: any
 			// Executa query
 			const { data, error } = await query
 			if (error) {
+				// Valor do cliente que não converte no tipo da coluna (cursor adulterado, filtro
+				// `mess_hall_id=abc`): erro de quem chamou, não do servidor.
+				if (isInvalidInputError(error)) {
+					return c.json({ error: "Valor de filtro ou de cursor inválido para o tipo da coluna" }, 400)
+				}
 				// A mensagem do PostgREST (coluna, schema, hint SQL) fica no log do
 				// servidor — nunca no corpo da resposta pública, que é anônima. Vazar
 				// `error.message` entregava a estrutura interna do banco a qualquer um.

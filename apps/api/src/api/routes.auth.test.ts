@@ -27,6 +27,8 @@ let upstreamHits = 0
 let lastUpstreamUrl: URL | null = null
 /** Linhas que o dublê devolve; os testes de cursor trocam e voltam a `[]`. */
 let upstreamRows: unknown[] = []
+/** Erro que o dublê devolve no lugar das linhas (status 400 do PostgREST); `null` = sem erro. */
+let upstreamError: { code: string; message: string } | null = null
 
 // PostgREST de mentira: responde `upstreamRows` (por padrão `[]`) a qualquer consulta. Sem ele o
 // caso positivo do guard dependeria de rede — e um handler pendurado num socket remoto
@@ -36,6 +38,8 @@ const stub = Bun.serve({
 	fetch: (req) => {
 		upstreamHits++
 		lastUpstreamUrl = new URL(req.url)
+		if (upstreamError)
+			return new Response(JSON.stringify({ ...upstreamError, details: null, hint: null }), { status: 400, headers: { "Content-Type": "application/json" } })
 		return new Response(JSON.stringify(upstreamRows), { headers: { "Content-Type": "application/json" } })
 	},
 })
@@ -269,6 +273,41 @@ describe("lista com teto de 1000 e cursor para a próxima página", () => {
 		expect(mismatch.status).toBe(400)
 		expect(((await mismatch.json()) as { error: string }).error).toContain("outra ordenação")
 		expect(upstreamHits).toBe(before)
+	})
+
+	test("cursor bem formado com valor de tipo errado é 400, não 500", async () => {
+		// `date` = "x" em /arranchamentos: passa no zod, e o Postgres recusa o cast (22007)
+		upstreamError = { code: "22007", message: 'invalid input syntax for type date: "x"' }
+		try {
+			const cursor = Buffer.from(
+				JSON.stringify({
+					o: [
+						["date", "d"],
+						["mess_hall_id", "a"],
+						["meal", "a"],
+						["user_id", "a"],
+					],
+					v: ["x", 1, "almoco", "u"],
+				})
+			).toString("base64url")
+			const res = await api.request(`${ARRANCHAMENTO_PATH}?cursor=${cursor}`, { headers: { "x-admin-secret": ADMIN_SECRET } })
+			expect(res.status).toBe(400)
+			const body = (await res.json()) as { error: string }
+			expect(body.error).toContain("tipo da coluna")
+			// a mensagem do Postgres não sai na resposta
+			expect(JSON.stringify(body)).not.toContain("invalid input syntax")
+		} finally {
+			upstreamError = null
+		}
+	})
+
+	test("erro do banco que não é de entrada do cliente segue 500", async () => {
+		upstreamError = { code: "42P01", message: "relation does not exist" }
+		try {
+			expect((await api.request("/units")).status).toBe(500)
+		} finally {
+			upstreamError = null
+		}
 	})
 
 	test("chave fora da projeção entra só no cursor, nunca na resposta", async () => {

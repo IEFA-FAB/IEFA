@@ -129,7 +129,7 @@ function defineDocRoute<TSchema extends z.ZodType>(config: {
 				name: "cursor",
 				in: "query" as const,
 				schema: { type: "string", maxLength: MAX_CURSOR_LENGTH },
-				description: `Próxima página: o valor do cabeçalho ${NEXT_CURSOR_HEADER} da resposta anterior, sem alterar. Repita os mesmos filtros e o mesmo \`order\`; cursor de outra ordenação é 400.`,
+				description: `Próxima página: o valor do cabeçalho ${NEXT_CURSOR_HEADER} da resposta anterior, sem alterar. Repita os mesmos filtros e o mesmo \`order\`; cursor de outra ordenação é 400. Linha inserida ou apagada entre as páginas não faz outra repetir nem sumir; linha cuja coluna da ordem muda no meio da leitura pode vir duas vezes ou não vir: quem precisa de leitura exata deduplica pela chave ou relê.`,
 			},
 			{
 				name: "order",
@@ -154,7 +154,8 @@ function defineDocRoute<TSchema extends z.ZodType>(config: {
 				},
 			},
 			400: {
-				description: "Parâmetro inválido — ordenação por coluna fora da resposta, colunas demais, ou cursor inválido ou de outra ordenação",
+				description:
+					"Parâmetro inválido — ordenação por coluna fora da resposta, colunas demais, cursor inválido ou de outra ordenação, ou valor de filtro ou cursor que não converte no tipo da coluna",
 				content: {
 					"application/json": {
 						schema: ErrorSchema,
@@ -366,6 +367,8 @@ const [, militaryDataHandler] = createApiHandler({
 	table: "user_military_data",
 	// Nenhuma coluna publicada é única (o SARAM espelho não tem UNIQUE; o CPF tem, mas não sai):
 	// o `id` sintético entra só como desempate e no cursor. Rota restrita por `x-admin-secret`.
+	// Sem chave publicada o cliente não deduplica: a carga do espelho, que muda `dataAtualizacao`
+	// (primeira coluna da ordem), pode repetir ou pular uma linha numa leitura em várias páginas.
 	uniqueKey: ["id"],
 	schema: "core",
 	select: `"${MIRROR_SARAM_COLUMN}", "nmGuerra", "nmPessoa", "sgPosto", "sgOrg", "dataAtualizacao"`,

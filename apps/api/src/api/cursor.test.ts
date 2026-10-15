@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { type CursorValue, decodeCursor, encodeCursor, keysetFilter, MAX_CURSOR_LENGTH } from "./cursor.ts"
+import { type CursorValue, decodeCursor, encodeCursor, isInvalidInputError, keysetFilter, MAX_CURSOR_LENGTH } from "./cursor.ts"
 import type { OrderRule } from "./query-params.ts"
 
 const ARRANCHAMENTO_ORDER: OrderRule[] = [
@@ -80,5 +80,18 @@ describe("keysetFilter", () => {
 	test("valor com vírgula, parêntese, ponto e aspas vira literal, não sintaxe de filtro", () => {
 		const value: CursorValue = 'a,b).c"d\\e'
 		expect(keysetFilter([{ column: "question", ascending: true }], [value])).toBe('or(question.gt."a,b).c\\"d\\\\e",question.is.null)')
+	})
+})
+
+describe("isInvalidInputError", () => {
+	test("valor que não converte no tipo da coluna é erro do cliente", () => {
+		// códigos conferidos no PostgREST do projeto: uuid/bigint com texto, data inválida, número fora da faixa
+		for (const code of ["22P02", "22007", "22008", "22003"]) expect(isInvalidInputError({ code })).toBe(true)
+	})
+
+	test("o resto segue erro do servidor", () => {
+		expect(isInvalidInputError({ code: "42P01" })).toBe(false)
+		expect(isInvalidInputError({ code: null })).toBe(false)
+		expect(isInvalidInputError(null)).toBe(false)
 	})
 })
