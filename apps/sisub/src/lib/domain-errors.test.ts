@@ -6,7 +6,7 @@ import { afterEach, describe, expect, test, vi } from "vitest"
 const setResponseStatus = vi.fn()
 vi.mock("@tanstack/react-start/server", () => ({ setResponseStatus: (code: number) => setResponseStatus(code) }))
 
-const { handleDomainError, INFRASTRUCTURE_ERROR_MESSAGE } = await import("./domain-errors")
+const { handleDomainError, INFRASTRUCTURE_ERROR_MESSAGE, STATEMENT_TIMEOUT_MESSAGE } = await import("./domain-errors")
 
 /** Réplica do `DrizzleQueryError`: SQL e parâmetros na `message`, erro do driver em `.cause`. */
 function drizzleQueryError(driver: { code: string; message: string }): Error {
@@ -78,7 +78,8 @@ describe("handleDomainError", () => {
 		["ECONNRESET", "read ECONNRESET"],
 		["08006", "connection failure"],
 		["57P01", "terminating connection due to administrator command"],
-		["57014", "canceling statement due to statement timeout"],
+		["XX000", "(EMAXCONN) max client connections reached, limit: 200"],
+		["ENOTFOUND", "getaddrinfo ENOTFOUND aws-0-sa-east-1.pooler.supabase.com"],
 	])("falha de infraestrutura %s no QueryFailedError: 503 com mensagem sem detalhe; detalhe só no log", (code, message) => {
 		const err = thrownBy(queryFailed({ code, message }))
 
@@ -102,6 +103,29 @@ describe("handleDomainError", () => {
 		expect(thrownBy(raw).message).toBe(INFRASTRUCTURE_ERROR_MESSAGE)
 		expect(setResponseStatus).toHaveBeenCalledWith(503)
 		expect(thrownBy(drizzleQueryError({ code: "ECONNREFUSED", message: "connect ECONNREFUSED" })).message).toBe(INFRASTRUCTURE_ERROR_MESSAGE)
+	})
+
+	test.each(["ENOTFOUND", "EAI_AGAIN"])("erro cru de DNS (%s, ex.: BEGIN de transação): 503, sem o host do pooler", (code) => {
+		const raw = Object.assign(new Error(`getaddrinfo ${code} aws-0-sa-east-1.pooler.supabase.com`), { code, hostname: "aws-0-sa-east-1.pooler.supabase.com" })
+		const err = thrownBy(raw)
+		expect(setResponseStatus).toHaveBeenCalledWith(503)
+		expect(err.message).toBe(INFRASTRUCTURE_ERROR_MESSAGE)
+		expect(err.message).not.toContain("pooler")
+		expect(err).not.toHaveProperty("hostname")
+	})
+
+	test("statement_timeout (57014): continua 400, com a mensagem de consulta pesada", () => {
+		const err = thrownBy(queryFailed({ code: "57014", message: "canceling statement due to statement timeout" }))
+		expect(setResponseStatus).toHaveBeenCalledWith(400)
+		expect(setResponseStatus).not.toHaveBeenCalledWith(503)
+		expect(err.message).toBe(STATEMENT_TIMEOUT_MESSAGE)
+		expect(String(consoleError.mock.calls[0])).toContain("57014")
+	})
+
+	test("XX000 sem o prefixo do Supavisor continua 400", () => {
+		const err = thrownBy(queryFailed({ code: "XX000", message: "could not open relation with OID 1234" }))
+		expect(setResponseStatus).toHaveBeenCalledWith(400)
+		expect(err.message).toBe("Não foi possível salvar a receita.")
 	})
 
 	test.each([

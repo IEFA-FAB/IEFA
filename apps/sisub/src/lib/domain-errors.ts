@@ -16,7 +16,7 @@
 import { AssuranceRequiredError } from "@iefa/pbac"
 import { DomainError, GENERIC_DB_ERROR_MESSAGE, NotFoundError, PermissionDeniedError, QueryFailedError } from "@iefa/sisub-domain/types"
 import { setResponseStatus } from "@tanstack/react-start/server"
-import { isInfrastructureError } from "./infra-error"
+import { isInfrastructureError, isStatementTimeout } from "./infra-error"
 
 /**
  * Erro cru do driver que escapou sem virar `DomainError` (query feita fora do `runQuery`).
@@ -41,11 +41,22 @@ function toPublicDbError(error: Error, publicMessage: string, tag = "[domain-err
 	return new Error(publicMessage)
 }
 
+/** Valor lançado que não é `Error` (objeto com `code`) entra no log como `cause`. */
+function asError(error: unknown): Error {
+	return error instanceof Error ? error : Object.assign(new Error("falha do banco"), { cause: error })
+}
+
 /**
  * O que o cliente lê numa falha de infraestrutura. Sem detalhe técnico, e sem o `publicMessage`
  * da operation ("Não foi possível salvar X"), que soaria como erro do que a pessoa fez.
  */
 export const INFRASTRUCTURE_ERROR_MESSAGE = "Serviço temporariamente indisponível. Tente novamente em instantes."
+
+/**
+ * `statement_timeout` (57014): a consulta rodou e demorou demais, quase sempre pelo tamanho do
+ * próprio pedido. Continua 400, e a mensagem diz o que fazer em vez de "tente de novo".
+ */
+export const STATEMENT_TIMEOUT_MESSAGE = "A consulta demorou demais e foi cancelada. Reduza o período ou os filtros e tente de novo."
 
 export function handleDomainError(error: unknown): never {
 	// Garantia de identidade vem ANTES do ramo de permissão e é relançada INTEIRA: é o
@@ -69,18 +80,23 @@ export function handleDomainError(error: unknown): never {
 		setResponseStatus(404)
 		throw new Error(error.message || "Not found")
 	}
-	// Falha de infraestrutura (conexão com o banco, prazo, servidor reiniciando): 503, para
+	// Falha de infraestrutura (conexão, pooler sem vaga, prazo do pool, rede): 503, para
 	// aparecer no monitoramento de 5xx do ALB em vez de se misturar aos 400 de dado inválido.
 	// Vale para o `QueryFailedError` e para erro cru (driver, `QueryDeadlineError`, socket);
-	// `DomainError` de regra de negócio nunca é infraestrutura, mesmo com `cause`.
+	// `DomainError` de regra de negócio nunca é infraestrutura, mesmo com `cause` (o predicado
+	// só olha o driver por trás de `QueryFailedError` ou de erro cru).
 	//
 	// 503 não dispara retry automático no cliente: o RPC entrega um `Error` sem status, a
 	// mutation do TanStack Query tem `retry: 0` (ver `root-provider.tsx`) e query já repetia
 	// qualquer erro. Quem repete é a pessoa, pelo botão da tela.
-	if ((!(error instanceof DomainError) || error instanceof QueryFailedError) && isInfrastructureError(error)) {
+	if (isInfrastructureError(error)) {
 		setResponseStatus(503)
-		const logged = error instanceof Error ? error : Object.assign(new Error("falha de infraestrutura"), { cause: error })
-		throw toPublicDbError(logged, INFRASTRUCTURE_ERROR_MESSAGE, "[domain-error:infra]")
+		throw toPublicDbError(asError(error), INFRASTRUCTURE_ERROR_MESSAGE, "[domain-error:infra]")
+	}
+	// Consulta pesada cancelada pelo `statement_timeout`: é do pedido, não da infraestrutura.
+	if (isStatementTimeout(error)) {
+		setResponseStatus(400)
+		throw toPublicDbError(asError(error), STATEMENT_TIMEOUT_MESSAGE)
 	}
 	// Falha de banco: a `message` é o diagnóstico (SQL, parâmetros, SQLSTATE) e fica no log;
 	// o cliente lê `publicMessage`. Antes do ramo genérico, que devolveria o SQL com 400.

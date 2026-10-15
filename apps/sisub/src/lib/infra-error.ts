@@ -1,20 +1,22 @@
 /**
  * @module infra-error
- * A falha foi da infraestrutura (conexão com o banco, prazo estourado, servidor reiniciando),
- * e não do que o usuário pediu?
+ * A falha foi da infraestrutura (conexão com o banco, pooler sem vaga, prazo do pool,
+ * servidor reiniciando, rede), e não do que o usuário pediu?
  *
  * `handleDomainError` usa isto para responder 503 em vez de 400: com 400, queda do pooler e
- * timeout sumiam do monitoramento de 5xx do ALB, misturados a erro de dado e de validação.
+ * prazo estourado sumiam do monitoramento de 5xx do ALB, misturados a erro de dado.
  *
- * O código mora no erro do driver, não no `QueryFailedError` (cujo `code` é o do domínio, ex.:
- * `FETCH_FAILED`) nem no `DrizzleQueryError` (que não tem `code`): a cadeia de `cause` é
- * percorrida, pulando o `code` de qualquer `DomainError` no caminho.
+ * O código mora no erro do driver: o `code` do `QueryFailedError` é o do domínio (ex.:
+ * `FETCH_FAILED`), e o do driver fica no `cause` dele; o `unwrapPgError` desce dali.
  *
- * Diferença para o `isTransientConnectionError` do `@iefa/sisub-domain` (PR #633): aquele
- * decide se dá para REPETIR a query, e por isso deixa de fora `57014` e `QUERY_DEADLINE` (a
- * query rodou e foi lenta; repetir dobra a carga ou estoura os 60 s do ALB). Aqui a pergunta é
- * de quem é a culpa, e as duas são da infraestrutura. Quando o #633 entrar, este predicado
- * pode virar `isTransientConnectionError(e) || <prazo>`.
+ * Os códigos de conexão vêm do `isTransientConnectionError` do `@iefa/sisub-domain` (o que
+ * decide a retentativa única), para as duas listas não divergirem. Aqui entram também os
+ * casos que não se repetem mas continuam sendo infraestrutura: o prazo do pool, o pooler sem
+ * vaga e a falha de rede/DNS.
+ *
+ * Fora, de propósito: `57014` (`statement_timeout`). Quase sempre é a própria consulta pesada
+ * (filtro amplo), não queda: responder "indisponível" faria a pessoa repetir o mesmo pedido e
+ * somaria 5xx sem incidente. Ele tem mensagem própria ({@link isStatementTimeout}).
  *
  * Erro do PostgREST (supabase-js) não passa por aqui: o cliente devolve `{ error }` em vez de
  * lançar, inclusive no timeout do `createTimeoutFetch` (`code: ""`), e as fns o relançam como
@@ -23,51 +25,67 @@
  */
 
 import { QUERY_DEADLINE_CODE } from "@iefa/database/postgres-pool"
-import { DomainError } from "@iefa/sisub-domain/types"
+import { DomainError, QueryFailedError } from "@iefa/sisub-domain/types"
+import { isTransientConnectionError, unwrapPgError } from "@iefa/sisub-domain/utils"
 
 /**
- * Códigos exatos de falha de infraestrutura.
+ * Infraestrutura além da queda de conexão que o `isTransientConnectionError` já cobre
+ * (`CONNECT_TIMEOUT`, `CONNECTION_CLOSED|ENDED|DESTROYED`, `ECONNRESET`, `ECONNREFUSED`,
+ * `EPIPE`, `ETIMEDOUT`, `57P01`–`57P03`, classe `08`):
  *
- * - postgres-js: `CONNECT_TIMEOUT` (o `connect_timeout` do `db.server.ts`). Os `CONNECTION_*`
- *   (`CLOSED`, `ENDED`, `DESTROYED`) entram pelo prefixo em {@link isInfrastructureCode}.
- * - Socket: queda no caminho até o pooler.
- * - SQLSTATE: `57P01`–`57P03` (admin shutdown, crash shutdown, cannot connect now), `57014`
- *   (`statement_timeout`), `53300` (too many connections: o pooler sem vaga).
- * - `QUERY_DEADLINE`: o prazo de execução do `postgres-pool.ts`, que derruba o pool travado.
- *
- * A classe `08` (connection exception) entra pelo prefixo.
+ * - `QUERY_DEADLINE`: prazo de execução do `postgres-pool.ts`, que derruba o pool travado.
+ * - Rede e DNS até o pooler: `ENOTFOUND`, `EAI_AGAIN`, `EHOSTUNREACH`, `ENETUNREACH`,
+ *   `ECONNABORTED`. Sem eles, o erro cru (`getaddrinfo ENOTFOUND <host do pooler>`) caía no
+ *   `throw error` final do `handleDomainError` e levava o host ao navegador.
+ * - `53300` (too_many_connections): o que o Postgres responde direto; pelo Supavisor ele só
+ *   chega repassado da conexão do pooler com o banco. O pooler cheio tem código próprio,
+ *   ver {@link SUPAVISOR_OVERLOAD}.
  */
-const INFRASTRUCTURE_CODES: ReadonlySet<string> = new Set([
-	"CONNECT_TIMEOUT",
-	"ECONNRESET",
-	"ECONNREFUSED",
-	"EPIPE",
-	"ETIMEDOUT",
-	"57P01",
-	"57P02",
-	"57P03",
-	"57014",
-	"53300",
+const EXTRA_INFRASTRUCTURE_CODES: ReadonlySet<string> = new Set([
 	QUERY_DEADLINE_CODE,
+	"ENOTFOUND",
+	"EAI_AGAIN",
+	"EHOSTUNREACH",
+	"ENETUNREACH",
+	"ECONNABORTED",
+	"53300",
 ])
 
-/** SQLSTATE tem 5 caracteres; o prefixo `08` sozinho pegaria código de outra origem. */
-const CONNECTION_EXCEPTION_SQLSTATE = /^08[0-9A-Z]{3}$/
+/**
+ * Pooler sem vaga ou sem conexão para entregar. O Supavisor responde `FATAL` com SQLSTATE
+ * genérico `XX000` e o código dele entre parênteses no início da mensagem: `(EMAXCONN) max
+ * client connections reached, limit: N`, `(EMAXCONNSESSION) max clients reached in session
+ * mode…`, `(ECHECKOUTTIMEOUT) unable to check out connection from the pool after Nms…`.
+ * Fonte: `supabase/supavisor`, `lib/supavisor/error.ex` (o `postgres_error` padrão é
+ * `%{"S" => "FATAL", "C" => "XX000", "M" => "(<code>) <mensagem>"}`) e
+ * `lib/supavisor/errors/{max_connections,checkout_timeout,pool_checkout,
+ * checkout_retries_exhausted,max_pools_reached,db_handler_exited}_error.ex`, commit 5df5caf
+ * (2026-10-08). Nos logs do projeto (24 h, `supavisor_logs`) não houve episódio para conferir.
+ *
+ * `XX000` sozinho é o `internal_error` do Postgres e não entra: só com o prefixo do Supavisor.
+ */
+const SUPAVISOR_OVERLOAD = /^\((EMAXCONN|EMAXCONNSESSION|ECHECKOUTTIMEOUT|EPOOLCHECKOUT|ECHECKOUTRETRIES|EMAXPOOLSREACHED|EDBHANDLEREXITED)\)/
 
-export function isInfrastructureCode(code: string): boolean {
-	return INFRASTRUCTURE_CODES.has(code) || code.startsWith("CONNECTION_") || CONNECTION_EXCEPTION_SQLSTATE.test(code)
+/** O erro do driver por trás do erro recebido; `undefined` quando é regra de negócio. */
+function driverErrorOf(error: unknown): unknown {
+	// O `code` do QueryFailedError é do domínio; o do driver está no `cause`.
+	if (error instanceof QueryFailedError) return error.cause
+	if (error instanceof DomainError) return undefined
+	return error
 }
 
-/** Teto da cadeia de `cause`: cadeia circular não pode travar o tratamento de erro. */
-const MAX_CAUSE_DEPTH = 10
-
-/** Algum erro da cadeia de `cause` (fora os `DomainError`) traz código de infraestrutura? */
 export function isInfrastructureError(error: unknown): boolean {
-	let current: unknown = error
-	for (let depth = 0; current !== null && typeof current === "object" && depth < MAX_CAUSE_DEPTH; depth++) {
-		const code = (current as { code?: unknown }).code
-		if (!(current instanceof DomainError) && typeof code === "string" && isInfrastructureCode(code)) return true
-		current = (current as { cause?: unknown }).cause
-	}
-	return false
+	const driver = driverErrorOf(error)
+	if (driver === undefined || driver === null) return false
+	if (isTransientConnectionError(driver)) return true
+	const { code, message } = unwrapPgError(driver)
+	if (!code) return false
+	return EXTRA_INFRASTRUCTURE_CODES.has(code) || (code === "XX000" && SUPAVISOR_OVERLOAD.test(message ?? ""))
+}
+
+/** `57014`: o `statement_timeout` cancelou a consulta (ou alguém a cancelou no banco). */
+export function isStatementTimeout(error: unknown): boolean {
+	const driver = driverErrorOf(error)
+	if (driver === undefined || driver === null) return false
+	return unwrapPgError(driver).code === "57014"
 }
