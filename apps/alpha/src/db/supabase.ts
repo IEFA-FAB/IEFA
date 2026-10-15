@@ -10,7 +10,7 @@ import { env } from "../env.ts"
  * PostgREST resolveria as tabelas em `public`.
  */
 export const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
-	auth: { persistSession: false },
+	auth: { persistSession: false, autoRefreshToken: false },
 	db: { schema: "alpha" },
 })
 

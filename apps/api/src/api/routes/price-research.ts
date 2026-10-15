@@ -70,7 +70,7 @@ function buildOptions(input: z.output<typeof materialQuerySchema> | z.output<typ
 function getSupabase() {
 	return createClient(env.API_SUPABASE_URL, env.API_SUPABASE_SERVICE_ROLE_KEY, {
 		db: { schema: "procurement" },
-		auth: { persistSession: false },
+		auth: { persistSession: false, autoRefreshToken: false },
 	})
 }
 
