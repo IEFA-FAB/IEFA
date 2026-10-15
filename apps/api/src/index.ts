@@ -4,6 +4,7 @@ import type { Context } from "hono"
 import { getConnInfo } from "hono/bun"
 import { cors } from "hono/cors"
 import { registerAgentDiscovery } from "./api/agent-discovery.ts"
+import { NEXT_CURSOR_HEADER } from "./api/cursor.ts"
 import { catalogRoutes } from "./api/routes/catalog.ts"
 import { comprasAdminRoutes } from "./api/routes/compras-admin.ts"
 import { gs1AdminRoutes } from "./api/routes/gs1-admin.ts"
@@ -55,6 +56,8 @@ const publicCors = cors({
 	origin: "*",
 	allowMethods: ["GET", "OPTIONS"],
 	allowHeaders: ["Content-Type"],
+	// Sem isto o navegador esconde do JavaScript de outra origem o cursor da próxima página.
+	exposeHeaders: [NEXT_CURSOR_HEADER],
 	maxAge: 300,
 })
 app.use("/api/*", (c, next) => (isAdminSecretPath(c.req.path, RESTRICTED_PATHS) ? next() : publicCors(c, next)))

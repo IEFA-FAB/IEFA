@@ -20,9 +20,11 @@ import {
 	createChatSession,
 	fetchChunk,
 	fetchSessionMessages,
+	isAlphaId,
 	isUnavailableSession,
 	listChatSessions,
 	openMessageStream,
+	parseCompleteEvent,
 	parseSseBuffer,
 	sendMessage,
 } from "@/lib/alpha/chat"
@@ -620,7 +622,7 @@ function ChatRada() {
 						setMessages((prev) => prev.map((m) => (m.id === assistantId ? { ...m, content: text, sources: payload.cited_documents } : m)))
 					}
 
-					if (isLoggedIn && userId && payload.session_id) {
+					if (isLoggedIn && userId && isAlphaId(payload.session_id)) {
 						setSessionId(payload.session_id)
 						saveSessionId(userId, payload.session_id)
 						// Só a lista de sessões. Invalidar o HISTÓRICO aqui refaz a busca e o
@@ -640,7 +642,7 @@ function ChatRada() {
 					const { events, rest } = parseSseBuffer(buffer)
 					buffer = rest
 					for (const evt of events) {
-						if (evt.event === "complete") await applyComplete(JSON.parse(evt.data) as ChatAnswer)
+						if (evt.event === "complete") await applyComplete(parseCompleteEvent(evt.data))
 						else if (evt.event === "error") throw new Error("A consulta falhou no servidor.")
 					}
 				}
@@ -660,7 +662,7 @@ function ChatRada() {
 				}
 				setMessages((prev) => [...prev, assistantMsg])
 
-				if (isLoggedIn && userId && data?.session_id) {
+				if (isLoggedIn && userId && isAlphaId(data?.session_id)) {
 					setSessionId(data.session_id)
 					saveSessionId(userId, data.session_id)
 					await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.sessions(userId) })
