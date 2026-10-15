@@ -432,6 +432,7 @@ FROM deps AS sisub-mcp-build
 COPY packages/database ./packages/database
 COPY packages/pbac ./packages/pbac
 COPY packages/sisub-domain ./packages/sisub-domain
+COPY packages/supabase-kit ./packages/supabase-kit
 COPY packages/tsconfig ./packages/tsconfig
 COPY apps/sisub-mcp ./apps/sisub-mcp
 RUN bun --filter='@iefa/sisub-mcp' run build

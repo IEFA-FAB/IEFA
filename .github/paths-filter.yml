@@ -241,6 +241,7 @@ mcp:
   - 'packages/database/**'
   - 'packages/pbac/**'
   - 'packages/sisub-domain/**'
+  - 'packages/supabase-kit/**'
   - 'packages/tsconfig/**'
   - 'Dockerfile'
   - 'docker-bake.hcl'
