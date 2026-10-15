@@ -272,7 +272,7 @@ describe("lista com teto de 1000 e cursor para a próxima página", () => {
 	})
 
 	test("chave fora da projeção entra só no cursor, nunca na resposta", async () => {
-		upstreamRows = Array.from({ length: 1000 }, (_, i) => ({ nrOrdem: "1", nmGuerra: "X", __cursor_id: i + 1 }))
+		upstreamRows = Array.from({ length: 1000 }, (_, i) => ({ nmGuerra: "X", __cursor_id: i + 1 }))
 		try {
 			const res = await api.request("/user-military-data", { headers: { "x-admin-secret": ADMIN_SECRET } })
 			expect(lastUpstreamUrl?.searchParams.get("select")).toContain('__cursor_id:"id"')
