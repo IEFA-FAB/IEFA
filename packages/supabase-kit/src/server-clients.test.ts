@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test"
 
-// `start.ts` importa o runtime do TanStack Start, que não existe fora de um request. Os testes
-// só constroem o client; nenhum chama `getAll`/`setAll`.
+import { installHangingFetch } from "./testing/hanging-fetch.ts"
+
+// `start.ts` importa o runtime do TanStack Start, que não existe fora de um request. Sem
+// request, o `getAll` do cookie devolve lista vazia: client sem sessão.
 mock.module("@tanstack/react-start/server", () => ({ getRequest: () => undefined, setCookie: () => {} }))
 
 const { createCookieAuthClient } = await import("./cookie-auth-client.ts")
@@ -15,14 +17,18 @@ const KEY = "sb_secret_test"
 /** `AUTO_REFRESH_TICK_DURATION_MS` do auth-js: o período do timer de auto-refresh. */
 const AUTO_REFRESH_TICK_MS = 30_000
 const N = 25
+const DEADLINE_MS = 30
 
-type AnyClient = { auth: unknown; from: (relation: string) => { select: (columns: string) => PromiseLike<{ error: unknown }> } }
+type AnyClient = {
+	auth: { initialize: () => Promise<unknown> }
+	from: (relation: string) => { select: (columns: string) => PromiseLike<{ data: unknown; error: { message: string } | null }> }
+}
 
 /** Campos privados do GoTrueClient que o teste precisa enxergar. */
-type GoTrueInternals = { initializePromise: Promise<unknown> | null; autoRefreshTicker: unknown; autoRefreshToken: boolean }
+type GoTrueInternals = { autoRefreshTicker: unknown; autoRefreshToken: boolean }
 
-function internals(client: { auth: unknown }): GoTrueInternals {
-	return client.auth as GoTrueInternals
+function internals(client: AnyClient): GoTrueInternals {
+	return client.auth as unknown as GoTrueInternals
 }
 
 const realSetInterval = globalThis.setInterval
@@ -42,20 +48,25 @@ afterEach(() => {
 	globalThis.fetch = realFetch
 })
 
-const factories: Record<string, () => AnyClient> = {
-	createServiceRoleClient: () => createServiceRoleClient({ url: URL, secretKey: KEY, schema: "sisub" }) as unknown as AnyClient,
-	createStatelessAuthClient: () => createStatelessAuthClient({ url: URL, publishableKey: KEY }) as unknown as AnyClient,
-	createCookieAuthClient: () => createCookieAuthClient({ url: URL, key: KEY, cookieHeader: undefined, schema: "sisub" }) as unknown as AnyClient,
-	createSsrAuthClient: () => createSsrAuthClient({ url: URL, key: KEY, schema: "sisub" }) as unknown as AnyClient,
+const factories: Record<string, (fetch?: typeof globalThis.fetch) => AnyClient> = {
+	createServiceRoleClient: (fetch) => createServiceRoleClient({ url: URL, secretKey: KEY, schema: "sisub", fetch }) as unknown as AnyClient,
+	createStatelessAuthClient: (fetch) => createStatelessAuthClient({ url: URL, publishableKey: KEY, fetch }) as unknown as AnyClient,
+	createCookieAuthClient: (fetch) => createCookieAuthClient({ url: URL, key: KEY, cookieHeader: undefined, schema: "sisub", fetch }) as unknown as AnyClient,
+	createSsrAuthClient: (fetch) => createSsrAuthClient({ url: URL, key: KEY, schema: "sisub", fetch }) as unknown as AnyClient,
 }
 
 describe("clients de servidor não armam o auto-refresh do GoTrue", () => {
 	// Com o default do supabase-js, cada client armava um `setInterval` de 30 s ao terminar o
 	// `initialize()` e ninguém o desarmava: o timer segurava o client, um por request.
+	//
+	// O `initialize()` é chamado à mão porque os clients do `@supabase/ssr` nascem com
+	// `skipAutoInitialize: true`: sem ele a asserção passaria qualquer que fosse a opção. O
+	// `_handleVisibilityChange` que arma o timer roda dentro do `initialize()`, chamado pelo
+	// construtor (supabase-js) ou na primeira leitura de sessão que o pedir.
 	for (const [name, create] of Object.entries(factories)) {
-		test(`${name}: ${N} clients, nenhum timer de auto-refresh`, async () => {
-			const clients = Array.from({ length: N }, create)
-			await Promise.all(clients.map((client) => internals(client).initializePromise))
+		test(`${name}: ${N} clients inicializados, nenhum timer de auto-refresh`, async () => {
+			const clients = Array.from({ length: N }, () => create())
+			await Promise.all(clients.map((client) => client.auth.initialize()))
 			await Bun.sleep(10)
 
 			expect(refreshIntervals).toBe(0)
@@ -67,48 +78,54 @@ describe("clients de servidor não armam o auto-refresh do GoTrue", () => {
 	}
 })
 
-describe("o deadline do fetch vale para a leitura inteira", () => {
-	// O postgrest-js repetia GET em erro de rede (o abort do deadline incluído) até 3 vezes,
-	// com 1 + 2 + 4 s de espera: com o deadline de 10 s, uma leitura chegava a ~47 s.
-	test("createServiceRoleClient: upstream travado custa uma tentativa e um deadline", async () => {
-		let attempts = 0
-		globalThis.fetch = mock((_input: unknown, init?: RequestInit) => {
-			attempts++
-			return new Promise<Response>((_resolve, reject) => {
-				init?.signal?.addEventListener("abort", () => reject(init.signal?.reason), { once: true })
-			})
-		}) as unknown as typeof fetch
-		const client = createServiceRoleClient({ url: URL, secretKey: KEY, schema: "sisub", fetch: createTimeoutFetch(30) })
-
-		const startedAt = performance.now()
-		const { error } = await client.from("units" as never).select("*")
-		const elapsed = performance.now() - startedAt
-
-		expect(error?.message).toMatch(/timed out after 30ms/)
-		expect(attempts).toBe(1)
-		// Com o retry, a primeira espera sozinha já seria 1 s.
-		expect(elapsed).toBeLessThan(900)
-	})
-
+describe("o deadline do fetch vale para a leitura inteira, e a falha rápida ainda é repetida", () => {
 	for (const [name, create] of Object.entries(factories)) {
-		test(`${name}: erro de rede e 503 não são repetidos`, async () => {
-			let attempts = 0
-			globalThis.fetch = mock(async () => {
-				attempts++
-				throw new TypeError("fetch failed")
-			}) as unknown as typeof fetch
-			const networkError = await create().from("units").select("*")
-			expect(networkError.error).not.toBeNull()
-			expect(attempts).toBe(1)
+		// O postgrest-js repetia o próprio deadline (motivo `Error` comum) até 3 vezes, com
+		// 1 + 2 + 4 s de espera: com o deadline de 10 s, uma leitura chegava a ~47 s.
+		test(`${name}: upstream travado custa uma tentativa e um deadline`, async () => {
+			const seen = installHangingFetch()
+			const client = create(createTimeoutFetch(DEADLINE_MS))
 
-			attempts = 0
+			const startedAt = performance.now()
+			const { error } = await client.from("units").select("*")
+			const elapsed = performance.now() - startedAt
+
+			expect(error?.message).toBe(`AbortError: Supabase request timed out after ${DEADLINE_MS}ms`)
+			expect(seen.calls).toBe(1)
+			// Com o retry, a primeira espera sozinha já seria 1 s.
+			expect(elapsed).toBeLessThan(900)
+		})
+
+		// O retry fica ligado de propósito: socket keep-alive fechado pelo upstream e o 503 do
+		// cache de schema (logo depois de migration) se resolvem na tentativa seguinte.
+		test(`${name}: ECONNRESET rápido é repetido`, async () => {
+			let calls = 0
 			globalThis.fetch = mock(async () => {
-				attempts++
-				return new Response("{}", { status: 503, headers: { "Retry-After": "0" } })
+				calls++
+				if (calls === 1) throw Object.assign(new TypeError("fetch failed"), { cause: { code: "ECONNRESET" } })
+				return Response.json([{ id: 1 }])
 			}) as unknown as typeof fetch
-			const unavailable = await create().from("units").select("*")
-			expect(unavailable.error).not.toBeNull()
-			expect(attempts).toBe(1)
+
+			const { data, error } = await create(createTimeoutFetch(1_000)).from("units").select("*")
+
+			expect(error).toBeNull()
+			expect(data).toEqual([{ id: 1 }])
+			expect(calls).toBe(2)
+		})
+
+		test(`${name}: 503 do cache de schema é repetido`, async () => {
+			let calls = 0
+			globalThis.fetch = mock(async () => {
+				calls++
+				if (calls === 1) return new Response("{}", { status: 503, headers: { "Retry-After": "0" } })
+				return Response.json([{ id: 1 }])
+			}) as unknown as typeof fetch
+
+			const { data, error } = await create(createTimeoutFetch(1_000)).from("units").select("*")
+
+			expect(error).toBeNull()
+			expect(data).toEqual([{ id: 1 }])
+			expect(calls).toBe(2)
 		})
 	}
 })

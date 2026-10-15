@@ -5,13 +5,26 @@ import { secureCompare } from "../../lib/secure-compare.ts"
 import { claimSignal, launchSync, SYNC_SOURCES } from "../../lib/sync-log.ts"
 import { hasLiveSync, runComprasSync } from "../../workers/compras-sync/index.ts"
 
-function getSupabase() {
+function createSchemaClient() {
 	// compras_sync_log / compras_sync_step foram movidas para compras_gov_integration
 	// (split de schemas por domínio). Estas rotas admin só tocam essas duas tabelas.
 	return createClient(env.API_SUPABASE_URL, env.API_SUPABASE_SERVICE_ROLE_KEY, {
 		db: { schema: "compras_gov_integration" },
 		auth: { persistSession: false, autoRefreshToken: false },
 	})
+}
+
+let cachedClient: ReturnType<typeof createSchemaClient> | undefined
+
+/**
+ * Client memoizado no módulo, como em `catalog.ts`: a service role não carrega sessão de
+ * usuário, então um client por processo serve a todos os requests, em vez de montar GoTrue,
+ * Realtime, PostgREST e Storage a cada chamada. Lazy para o módulo continuar importável num
+ * teste sem credencial no ambiente.
+ */
+function getSupabase() {
+	cachedClient ??= createSchemaClient()
+	return cachedClient
 }
 
 // ── Schemas ───────────────────────────────────────────────────────────────────

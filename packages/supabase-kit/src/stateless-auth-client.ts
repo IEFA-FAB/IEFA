@@ -48,7 +48,6 @@ export type StatelessAuthClientOptions = {
  */
 export function createStatelessAuthClient({ url, publishableKey, fetch }: StatelessAuthClientOptions) {
 	return createClient(url, publishableKey, {
-		db: { retry: false },
 		auth: SERVER_AUTH_OPTIONS,
 		global: { fetch: fetch ?? authTimeoutFetch },
 	})

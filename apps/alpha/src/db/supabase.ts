@@ -1,4 +1,4 @@
-import { createServiceRoleClient } from "@iefa/supabase-kit"
+import { createServiceRoleClient, SERVER_AUTH_OPTIONS } from "@iefa/supabase-kit"
 import { createClient } from "@supabase/supabase-js"
 import { env } from "../env.ts"
 
@@ -10,17 +10,17 @@ import { env } from "../env.ts"
  * PostgREST resolveria as tabelas em `public`.
  */
 export const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
-	auth: { persistSession: false, autoRefreshToken: false },
+	auth: SERVER_AUTH_OPTIONS,
 	db: { schema: "alpha" },
 })
 
 /**
  * Cliente do schema `access_control` — a resolução de permissões do PBAC.
  *
- * Singleton pelo mesmo motivo do de cima, e não por economia: cada `createClient` do
- * supabase-js arma um `setInterval` de refresh do GoTrue que ninguém desarma. Criado
- * por request, o middleware de auth deixaria um timer vivo por chamada de API —
- * inclusive por turno de chat, onde a conexão fica aberta por minutos.
+ * Singleton porque a service role não carrega sessão de usuário: um client por processo
+ * serve a todos os requests, e montar um por chamada de API (inclusive por turno de chat)
+ * só refaria GoTrue, Realtime, PostgREST e Storage a cada vez. O vazamento de timer que
+ * motivou o desenho já não existe: o kit desliga o auto-refresh (`SERVER_AUTH_OPTIONS`).
  */
 export const accessControl = createServiceRoleClient({ url: env.SUPABASE_URL, secretKey: env.SUPABASE_SERVICE_ROLE_KEY, schema: "access_control" })
 

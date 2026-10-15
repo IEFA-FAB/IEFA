@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, mock, test } from "bun:test"
 
+import { installHangingFetch } from "./testing/hanging-fetch.ts"
 import { createTimeoutFetch } from "./timeout-fetch.ts"
 
 const realFetch = globalThis.fetch
@@ -8,33 +9,24 @@ afterEach(() => {
 	globalThis.fetch = realFetch
 })
 
-/**
- * Substitui o `fetch` global por um que nunca responde — só rejeita quando o
- * signal aborta. Espelha o `fetch` real inclusive no caso do signal que já chega
- * abortado: aí a rejeição é imediata, sem esperar evento nenhum (é o que o
- * `createTimeoutFetch` assume ao abortar o controller antes de chamar o fetch).
- */
-function installHangingFetch() {
-	const seen: { signal?: AbortSignal | null } = {}
-	globalThis.fetch = mock((_input: unknown, init?: RequestInit) => {
-		seen.signal = init?.signal
-		return new Promise<Response>((_resolve, reject) => {
-			if (init?.signal?.aborted) {
-				reject(init.signal.reason)
-				return
-			}
-			init?.signal?.addEventListener("abort", () => reject(init.signal?.reason), { once: true })
-		})
-	}) as unknown as typeof fetch
-	return seen
-}
-
 describe("createTimeoutFetch", () => {
 	test("aborta o request depois do deadline", async () => {
 		installHangingFetch()
 		const timeoutFetch = createTimeoutFetch(20)
 
 		await expect(timeoutFetch("https://example.test")).rejects.toThrow(/timed out after 20ms/)
+	})
+
+	// O postgrest-js não repete rejeição com nome `AbortError`/`code` `ABORT_ERR`; com um `Error`
+	// comum o deadline era repetido como falha de rede (4 tentativas, ~47 s com 10 s).
+	test("o motivo do deadline é um AbortError, que o postgrest-js não repete", async () => {
+		installHangingFetch()
+		const timeoutFetch = createTimeoutFetch(20)
+
+		const reason = await timeoutFetch("https://example.test").catch((error: unknown) => error)
+		expect(reason).toBeInstanceOf(DOMException)
+		expect((reason as DOMException).name).toBe("AbortError")
+		expect((reason as DOMException).code).toBe(DOMException.ABORT_ERR)
 	})
 
 	test("propaga o abort do chamador antes do deadline", async () => {
