@@ -65,14 +65,17 @@ describe("withGenerationDeadline", () => {
 	it("o abort do prazo leva reason TimeoutError; o do cancelamento, não", async () => {
 		const timedOut: { signal?: AbortSignal } = {}
 		await expect(withGenerationDeadline({ deadlineMs: 10, timeoutMessage: "prazo" }, (c) => hangingGeneration(c, timedOut))).rejects.toThrow("prazo")
-		expect((timedOut.signal?.reason as DOMException).name).toBe("TimeoutError")
+		const deadlineReason = timedOut.signal?.reason as DOMException | undefined
+		expect(deadlineReason?.name).toBe("TimeoutError")
 
 		const caller = new AbortController()
 		const cancelled: { signal?: AbortSignal } = {}
 		const pending = withGenerationDeadline({ deadlineMs: 1_000, timeoutMessage: "prazo", signal: caller.signal }, (c) => hangingGeneration(c, cancelled))
 		caller.abort()
 		await expect(pending).rejects.toThrow()
-		expect((cancelled.signal?.reason as DOMException).name).not.toBe("TimeoutError")
+		const cancelReason = cancelled.signal?.reason as DOMException | undefined
+		expect(cancelReason).toBeDefined()
+		expect(cancelReason?.name).not.toBe("TimeoutError")
 	})
 
 	it("erro da geração antes do prazo passa intacto", async () => {
