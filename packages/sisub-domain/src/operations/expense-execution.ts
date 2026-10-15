@@ -250,7 +250,7 @@ export interface ReceivingPendingStatus {
 	/** Só os recebimentos com alguma pendência, do mais recente ao mais antigo. */
 	receipts: Array<ReceiptPendingRow & { pending: ReceiptPendingKind[] }>
 	counts: ReceiptPendingCounts
-	/** Quem lê pode designar ali mesmo (`unit:2` numa OM da cozinha). */
+	/** Quem lê pode designar ali mesmo: `unit:2` na OM compradora da cozinha, ou sem escopo (`canDesignateInUnit`). */
 	canDesignate: boolean
 }
 

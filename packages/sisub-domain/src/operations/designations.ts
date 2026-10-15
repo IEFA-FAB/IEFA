@@ -72,22 +72,14 @@ export const DESIGNATION_SOURCE_LABELS: Record<DesignationSource, string> = {
 export type ReceiptStage = "provisional" | "definitive"
 
 /**
- * O conjunto efetivo sem os allows SEM escopo; os denies ficam todos. Designação é ato da OM: quem
- * designa e quem é designado tem acesso escopado nela, e o acesso global (sem escopo) é suporte e
- * administração, não lotação na OM. O deny, de qualquer origem ou escopo, continua tirando a pessoa.
- */
-function scopedAccessOnly(permissions: UserPermission[]): UserPermission[] {
-	return permissions.filter((p) => p.level <= 0 || p.unit_id !== null || p.kitchen_id !== null || p.mess_hall_id !== null)
-}
-
-/**
- * Quem pode designar ali mesmo ("Designar agora"): `unit:2` ESCOPADO na unidade COMPRADORA da
- * cozinha, que é onde a designação mora e onde `inventory.designations_covering` procura. Regra
- * única do painel "A caminho", da tela do recebimento e da lista de quem pode designar na trava
- * de segregação. `unit:2` global não conta (ver `scopedAccessOnly`).
+ * Quem pode designar ali mesmo ("Designar agora"): `unit:2` na unidade COMPRADORA da cozinha, que é
+ * onde a designação mora e onde `inventory.designations_covering` procura. Regra única do painel
+ * "A caminho", da tela do recebimento e da lista de quem pode designar na trava de segregação, e a
+ * mesma do guard de `createDesignation` (`requireUnit(ctx, 2, unitId)`): `unit:2` sem escopo
+ * (acesso global, de suporte e administração) designa em qualquer OM; deny de qualquer origem tira.
  */
 export function canDesignateInUnit(permissions: UserContext["permissions"], purchaseUnitId: number | null): boolean {
-	return purchaseUnitId != null && hasPermission(scopedAccessOnly(permissions), "unit", 2, { type: "unit", id: purchaseUnitId })
+	return purchaseUnitId != null && hasPermission(permissions, "unit", 2, { type: "unit", id: purchaseUnitId })
 }
 
 /**
@@ -249,6 +241,11 @@ export async function listDesignations(db: SisubDb, ctx: UserContext, input: { u
 export interface DesignationCandidate {
 	personId: string
 	label: string
+	/**
+	 * Entra só por acesso sem escopo (suporte e administração), sem `unit`/`storage` na OM nem numa
+	 * cozinha dela. A tela marca, para a OM não confundir com o próprio efetivo.
+	 */
+	viaGlobalAccess: boolean
 }
 
 /**
@@ -257,15 +254,26 @@ export interface DesignationCandidate {
  * quem não entra no sisub não daria a ninguém como assinar o termo aqui — e aceitar qualquer UUID
  * deixaria a tela designar usuário de outra OM.
  *
- * A resolução é a do `@iefa/pbac` (`resolveEffectivePermissions` + `hasPermission`): as duas
- * origens (grant inline e statement de política anexada) e o deny de qualquer origem ou escopo
- * precedendo o allow. Uma regra própria em SQL divergia: quem tinha acesso só por política não
- * aparecia, e quem tinha deny aparecia. Diferente dos guards, o allow SEM escopo não torna ninguém
- * candidato: designação é ato da OM, e acesso global é suporte e administração (`scopedAccessOnly`).
+ * A resolução é a do `@iefa/pbac` e dos guards (`resolveEffectivePermissions` + `hasPermission`):
+ * as duas origens (grant inline e statement de política anexada), o deny de qualquer origem ou
+ * escopo precedendo o allow, e o allow SEM escopo (acesso global) valendo para qualquer OM. Uma
+ * regra própria em SQL divergia: quem tinha acesso só por política não aparecia, e quem tinha
+ * deny aparecia.
  */
 export function isDesignationCandidate(permissions: UserPermission[], unitId: number, kitchenIds: readonly number[]): boolean {
-	const scoped = scopedAccessOnly(permissions)
-	return hasPermission(scoped, "unit", 1, { type: "unit", id: unitId }) || kitchenIds.some((id) => hasPermission(scoped, "storage", 1, { type: "kitchen", id }))
+	return (
+		hasPermission(permissions, "unit", 1, { type: "unit", id: unitId }) ||
+		kitchenIds.some((id) => hasPermission(permissions, "storage", 1, { type: "kitchen", id }))
+	)
+}
+
+/**
+ * Candidato que só entra pelo acesso sem escopo: sem os allows globais (os denies ficam todos), ele
+ * deixaria de ser candidato. É a marca `viaGlobalAccess` da lista.
+ */
+export function isCandidateOnlyViaGlobalAccess(permissions: UserPermission[], unitId: number, kitchenIds: readonly number[]): boolean {
+	const scoped = permissions.filter((p) => p.level <= 0 || p.unit_id !== null || p.kitchen_id !== null || p.mess_hall_id !== null)
+	return isDesignationCandidate(permissions, unitId, kitchenIds) && !isDesignationCandidate(scoped, unitId, kitchenIds)
 }
 
 async function loadUnitKitchenIds(db: SisubDb, unitId: number): Promise<number[]> {
@@ -285,56 +293,53 @@ interface UnitAccessPerson {
 }
 
 /**
- * Quem tem algum allow ESCOPADO de `unit` ou `storage` na OM ou numa cozinha dela, com o conjunto
- * efetivo desses dois módulos já resolvido pelo `@iefa/pbac`. Só allow global não traz a pessoa
- * (ver `scopedAccessOnly`); as linhas sem escopo entram para os denies globais valerem.
+ * Quem tem algum allow de `unit` ou `storage` que alcança a OM (escopado nela, numa cozinha dela,
+ * ou sem escopo), com o conjunto efetivo desses dois módulos já resolvido pelo `@iefa/pbac`. O
+ * acesso sem escopo é de pouca gente (suporte e administração), então entra inteiro.
  *
  * Lê as duas origens (`user_permissions` e `user_policy_attachment` → `policy` viva →
  * `policy_statement`), com o prazo das duas, e só as linhas que podem decidir `hasPermission` com
  * escopo de unidade ou de cozinha da OM: as sem escopo e as escopadas na OM ou numa cozinha dela.
  * Linha de outro escopo não muda a resposta (o deny escopado só cobre o próprio escopo), então o
  * recorte dá o mesmo veredito do conjunto completo. Os demais módulos não entram: deny é por
- * módulo.
+ * módulo. As cozinhas vêm de quem chama, que já as leu.
  */
-async function loadUnitAccess(db: SisubDb, unitId: number): Promise<{ kitchenIds: number[]; people: UnitAccessPerson[] }> {
-	const [kitchenIds, rows] = await Promise.all([
-		loadUnitKitchenIds(db, unitId),
-		runQuery(
-			"QUERY_FAILED",
-			() =>
-				db.execute(sql`
-					with kitchens as (
-						select k.id from kitchen.kitchen k where k.unit_id = ${unitId} or k.purchase_unit_id = ${unitId}
-					),
-					grants as (
-						select p.user_id, p.module, p.level, p.mess_hall_id, p.kitchen_id, p.unit_id
-						from access_control.user_permissions p
-						where p.module in ('unit', 'storage') and (p.expires_at is null or p.expires_at > now())
-						union all
-						select a.user_id, s.module, s.level, s.mess_hall_id, s.kitchen_id, s.unit_id
-						from access_control.user_policy_attachment a
-						join access_control.policy pol on pol.id = a.policy_id and pol.deleted_at is null
-						join access_control.policy_statement s on s.policy_id = a.policy_id
-						where s.module in ('unit', 'storage') and (a.expires_at is null or a.expires_at > now())
-					),
-					relevant as (
-						select g.* from grants g
-						where (g.unit_id is null and g.kitchen_id is null and g.mess_hall_id is null)
-							or g.unit_id = ${unitId}
-							or g.kitchen_id in (select id from kitchens)
-					)
-					select r.user_id, r.module, r.level, r.mess_hall_id, r.kitchen_id, r.unit_id, ${PERSON_LABEL} as label
-					from relevant r
-					left join core.user_data u on u.id = r.user_id
-					left join core.military_identity m on m.saram = core.visible_saram(u.id)
-					where r.user_id in (
-						select user_id from relevant
-						where level >= 1 and (unit_id is not null or kitchen_id is not null or mess_hall_id is not null)
-					)
-				`),
-			{ prefix: "Erro ao ler quem tem acesso à OM" }
-		) as unknown as Promise<Row[]>,
-	])
+async function loadUnitAccess(db: SisubDb, unitId: number, kitchenIds: readonly number[]): Promise<UnitAccessPerson[]> {
+	const inKitchens = kitchenIds.length
+		? sql`g.kitchen_id in (${sql.join(
+				kitchenIds.map((id) => sql`${id}`),
+				sql`, `
+			)})`
+		: sql`false`
+	const rows = (await runQuery(
+		"QUERY_FAILED",
+		() =>
+			db.execute(sql`
+				with grants as (
+					select p.user_id, p.module, p.level, p.mess_hall_id, p.kitchen_id, p.unit_id
+					from access_control.user_permissions p
+					where p.module in ('unit', 'storage') and (p.expires_at is null or p.expires_at > now())
+					union all
+					select a.user_id, s.module, s.level, s.mess_hall_id, s.kitchen_id, s.unit_id
+					from access_control.user_policy_attachment a
+					join access_control.policy pol on pol.id = a.policy_id and pol.deleted_at is null
+					join access_control.policy_statement s on s.policy_id = a.policy_id
+					where s.module in ('unit', 'storage') and (a.expires_at is null or a.expires_at > now())
+				),
+				relevant as (
+					select g.* from grants g
+					where (g.unit_id is null and g.kitchen_id is null and g.mess_hall_id is null)
+						or g.unit_id = ${unitId}
+						or ${inKitchens}
+				)
+				select r.user_id, r.module, r.level, r.mess_hall_id, r.kitchen_id, r.unit_id, ${PERSON_LABEL} as label
+				from relevant r
+				left join core.user_data u on u.id = r.user_id
+				left join core.military_identity m on m.saram = core.visible_saram(u.id)
+				where r.user_id in (select user_id from relevant where level >= 1)
+			`),
+		{ prefix: "Erro ao ler quem tem acesso à OM" }
+	)) as unknown as Row[]
 
 	const byPerson = new Map<string, { label: string; rows: UserPermission[] }>()
 	for (const r of rows) {
@@ -350,12 +355,11 @@ async function loadUnitAccess(db: SisubDb, unitId: number): Promise<{ kitchenIds
 		})
 		byPerson.set(personId, entry)
 	}
-	const people = [...byPerson].map(([personId, { label, rows: personRows }]) => ({
+	return [...byPerson].map(([personId, { label, rows: personRows }]) => ({
 		personId,
 		label,
 		permissions: resolveEffectivePermissions(personRows),
 	}))
-	return { kitchenIds, people }
 }
 
 const byLabel = (a: { label: string }, b: { label: string }) => a.label.localeCompare(b.label, "pt-BR")
@@ -363,14 +367,19 @@ const byLabel = (a: { label: string }, b: { label: string }) => a.label.localeCo
 /**
  * A lista inteira, sem teto: a tela (`DesignationForm`) carrega tudo num select com busca no
  * cliente, e um corte calado esconderia justamente quem está no fim da ordem alfabética. O universo
- * já é limitado por quem tem acesso à OM.
+ * já é limitado por quem tem acesso à OM, mais o pouco acesso global.
  */
 export async function listDesignationCandidates(db: SisubDb, ctx: UserContext, input: { unitId: number }): Promise<DesignationCandidate[]> {
 	requireUnit(ctx, 2, input.unitId)
-	const { kitchenIds, people } = await loadUnitAccess(db, input.unitId)
+	const kitchenIds = await loadUnitKitchenIds(db, input.unitId)
+	const people = await loadUnitAccess(db, input.unitId, kitchenIds)
 	return people
 		.filter((person) => isDesignationCandidate(person.permissions, input.unitId, kitchenIds))
-		.map((person) => ({ personId: person.personId, label: person.label }))
+		.map((person) => ({
+			personId: person.personId,
+			label: person.label,
+			viaGlobalAccess: isCandidateOnlyViaGlobalAccess(person.permissions, input.unitId, kitchenIds),
+		}))
 		.sort(byLabel)
 }
 
@@ -389,7 +398,7 @@ export async function createDesignation(db: SisubDb, ctx: UserContext, input: De
 		throw new DomainError("DESIGNATION_PERSON_OUT_OF_UNIT", "Esta pessoa não opera o estoque nem a gestão desta OM — conceda o acesso antes de designá-la")
 	}
 	if (input.personId === ctx.userId && DEFINITIVE_RECEIPT_ROLES.includes(input.role)) {
-		const { people } = await loadUnitAccess(db, input.unitId)
+		const people = await loadUnitAccess(db, input.unitId, kitchenIds)
 		const problem = selfDesignationProblem({
 			isSelf: true,
 			role: input.role,

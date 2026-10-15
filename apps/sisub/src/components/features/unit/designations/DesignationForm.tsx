@@ -124,11 +124,18 @@ export function DesignationForm({ unitId, preset, onSaved }: { unitId: number; p
 						id={ids.person}
 						value={person}
 						onValueChange={setPersonId}
-						options={(candidates.data ?? []).map((c) => ({ value: c.personId, label: c.label }))}
+						options={(candidates.data ?? []).map((c) => ({
+							value: c.personId,
+							label: c.label,
+							// Acesso sem escopo (suporte e administração): marcado para não passar por efetivo da OM.
+							hint: c.viaGlobalAccess ? "Acesso global, não é do efetivo desta OM" : undefined,
+						}))}
 						placeholder={candidates.isLoading ? "Carregando…" : "Escolha a pessoa"}
 						emptyLabel="Ninguém com acesso ao estoque ou à gestão desta OM"
 					/>
-					<FieldDescription>Só aparece quem opera o estoque de uma cozinha da OM ou a Gestão Unidade.</FieldDescription>
+					<FieldDescription>
+						Só aparece quem opera o estoque de uma cozinha da OM ou a Gestão Unidade, e quem tem acesso global (marcado na lista).
+					</FieldDescription>
 				</Field>
 
 				<div className="grid gap-4 sm:grid-cols-2">
