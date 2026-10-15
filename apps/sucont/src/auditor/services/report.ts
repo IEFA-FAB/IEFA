@@ -63,7 +63,7 @@ export interface ReportTotals {
 	siloms: number
 	/** Soma de `|SIAFI − SILOMS|` — o que a UG tem de conciliar. */
 	absoluteDifference: number
-	/** Soma de `SIAFI − SILOMS` com sinal — sobra e falta se compensam. */
+	/** Soma de `SILOMS − SIAFI` com sinal (`net-difference.ts`) — sobra e falta se compensam. */
 	netDifference: number
 }
 

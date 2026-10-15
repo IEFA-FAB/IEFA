@@ -73,8 +73,8 @@ describe("aggregateComparisonData", () => {
 		})
 		expect(result.aggregated[0]).toMatchObject({ bmpDiff: 0, consumoDiff: 100, intangivelDiff: 0 })
 		expect(result.aggregated[2]).toMatchObject({ bmpDiff: 0, consumoDiff: 0, intangivelDiff: 15, diff: 15 })
-		// Mesmo sentido da Nota Analítica: SIAFI − SILOMS.
-		expect(computeTotalNetDifference(result.aggregated)).toBe(115 + 200 + 0 - (90 + 100 + 15))
+		// Mesmo sentido da Nota Analítica: SILOMS − SIAFI.
+		expect(computeTotalNetDifference(result.aggregated)).toBe(90 + 100 + 15 - (115 + 200 + 0))
 		expect(result.paretoData.map((p) => [p.name, p.totalAbsDiffContext, p.accumulatedPct])).toEqual([
 			["UG-B", 180, (100 / 180) * 100],
 			["UG-A", 180, (165 / 180) * 100],
@@ -82,7 +82,7 @@ describe("aggregateComparisonData", () => {
 		])
 	})
 
-	it("saldo NaN entra como 0 nas colunas, na criação e na soma, e o líquido segue SIAFI − SILOMS", () => {
+	it("saldo NaN entra como 0 nas colunas, na criação e na soma, e o líquido segue SILOMS − SIAFI", () => {
 		const first = aggregateComparisonData([rec({ ug: "UG-A", siafiValue: Number.NaN, silomsValue: Number.NaN, difference: 10 })], ["TODOS"], "UG")
 		expect(first.aggregated[0]).toMatchObject({ siafi: 0, siloms: 0, diff: 10 })
 
@@ -95,7 +95,7 @@ describe("aggregateComparisonData", () => {
 			"UG"
 		)
 		expect(merged.aggregated[0]).toMatchObject({ siafi: 10, siloms: 5, diff: 5, consumoDiff: 0 })
-		expect(computeTotalNetDifference(merged.aggregated)).toBe(5)
+		expect(computeTotalNetDifference(merged.aggregated)).toBe(-5)
 
 		// Só um lado ausente: o líquido é o do lado presente, nos dois caminhos.
 		const oneSide = aggregateComparisonData(
@@ -107,7 +107,7 @@ describe("aggregateComparisonData", () => {
 			"UG"
 		)
 		expect(oneSide.aggregated[0]).toMatchObject({ siafi: 3, siloms: 7 })
-		expect(computeTotalNetDifference(oneSide.aggregated)).toBe(-4)
+		expect(computeTotalNetDifference(oneSide.aggregated)).toBe(4)
 	})
 
 	it("difference NaN entra como 0 no grupo ao criar o item", () => {
@@ -354,10 +354,11 @@ describe("computeComparisonLayout", () => {
 })
 
 describe("diferença líquida — um sentido só para gráfico e nota", () => {
-	it("é SIAFI − SILOMS e o rótulo diz o sentido", () => {
-		expect(computeNetDifference(100, 60)).toBe(40)
-		expect(computeNetDifference(60, 100)).toBe(-40)
-		expect(NET_DIFFERENCE_LABEL).toBe("Diferença líquida (SIAFI − SILOMS)")
+	it("é SILOMS − SIAFI (decisão do mantenedor) e o rótulo diz o sentido", () => {
+		// computeNetDifference(siafi, siloms)
+		expect(computeNetDifference(100, 60)).toBe(-40)
+		expect(computeNetDifference(60, 100)).toBe(40)
+		expect(NET_DIFFERENCE_LABEL).toBe("Diferença líquida (SILOMS − SIAFI)")
 	})
 
 	it("conjunto vazio dá 0", () => {

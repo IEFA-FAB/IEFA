@@ -277,9 +277,9 @@ function ComparisonToolbar({ totalFinancialImpact, viewMode, onViewModeChange, t
 }
 
 /**
- * Diferença líquida (SIAFI − SILOMS, mesmo sentido da Nota Analítica) da visão de
+ * Diferença líquida (SILOMS − SIAFI, mesmo sentido da Nota Analítica) da visão de
  * Composição expandida. A cor não julga o sinal: sobra em qualquer dos dois sistemas é
- * divergência, e o verde para positivo invertia de sentido junto com a convenção.
+ * divergência.
  */
 function NetDivergencePanel({ totalNetDivergence }: { totalNetDivergence: number }) {
 	return (

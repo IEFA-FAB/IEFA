@@ -95,7 +95,7 @@ export function aggregateComparisonData(data: FinancialRecord[], hierarchyFilter
 }
 
 /**
- * Diferença líquida do conjunto (SIAFI − SILOMS, ver `net-difference.ts`), derivada das
+ * Diferença líquida do conjunto (SILOMS − SIAFI, ver `net-difference.ts`), derivada das
  * colunas somadas em vez de acumulada em paralelo.
  */
 export const computeTotalNetDifference = (items: Pick<AggregatedItem, "siafi" | "siloms">[]): number =>
