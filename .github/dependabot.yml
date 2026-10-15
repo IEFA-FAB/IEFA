@@ -164,8 +164,9 @@ updates:
       default-days: 7
     commit-message:
       prefix: "chore(deps)"
-    # Node só em LTS, e trocar de major é decisão (o upstream do BentoPDF builda com 20): o
-    # Dependabot anda o digest e o patch da 24, não propõe a 25.
+    # Node só em LTS, e trocar de major é decisão (o upstream do BentoPDF builda com 20). A tag é
+    # `24-alpine`, sem minor nem patch: o Dependabot só anda o digest dela, e a versão do node é a
+    # que esse digest trouxer. O `ignore` impede que ele proponha `25-alpine`.
     ignore:
       - dependency-name: "*/node"
         update-types: ["version-update:semver-major"]

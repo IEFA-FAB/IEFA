@@ -131,7 +131,7 @@ export const FLOORS: Record<string, Floor> = {
 		source: "fa650bf2 (#202), 02e0d74d (#596)",
 		advisories: ["GHSA-w7jw-789q-3m8p", "GHSA-pqg4-j6r4-53mv"],
 		reason:
-			"piso de segurança, duas críticas: 1.8.3 → 1.10.0 no #202 (era a outra baseline do gate de crítica) e < 1.11.0 no #596, via @tanstack/devtools-vite › launch-editor.",
+			"piso de segurança, duas críticas: 1.8.3 → 1.10.0 no #202 (era a outra baseline do gate de crítica) e < 1.11.0 no #596, via @tanstack/devtools-vite › launch-editor. O advisory pede 1.11.0; o #596 pôs `^1.12.0`, a última publicada naquele dia (1.12.0 é de 2026-10-02), sem registrar por que não 1.11.0. Nenhum advisory conhecido exige 1.12 (conferido no GitHub Advisory DB em 2026-10-15): descer para `^1.11.0` é seguro, mas não muda a versão resolvida, já que os consumidores aceitam `^1`.",
 	},
 	"proxy-addr": {
 		source: "02e0d74d (#596)",
