@@ -8,6 +8,7 @@
 
 import type { ArpSaldo } from "@/lib/arp-compras"
 import { anoFromNumeroAta, formatNumeroAta, parseBrDate, parseNumeroItem } from "@/lib/arp-compras"
+import { IN_CHUNK_SIZE, readAllPagesByKey } from "@/lib/read-all-pages"
 import type { ComprasArpItemResult } from "@/types/domain/arp"
 
 // ─── Vínculos da ARP já existente ────────────────────────────────────────────
@@ -278,6 +279,35 @@ export function sumItemValuesByEmpenho(items: ReadonlyArray<{ empenho_id: string
 	const totalByEmpenho = new Map<string, number>()
 	for (const row of items) totalByEmpenho.set(row.empenho_id, (totalByEmpenho.get(row.empenho_id) ?? 0) + Number(row.value))
 	return totalByEmpenho
+}
+
+type ItemValueRow = { id: string; empenho_id: string; value: NumericLike }
+
+/**
+ * Soma dos itens de cada NE, lida por inteiro: os ids do `.in()` em fatias e cada fatia por keyset
+ * (`id`; é soma de dinheiro). Sem paginar, o PostgREST cortava em 1000 linhas calado, e a NE que
+ * ficava sem nenhuma linha lida saía como "Dado incompleto" sem motivo.
+ *
+ * `page(chunk, after, pageSize)` aplica `.in("empenho_id", chunk)`, `.gt("id", after)` quando
+ * `after` não é nulo, `.order("id")` e `.limit(pageSize)`.
+ */
+export async function readItemTotalsByEmpenho(
+	empenhoIds: readonly string[],
+	page: (chunk: string[], after: string | null, pageSize: number) => PromiseLike<{ data: ItemValueRow[] | null; error: { message: string } | null }>
+): Promise<Map<string, number>> {
+	const unique = [...new Set(empenhoIds)]
+	const rows: ItemValueRow[] = []
+	for (let i = 0; i < unique.length; i += IN_CHUNK_SIZE) {
+		const chunk = unique.slice(i, i + IN_CHUNK_SIZE)
+		rows.push(
+			...(await readAllPagesByKey(
+				"os itens dos empenhos",
+				(after: string | null, pageSize) => page(chunk, after, pageSize),
+				(row) => row.id
+			))
+		)
+	}
+	return sumItemValuesByEmpenho(rows)
 }
 
 /**

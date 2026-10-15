@@ -33,9 +33,9 @@ import {
 	indexQuantityEstimateItemsByCatmat,
 	listStaleArpItemIds,
 	planArpItemReconciliation,
+	readItemTotalsByEmpenho,
 	resolveArpLinks,
 	splitDeletableArpItems,
-	sumItemValuesByEmpenho,
 } from "@/lib/arp-import"
 import { withSensitiveAudit } from "@/lib/audit.server"
 import { requireAuth, requireAuthWithPermission } from "@/lib/auth.server"
@@ -49,6 +49,7 @@ import {
 	insertPreparedEmpenho,
 	prepareEmpenhoRegistration,
 } from "@/lib/empenho-registration.server"
+import { readAllPagesByKey } from "@/lib/read-all-pages"
 import { getFinanceClient, getProcurementClient } from "@/lib/supabase.server"
 import { requireUnitScope } from "@/lib/unit-auth.server"
 import { cancelEmpenhoSerialized, toEmpenhoEventError } from "@/server/empenho-events.server"
@@ -809,13 +810,18 @@ export const fetchEmpenhosFn = createServerFn({ method: "GET" })
 		await requireAuth()
 		await requireUnitScope(1, await resolveArpItemUnit(getProcurementClient(), data.arpItemId))
 		const fin = getFinanceClient()
-		const { data: items, error: itemsError } = await fin
-			.from("empenho_item")
-			.select("empenho_id, quantity, unit_price, value")
-			.eq("arp_item_id", data.arpItemId)
-		if (itemsError) throw new Error(`Erro ao buscar itens de empenho: ${publicDbMessage(itemsError)}`)
+		// Por keyset: o valor deste item da ARP em cada NE é soma de dinheiro (corte de 1000 linhas).
+		const items = await readAllPagesByKey(
+			"os itens de empenho",
+			(after: string | null, pageSize) => {
+				let query = fin.from("empenho_item").select("id, empenho_id, quantity, unit_price, value").eq("arp_item_id", data.arpItemId)
+				if (after !== null) query = query.gt("id", after)
+				return query.order("id").limit(pageSize)
+			},
+			(row) => row.id
+		)
 		const byEmpenho = new Map<string, EmpenhoItemAmounts[]>()
-		for (const item of items ?? []) byEmpenho.set(item.empenho_id, [...(byEmpenho.get(item.empenho_id) ?? []), item])
+		for (const item of items) byEmpenho.set(item.empenho_id, [...(byEmpenho.get(item.empenho_id) ?? []), item])
 		if (byEmpenho.size === 0) return []
 
 		const { data: empenhos, error } = await fin
@@ -829,10 +835,11 @@ export const fetchEmpenhosFn = createServerFn({ method: "GET" })
 		// Todos os itens das NEs ativas (não só os deste item da ARP): é a soma deles que dá a
 		// proporção da execução. A mesma regra de `computeArpExecutionByItem`.
 		const activeIds = (empenhos ?? []).filter((empenho) => empenho.status === "ativo").map((empenho) => empenho.id)
-		const { data: allItems, error: allItemsError } =
-			activeIds.length === 0 ? { data: [], error: null } : await fin.from("empenho_item").select("empenho_id, value").in("empenho_id", activeIds)
-		if (allItemsError) throw new Error(`Erro ao buscar itens de empenho: ${publicDbMessage(allItemsError)}`)
-		const itemsTotalByEmpenho = sumItemValuesByEmpenho(allItems ?? [])
+		const itemsTotalByEmpenho = await readItemTotalsByEmpenho(activeIds, (chunk, after, pageSize) => {
+			let query = fin.from("empenho_item").select("id, empenho_id, value").in("empenho_id", chunk)
+			if (after !== null) query = query.gt("id", after)
+			return query.order("id").limit(pageSize)
+		})
 
 		return (empenhos ?? []).map((empenho) => ({
 			...empenho,

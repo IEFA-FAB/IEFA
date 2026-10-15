@@ -13,6 +13,7 @@ import {
 	indexQuantityEstimateItemsByCatmat,
 	listStaleArpItemIds,
 	planArpItemReconciliation,
+	readItemTotalsByEmpenho,
 	resolveArpLinks,
 	resolveImportedSaldo,
 	splitDeletableArpItems,
@@ -401,6 +402,46 @@ describe("hasItemProportion / sumItemValuesByEmpenho", () => {
 		expect(hasItemProportion(totals.get("c"))).toBe(false)
 		expect(hasItemProportion(undefined)).toBe(false)
 		expect(hasItemProportion(-1)).toBe(false)
+	})
+})
+
+describe("readItemTotalsByEmpenho", () => {
+	/** `empenho_item` falso com o teto do PostgREST: `.in()`, `.gt("id")`, `.order("id")`, `.limit()`. */
+	function itemTable(itemsPerEmpenho: number, empenhoCount: number, maxRows = 1000) {
+		const rows = Array.from({ length: empenhoCount * itemsPerEmpenho }, (_, i) => ({
+			id: `item-${String(i).padStart(6, "0")}`,
+			empenho_id: `ne-${String(i % empenhoCount).padStart(4, "0")}`,
+			value: 1,
+		}))
+		const chunks: number[] = []
+		const page = async (chunk: string[], after: string | null, pageSize: number) => {
+			if (after === null) chunks.push(chunk.length)
+			const data = rows.filter((row) => chunk.includes(row.empenho_id) && (after === null || row.id > after)).slice(0, Math.min(pageSize, maxRows))
+			return { data, error: null }
+		}
+		const ids = Array.from({ length: empenhoCount }, (_, i) => `ne-${String(i).padStart(4, "0")}`)
+		return { ids, page, chunks }
+	}
+
+	it("lê além do teto de 1000 linhas: nenhuma NE fica sem total (o badge falso)", async () => {
+		// 15 NEs de 80 itens = 1200 linhas; lida de uma vez, o corte deixava NEs sem linha nenhuma
+		const { ids, page } = itemTable(80, 15)
+		const totals = await readItemTotalsByEmpenho(ids, page)
+		expect(totals.size).toBe(15)
+		for (const id of ids) {
+			expect(totals.get(id), id).toBe(80)
+			expect(hasItemProportion(totals.get(id))).toBe(true)
+		}
+	})
+
+	it("fatia os ids do .in() e não consulta com lista vazia", async () => {
+		const { ids, page, chunks } = itemTable(2, 250)
+		const totals = await readItemTotalsByEmpenho([...ids, ids[0]], page)
+		expect(chunks).toEqual([100, 100, 50])
+		expect([...totals.values()].every((total) => total === 2)).toBe(true)
+		const empty = itemTable(1, 1)
+		expect((await readItemTotalsByEmpenho([], empty.page)).size).toBe(0)
+		expect(empty.chunks).toEqual([])
 	})
 })
 
