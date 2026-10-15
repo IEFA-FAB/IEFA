@@ -120,6 +120,6 @@ export type DialogState = {
 	uuid: string | null
 	willEat: boolean | null
 	willEnter: "sim" | "nao"
-	/** Recusado ou cancelado antes nesta refeição: sem fechamento automático, exige toque. */
+	/** Recusado, cancelado ou com presença em outro refeitório nesta refeição: sem fechamento automático. */
 	manual?: boolean
 }

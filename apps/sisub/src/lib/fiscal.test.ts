@@ -11,6 +11,7 @@ import {
 	SCAN_SNOOZE_MS,
 	type ScanScope,
 	settleClosedScan,
+	toScanDialogOutcome,
 } from "./fiscal"
 
 describe("MEAL_LABEL", () => {
@@ -84,14 +85,14 @@ describe("isPresenceRecorded", () => {
 describe("classifyInsertOutcome", () => {
 	test("duplicidade só é 'já registrado aqui' quando o refeitório bate", () => {
 		expect(classifyInsertOutcome({ status: "inserted" }, 7)).toBe("inserted")
-		expect(classifyInsertOutcome({ status: "duplicate", messHallId: 7, messHallName: "Rancho B" }, 7)).toBe("duplicate")
-		expect(classifyInsertOutcome({ status: "duplicate", messHallId: 3, messHallName: "Rancho A" }, 7)).toBe("elsewhere")
+		expect(classifyInsertOutcome({ status: "duplicate", messHallId: 7, messHallName: "Refeitório B" }, 7)).toBe("duplicate")
+		expect(classifyInsertOutcome({ status: "duplicate", messHallId: 3, messHallName: "Refeitório A" }, 7)).toBe("elsewhere")
 		// Não deu para ler onde: não afirma que é daqui.
 		expect(classifyInsertOutcome({ status: "duplicate", messHallId: null, messHallName: null }, 7)).toBe("elsewhere")
 	})
 
 	test("a frase diz onde, quando sabe", () => {
-		expect(describePresenceElsewhere("Rancho A")).toContain("em Rancho A")
+		expect(describePresenceElsewhere("Refeitório A")).toContain("em Refeitório A")
 		expect(describePresenceElsewhere(null)).toContain("em outro refeitório")
 	})
 })
@@ -119,6 +120,20 @@ describe("recusa e cancelamento no scanner", () => {
 		expect(openScanDialogDefaults(cache, lunch, "cancelado").manual).toBe(true)
 		expect(openScanDialogDefaults(cache, lunch, "falhou").manual).toBe(false)
 		expect(cache.has(lunch, "falhou", SCAN_SNOOZE_MS)).toBe(false)
+	})
+
+	test("presença em outro refeitório conta como recusa: releitura com 'Não' e sem fechar sozinho", () => {
+		expect(toScanDialogOutcome("inserted")).toBe("recorded")
+		expect(toScanDialogOutcome("duplicate")).toBe("recorded")
+		expect(toScanDialogOutcome("skipped")).toBe("refused")
+		expect(toScanDialogOutcome("elsewhere")).toBe("refused")
+
+		const cache = createScanCache()
+		settleClosedScan(cache, lunch, UUID, toScanDialogOutcome("elsewhere"), 0)
+		// Não fica preso no cache (não há linha aqui para excluir): depois da pausa é lido de novo...
+		expect(cache.has(lunch, UUID, SCAN_SNOOZE_MS)).toBe(false)
+		// ...mas pedindo toque, para não tentar gravar a cada leitura do crachá parado.
+		expect(openScanDialogDefaults(cache, lunch, UUID)).toEqual({ willEnter: "nao", manual: true })
 	})
 
 	test("gravar depois da recusa desfaz a recusa e prende o crachá", () => {

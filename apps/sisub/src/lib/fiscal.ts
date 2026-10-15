@@ -57,9 +57,9 @@ export interface ScanScope {
  * refeitório naquela refeição: cancelar o diálogo, escolher "não entra", presença em outro
  * refeitório ou falha ao gravar não marcam, e o militar pode ser lido de novo. Para o crachá
  * ainda parado na câmera não reabrir o diálogo na hora, o fechamento sem gravação dá só uma
- * pausa curta (`snooze`). Recusa e cancelamento ficam lembrados (`deny`): a releitura reabre
- * o diálogo com "Não" marcado e sem fechamento automático, para nada gravar sem um toque do
- * fiscal. A chave inclui a refeição porque quem almoçou também janta.
+ * pausa curta (`snooze`). Recusa, cancelamento e presença em outro refeitório ficam lembrados
+ * (`deny`): a releitura reabre o diálogo com "Não" marcado e sem fechamento automático, para
+ * nada gravar sem um toque do fiscal. A chave inclui a refeição porque quem almoçou também janta.
  */
 export interface ScanCache {
 	has: (scope: ScanScope, uuid: string, now?: number) => boolean
@@ -69,7 +69,7 @@ export interface ScanCache {
 	forget: (scope: ScanScope, uuid: string) => void
 	/** Diálogo fechado sem gravar: ignora o mesmo crachá por `ms`, depois libera. */
 	snooze: (scope: ScanScope, uuid: string, ms: number, now?: number) => void
-	/** O fiscal recusou ("não entra") ou cancelou: a próxima leitura exige toque. */
+	/** Recusa, cancelamento ou presença em outro refeitório: a próxima leitura exige toque. */
 	deny: (scope: ScanScope, uuid: string) => void
 	isDenied: (scope: ScanScope, uuid: string) => boolean
 }
@@ -130,8 +130,17 @@ export function createScanCache(max: number = SCAN_CACHE_MAX): ScanCache {
 export type ScanDialogOutcome = "recorded" | "refused" | "unsaved" | null
 
 /**
- * Fechamento do diálogo: o que não gravou ganha a pausa curta, e Cancelar/Esc ou "não entra"
- * ficam lembrados como recusa naquela refeição.
+ * Como a confirmação termina para o scanner. Presença em outro refeitório conta como recusa:
+ * nada foi gravado aqui, e reabrir com "Sim" e fechamento automático tentaria de novo a cada
+ * leitura do crachá parado.
+ */
+export function toScanDialogOutcome(status: ConfirmPresenceResult["status"]): Exclude<ScanDialogOutcome, "unsaved" | null> {
+	return status === "inserted" || status === "duplicate" ? "recorded" : "refused"
+}
+
+/**
+ * Fechamento do diálogo: o que não gravou ganha a pausa curta, e Cancelar/Esc, "não entra" ou
+ * presença em outro refeitório ficam lembrados como recusa naquela refeição.
  */
 export function settleClosedScan(cache: ScanCache, scope: ScanScope, uuid: string, outcome: ScanDialogOutcome, now: number = Date.now()): void {
 	if (outcome === "recorded") return

@@ -67,8 +67,8 @@ describe("insertPresenceFn", () => {
 		insertPresence.mockImplementation(async () => {
 			throw uniqueViolation()
 		})
-		findMealPresenceMessHall.mockResolvedValue({ messHallId: 3, messHallName: "Rancho A" })
-		await expect(callThroughTransport(DATA)).resolves.toEqual({ status: "duplicate", messHallId: 3, messHallName: "Rancho A" })
+		findMealPresenceMessHall.mockResolvedValue({ messHallId: 3, messHallName: "Refeitório A" })
+		await expect(callThroughTransport(DATA)).resolves.toEqual({ status: "duplicate", messHallId: 3, messHallName: "Refeitório A" })
 		expect(findMealPresenceMessHall).toHaveBeenCalledWith(expect.anything(), { userId: DATA.user_id, date: DATA.date, meal: DATA.meal })
 	})
 

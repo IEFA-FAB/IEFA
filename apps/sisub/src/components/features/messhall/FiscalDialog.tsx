@@ -93,7 +93,7 @@ export default function FiscalDialog({ setDialog, dialog, confirmDialog, selecte
 
 						{dialog.manual && (
 							<div className="text-xs text-muted-foreground">
-								Recusado ou cancelado antes nesta refeição. Confirme a decisão: este diálogo não fecha sozinho.
+								Recusado, cancelado ou com presença em outro refeitório antes nesta refeição. Confirme a decisão: este diálogo não fecha sozinho.
 							</div>
 						)}
 

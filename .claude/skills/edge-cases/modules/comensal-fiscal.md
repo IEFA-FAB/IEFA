@@ -133,8 +133,8 @@ Hipóteses a verificar.
   enquanto o crachá continua na frente da câmera) é por OM + data + refeição, não só por UUID, e
   só guarda quem tem presença gravada NESTE refeitório naquela refeição (agora ou antes).
   Cancelar, "não entra", presença em outro refeitório ou falha ao gravar não guardam: o crachá
-  ganha uma pausa de 5 s e volta a ser lido. Cancelar/Esc e "não entra" ficam lembrados como
-  recusa naquela refeição: a releitura reabre o diálogo com "Não" marcado e sem o "Fechar Auto.",
+  ganha uma pausa de 5 s e volta a ser lido. Cancelar/Esc, "não entra" e presença em outro
+  refeitório ficam lembrados como recusa naquela refeição: a releitura reabre o diálogo com "Não" marcado e sem o "Fechar Auto.",
   para nada ser gravado sem um toque do fiscal. Excluir a presença tira o UUID do cache da
   refeição DA LINHA. Data, refeição e refeitório são os do instante da leitura, na previsão, na
   gravação e no cache, mesmo que o fiscal troque o filtro com o diálogo aberto.
@@ -149,12 +149,13 @@ Hipóteses a verificar.
   que falhou ("Falha ao salvar decisão"): é só reler. Duplicidade neste refeitório mostra "Já
   registrado" e o crachá segue ignorado naquela refeição. Presença em outro refeitório avisa onde
   ("Já há presença registrada nesta refeição em <refeitório>. Nada foi registrado aqui."), sem
-  prender o crachá. O self check-in diz o mesmo ("Presença já registrada para esta refeição em
+  prender o crachá; com o crachá ainda na câmera, a releitura pede toque com "Não" marcado, em vez
+  de tentar gravar de novo a cada leitura. O self check-in diz o mesmo ("Presença já registrada para esta refeição em
   <refeitório>").
 - **Cobertura:** `apps/sisub/src/lib/fiscal.test.ts`: `createScanCache` (chave por refeição,
   data e refeitório; exclusão libera só aquela refeição; pausa curta; despejo LRU),
-  `recusa e cancelamento no scanner` (reabre com "Não" e exige toque; falha só pausa; gravar desfaz
-  a recusa), `classifyInsertOutcome` e `isPresenceRecorded`. `apps/sisub/src/server/presence.fn.test.ts`
+  `recusa e cancelamento no scanner` (reabre com "Não" e exige toque; presença em outro refeitório
+  conta como recusa; falha só pausa; gravar desfaz a recusa), `classifyInsertOutcome` e `isPresenceRecorded`. `apps/sisub/src/server/presence.fn.test.ts`
   (o `23505` chega ao navegador como `duplicate` com o refeitório, pelo transporte que só leva a
   mensagem). Banco: `apps/sisub/src/test/operations/presence.operations.test.ts` (integração;
   `23505` e duplicata em outro refeitório com `findMealPresenceMessHall`). Fiação na tela

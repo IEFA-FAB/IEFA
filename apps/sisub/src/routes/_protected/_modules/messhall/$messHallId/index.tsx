@@ -27,6 +27,7 @@ import {
 	type ScanDialogOutcome,
 	type ScanScope,
 	settleClosedScan,
+	toScanDialogOutcome,
 } from "@/lib/fiscal"
 import { resolveDisplayNameFn } from "@/server/messhall.fn"
 import type { MealKey } from "@/types/domain/meal"
@@ -258,14 +259,11 @@ function ScannerTab({ filters, onFiltersChange, scanCache }: { filters: FiscalFi
 		if (!dialog.uuid || !open) return
 		try {
 			const { status } = await confirmPresence(dialog.uuid, dialog.willEnter === "sim", open.scope)
-			// Só presença gravada neste refeitório entra no cache. "Não entra" fica lembrado como
-			// recusa; presença em outro refeitório deixa o crachá livre (não há linha aqui para excluir).
-			if (isPresenceRecorded(status)) {
-				scanCache.mark(open.scope, open.uuid)
-				open.outcome = "recorded"
-			} else {
-				open.outcome = status === "skipped" ? "refused" : "unsaved"
-			}
+			// Só presença gravada neste refeitório entra no cache. "Não entra" e presença em outro
+			// refeitório ficam lembrados como recusa (não há linha aqui para excluir, e a releitura
+			// não pode se autoconfirmar).
+			open.outcome = toScanDialogOutcome(status)
+			if (isPresenceRecorded(status)) scanCache.mark(open.scope, open.uuid)
 		} catch {
 			// Não gravou: o crachá fica livre para nova leitura (o fechamento só dá a pausa curta).
 			// O toast do motivo sai do onError da mutation.
