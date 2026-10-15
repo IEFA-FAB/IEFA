@@ -12,6 +12,8 @@
       "**",
       "!.agents",
       "!.claude/skills/impeccable",
+      "!.claude/settings.json",
+      "!.claude/settings.local.json",
       "!plans",
       "!**/*.svg",
       "!**/src/styles.css",
