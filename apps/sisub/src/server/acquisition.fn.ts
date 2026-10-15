@@ -30,6 +30,7 @@ import {
 	describeDispensaSum,
 	isEmpenhoWithoutOrigin,
 	resolveDirectContractLimit,
+	roundToCents,
 	SRP_ROLES,
 } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
@@ -314,7 +315,7 @@ export const listAcquisitionsFn = createServerFn({ method: "GET" })
 				pncpControlNumber: row.pncp_control_number,
 				overLimitJustification: row.over_limit_justification,
 				notes: row.notes,
-				committedValue: Math.round((committedByAcquisition.get(row.id) ?? 0) * 100) / 100,
+				committedValue: roundToCents(committedByAcquisition.get(row.id) ?? 0),
 				empenhos: empenhosByAcquisition.get(row.id) ?? [],
 				arps: arps.filter((arp) => arp.acquisition_id === row.id).map((arp) => arpRefOf(arp, itemCountByArp.get(arp.id) ?? 0)),
 				gaps,

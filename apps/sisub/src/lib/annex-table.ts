@@ -1,3 +1,4 @@
+import { roundToCents } from "@iefa/sisub-domain/money"
 import type { QuantityEstimateAnnexRow } from "@/lib/quantity-estimate-annex"
 
 /**
@@ -55,7 +56,8 @@ export function buildAnnexTable(rows: readonly QuantityEstimateAnnexRow[], optio
 		if (!options.confidential) {
 			line.push(
 				r.unitPrice == null ? "" : PRICE.format(r.unitPrice),
-				r.unitPrice != null && r.maxQuantity != null ? MONEY.format(r.unitPrice * r.maxQuantity) : ""
+				// o mesmo valor do CSV e do `annexMaxValue`: o `Intl` sozinho desce 3 × 0,155 (0,46499…) para 0,46
+				r.unitPrice != null && r.maxQuantity != null ? MONEY.format(roundToCents(r.unitPrice * r.maxQuantity)) : ""
 			)
 		}
 		return line

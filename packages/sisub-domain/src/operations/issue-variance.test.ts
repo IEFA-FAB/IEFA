@@ -160,3 +160,13 @@ describe("contrato com o fechamento automático (issue-variance.cases.ts)", () =
 		})
 	}
 })
+
+describe("evaluateVariance: meio-centavo no valor do desvio", () => {
+	test("o valor do desvio fecha o meio-centavo para cima antes de comparar com o piso", () => {
+		// 1 × 20,005 = 20,00499… em binário: com `toFixed(2)` ficava 20,00 e não passava do piso de 20
+		const verdict = evaluateVariance({ ingredientId: "carne", suggestedQty: 1, issuedNetQty: 2, unitCost: 20.005 }, SETTINGS)
+		expect(verdict.deltaValue).toBe(20.01)
+		expect(verdict.requiresReason).toBe(true)
+		expect(evaluateVariance({ ingredientId: "x", suggestedQty: 1, issuedNetQty: 2, unitCost: 1.005 }, SETTINGS).deltaValue).toBe(1.01)
+	})
+})

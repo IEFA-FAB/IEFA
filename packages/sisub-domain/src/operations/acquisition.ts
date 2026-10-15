@@ -13,6 +13,8 @@
  * justificativa; o registro nunca é recusado.
  */
 
+import { roundToCents } from "./money.ts"
+
 export const ACQUISITION_KINDS = ["registro_precos", "licitacao", "dispensa", "inexigibilidade", "contrata_mais_brasil", "suprimento_fundos", "outra"] as const
 export type AcquisitionKind = (typeof ACQUISITION_KINDS)[number]
 
@@ -299,9 +301,9 @@ export function computeDispensaSum(input: DispensaSumInput): DispensaSum | null 
 		...peers.map((peer) => ({ id: peer.id, label: peer.label, value: dispensaValue(peer), isCandidate: false })),
 		{ id: candidate.id, label: candidate.label, value: dispensaValue(candidate), isCandidate: true },
 	]
-	const total = roundCents(composition.reduce((sum, part) => sum + (part.value ?? 0), 0))
+	const total = roundToCents(composition.reduce((sum, part) => sum + (part.value ?? 0), 0))
 	const isFloor = composition.some((part) => part.value == null)
-	const remaining = limit.value == null ? null : roundCents(limit.value - total)
+	const remaining = limit.value == null ? null : roundToCents(limit.value - total)
 	return {
 		clause,
 		fiscalYear: candidate.fiscalYear,
@@ -327,8 +329,4 @@ export function describeDispensaSum(sum: DispensaSum): string | null {
 	}
 	if (!sum.exceeded) return null
 	return `As dispensas do inciso ${sum.clause} neste ramo somam ${BRL.format(sum.total)}${floor} em ${sum.fiscalYear}, acima do limite de ${BRL.format(sum.limit)} (Lei 14.133/2021, art. 75, § 1º). Registre a justificativa na contratação.`
-}
-
-function roundCents(value: number): number {
-	return Math.round(value * 100) / 100
 }
