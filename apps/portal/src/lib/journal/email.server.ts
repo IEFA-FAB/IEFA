@@ -27,6 +27,14 @@ export type TemplateName = "new_submission" | "review_invitation" | "decision_ac
 // nosso (os deploys são `*.iefa.com.br`), então o convite saía de um domínio sem
 // SPF e apontava para lugar nenhum, sem erro em log nenhum.
 const FROM = process.env.JOURNAL_EMAIL_FROM ?? `IEFA Journal <${LEGAL_CONTACT_EMAIL}>`
+/**
+ * Deadline do envio ao Resend. O envio roda dentro da server function do fluxo editorial:
+ * sem prazo, um Resend lento pendurava o request até o ALB devolver 502. 10 s é o mesmo
+ * `DATA_FETCH_TIMEOUT_MS` do `@iefa/supabase-kit`, folgado para uma API que responde em
+ * centenas de ms.
+ */
+const RESEND_TIMEOUT_MS = 10_000
+
 export const PORTAL_URL = process.env.PORTAL_PUBLIC_URL ?? "https://portal.iefa.com.br"
 
 export interface SendJournalEmailInput {
@@ -36,6 +44,12 @@ export interface SendJournalEmailInput {
 	lang?: "pt" | "en"
 	/** Variáveis substituídas no assunto/corpo do template. */
 	vars?: Record<string, string>
+}
+
+/** Falha de envio: a função não lança, então o log do servidor é o único rastro dela. */
+function logEmailFailure(message: string): void {
+	// biome-ignore lint/suspicious/noConsole: `sendJournalEmail` devolve só `false`; sem o log, timeout, recusa do Resend e template ilegível não deixam rastro nenhum
+	console.error(`[journal-email] ${message}`)
 }
 
 /**
@@ -48,12 +62,21 @@ export async function sendJournalEmail(input: SendJournalEmailInput): Promise<bo
 		if (!apiKey) return false // sem provider — silenciosamente pula (in-app cobre)
 		if (!input.to) return false
 
-		const { data: template } = await getJournalServerClient()
+		const { data: template, error } = await getJournalServerClient()
 			.from("email_templates")
 			.select("subject_pt, subject_en, body_pt, body_en")
 			.eq("name", input.template)
 			.maybeSingle()
-		if (!template) return false
+		// Falha na leitura (inclusive o deadline do kit) não é "template ausente": sem o log, o
+		// e-mail deixava de sair sem rastro nenhum. A função continua sem lançar.
+		if (error) {
+			logEmailFailure(`template "${input.template}" não lido: ${error.message}`)
+			return false
+		}
+		if (!template) {
+			logEmailFailure(`template "${input.template}" não cadastrado em journal.email_templates`)
+			return false
+		}
 
 		const lang = input.lang ?? "pt"
 		const vars = { app_url: PORTAL_URL, ...(input.vars ?? {}) }
@@ -66,9 +89,12 @@ export async function sendJournalEmail(input: SendJournalEmailInput): Promise<bo
 			method: "POST",
 			headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
 			body: JSON.stringify({ from: FROM, to: input.to, subject, html: body }),
+			signal: AbortSignal.timeout(RESEND_TIMEOUT_MS),
 		})
+		if (!res.ok) logEmailFailure(`Resend recusou "${input.template}": ${res.status}`)
 		return res.ok
-	} catch {
+	} catch (error) {
+		logEmailFailure(`"${input.template}" não enviado: ${error instanceof Error ? error.message : String(error)}`)
 		return false
 	}
 }
