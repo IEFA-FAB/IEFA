@@ -15,7 +15,7 @@
 import { checkSameOriginJsonRequest } from "@iefa/auth-kit"
 import type { AppModule } from "@iefa/pbac"
 import { hasAnyPermission, resolveUserPermissions } from "@iefa/pbac"
-import { createCookieAuthClient } from "@iefa/supabase-kit"
+import { resolveCookieSessionUser } from "@iefa/supabase-kit"
 import { type H3Event, HTTPError } from "nitro/h3"
 import { envServer } from "#/lib/env.server"
 import { SUCONT_DIVISION_MODULES } from "#/lib/permission-modules"
@@ -27,21 +27,21 @@ import { getAccessControlClient } from "#/lib/supabase.server"
  *   ferramenta passa a divisão DELA: o `/api/sacdgc/analyze` é da SUCONT-1, e aceitá-lo
  *   de qualquer divisão desfaria, pela porta dos fundos, a separação que os guards de
  *   rota e as server functions aplicam.
- * @throws 401 sem sessão válida, 403 sem grant em nenhum dos módulos.
+ * @throws 401 sem sessão válida, 503 se o GoTrue não respondeu, 403 sem grant em nenhum dos módulos.
  * @returns o id do usuário — dono da chamada ao modelo e chave dos tetos.
  */
 export async function requireSucontUser(event: H3Event, modules: readonly AppModule[] = SUCONT_DIVISION_MODULES): Promise<{ id: string }> {
-	const auth = createCookieAuthClient({
+	// Sem renovar a sessão (a rota não grava o cookie renovado) e com GoTrue fora como 503,
+	// não 401: ver `resolveCookieSessionUser` no @iefa/supabase-kit.
+	const session = await resolveCookieSessionUser({
 		url: envServer.VITE_SUCONT_SUPABASE_URL,
-		key: envServer.VITE_SUCONT_SUPABASE_PUBLISHABLE_KEY,
+		publishableKey: envServer.VITE_SUCONT_SUPABASE_PUBLISHABLE_KEY,
 		cookieHeader: event.req.headers.get("cookie") ?? undefined,
 	})
-
-	const {
-		data: { user },
-		error,
-	} = await auth.auth.getUser()
-	if (!user || error) throw new HTTPError({ status: 401, message: "Não autenticado" })
+	if (!session.ok) {
+		throw new HTTPError({ status: session.status, message: session.status === 401 ? "Não autenticado" : "Autenticação indisponível, tente de novo" })
+	}
+	const user = session.user
 
 	const permissions = await resolveUserPermissions(user.id, getAccessControlClient())
 	if (!hasAnyPermission(permissions, modules, 1)) {
