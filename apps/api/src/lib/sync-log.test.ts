@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { claimSync, hasLiveSync, isSyncLive, recoverStaleSyncs, SYNC_SOURCES } from "./sync-log.ts"
+import { claimSignal, claimSync, hasLiveSync, isSyncLive, launchSync, recoverStaleSyncs, SYNC_SOURCES } from "./sync-log.ts"
 
 /**
  * O log de execução é COMPARTILHADO por todas as integrações. Sem o discriminador de origem,
@@ -150,5 +150,59 @@ describe("claimSync — exclusão garantida pelo banco", () => {
 		const db = new FakeDb([], "42P01")
 
 		await expect(claimSync(db as never, { source: SYNC_SOURCES.pncpPca, triggeredBy: "cron", totalSteps: 1 })).rejects.toThrow(/pncp_pca/)
+	})
+})
+
+/**
+ * O disparo manual responde com o id da execução que ELE reivindicou. Antes a rota dormia
+ * 200 ms e lia a linha `running` mais nova: com a recuperação de mortas passando disso, o id
+ * devolvido era o da execução morta.
+ */
+describe("launchSync", () => {
+	/** O que os runners fazem: `claimSync` e, logo depois, `onClaimed` com o resultado. */
+	function startRun(db: FakeDb) {
+		const { onClaimed, claimed } = claimSignal()
+		const run = claimSync(db as never, { source: SYNC_SOURCES.comprasGov, triggeredBy: "manual", totalSteps: 1 }).then((claim) => {
+			onClaimed(claim)
+			// O resto da execução não termina durante o teste.
+			return new Promise<never>(() => {})
+		})
+		return { run, claimed }
+	}
+
+	test("com uma execução morta ainda `running`, devolve o id da NOVA", async () => {
+		const db = new FakeDb([morto(SYNC_SOURCES.comprasGov)])
+		const { run, claimed } = startRun(db)
+
+		expect(await launchSync(run, claimed)).toEqual({ status: "claimed", syncId: 42 })
+	})
+
+	test("claim perdido para outra execução viva é already_running", async () => {
+		const { run, claimed } = startRun(new FakeDb([], "23505"))
+
+		expect(await launchSync(run, claimed)).toEqual({ status: "already_running" })
+	})
+
+	test("falha antes do claim é failed, sem pendurar a resposta", async () => {
+		const { claimed } = claimSignal()
+		const error = new Error("insert recusado")
+
+		expect(await launchSync(Promise.reject(error), claimed)).toEqual({ status: "failed", error })
+	})
+
+	test("falha DEPOIS do claim não muda o que foi respondido", async () => {
+		const { onClaimed, claimed } = claimSignal()
+		onClaimed({ claimed: true, syncId: 7 })
+		const run = Promise.resolve().then(() => {
+			throw new Error("etapa falhou")
+		})
+
+		expect(await launchSync(run, claimed)).toEqual({ status: "claimed", syncId: 7 })
+	})
+
+	test("claim que não sai no prazo vira pending", async () => {
+		const { claimed } = claimSignal()
+
+		expect(await launchSync(new Promise(() => {}), claimed, 5)).toEqual({ status: "pending" })
 	})
 })
