@@ -8,6 +8,17 @@
 # client rodaria como service_role, burlando a RLS. A chave certa é a publishable/anon
 # (`VITE_*_SUPABASE_PUBLISHABLE_KEY`), já provisionada no runtime. sucont já fazia certo.
 #
+# A mesma chave entra no kit por outras portas, todas com o parâmetro `publishableKey`:
+# `resolveCookieSessionUser` (criado no #625 para as rotas Nitro, valida o token do cookie),
+# `createStatelessAuthClient` (o client que ele usa por baixo) e `createAppBrowserClient` (no
+# navegador a service key seria pior: vazaria). O nome do parâmetro não impede passar a secret.
+#
+# O nome da chave casa sem diferenciar caixa e com ou sem `_` (`SISUB_SUPABASE_SECRET_KEY`,
+# `serviceRoleKey`), como em `supabase-secret-client-outside-kit`.
+#
+# Casos de teste: `__fixtures__/auth-client-key.ts` (opengrep test --config
+# .opengrep/rules/auth-client-key.yaml .opengrep/rules/__fixtures__/auth-client-key.ts).
+#
 # Regras compatíveis com Opengrep e Semgrep (mesma sintaxe).
 ##
 rules:
@@ -15,12 +26,14 @@ rules:
     languages: [typescript]
     severity: ERROR
     message: >-
-      Client SSR de auth (createSsrAuthClient / createCookieAuthClient) inicializado com
-      uma chave *_SECRET_KEY / service_role. Use a publishable/anon
+      Client de auth do kit (createSsrAuthClient / createCookieAuthClient /
+      resolveCookieSessionUser / createStatelessAuthClient / createAppBrowserClient) inicializado
+      com uma chave *_SECRET_KEY / service_role. Use a publishable/anon
       (VITE_<APP>_SUPABASE_PUBLISHABLE_KEY): getUser() valida o JWT do cookie no servidor
       Supabase de qualquer forma, e a service role faria uma query acidental por este
-      client burlar a RLS. Para queries de dados, use createServiceRoleClient num client
-      separado. Ver getSupabaseAuthClient (sisub) / getIefaAuthClient (portal).
+      client burlar a RLS (no navegador, ainda vazaria a chave). Para queries de dados, use
+      createServiceRoleClient num client separado. Ver getSupabaseAuthClient (sisub) /
+      getIefaAuthClient (portal).
     paths:
       include:
         - "apps/**"
@@ -31,6 +44,9 @@ rules:
       - pattern-either:
           - pattern: 'createSsrAuthClient({..., key: $K, ...})'
           - pattern: 'createCookieAuthClient({..., key: $K, ...})'
+          - pattern: 'resolveCookieSessionUser({..., publishableKey: $K, ...})'
+          - pattern: 'createStatelessAuthClient({..., publishableKey: $K, ...})'
+          - pattern: 'createAppBrowserClient({..., publishableKey: $K, ...})'
       - metavariable-regex:
           metavariable: $K
-          regex: '.*(SECRET_KEY|SERVICE_ROLE)'
+          regex: '(?i).*(SECRET_?KEY|SERVICE_?ROLE)'
