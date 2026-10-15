@@ -28,8 +28,9 @@ export const TOLERANCIA_SALDO = 0.005
  * Meio-centavo vai para longe do zero, simétrico no negativo: `Math.round` sozinho
  * leva -10,005 a -10,00, e aí o débito e o crédito do mesmo lançamento fechariam em
  * centavos diferentes (o par inter-OM deixaria resíduo de um centavo). A precisão é
- * 12 dígitos, que absorve o erro acumulado de somas longas, e cresce com a magnitude
- * acima de R$ 1 bilhão para não cortar o centavo. Zero sai `0`, nunca `-0`.
+ * 12 dígitos, que absorve o erro acumulado de somas longas, e a partir de R$ 10 milhões
+ * cresce com a magnitude para guardar três casas abaixo do centavo (12 dígitos fixos
+ * cortariam o centavo a partir de R$ 10 bilhões). Zero sai `0`, nunca `-0`.
  *
  * Duplicado em vez de importado de propósito: `@iefa/sisub-domain` é o domínio do
  * sisub, e o sucont não deve depender dele para somar dinheiro. Mudou lá, muda aqui.

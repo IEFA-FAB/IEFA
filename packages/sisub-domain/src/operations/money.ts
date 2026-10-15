@@ -18,9 +18,9 @@
  * `toPrecision` normaliza o erro de representação ANTES do arredondamento, então
  * 100,49999999999999 volta a ser 100,5 e sobe para 101 centavos. A precisão é 12 dígitos, que
  * absorve o erro acumulado de somas longas (25 × 0,347 dá 8,674999999999994, e com 15 dígitos
- * fecharia em 8,67). Acima de R$ 1 bilhão (11+ dígitos em centavos) 12 dígitos já cortariam o
- * centavo (`numeric(14,2)` vai a ~R$ 1 trilhão), então a precisão cresce com a magnitude e
- * guarda sempre três casas abaixo do centavo.
+ * fecharia em 8,67). A partir de R$ 10 milhões (10 dígitos em centavos) a precisão cresce com a
+ * magnitude para guardar sempre três casas abaixo do centavo; 12 dígitos fixos cortariam o
+ * próprio centavo a partir de R$ 10 bilhões, e `numeric(14,2)` vai a ~R$ 1 trilhão.
  *
  * Negativo é simétrico: `roundToCents(-x) === -roundToCents(x)`. `Math.round` sozinho leva o meio
  * para +∞ (-1000,5 → -1000), e aí uma nota e a sua anulação, ou o delta SIAFI − sisub e o
