@@ -13,7 +13,7 @@ import { Separator } from "@/components/ui/separator"
 import { Spinner } from "@/components/ui/spinner"
 import { Textarea } from "@/components/ui/textarea"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { useAnularEmpenho, useArpExecution, useArpLocalCommitments, useCreateEmpenho, useEmpenhos, useSyncArpBalance } from "@/hooks/data/useArp"
+import { useAnularEmpenho, useArpLocalCommitments, useCreateEmpenho, useEmpenhos, useSyncArpBalance } from "@/hooks/data/useArp"
 import { useBudgetCheckForEmpenho } from "@/hooks/data/useBudgetCheck"
 import { type LocalCommitment, resolveSaldoOficial } from "@/lib/arp-balance"
 import type { EmpenhoOfArpItem } from "@/types/domain/arp"
@@ -68,8 +68,8 @@ function saldoPct(item: ArpItem): number | null {
 // ─── Linha de empenho ─────────────────────────────────────────────────────────
 
 /**
- * NE ativa cujos itens somam zero: sem proporção, a execução dela (liquidado, pago, a liquidar)
- * não se reparte entre os itens da ata e fica fora do acompanhamento (`computeArpExecutionByItem`).
+ * NE ativa cujos itens somam zero (`execution_incomplete`): sem proporção, a execução dela
+ * (liquidado, pago, a liquidar) não se reparte entre os itens da ata (`computeArpExecutionByItem`).
  */
 function IncompleteExecutionBadge() {
 	return (
@@ -85,19 +85,7 @@ function IncompleteExecutionBadge() {
 	)
 }
 
-function EmpenhoRow({
-	empenho,
-	arpItemId,
-	arpId,
-	canWrite,
-	isExecutionIncomplete,
-}: {
-	empenho: EmpenhoOfArpItem
-	arpItemId: string
-	arpId: string
-	canWrite: boolean
-	isExecutionIncomplete: boolean
-}) {
+function EmpenhoRow({ empenho, arpItemId, arpId, canWrite }: { empenho: EmpenhoOfArpItem; arpItemId: string; arpId: string; canWrite: boolean }) {
 	const { mutate: anular, isPending } = useAnularEmpenho(arpItemId, arpId)
 	const [confirming, setConfirming] = useState(false)
 
@@ -123,7 +111,7 @@ function EmpenhoRow({
 			<span className="text-muted-foreground">{fmtDate(empenho.data_empenho)}</span>
 			<span>{formatQuantityTimesPrice(empenho)}</span>
 			<EmpenhoValue empenho={empenho} />
-			{isExecutionIncomplete && <IncompleteExecutionBadge />}
+			{empenho.execution_incomplete && <IncompleteExecutionBadge />}
 			{empenho.nota_lancamento && (
 				<Tooltip>
 					<TooltipTrigger className="text-muted-foreground underline decoration-dotted cursor-help truncate max-w-[140px] text-xs text-left">
@@ -317,10 +305,9 @@ interface ArpItemRowProps {
 	canWrite: boolean
 	arpId: string
 	local: LocalCommitment | undefined
-	incompleteEmpenhoIds: ReadonlySet<string>
 }
 
-function ArpItemRow({ item, unitId, arpId, local, canWrite, incompleteEmpenhoIds }: ArpItemRowProps) {
+function ArpItemRow({ item, unitId, arpId, local, canWrite }: ArpItemRowProps) {
 	const [expanded, setExpanded] = useState(false)
 	const [showForm, setShowForm] = useState(false)
 
@@ -406,14 +393,7 @@ function ArpItemRow({ item, unitId, arpId, local, canWrite, incompleteEmpenhoIds
 							) : (
 								<div className="divide-y divide-border/50">
 									{empenhos.map((emp) => (
-										<EmpenhoRow
-											key={emp.id}
-											empenho={emp}
-											arpItemId={item.id}
-											arpId={arpId}
-											canWrite={canWrite}
-											isExecutionIncomplete={incompleteEmpenhoIds.has(emp.id)}
-										/>
+										<EmpenhoRow key={emp.id} empenho={emp} arpItemId={item.id} arpId={arpId} canWrite={canWrite} />
 									))}
 								</div>
 							)}
@@ -465,8 +445,6 @@ export function EmpenhoBalancePanel({ arp, unitId, quantityEstimateId }: Empenho
 	const canWrite = can("unit", 2, { type: "unit", id: unitId })
 	const { mutate: syncBalance, isPending: isSyncing } = useSyncArpBalance(quantityEstimateId)
 	const { data: localCommitments = {} } = useArpLocalCommitments(arp.id)
-	const { data: execution } = useArpExecution(arp.id)
-	const incompleteEmpenhoIds = new Set(execution?.incompleteEmpenhoIds ?? [])
 
 	const vigenciaFim = arp.data_vigencia_fim
 	const isVencida = vigenciaFim ? new Date(vigenciaFim) < new Date() : false
@@ -546,15 +524,7 @@ export function EmpenhoBalancePanel({ arp, unitId, quantityEstimateId }: Empenho
 							</thead>
 							<tbody className="divide-y divide-border/60">
 								{arp.items.map((item) => (
-									<ArpItemRow
-										key={item.id}
-										item={item}
-										unitId={unitId}
-										arpId={arp.id}
-										local={localCommitments[item.id]}
-										canWrite={canWrite}
-										incompleteEmpenhoIds={incompleteEmpenhoIds}
-									/>
+									<ArpItemRow key={item.id} item={item} unitId={unitId} arpId={arp.id} local={localCommitments[item.id]} canWrite={canWrite} />
 								))}
 							</tbody>
 						</table>

@@ -8,6 +8,7 @@ import {
 	describeKeptStaleItems,
 	formatNumeroAtaFromInput,
 	hasDuplicateItemNumbers,
+	hasItemProportion,
 	indexArpItemsByNumero,
 	indexQuantityEstimateItemsByCatmat,
 	listStaleArpItemIds,
@@ -15,6 +16,7 @@ import {
 	resolveArpLinks,
 	resolveImportedSaldo,
 	splitDeletableArpItems,
+	sumItemValuesByEmpenho,
 } from "@/lib/arp-import"
 import type { ComprasArpItemResult } from "@/types/domain/arp"
 
@@ -385,6 +387,23 @@ describe("cadastro manual", () => {
 	})
 })
 
+describe("hasItemProportion / sumItemValuesByEmpenho", () => {
+	it("soma por NE e só há proporção com total positivo", () => {
+		const totals = sumItemValuesByEmpenho([
+			{ empenho_id: "a", value: "10" },
+			{ empenho_id: "a", value: 5 },
+			{ empenho_id: "b", value: 0 },
+			{ empenho_id: "c", value: null },
+		])
+		expect(Object.fromEntries(totals)).toEqual({ a: 15, b: 0, c: 0 })
+		expect(hasItemProportion(totals.get("a"))).toBe(true)
+		expect(hasItemProportion(totals.get("b"))).toBe(false)
+		expect(hasItemProportion(totals.get("c"))).toBe(false)
+		expect(hasItemProportion(undefined)).toBe(false)
+		expect(hasItemProportion(-1)).toBe(false)
+	})
+})
+
 describe("computeArpExecutionByItem", () => {
 	const saldo = (empenho_id: string, liquidado: number | null, pago: number | null, aLiquidar: number | null) => ({
 		empenho_id,
@@ -425,7 +444,8 @@ describe("computeArpExecutionByItem", () => {
 			saldos: [saldo("inativa", 1, 1, 1), saldo("zero", 10, null, 4), saldo("semItens", null, 2, null)],
 		})
 		expect(result.byItem.a).toBeUndefined()
-		expect(result.byItem.z).toEqual({ liquidado: 0, pago: 0, aLiquidar: 0 })
+		// sem proporção, nem zero: o item fica sem entrada e a NE sai como incompleta
+		expect(result.byItem.z).toBeUndefined()
 		expect(result.incompleteEmpenhoIds).toEqual(["semItens", "zero"])
 	})
 
@@ -448,8 +468,8 @@ describe("computeArpExecutionByItem", () => {
 		})
 		// antes: 90 de liquidado em cada um dos três itens (270 numa NE de 90)
 		expect(result.byItem.a).toEqual({ liquidado: 20, pago: 10, aLiquidar: 30 })
-		expect(result.byItem.b).toEqual({ liquidado: 0, pago: 0, aLiquidar: 0 })
-		expect(result.byItem.c).toEqual({ liquidado: 0, pago: 0, aLiquidar: 0 })
+		expect(result.byItem.b).toBeUndefined()
+		expect(result.byItem.c).toBeUndefined()
 		expect(result.incompleteEmpenhoIds).toEqual(["zero"])
 	})
 

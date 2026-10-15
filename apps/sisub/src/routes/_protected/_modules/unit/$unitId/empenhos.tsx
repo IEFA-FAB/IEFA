@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label"
 import { Spinner } from "@/components/ui/spinner"
 import { toast } from "@/components/ui/toast"
 import { useAssuredAction } from "@/hooks/auth/useAssuredAction"
+import { useInvalidateArpEmpenhoViews } from "@/hooks/data/useArp"
 import { isElevationCancelled } from "@/lib/assurance/assurance-error"
 import { type EmpenhoRow, fetchEmpenhoFn, listEmpenhosFn, registerEmpenhoEventFn } from "@/server/empenho.fn"
 
@@ -204,6 +205,8 @@ function EmpenhosPage() {
 	const empenhos = Route.useLoaderData()
 	const { unitId } = Route.useParams()
 	const router = useRouter()
+	// Evento muda a NE que o painel da ARP lê (aviso de execução, comprometimento local).
+	const invalidateArpViews = useInvalidateArpEmpenhoViews()
 	const totals = empenhos.reduce(
 		(acc, e) => ({
 			vigente: acc.vigente + (e.valor_vigente ?? 0),
@@ -270,7 +273,14 @@ function EmpenhosPage() {
 							</thead>
 							<tbody className="divide-y divide-border/60">
 								{empenhos.map((empenho) => (
-									<EmpenhoLine key={empenho.id} empenho={empenho} onChanged={() => router.invalidate()} />
+									<EmpenhoLine
+										key={empenho.id}
+										empenho={empenho}
+										onChanged={() => {
+											router.invalidate()
+											invalidateArpViews()
+										}}
+									/>
 								))}
 							</tbody>
 						</table>

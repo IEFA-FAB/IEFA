@@ -273,12 +273,25 @@ export interface ArpItemExecution {
 
 type NumericLike = number | string | null
 
+/** Soma do valor dos itens de cada NE — a base da proporção que reparte a execução da NE. */
+export function sumItemValuesByEmpenho(items: ReadonlyArray<{ empenho_id: string; value: NumericLike }>): Map<string, number> {
+	const totalByEmpenho = new Map<string, number>()
+	for (const row of items) totalByEmpenho.set(row.empenho_id, (totalByEmpenho.get(row.empenho_id) ?? 0) + Number(row.value))
+	return totalByEmpenho
+}
+
+/**
+ * A NE tem proporção para repartir a execução entre os itens? Itens somando zero (NE registrada só
+ * pelo total, ou sem o valor de cada item) não têm: a execução dela é dado incompleto por item.
+ */
+export function hasItemProportion(itemsTotal: number | undefined): boolean {
+	return itemsTotal != null && itemsTotal > 0
+}
+
 export interface ArpExecution {
+	/** Só itens com execução repartida; item cuja única NE não tem proporção fica sem entrada. */
 	byItem: Record<string, ArpItemExecution>
-	/**
-	 * NEs ativas cujos itens somam zero: não há proporção para repartir a execução delas, que fica
-	 * fora de `byItem`. A tela avisa que o dado do empenho está incompleto.
-	 */
+	/** NEs ativas cujos itens somam zero: a execução delas não entra em `byItem`. */
 	incompleteEmpenhoIds: string[]
 }
 
@@ -286,9 +299,9 @@ export interface ArpExecution {
  * Reparte a execução de cada NE ATIVA entre os itens de ARP dela, na proporção do valor de cada
  * item — leitura de acompanhamento, não lançamento. NE sem linha na view de saldo fica de fora.
  *
- * NE com total zero não tem proporção: a parte de cada item é ZERO e a NE sai em
- * `incompleteEmpenhoIds`. Dar o saldo inteiro a cada item (o comportamento antigo) multiplicava o
- * liquidado, o pago e o a liquidar pelo número de itens da NE na ata.
+ * NE com itens somando zero não tem proporção: fica FORA de `byItem` (nem zero, que se confundiria
+ * com "nada liquidado") e sai em `incompleteEmpenhoIds`. Dar o saldo inteiro a cada item (o
+ * comportamento antigo) multiplicava o liquidado, o pago e o a liquidar pelo número de itens.
  */
 export function computeArpExecutionByItem(input: {
 	arpNeItems: ReadonlyArray<{ empenho_id: string; arp_item_id: string | null; value: NumericLike }>
@@ -297,10 +310,7 @@ export function computeArpExecutionByItem(input: {
 	/** `empenho_id` sai nulável da view, que é filtrada por ele. */
 	saldos: ReadonlyArray<{ empenho_id: string | null; valor_liquidado: NumericLike; valor_pago: NumericLike; saldo_a_liquidar: NumericLike }>
 }): ArpExecution {
-	const totalByEmpenho = new Map<string, number>()
-	for (const row of input.allItems) {
-		totalByEmpenho.set(row.empenho_id, (totalByEmpenho.get(row.empenho_id) ?? 0) + Number(row.value))
-	}
+	const totalByEmpenho = sumItemValuesByEmpenho(input.allItems)
 	const saldoByEmpenho = new Map(input.saldos.map((saldo) => [saldo.empenho_id, saldo]))
 
 	const byItem: Record<string, ArpItemExecution> = {}
@@ -311,8 +321,11 @@ export function computeArpExecutionByItem(input: {
 		const saldo = saldoByEmpenho.get(row.empenho_id)
 		if (!saldo) continue
 		const total = totalByEmpenho.get(row.empenho_id) ?? 0
-		if (!(total > 0)) incomplete.add(row.empenho_id)
-		const share = total > 0 ? Number(row.value) / total : 0
+		if (!hasItemProportion(total)) {
+			incomplete.add(row.empenho_id)
+			continue
+		}
+		const share = Number(row.value) / total
 		const acc = byItem[row.arp_item_id] ?? { liquidado: 0, pago: 0, aLiquidar: 0 }
 		acc.liquidado += Number(saldo.valor_liquidado ?? 0) * share
 		acc.pago += Number(saldo.valor_pago ?? 0) * share

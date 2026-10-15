@@ -28,12 +28,14 @@ import {
 	describeKeptStaleItems,
 	formatNumeroAtaFromInput,
 	hasDuplicateItemNumbers,
+	hasItemProportion,
 	indexArpItemsByNumero,
 	indexQuantityEstimateItemsByCatmat,
 	listStaleArpItemIds,
 	planArpItemReconciliation,
 	resolveArpLinks,
 	splitDeletableArpItems,
+	sumItemValuesByEmpenho,
 } from "@/lib/arp-import"
 import { withSensitiveAudit } from "@/lib/audit.server"
 import { requireAuth, requireAuthWithPermission } from "@/lib/auth.server"
@@ -797,6 +799,7 @@ export const listUnitArpsFn = createServerFn({ method: "GET" })
 /**
  * Empenhos que cobrem um item da ARP — pelo item da NE (NE com vários itens aparece em cada um),
  * com a quantidade, o preço e o valor dos itens da NE que apontam para ESTE item da ARP.
+ * `execution_incomplete`: NE ativa cujos itens somam zero, sem proporção para repartir a execução.
  *
  * @throws {Error} on Supabase query failure.
  */
@@ -822,10 +825,20 @@ export const fetchEmpenhosFn = createServerFn({ method: "GET" })
 			.order("data_empenho", { ascending: false })
 
 		if (error) throw new Error(`Erro ao buscar empenhos: ${publicDbMessage(error)}`)
+
+		// Todos os itens das NEs ativas (não só os deste item da ARP): é a soma deles que dá a
+		// proporção da execução. A mesma regra de `computeArpExecutionByItem`.
+		const activeIds = (empenhos ?? []).filter((empenho) => empenho.status === "ativo").map((empenho) => empenho.id)
+		const { data: allItems, error: allItemsError } =
+			activeIds.length === 0 ? { data: [], error: null } : await fin.from("empenho_item").select("empenho_id, value").in("empenho_id", activeIds)
+		if (allItemsError) throw new Error(`Erro ao buscar itens de empenho: ${publicDbMessage(allItemsError)}`)
+		const itemsTotalByEmpenho = sumItemValuesByEmpenho(allItems ?? [])
+
 		return (empenhos ?? []).map((empenho) => ({
 			...empenho,
 			valor_total: Number(empenho.valor_total),
 			...summarizeArpItemShare(byEmpenho.get(empenho.id) ?? [], Number(empenho.valor_total)),
+			execution_incomplete: empenho.status === "ativo" && !hasItemProportion(itemsTotalByEmpenho.get(empenho.id)),
 		}))
 	})
 

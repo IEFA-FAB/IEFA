@@ -7,7 +7,6 @@ import { queryKeys } from "@/lib/query-keys"
 import {
 	anularEmpenhoFn,
 	createEmpenhoFn,
-	fetchArpExecutionFn,
 	fetchArpForQuantityEstimateFn,
 	fetchArpLocalCommitmentsFn,
 	fetchEmpenhosFn,
@@ -16,6 +15,21 @@ import {
 	syncArpBalanceFn,
 } from "@/server/arp.fn"
 import type { ArpWithItems, ComprasArpPage, CreateEmpenhoPayload } from "@/types/domain/arp"
+
+// ─── Invalidação depois de mexer em NE ────────────────────────────────────────
+
+/**
+ * O painel da ARP lê das NEs o comprometimento local, a lista de empenhos por item e o aviso de
+ * execução incompleta. NE criada, anulada, com evento ou vinda do SIAFI em OUTRA tela muda esses
+ * dados: quem grava invalida os prefixos `["arp"]` e `["empenho"]`, e o painel relê ao abrir.
+ */
+export function useInvalidateArpEmpenhoViews() {
+	const queryClient = useQueryClient()
+	return () => {
+		queryClient.invalidateQueries({ queryKey: queryKeys.quantityEstimate.arpAll })
+		queryClient.invalidateQueries({ queryKey: queryKeys.quantityEstimate.empenhosAll })
+	}
+}
 
 // ─── Query: ARP vinculada ao anexo quantitativo ──────────────────────────────
 
@@ -45,17 +59,6 @@ export function useArpLocalCommitments(arpId: string | null) {
 	return useQuery({
 		queryKey: queryKeys.quantityEstimate.arpCommitments(arpId),
 		queryFn: () => fetchArpLocalCommitmentsFn({ data: { arpId: arpId as string } }) as Promise<Record<string, LocalCommitment>>,
-		enabled: arpId !== null,
-		staleTime: 1 * 60 * 1000,
-	})
-}
-
-// ─── Query: Execução (liquidado/pago/a liquidar) dos empenhos da ARP ─────────
-
-export function useArpExecution(arpId: string | null) {
-	return useQuery({
-		queryKey: queryKeys.quantityEstimate.arpExecution(arpId),
-		queryFn: () => fetchArpExecutionFn({ data: { arpId: arpId as string } }),
 		enabled: arpId !== null,
 		staleTime: 1 * 60 * 1000,
 	})
@@ -117,10 +120,7 @@ export function useCreateEmpenho(arpItemId: string, arpId?: string) {
 		mutationFn: (payload: CreateEmpenhoPayload) => createEmpenhoFn({ data: payload }),
 		onSuccess: (data) => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.quantityEstimate.empenhos(arpItemId) })
-			if (arpId) {
-				queryClient.invalidateQueries({ queryKey: queryKeys.quantityEstimate.arpCommitments(arpId) })
-				queryClient.invalidateQueries({ queryKey: queryKeys.quantityEstimate.arpExecution(arpId) })
-			}
+			if (arpId) queryClient.invalidateQueries({ queryKey: queryKeys.quantityEstimate.arpCommitments(arpId) })
 			toast.success(
 				`Empenho ${data.numeroEmpenho} registrado${data.relinked > 0 ? ` — ${data.relinked} documento(s) do SIAFI que esperavam por ele foram religados` : ""}`
 			)
@@ -142,10 +142,7 @@ export function useAnularEmpenho(arpItemId: string, arpId?: string) {
 		mutationFn: (empenhoId: string) => anularEmpenhoFn({ data: { empenhoId } }),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.quantityEstimate.empenhos(arpItemId) })
-			if (arpId) {
-				queryClient.invalidateQueries({ queryKey: queryKeys.quantityEstimate.arpCommitments(arpId) })
-				queryClient.invalidateQueries({ queryKey: queryKeys.quantityEstimate.arpExecution(arpId) })
-			}
+			if (arpId) queryClient.invalidateQueries({ queryKey: queryKeys.quantityEstimate.arpCommitments(arpId) })
 			toast.success("Empenho anulado — comprometimento local recomposto")
 		},
 		onError: (error) => {
