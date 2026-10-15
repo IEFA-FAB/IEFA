@@ -11,7 +11,7 @@
  * only carries an error's message, so the code never reaches the browser.
  */
 
-import { arranchamentoInKitchen, mealPresencesInKitchen, type SisubDb, vMealPresencesWithUserInKitchen } from "@iefa/database/drizzle/sisub"
+import { arranchamentoInKitchen, mealPresencesInKitchen, messHallsInKitchen, type SisubDb, vMealPresencesWithUserInKitchen } from "@iefa/database/drizzle/sisub"
 import { and, desc, eq, inArray } from "drizzle-orm"
 import { requireMessHall } from "../guards/require-permission.ts"
 import type { InsertPresence, ListArranchamentoMap, ListPresences } from "../schemas/meal-ops.ts"
@@ -103,6 +103,31 @@ export async function insertPresence(db: SisubDb, ctx: UserContext, input: Inser
 		if (err.message === "ACCOUNT_INSTITUTIONAL_NO_MEALS") throw toSaramDomainError(e)
 		throw Object.assign(new Error(err.message ?? "insert presence failed"), { code: err.code })
 	}
+}
+
+/**
+ * Onde está a presença que já existe para a pessoa naquela refeição. A unicidade de
+ * `meal_presences` é `(user_id, date, meal)`, sem o refeitório: o 23505 de `insertPresence`
+ * pode vir de presença em OUTRO refeitório, e a tela precisa dizer qual.
+ *
+ * Sem guard próprio: só é chamada depois de um 23505 de `insertPresence`, que já exigiu do
+ * chamador ser a própria pessoa ou ter `messhall:2` no refeitório do insert. Expõe só o
+ * refeitório da presença daquela pessoa naquela refeição.
+ */
+export async function findMealPresenceMessHall(
+	db: SisubDb,
+	input: { userId: string; date: string; meal: string }
+): Promise<{ messHallId: number; messHallName: string } | null> {
+	const [row] = await runQuery("FETCH_FAILED", () =>
+		db
+			.select({ messHallId: mealPresencesInKitchen.messHallId, code: messHallsInKitchen.code, displayName: messHallsInKitchen.displayName })
+			.from(mealPresencesInKitchen)
+			.innerJoin(messHallsInKitchen, eq(messHallsInKitchen.id, mealPresencesInKitchen.messHallId))
+			.where(and(eq(mealPresencesInKitchen.userId, input.userId), eq(mealPresencesInKitchen.date, input.date), eq(mealPresencesInKitchen.meal, input.meal)))
+			.limit(1)
+	)
+	if (!row) return null
+	return { messHallId: row.messHallId, messHallName: row.displayName?.trim() || row.code }
 }
 
 export async function deletePresence(db: SisubDb, ctx: UserContext, input: { id: string }) {

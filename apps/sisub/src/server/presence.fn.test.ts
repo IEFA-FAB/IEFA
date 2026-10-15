@@ -9,6 +9,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest"
  */
 
 const insertPresence = vi.fn()
+const findMealPresenceMessHall = vi.fn()
 
 vi.mock("@tanstack/react-start", () => {
 	// createServerFn(...).validator(...).handler(fn) → a própria fn, chamável com { data }.
@@ -25,6 +26,7 @@ vi.mock("@iefa/sisub-domain", () => ({
 	listArranchamentoMap: vi.fn(),
 	listPresences: vi.fn(),
 	insertPresence: (...args: unknown[]) => insertPresence(...args),
+	findMealPresenceMessHall: (...args: unknown[]) => findMealPresenceMessHall(...args),
 }))
 vi.mock("@/lib/auth.server", () => ({ requireAuth: async () => ({ userId: "fiscal" }), requireAuthWithPermission: async () => ({}) }))
 vi.mock("@/lib/db.server", () => ({ getDb: () => ({}) }))
@@ -50,18 +52,34 @@ describe("insertPresenceFn", () => {
 	// Bloco, não expressão: função devolvida pelo beforeEach vira teardown (e o mock seria chamado).
 	beforeEach(() => {
 		insertPresence.mockReset()
+		findMealPresenceMessHall.mockReset()
 	})
+
+	const uniqueViolation = () =>
+		Object.assign(new Error('duplicate key value violates unique constraint "meal_presences_user_id_date_meal_key"'), { code: "23505" })
 
 	test("presença nova volta como inserted", async () => {
 		insertPresence.mockResolvedValue(undefined)
 		await expect(callThroughTransport(DATA)).resolves.toEqual({ status: "inserted" })
 	})
 
-	test("23505 do banco chega ao navegador como duplicate, não como erro sem código", async () => {
+	test("23505 do banco chega ao navegador como duplicate, com o refeitório da presença existente", async () => {
 		insertPresence.mockImplementation(async () => {
-			throw Object.assign(new Error('duplicate key value violates unique constraint "meal_presences_pkey"'), { code: "23505" })
+			throw uniqueViolation()
 		})
-		await expect(callThroughTransport(DATA)).resolves.toEqual({ status: "duplicate" })
+		findMealPresenceMessHall.mockResolvedValue({ messHallId: 3, messHallName: "Rancho A" })
+		await expect(callThroughTransport(DATA)).resolves.toEqual({ status: "duplicate", messHallId: 3, messHallName: "Rancho A" })
+		expect(findMealPresenceMessHall).toHaveBeenCalledWith(expect.anything(), { userId: DATA.user_id, date: DATA.date, meal: DATA.meal })
+	})
+
+	test("se não der para ler onde está, continua duplicate, sem refeitório", async () => {
+		insertPresence.mockImplementation(async () => {
+			throw uniqueViolation()
+		})
+		findMealPresenceMessHall.mockImplementation(async () => {
+			throw new Error("fetch failed")
+		})
+		await expect(callThroughTransport(DATA)).resolves.toEqual({ status: "duplicate", messHallId: null, messHallName: null })
 	})
 
 	test("outras falhas continuam como erro (só com a mensagem, como no transporte real)", async () => {

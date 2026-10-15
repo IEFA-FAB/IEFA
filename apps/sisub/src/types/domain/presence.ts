@@ -71,11 +71,19 @@ export interface ConfirmPresenceParams {
 }
 
 /**
- * Resultado da confirmação: `inserted` gravou agora, `duplicate` já estava gravada,
- * `skipped` o militar não vai entrar e nada foi gravado.
+ * O que `insertPresenceFn` devolve. A unicidade de `meal_presences` é pessoa + data + refeição,
+ * SEM o refeitório: `duplicate` traz o refeitório da presença existente (`null` se ela sumiu
+ * entre o insert e a leitura), e quem chama compara com o seu.
+ */
+export type InsertPresenceOutcome = { status: "inserted" } | { status: "duplicate"; messHallId: number | null; messHallName: string | null }
+
+/**
+ * Resultado da confirmação: `inserted` gravou agora; `duplicate` já estava gravada NESTE
+ * refeitório; `elsewhere` já há presença nesta refeição em outro refeitório (ou não se sabe
+ * onde), e nada foi gravado aqui; `skipped` o militar não vai entrar e nada foi gravado.
  */
 export interface ConfirmPresenceResult {
-	status: "inserted" | "duplicate" | "skipped"
+	status: "inserted" | "duplicate" | "elsewhere" | "skipped"
 }
 
 /**
@@ -112,4 +120,6 @@ export type DialogState = {
 	uuid: string | null
 	willEat: boolean | null
 	willEnter: "sim" | "nao"
+	/** Recusado ou cancelado antes nesta refeição: sem fechamento automático, exige toque. */
+	manual?: boolean
 }

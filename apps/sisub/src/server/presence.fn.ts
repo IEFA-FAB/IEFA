@@ -9,6 +9,7 @@
 import {
 	DeletePresenceSchema,
 	deletePresence,
+	findMealPresenceMessHall,
 	InsertPresenceSchema,
 	insertPresence,
 	ListArranchamentoMapSchema,
@@ -21,7 +22,7 @@ import { requireAuth, requireAuthWithPermission } from "@/lib/auth.server"
 import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
 import { requireAuthThenRun } from "@/lib/domain-handler.server"
-import type { ArranchamentoMap, FiscalPresenceRecord } from "@/types/domain/presence"
+import type { ArranchamentoMap, FiscalPresenceRecord, InsertPresenceOutcome } from "@/types/domain/presence"
 
 // Os reads são do FISCAL: devolvem quem comeu onde e quando, e o mapa de previsão de uma lista
 // de comensais escolhida pelo chamador. Exigem `messhall:1` no refeitório consultado — o mesmo
@@ -43,9 +44,6 @@ export const fetchArranchamentoMapFn = createServerFn({ method: "GET" })
 		return (await listArranchamentoMap(getDb(), data)) as ArranchamentoMap
 	})
 
-/** Presença gravada agora, ou que já existia (fiscal e comensal tratam as duas como sucesso). */
-export type InsertPresenceOutcome = { status: "inserted" } | { status: "duplicate" }
-
 const PG_UNIQUE_VIOLATION = "23505"
 
 export const insertPresenceFn = createServerFn({ method: "POST" })
@@ -59,8 +57,10 @@ export const insertPresenceFn = createServerFn({ method: "POST" })
 			// A duplicidade volta como RESULTADO, não como erro: o transporte da server fn
 			// (ShallowErrorPlugin do TanStack Start) só leva a `message` do erro, e o `code` "23505"
 			// que insertPresence preserva some antes de chegar ao navegador.
-			if ((e as { code?: unknown } | null)?.code === PG_UNIQUE_VIOLATION) return { status: "duplicate" }
-			throw e
+			if ((e as { code?: unknown } | null)?.code !== PG_UNIQUE_VIOLATION) throw e
+			// Sem a leitura, a resposta continua sendo "já existe"; só não diz onde.
+			const existing = await findMealPresenceMessHall(getDb(), { userId: data.user_id, date: data.date, meal: data.meal }).catch(() => null)
+			return { status: "duplicate", messHallId: existing?.messHallId ?? null, messHallName: existing?.messHallName ?? null }
 		}
 	})
 

@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button"
 import { toast } from "@/components/ui/toast"
 import { useAuth } from "@/hooks/auth/useAuth"
 import { useSaramStatus } from "@/hooks/business/useUserSaram"
-import { inferDefaultMeal, MEAL_LABEL } from "@/lib/fiscal"
+import { classifyInsertOutcome, inferDefaultMeal, MEAL_LABEL } from "@/lib/fiscal"
 import { insertPresenceFn } from "@/server/presence.fn"
 import { messHallByCodeQueryOptions, userArranchamentoQueryOptions } from "@/services/SelfCheckInService"
 import type { WillEnter } from "@/types/domain/presence"
@@ -202,7 +202,10 @@ function SelfCheckin() {
 			// Duplicidade volta como resultado da fn (o transporte não leva o código do erro).
 			const outcome = await insertPresenceFn({ data: { user_id: userId, date, meal, messHallId: messHall.id } })
 			if (outcome.status === "duplicate") {
-				toast.info("Já registrado", { description: `Presença já registrada para esta refeição. Redirecionando em ${REDIRECT_DELAY}s...` })
+				// A unicidade é por refeição, não por refeitório: diz onde a presença está.
+				const where =
+					classifyInsertOutcome(outcome, messHall.id) === "duplicate" ? "" : outcome.messHallName ? ` em ${outcome.messHallName}` : " em outro refeitório"
+				toast.info("Já registrado", { description: `Presença já registrada para esta refeição${where}. Redirecionando em ${REDIRECT_DELAY}s...` })
 				scheduleRedirect()
 				return
 			}

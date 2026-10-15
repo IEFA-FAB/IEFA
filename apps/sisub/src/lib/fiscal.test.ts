@@ -1,5 +1,17 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest"
-import { createScanCache, generateRestrictedDates, inferDefaultMeal, isPresenceRecorded, MEAL_LABEL, SCAN_SNOOZE_MS, type ScanScope } from "./fiscal"
+import {
+	classifyInsertOutcome,
+	createScanCache,
+	describePresenceElsewhere,
+	generateRestrictedDates,
+	inferDefaultMeal,
+	isPresenceRecorded,
+	MEAL_LABEL,
+	openScanDialogDefaults,
+	SCAN_SNOOZE_MS,
+	type ScanScope,
+	settleClosedScan,
+} from "./fiscal"
 
 describe("MEAL_LABEL", () => {
 	test("cobre as quatro refeições com rótulos pt-BR", () => {
@@ -64,6 +76,58 @@ describe("isPresenceRecorded", () => {
 		expect(isPresenceRecorded("inserted")).toBe(true)
 		expect(isPresenceRecorded("duplicate")).toBe(true)
 		expect(isPresenceRecorded("skipped")).toBe(false)
+		// Presença em outro refeitório: não há linha aqui para excluir, então não prende o crachá.
+		expect(isPresenceRecorded("elsewhere")).toBe(false)
+	})
+})
+
+describe("classifyInsertOutcome", () => {
+	test("duplicidade só é 'já registrado aqui' quando o refeitório bate", () => {
+		expect(classifyInsertOutcome({ status: "inserted" }, 7)).toBe("inserted")
+		expect(classifyInsertOutcome({ status: "duplicate", messHallId: 7, messHallName: "Rancho B" }, 7)).toBe("duplicate")
+		expect(classifyInsertOutcome({ status: "duplicate", messHallId: 3, messHallName: "Rancho A" }, 7)).toBe("elsewhere")
+		// Não deu para ler onde: não afirma que é daqui.
+		expect(classifyInsertOutcome({ status: "duplicate", messHallId: null, messHallName: null }, 7)).toBe("elsewhere")
+	})
+
+	test("a frase diz onde, quando sabe", () => {
+		expect(describePresenceElsewhere("Rancho A")).toContain("em Rancho A")
+		expect(describePresenceElsewhere(null)).toContain("em outro refeitório")
+	})
+})
+
+describe("recusa e cancelamento no scanner", () => {
+	const UUID = "11111111-2222-3333-4444-555555555555"
+	const lunch: ScanScope = { date: "2026-07-06", meal: "almoco", messHallId: 7 }
+	const dinner: ScanScope = { ...lunch, meal: "janta" }
+
+	test("'não entra': depois da pausa o crachá reabre com 'Não' e exige toque", () => {
+		const cache = createScanCache()
+		expect(openScanDialogDefaults(cache, lunch, UUID)).toEqual({ willEnter: "sim", manual: false })
+		settleClosedScan(cache, lunch, UUID, "refused", 0)
+		expect(cache.has(lunch, UUID, SCAN_SNOOZE_MS - 1)).toBe(true)
+		expect(cache.has(lunch, UUID, SCAN_SNOOZE_MS)).toBe(false)
+		expect(openScanDialogDefaults(cache, lunch, UUID)).toEqual({ willEnter: "nao", manual: true })
+		// Por refeição: no jantar ele volta ao normal.
+		expect(openScanDialogDefaults(cache, dinner, UUID)).toEqual({ willEnter: "sim", manual: false })
+	})
+
+	test("Cancelar/Esc também fica lembrado; falha ao gravar só pausa", () => {
+		const cache = createScanCache()
+		settleClosedScan(cache, lunch, "cancelado", null, 0)
+		settleClosedScan(cache, lunch, "falhou", "unsaved", 0)
+		expect(openScanDialogDefaults(cache, lunch, "cancelado").manual).toBe(true)
+		expect(openScanDialogDefaults(cache, lunch, "falhou").manual).toBe(false)
+		expect(cache.has(lunch, "falhou", SCAN_SNOOZE_MS)).toBe(false)
+	})
+
+	test("gravar depois da recusa desfaz a recusa e prende o crachá", () => {
+		const cache = createScanCache()
+		settleClosedScan(cache, lunch, UUID, "refused", 0)
+		cache.mark(lunch, UUID)
+		settleClosedScan(cache, lunch, UUID, "recorded", 0)
+		expect(cache.isDenied(lunch, UUID)).toBe(false)
+		expect(cache.has(lunch, UUID, SCAN_SNOOZE_MS * 10)).toBe(true)
 	})
 })
 

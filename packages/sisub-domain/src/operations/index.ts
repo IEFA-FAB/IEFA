@@ -631,7 +631,7 @@ export {
 	ingredientOutsidePreparations,
 	ingredientPreparationFilter,
 } from "./preparation-scope.ts"
-export { deletePresence, insertPresence, listArranchamentoMap, listPresences } from "./presence.ts"
+export { deletePresence, findMealPresenceMessHall, insertPresence, listArranchamentoMap, listPresences } from "./presence.ts"
 export {
 	complianceFactsOf,
 	deriveManualSelection,

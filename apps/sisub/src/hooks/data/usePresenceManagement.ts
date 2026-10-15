@@ -4,6 +4,7 @@ import type { PostgrestError } from "@supabase/supabase-js"
 import { type UseMutationResult, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useCallback } from "react"
 import { toast } from "@/components/ui/toast"
+import { classifyInsertOutcome, describePresenceElsewhere } from "@/lib/fiscal"
 import { queryKeys } from "@/lib/query-keys"
 import { deletePresenceFn, fetchArranchamentoMapFn, fetchPresencesFn, insertPresenceFn } from "@/server/presence.fn"
 import type {
@@ -124,17 +125,25 @@ export function usePresenceManagement(filters: FiscalFilters): UsePresenceManage
 			})
 
 			// Duplicidade chega como resultado: o transporte da server fn não leva o código do erro.
-			if (outcome.status === "duplicate") {
+			// E a unicidade é por refeição, não por refeitório: pode ser presença em outro.
+			const status = classifyInsertOutcome(outcome, target.messHallId)
+			if (status === "elsewhere") {
+				toast.warning("Presença em outro refeitório", {
+					description: describePresenceElsewhere(outcome.status === "duplicate" ? outcome.messHallName : null),
+				})
+				return { status }
+			}
+			if (status === "duplicate") {
 				toast.info("Já registrado", {
 					description: "Este militar já foi marcado presente.",
 				})
-				return { status: "duplicate" }
+				return { status }
 			}
 
 			toast.success("Presença registrada", {
 				description: `UUID ${params.uuid} marcado.`,
 			})
-			return { status: "inserted" }
+			return { status }
 		},
 		onSuccess: (_result, params) => {
 			const target = params.scope ?? filters

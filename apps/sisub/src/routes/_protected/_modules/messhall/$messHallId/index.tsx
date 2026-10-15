@@ -17,7 +17,17 @@ import { useAuth } from "@/hooks/auth/useAuth"
 import { useAddOtherPresence, useOtherPresencesCount, useScanProcessor } from "@/hooks/business/useFiscalOps"
 import { usePresenceManagement } from "@/hooks/data/usePresenceManagement"
 import { cn } from "@/lib/cn"
-import { createScanCache, generateRestrictedDates, inferDefaultMeal, isPresenceRecorded, SCAN_SNOOZE_MS, type ScanCache, type ScanScope } from "@/lib/fiscal"
+import {
+	createScanCache,
+	generateRestrictedDates,
+	inferDefaultMeal,
+	isPresenceRecorded,
+	openScanDialogDefaults,
+	type ScanCache,
+	type ScanDialogOutcome,
+	type ScanScope,
+	settleClosedScan,
+} from "@/lib/fiscal"
 import { resolveDisplayNameFn } from "@/server/messhall.fn"
 import type { MealKey } from "@/types/domain/meal"
 import type { DialogState, FiscalFilters, FiscalPresenceRecord } from "@/types/domain/presence"
@@ -141,7 +151,8 @@ function ScannerTab({ filters, onFiltersChange, scanCache }: { filters: FiscalFi
 	const lastScanAtRef = useRef(0)
 	// Leitura do diálogo aberto: data, refeição e refeitório do instante do scan valem para a
 	// previsão, a gravação e o cache, mesmo que o fiscal troque os filtros com o diálogo aberto.
-	const openScanRef = useRef<{ scope: ScanScope; uuid: string; recorded: boolean } | null>(null)
+	// `outcome` é o que a confirmação decidiu; `null` ao fechar = Cancelar/Esc.
+	const openScanRef = useRef<{ scope: ScanScope; uuid: string; outcome: ScanDialogOutcome } | null>(null)
 
 	const [scannerState, dispatch] = useReducer(scannerReducer, {
 		isReady: false,
@@ -194,8 +205,10 @@ function ScannerTab({ filters, onFiltersChange, scanCache }: { filters: FiscalFi
 					const { willEat } = await processScanRef.current(uuid, scope)
 					if (!isMountedRef.current) return
 					setLastScanResult(uuid)
-					openScanRef.current = { scope, uuid, recorded: false }
-					setDialog({ open: true, uuid, willEat, willEnter: "sim" })
+					openScanRef.current = { scope, uuid, outcome: null }
+					// Recusado ou cancelado antes nesta refeição: reabre com "Não" e só fecha com toque,
+					// para o fechamento automático nunca gravar "Sim" sem o fiscal decidir de novo.
+					setDialog({ open: true, uuid, willEat, ...openScanDialogDefaults(scanCache, scope, uuid) })
 					if (isMountedRef.current) setIsProcessing(false)
 				} catch (_err) {
 					if (isMountedRef.current) toast.error("Erro", { description: "Falha ao processar QR." })
@@ -245,25 +258,29 @@ function ScannerTab({ filters, onFiltersChange, scanCache }: { filters: FiscalFi
 		if (!dialog.uuid || !open) return
 		try {
 			const { status } = await confirmPresence(dialog.uuid, dialog.willEnter === "sim", open.scope)
-			// Só presença gravada (agora ou antes) entra no cache; "não entra" deixa o crachá livre.
+			// Só presença gravada neste refeitório entra no cache. "Não entra" fica lembrado como
+			// recusa; presença em outro refeitório deixa o crachá livre (não há linha aqui para excluir).
 			if (isPresenceRecorded(status)) {
 				scanCache.mark(open.scope, open.uuid)
-				open.recorded = true
+				open.outcome = "recorded"
+			} else {
+				open.outcome = status === "skipped" ? "refused" : "unsaved"
 			}
 		} catch {
 			// Não gravou: o crachá fica livre para nova leitura (o fechamento só dá a pausa curta).
 			// O toast do motivo sai do onError da mutation.
+			open.outcome = "unsaved"
 		}
 		if (isMountedRef.current) setDialog((d) => ({ ...d, open: false, uuid: null }))
 	}, [confirmPresence, dialog.uuid, dialog.willEnter, scanCache])
 
 	useEffect(() => {
-		if (!dialog.open || !autoCloseDialog || !dialog.uuid) return
+		if (!dialog.open || !autoCloseDialog || !dialog.uuid || dialog.manual) return
 		const timerId = setTimeout(() => {
 			handleConfirmDialog()
 		}, 3000)
 		return () => clearTimeout(timerId)
-	}, [dialog.open, dialog.uuid, autoCloseDialog, handleConfirmDialog])
+	}, [dialog.open, dialog.uuid, dialog.manual, autoCloseDialog, handleConfirmDialog])
 
 	useEffect(() => {
 		const scanner = scannerRef.current
@@ -272,11 +289,12 @@ function ScannerTab({ filters, onFiltersChange, scanCache }: { filters: FiscalFi
 			scanner.stop()
 			return
 		}
-		// Diálogo fechado sem gravar (Cancelar, Esc, "não entra", falha): pausa curta para o
-		// crachá ainda parado na câmera não reabrir o diálogo na hora; depois ele é lido de novo.
+		// Diálogo fechado sem gravar: pausa curta para o crachá ainda parado na câmera não
+		// reabrir o diálogo na hora; depois ele é lido de novo. Cancelar/Esc (outcome null) e
+		// "não entra" ficam lembrados como recusa: a releitura exige toque.
 		const closed = openScanRef.current
 		if (closed) {
-			if (!closed.recorded) scanCache.snooze(closed.scope, closed.uuid, SCAN_SNOOZE_MS)
+			settleClosedScan(scanCache, closed.scope, closed.uuid, closed.outcome)
 			openScanRef.current = null
 		}
 		if (scannerState.hasPermission) {
