@@ -11,9 +11,11 @@
  *   - prazo (`PDF_READ_TIMEOUT_MS`): estourou, SIGKILL;
  *   - memória (`PDF_READ_MAX_RSS_BYTES`): o RSS do filho é lido de `/proc` a cada
  *     `RSS_POLL_MS`; passou, SIGKILL. (Fora do Linux não há `/proc`, e vale só o prazo.)
- *   - no máximo `MAX_CONCURRENT_READS` filhos ao mesmo tempo: a task tem 512 MB, e cinco
- *     leituras simultâneas no teto a derrubariam por OOM — o que esta mudança existe para
- *     evitar. As demais esperam na fila.
+ *   - no máximo `MAX_CONCURRENT_READS` filhos ao mesmo tempo: a task tem 1024 MB
+ *     (`infra/alpha/sizing.auto.tfvars`), dimensionada para o processo principal mais dois
+ *     filhos no teto, e cinco leituras simultâneas a derrubariam por OOM — o que esta mudança
+ *     existe para evitar. As demais esperam na fila. O limite do `/health` (`api/health.ts`)
+ *     desconta estes filhos; mudar a concorrência ou o teto pede refazer a conta lá.
  *
  * O filho recebe só o `PATH`: nada de chave de serviço no ambiente de quem lê arquivo hostil.
  * Estouro de prazo ou de memória é `DocumentLimitError` (422 com a mensagem para quem enviou).
@@ -67,7 +69,7 @@ async function withSlot<T>(task: () => Promise<T>): Promise<T> {
 	if (running >= MAX_CONCURRENT_READS) {
 		// A vaga chega PASSADA por quem terminou (`running` não desce): sem isso, um chamador
 		// novo entre o fim de uma leitura e o despertar do próximo da fila entrava também, e
-		// ficavam três filhos de até 256 MB numa task de 512 MB.
+		// ficavam três filhos de até 256 MB, um a mais do que a task foi dimensionada para ter.
 		await new Promise<void>((resolve) => waiting.push(resolve))
 	} else {
 		running += 1
