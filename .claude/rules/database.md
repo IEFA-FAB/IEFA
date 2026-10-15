@@ -111,8 +111,9 @@ acesso vale até ser desfeito. Referência: cabeçalhos de
     `pag_liq:`) e siafi_integration (`siafi_batch:`). O TS do sisub que serializa contra esses
     triggers repete a chave e o seed (`empenho-events.server.ts`, `reconciliation-decision.server.ts`,
     `restos-a-pagar.fn.ts`).
-  - `hashtextextended(…, 0)`: `access_control.attach_policy:`, `alpha.claim_usage:` e o
-    receiving (`nfe_document_id::text`, sem prefixo).
+  - `hashtextextended(…, 0)`: `access_control.user_permissions:` (concessão de módulo),
+    `access_control.attach_policy:`, `alpha.claim_usage:` e o receiving (`nfe_document_id::text`,
+    sem prefixo).
   - `hashtext('saram:' || saram)`: o vínculo de SARAM (`20261001100200`, `20261003100000`).
     No TS de `@iefa/sisub-domain`, `hashtext` também (`execution.ts` `provisional-recipe:`,
     `ingredient-versions.ts`, `recipe-head.ts`, `templates.ts`); hoje nenhuma dessas chaves é
