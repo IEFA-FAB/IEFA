@@ -241,9 +241,10 @@ variable "health_check_unhealthy_threshold" {
 }
 
 variable "deregistration_delay" {
-  description = "Segundos que o ALB espera as requisições em andamento de uma task que sai de rotação (deploy, scale-in, troca de Spot) antes de cortá-las. 30 s cobre request comum; serviço com SSE longo usa o teto do próprio stream."
+  description = "Segundos que o ALB espera as requisições em andamento de uma task que sai de rotação por deploy ou scale-in antes de cortá-las; só depois o ECS manda SIGTERM. Não cobre troca de Spot: lá o SIGTERM chega no início do aviso de 2 min e nenhum app o trata. 30 s cobre request comum; serviço com SSE longo usa o prazo do stream mais uma folga. null (stack que não define) vira o default."
   type        = number
   default     = 30
+  nullable    = false
 
   validation {
     condition     = var.deregistration_delay >= 0 && var.deregistration_delay <= 3600

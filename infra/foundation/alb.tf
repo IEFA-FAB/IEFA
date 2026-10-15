@@ -21,7 +21,10 @@ resource "aws_lb" "this" {
   #     apps/api/src/index.ts (idleTimeout 120), apps/alpha/src/index.ts (idleTimeout 240),
   #     apps/sisub-mcp/src/index.ts (keepAliveTimeout 65 s, headersTimeout 66 s);
   #   - heartbeat de SSE MENOR que este, para o stream nunca ficar ocioso: 15 s em
-  #     apps/alpha/src/api/chats.ts e nas rotas SSE do sucont (sacdgc, auditor);
+  #     apps/alpha/src/api/chats.ts e nas rotas SSE do sucont (sacdgc, auditor).
+  #     LACUNA: os chats SSE do sisub (routes/api/module-chat, routes/api/analytics) e do
+  #     portal (routes/api/comunicacoes/chat.post.ts) não mandam heartbeat; mais de 60 s sem
+  #     byte (tool call, primeiro token lento) é cortado aqui, com ou sem drenagem;
   #   - resposta síncrona (server function, JSON) termina ANTES disto ou vira 504; o que
   #     passa de 60 s vira SSE ou job assíncrono (ex.: o orçamento de geração em
   #     apps/sucont/src/server/document-ai.fn.ts).

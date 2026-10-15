@@ -15,7 +15,8 @@ autoscaling_max_count = 3
 
 # Deploy e scale-in esperam o turno em andamento terminar. O chat do contrate
 # (/api/v1/chats/:id/messages/stream, SSE) tem teto de 180 s (TURN_TIMEOUT_MS em
-# apps/alpha/src/api/chats.ts); o ChatRADA, de 60 s. Com os 30 s do default, o ALB cortava o
-# turno no meio e o usuário via o stream morrer sem mensagem de erro. Na reclamação de Spot o
-# teto real é o aviso de 2 min da AWS, não este valor.
-deregistration_delay = 180
+# apps/alpha/src/api/chats.ts), contado depois de auth e leitura do histórico; o ChatRADA, de
+# 60 s. 200 s = prazo + folga, para a rota emitir o próprio erro de prazo antes de o ALB
+# cortar. Com os 30 s do default, o stream morria no meio sem mensagem. Não cobre troca de
+# Spot (ver "Drenagem" no README de infra/).
+deregistration_delay = 200

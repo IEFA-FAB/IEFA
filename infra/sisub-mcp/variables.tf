@@ -129,7 +129,7 @@ variable "image_tag_mutability" {
 }
 
 variable "deregistration_delay" {
-  description = "Segundos que o ALB espera as requisições em andamento (streams SSE) de uma task que sai de rotação. O valor fica no sizing.auto.tfvars."
+  description = "Drenagem da task que sai de rotação; o valor fica no sizing.auto.tfvars. null cai no default do módulo, que também valida o intervalo."
   type        = number
-  default     = 30
+  default     = null
 }
