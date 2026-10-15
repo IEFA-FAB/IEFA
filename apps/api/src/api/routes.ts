@@ -662,12 +662,14 @@ for (const path of RESTRICTED_PATHS) {
 }
 
 // A cadeia continua sendo o valor exportado: é dela que sai o tipo consumido pelos clients RPC.
+// Esse tipo vem da rota (`BoundRouteResponseTypes<R>["output"]` no `.openapi()`), não do
+// handler, e o handler do `createApiHandler` recebe `c: any`: por isso não precisa de cast.
 export const api = apiBase
-	.openapi(opinionRoute, opinionHandler as any)
-	.openapi(arranchamentoRoute, arranchamentoHandler as any)
-	.openapi(legacyArranchamentoRoute, legacyArranchamentoHandler as any)
-	.openapi(presenceRoute, presenceHandler as any)
-	.openapi(militaryDataRoute, militaryDataHandler as any)
-	.openapi(userDataRoute, userDataHandler as any)
-	.openapi(unitsRoute, unitsHandler as any)
-	.openapi(messHallsRoute, messHallsHandler as any)
+	.openapi(opinionRoute, opinionHandler)
+	.openapi(arranchamentoRoute, arranchamentoHandler)
+	.openapi(legacyArranchamentoRoute, legacyArranchamentoHandler)
+	.openapi(presenceRoute, presenceHandler)
+	.openapi(militaryDataRoute, militaryDataHandler)
+	.openapi(userDataRoute, userDataHandler)
+	.openapi(unitsRoute, unitsHandler)
+	.openapi(messHallsRoute, messHallsHandler)

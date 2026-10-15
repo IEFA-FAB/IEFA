@@ -20,6 +20,7 @@ import { INFLOW_REASONS, OUTFLOW_REASONS, REASON_NATURE, STOCK_ADJUSTMENT_REASON
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { publicDbMessage } from "@/lib/db-error-message"
+import { readKitchenStockSettings } from "@/lib/kitchen-stock-settings.server"
 import { readAllPagesIn } from "@/lib/read-all-pages"
 import { buildAdjustmentDocumentRow, buildAdjustmentItemRow, buildPostFailureRecovery, findAdjustmentLotProblem } from "@/lib/stock-adjustment"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
@@ -227,15 +228,14 @@ export const fetchStockSettingsFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive() }))
 	.handler(async ({ data }) => {
 		await requireStorageForKitchen(1, data.kitchenId)
-		const { data: row, error: rowError } = await inventory().from("kitchen_stock_settings").select("*").eq("kitchen_id", data.kitchenId).maybeSingle()
-		if (rowError) throw new Error(`Erro ao carregar a configuração de estoque da cozinha: ${publicDbMessage(rowError)}`)
+		const settings = await readKitchenStockSettings(data.kitchenId)
 		return {
-			segregation: (row?.segregation ?? "dual") as "strict" | "dual",
-			adjustmentApprovalValue: Number(row?.adjustment_approval_value ?? 500),
-			issueTolerancePct: Number(row?.issue_tolerance_pct ?? 10),
-			issueToleranceFloorValue: Number(row?.issue_tolerance_floor_value ?? 20),
-			countTolerancePct: Number(row?.count_tolerance_pct ?? 5),
-			countToleranceValue: Number(row?.count_tolerance_value ?? 50),
+			segregation: settings.segregation as "strict" | "dual",
+			adjustmentApprovalValue: Number(settings.adjustment_approval_value),
+			issueTolerancePct: Number(settings.issue_tolerance_pct),
+			issueToleranceFloorValue: Number(settings.issue_tolerance_floor_value),
+			countTolerancePct: Number(settings.count_tolerance_pct),
+			countToleranceValue: Number(settings.count_tolerance_value),
 		}
 	})
 
