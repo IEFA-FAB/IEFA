@@ -67,6 +67,24 @@ function saldoPct(item: ArpItem): number | null {
 
 // ─── Linha de empenho ─────────────────────────────────────────────────────────
 
+/**
+ * NE ativa cujos itens somam zero (`execution_incomplete`): sem proporção, a execução dela
+ * (liquidado, pago, a liquidar) não se reparte entre os itens da ata (`computeArpExecutionByItem`).
+ */
+function IncompleteExecutionBadge() {
+	return (
+		<Tooltip>
+			<TooltipTrigger render={<Badge variant="warning" />}>
+				<AlertTriangle />
+				Dado incompleto
+			</TooltipTrigger>
+			<TooltipContent className="max-w-xs">
+				Os itens desta NE somam R$ 0,00. Sem o valor de cada item, o liquidado, o pago e o a liquidar dela ficam fora do acompanhamento da ARP.
+			</TooltipContent>
+		</Tooltip>
+	)
+}
+
 function EmpenhoRow({ empenho, arpItemId, arpId, canWrite }: { empenho: EmpenhoOfArpItem; arpItemId: string; arpId: string; canWrite: boolean }) {
 	const { mutate: anular, isPending } = useAnularEmpenho(arpItemId, arpId)
 	const [confirming, setConfirming] = useState(false)
@@ -93,6 +111,7 @@ function EmpenhoRow({ empenho, arpItemId, arpId, canWrite }: { empenho: EmpenhoO
 			<span className="text-muted-foreground">{fmtDate(empenho.data_empenho)}</span>
 			<span>{formatQuantityTimesPrice(empenho)}</span>
 			<EmpenhoValue empenho={empenho} />
+			{empenho.execution_incomplete && <IncompleteExecutionBadge />}
 			{empenho.nota_lancamento && (
 				<Tooltip>
 					<TooltipTrigger className="text-muted-foreground underline decoration-dotted cursor-help truncate max-w-[140px] text-xs text-left">

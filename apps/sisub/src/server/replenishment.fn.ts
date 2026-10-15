@@ -31,7 +31,7 @@ import { currentFiscalYear } from "@/lib/expense-execution"
 import { purchaseUnitIdOfKitchen } from "@/lib/kitchen-purchase-unit.server"
 import { readAllPages, readAllPagesIn } from "@/lib/read-all-pages"
 import {
-	buildReplenishmentSuggestion,
+	buildReplenishmentSuggestions,
 	computeTransitByIngredient,
 	groupObservedLeadTimes,
 	indexDefaultPurchaseLinks,
@@ -315,7 +315,7 @@ export const fetchReplenishmentSuggestionsFn = createServerFn({ method: "GET" })
 			classByCatmat,
 			dispensaRoom,
 		}
-		return rankReplenishmentSuggestions(needs.map((need) => buildReplenishmentSuggestion(need, context)))
+		return rankReplenishmentSuggestions(buildReplenishmentSuggestions(needs, context))
 	})
 
 /**
