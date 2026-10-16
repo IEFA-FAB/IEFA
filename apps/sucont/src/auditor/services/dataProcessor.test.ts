@@ -228,7 +228,7 @@ describe("applyRiskClassification — risco por (UG, grupo), não por UG", () =>
 	})
 })
 
-describe("applyRiskClassification — posição pela última ocorrência (decisão do mantenedor, #639)", () => {
+describe("applyRiskClassification — posição pela última ocorrência, só entre divergentes (decisões do mantenedor)", () => {
 	const record = (ug: string, difference: number): FinancialRecord =>
 		({
 			id: ug,
@@ -266,6 +266,22 @@ describe("applyRiskClassification — posição pela última ocorrência (decis�
 		const r = classify([100, 500, 500, 500])
 		expect(r.map((x) => x.riskLevel)).toEqual([RiskLevel.BAIXO, RiskLevel.CRITICO, RiskLevel.CRITICO, RiskLevel.CRITICO])
 		expect(r.map((x) => x.impactLevel)).toEqual([ImpactLevel.MENOR, ImpactLevel.CATASTROFICO, ImpactLevel.CATASTROFICO, ImpactLevel.CATASTROFICO])
+	})
+
+	it("conciliadas saem do ranking: as divergentes se espalham entre si", () => {
+		// Com as 6 conciliadas no denominador, as duas divergentes ficavam em 87,5 e 100 (ambas CRÍTICO).
+		const r = classify([0, 0, 0, 0, 0, 0, 100, 400])
+		expect(r.map((x) => x.riskLevel)).toEqual([...Array(6).fill(RiskLevel.BAIXO), RiskLevel.MEDIO, RiskLevel.CRITICO])
+		expect(r.map((x) => x.impactLevel)).toEqual([...Array(6).fill(ImpactLevel.INSIGNIFICANTE), ImpactLevel.MODERADO, ImpactLevel.CATASTROFICO])
+	})
+
+	it("quatro divergentes entre conciliadas ocupam os quatro níveis", () => {
+		const r = classify([0, 100, 0, 200, 300, 0, 400])
+		expect(r.filter((x) => x.difference > 0).map((x) => x.riskLevel)).toEqual([RiskLevel.BAIXO, RiskLevel.MEDIO, RiskLevel.ALTO, RiskLevel.CRITICO])
+	})
+
+	it("uma só divergente no recorte é CRÍTICO por construção", () => {
+		expect(classify([0, 0, 50]).map((x) => x.riskLevel)).toEqual([RiskLevel.BAIXO, RiskLevel.BAIXO, RiskLevel.CRITICO])
 	})
 
 	it("conta conciliada fica no piso mesmo empatada com outras conciliadas", () => {

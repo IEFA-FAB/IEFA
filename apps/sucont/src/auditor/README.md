@@ -42,6 +42,7 @@ lá**, não pendência daqui.
 | 11 | Soma dos módulos apresentada como "Diferença Líquida Total" | Convida a ler compensação que não houve; as duas leituras são diagnósticos diferentes | `report.ts` → `absoluteDifference` e `netDifference` |
 | 12 | Donut "Composição SIAFI × SILOMS (%)" | SIAFI e SILOMS são duas MEDIDAS do mesmo patrimônio, não duas partes dele: somá-los inventa um denominador | `CompositionDonuts.tsx` → conciliado × divergente |
 | 13 | `detectInterOM` lia `previousSiafiValue \|\| 0`, pareava a mesma UG consigo, cruzava competências e cortava por ordem de iteração | Cada um dos quatro produz um par que não existe, ou esconde o par que existe | `inter-om.ts` |
+| 14 | Posição do risco e do impacto por `primeira ocorrência / n`, com as contas conciliadas no denominador | A maior conta nunca chegava ao topo em recorte pequeno, empates caíam no nível mais baixo e as conciliadas empurravam as divergentes para cima | `dataProcessor.ts` → `rankPosition` só entre divergentes; conciliada fica em BAIXO/INSIGNIFICANTE |
 
 ## Registro sem saldo não é registro conciliado
 
