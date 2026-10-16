@@ -3,7 +3,8 @@ import { Shield, TrendingUp } from "lucide-react"
 import { motion } from "motion/react"
 import { SectionHeader } from "#/components/ui/section-header"
 import { StatTile } from "#/components/ui/stat-tile"
-import type { CountSaldoSummary, summarizePareto } from "#/subitens/dashboard"
+import { describeHiddenUgs, formatParetoShare, formatUgCount, splitParetoList } from "#/lib/analysis/pareto"
+import type { CountSaldoSummary, ParetoSummary } from "#/subitens/dashboard"
 import type { UgGroup } from "#/subitens/types"
 import { formatUgName } from "#/subitens/ug"
 
@@ -13,7 +14,7 @@ interface StrategicDashboardProps {
 	totalVolume: number
 	odsList: CountSaldoSummary[]
 	orgaoSuperiorList: CountSaldoSummary[]
-	paretoSummary: ReturnType<typeof summarizePareto>
+	paretoSummary: ParetoSummary
 	topUgsByInconsistencias: UgGroup[]
 }
 
@@ -26,6 +27,7 @@ export function StrategicDashboard({
 	paretoSummary,
 	topUgsByInconsistencias,
 }: StrategicDashboardProps) {
+	const paretoList = splitParetoList(paretoSummary.group, 3)
 	return (
 		<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
 			{/* Era um painel azul-sólido de `p-10` com escudo de 300px em marca-d'água
@@ -112,28 +114,27 @@ export function StrategicDashboard({
 							<TrendingUp className="w-5 h-5 text-muted-foreground" />
 							Análise de concentração
 						</h3>
-						<p className="text-caption text-muted-foreground mb-6">Regra de Pareto (80/20)</p>
+						<p className="text-caption text-muted-foreground mb-6">UGs que somam 80% das ocorrências</p>
 
 						<div className="space-y-6">
 							<div>
-								<h4 className="text-display text-warning mb-1">{Math.round(paretoSummary.concentrationPercentage)}%</h4>
+								<h4 className="text-display text-warning mb-1">{formatParetoShare(paretoSummary.issuePercentage)}</h4>
 								<p className="text-caption text-muted-foreground leading-relaxed">
-									das inconsistências contábeis estão concentradas em apenas 20% das UGs analisadas.
+									das inconsistências contábeis estão concentradas em {formatParetoShare(paretoSummary.ugPercentage)} das UGs analisadas (
+									{formatUgCount(paretoSummary.group.length)}).
 								</p>
 							</div>
 
 							<div className="pt-6 border-t border-border">
 								<p className="text-label text-muted-foreground mb-3">UGs de alta concentração</p>
 								<div className="space-y-2">
-									{paretoSummary.top20PercentUgs.slice(0, 3).map((item) => (
+									{paretoList.shown.map((item) => (
 										<div key={item.ug} className="flex items-center justify-between text-caption">
 											<span className="text-foreground font-mono">{formatUgName(item.ug)}</span>
 											<span className="font-bold text-warning">{item.count} ocorr.</span>
 										</div>
 									))}
-									{paretoSummary.top20PercentUgs.length > 3 && (
-										<p className="text-hint text-muted-foreground">+ {paretoSummary.top20PercentUgs.length - 3} outras unidades</p>
-									)}
+									{paretoList.hiddenCount > 0 && <p className="text-hint text-muted-foreground">{describeHiddenUgs(paretoList.hiddenCount)}</p>}
 								</div>
 							</div>
 						</div>
@@ -142,8 +143,8 @@ export function StrategicDashboard({
 					<div className="mt-8 p-4 bg-muted/50 rounded-lg border border-border">
 						<p className="text-label text-foreground mb-1">Prioridade de atuação</p>
 						<p className="text-hint text-muted-foreground leading-relaxed">
-							O direcionamento das ações para estas {paretoSummary.top20PercentUgs.length} UGs resultará na regularização de{" "}
-							{Math.round(paretoSummary.concentrationPercentage)}% do passivo contábil.
+							O direcionamento das ações para estas {formatUgCount(paretoSummary.group.length)} resultará na regularização de{" "}
+							{formatParetoShare(paretoSummary.issuePercentage)} das ocorrências.
 						</p>
 					</div>
 				</div>

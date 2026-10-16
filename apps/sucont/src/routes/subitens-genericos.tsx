@@ -29,7 +29,6 @@ import { TacticalDashboard } from "#/subitens/components/TacticalDashboard"
 import { UgMessageCard } from "#/subitens/components/UgMessageCard"
 import { CONFERENTES_MAPPING } from "#/subitens/constants"
 import {
-	buildParetoData,
 	countOccurrencesByConta,
 	findCriticalLevels,
 	groupOccurrencesByRac,
@@ -217,10 +216,7 @@ function SubitensGenericos() {
 
 	const topUgsByInconsistencias = [...filteredData].sort((a, b) => b.occurrences.length - a.occurrences.length)
 
-	const totalUgsCount = filteredData.length
-	const paretoData = buildParetoData(topUgsByInconsistencias, totalInconsistencias, totalUgsCount)
-
-	const paretoSummary = summarizePareto(paretoData)
+	const paretoSummary = summarizePareto(topUgsByInconsistencias)
 
 	const criticalLevels = findCriticalLevels(odsList, orgaoSuperiorList, topUgsByInconsistencias, filteredData)
 

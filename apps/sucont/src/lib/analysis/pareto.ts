@@ -1,6 +1,6 @@
 /**
- * Pareto das UGs, com um critério só para as ferramentas que o mostram (conta genérica e
- * monitoramento).
+ * Pareto das UGs por contagem de ocorrências, com um critério só para as ferramentas que
+ * o mostram (conta genérica, monitoramento e subitens genéricos).
  *
  * O grupo são as UGs, da maior contagem para a menor, até a soma alcançar 80% do total
  * ("os poucos vitais"). As duas porcentagens são sobre ESSE grupo: quantas UGs ele tem
@@ -10,7 +10,12 @@
  *
  * Antes cada tela misturava recortes: a conta genérica media as UGs até 80% e somava as
  * ocorrências de outro corte (mínimo 3, máximo 10 UGs); o monitoramento fixava 20% das
- * UGs pela contagem e listava as primeiras pela prioridade.
+ * UGs pela contagem e listava as primeiras pela prioridade; o subitens fixava 20% das UGs.
+ *
+ * Fora deste critério, de propósito, ficam os Pareto por VALOR: o saldo alongado
+ * (`AnalyticalPanel`, UGs até 85% do saldo acumulado, parâmetro do upstream
+ * Analistasaldoalongado, "critical mass") e a curva do auditor (opacidade até 80% da
+ * diferença acumulada). Medem saldo, não ocorrência, e não dizem "X% das UGs".
  *
  * Empate na fronteira segue a ordem estável da lista recebida.
  */
