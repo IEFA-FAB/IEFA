@@ -92,19 +92,35 @@ function aggregateByUg(grouped: GroupedData): UgAggregation {
 	return { ugStats, odsAgg, osAgg, totalInc, totalVol }
 }
 
-// Pareto
+/** Fração do total que define o grupo do Pareto ("os poucos vitais"). */
+const PARETO_SHARE = 0.8
+
+/**
+ * Pareto: as UGs, em ordem decrescente de inconsistências, até a soma alcançar 80% do
+ * total. As duas porcentagens são sobre ESSE conjunto: quantas UGs ele tem (sobre o total
+ * de UGs) e quantas inconsistências ele soma (sobre o total). A frase da tela ("X% das
+ * UGs concentram Y% das inconsistências") passa a ler um mesmo grupo.
+ *
+ * O port media as UGs até alcançar os 80%, mas somava as inconsistências de outro recorte
+ * (no mínimo 3 e no máximo 10 UGs): com uma UG dominante, dizia "25% das UGs concentram
+ * 96%", quando a UG sozinha tinha 83%. Empate na fronteira segue a ordem estável da
+ * lista (a do `Object.entries`).
+ *
+ * `topUgs` é o próprio grupo, na mesma ordem; a tela mostra as primeiras.
+ */
 function computePareto(sortedByCount: UgStat[], ugCount: number, totalInc: number): ParetoData {
+	if (ugCount === 0 || totalInc === 0) return { ugPercentage: 0, inconsistencyPercentage: 0, topUgs: [] }
+	const topUgs: UgStat[] = []
 	let running = 0
-	let paretoIdx = -1
-	for (let i = 0; i < sortedByCount.length; i++) {
-		running += sortedByCount[i].count
-		if (running >= totalInc * 0.8 && paretoIdx === -1) paretoIdx = i
+	for (const ug of sortedByCount) {
+		if (running >= totalInc * PARETO_SHARE) break
+		topUgs.push(ug)
+		running += ug.count
 	}
-	const paretoSlice = sortedByCount.slice(0, Math.max(3, paretoIdx + 1)).slice(0, 10)
 	return {
-		ugPercentage: Math.round(((paretoIdx + 1) / ugCount) * 100),
-		inconsistencyPercentage: Math.round((paretoSlice.reduce((a, c) => a + c.count, 0) / totalInc) * 100),
-		topUgs: paretoSlice,
+		ugPercentage: Math.round((topUgs.length / ugCount) * 100),
+		inconsistencyPercentage: Math.round((running / totalInc) * 100),
+		topUgs,
 	}
 }
 
@@ -127,14 +143,24 @@ function buildCriticalSummary(riskMap: OdsRisk[], osAgg: Aggregate, sortedByCoun
 	}
 }
 
-// Priority list
+/** Parcela de `value` sobre o maior valor do conjunto; 0 quando o maior não é positivo. */
+function shareOfMax(value: number, max: number): number {
+	return max > 0 ? value / max : 0
+}
+
+/**
+ * Prioridade: metade pela contagem relativa à maior, metade pelo volume relativo ao maior.
+ * Sem volume positivo no conjunto (saldos que se anulam, ou todos negativos), a metade do
+ * volume vale 0 para todas as UGs; antes a divisão por zero dava `NaN` e a lista saía na
+ * ordem de chegada.
+ */
 function buildPriorityList(ugStats: UgStat[]): PriorityItem[] {
 	const maxCount = Math.max(...ugStats.map((u) => u.count))
 	const maxVolume = Math.max(...ugStats.map((u) => u.volume))
 	return ugStats
 		.map((u) => ({
 			...u,
-			priorityScore: Math.round((u.count / maxCount) * 50 + (u.volume / maxVolume) * 50),
+			priorityScore: Math.round(shareOfMax(u.count, maxCount) * 50 + shareOfMax(u.volume, maxVolume) * 50),
 		}))
 		.sort((a, b) => b.priorityScore - a.priorityScore)
 		.slice(0, 5)

@@ -46,7 +46,7 @@ describe("performAdvancedAnalysis", () => {
 		})
 	})
 
-	it("corta o Pareto em no mínimo 3 e no máximo 10 UGs", () => {
+	it("o grupo do Pareto são as UGs até alcançar 80%, e as duas porcentagens são sobre ele", () => {
 		const one = performAdvancedAnalysis({ "120001": { "11199": regs(1) } })
 		expect(one.paretoData).toEqual({
 			ugPercentage: 100,
@@ -55,37 +55,42 @@ describe("performAdvancedAnalysis", () => {
 		})
 
 		const many: GroupedData = {}
-		for (let i = 0; i < 12; i++) many[String(900000 + i)] = { "11199": regs(1) }
+		for (let i = 0; i < 20; i++) many[String(900000 + i)] = { "11199": regs(1) }
 		const result = performAdvancedAnalysis(many)
-		// 80% de 12 = 9,6 → 10ª UG; o recorte para em 10.
-		expect(result.paretoData.ugPercentage).toBe(83)
-		expect(result.paretoData.topUgs).toHaveLength(10)
-		expect(result.paretoData.inconsistencyPercentage).toBe(83)
+		// 80% de 20 = 16 → 16 UGs. O port cortava a lista em 10 e somava só as 10 (50%),
+		// mas dizia 80% das UGs.
+		expect(result.paretoData.ugPercentage).toBe(80)
+		expect(result.paretoData.inconsistencyPercentage).toBe(80)
+		expect(result.paretoData.topUgs).toHaveLength(16)
 		expect(result.priorityList).toHaveLength(5)
 	})
 
-	it("UG dominante sozinha: o Pareto mostra 3 UGs mesmo com a 1ª já passando de 80%", () => {
+	it("UG dominante sozinha: o grupo é só ela, e a concentração é a dela", () => {
 		const result = performAdvancedAnalysis({
 			"120001": { "11199": regs(...Array<number>(20).fill(1)) },
 			"120004": { "11199": regs(1) },
 			"120006": { "11199": regs(1) },
 			"120005": { "11199": regs(1) },
 		})
+		// 20 de 23 = 87%. O port dizia "25% das UGs concentram 96%": media 1 UG e somava 3.
 		expect(result.paretoData.ugPercentage).toBe(25)
-		expect(result.paretoData.inconsistencyPercentage).toBe(96)
-		expect(result.paretoData.topUgs.map((u) => u.ug)).toEqual(["120001", "120004", "120005"])
+		expect(result.paretoData.inconsistencyPercentage).toBe(87)
+		expect(result.paretoData.topUgs.map((u) => u.ug)).toEqual(["120001"])
 	})
 
-	it("saldo líquido zero dá score NaN (divisão por volume máximo zero)", () => {
-		const result = performAdvancedAnalysis({ "120001": { "11199": regs(5, -5) } })
-		expect(result.priorityList[0].priorityScore).toBeNaN()
-		expect(result.totalFinancialImpact).toBe(0)
+	it("sem volume positivo, a metade do volume no score vale 0 em vez de NaN", () => {
+		const result = performAdvancedAnalysis({ "120001": { "11199": regs(5, -5) }, "120004": { "11199": regs(-3) } })
+		expect(result.priorityList.map((p) => [p.ug, p.priorityScore])).toEqual([
+			["120001", 50],
+			["120004", 25],
+		])
+		expect(result.totalFinancialImpact).toBe(-3)
 	})
 
-	it("sem nenhuma UG: N/A nos níveis críticos e percentuais NaN", () => {
+	it("sem nenhuma UG: N/A nos níveis críticos e percentuais zerados", () => {
 		const result = performAdvancedAnalysis({})
-		expect(result.paretoData.ugPercentage).toBeNaN()
-		expect(result.paretoData.inconsistencyPercentage).toBeNaN()
+		expect(result.paretoData.ugPercentage).toBe(0)
+		expect(result.paretoData.inconsistencyPercentage).toBe(0)
 		expect(result.paretoData.topUgs).toEqual([])
 		expect(result.odsRiskMap).toEqual([])
 		expect(result.criticalSummary).toEqual({ ods: "N/A", os: "N/A", ugCount: "N/A", ugVolume: "N/A" })
