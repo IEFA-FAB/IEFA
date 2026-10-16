@@ -297,6 +297,101 @@ function NetDivergencePanel({ totalNetDivergence }: { totalNetDivergence: number
 }
 
 // --- Comparison Chart ---
+interface AxisTickProps {
+	x?: number
+	y?: number
+	payload?: { value: string }
+	data?: { name: string; riskLevel?: RiskLevel }[]
+	hierarchyLevel?: string
+}
+/**
+ * Rótulo do eixo X, com o semáforo de risco quando o nível é UG.
+ *
+ * No escopo do módulo, e não dentro do `ComparisonChart`: definido lá, era um tipo de
+ * componente novo a cada render do gráfico (medida do contêiner, troca de modo, render do
+ * pai), e o React desmontava e remontava todos os rótulos e tiles do treemap em vez de
+ * atualizá-los. O que ele precisa vem por props.
+ */
+export const CustomizedAxisTick = (props: AxisTickProps) => {
+	const { x, y, payload, data: tickData, hierarchyLevel: hl } = props
+	const item = tickData?.find((d) => d.name === payload?.value)
+
+	let emoji = ""
+	if (hl === "UG") {
+		emoji = "🟢"
+		if (item?.riskLevel === RiskLevel.MEDIO) emoji = "🟡"
+		if (item?.riskLevel === RiskLevel.ALTO) emoji = "🟠"
+		if (item?.riskLevel === RiskLevel.CRITICO) emoji = "🔴"
+	}
+
+	return (
+		<g transform={`translate(${x},${y})`}>
+			<text x={0} y={0} dy={24} textAnchor="end" fill={chartChrome.axis} fontSize={11} fontWeight="bold" transform="rotate(-45)">
+				{payload?.value} {emoji}
+			</text>
+		</g>
+	)
+}
+
+interface TreemapContentProps {
+	x?: number
+	y?: number
+	width?: number
+	height?: number
+	name?: string
+	diff?: number
+	ods?: string
+}
+/** Tile do treemap, pintado pela cor do ODS. Fica no módulo pelo mesmo motivo do rótulo do eixo. */
+export const CustomizedTreemapContent = (props: TreemapContentProps) => {
+	const { x, y, width, height, name, diff, ods } = props
+
+	const finalFill = getOdsColor(ods || name || "N/A")
+	// Os tiles vêm de `ODS_SOLID_COLORS`, escura nos dois temas: o rótulo é claro
+	// sempre. `--foreground` inverteria e sumiria no tema claro.
+	const textColor = "var(--surface-inverted-foreground)"
+	const textShadow = "0 1px 2px rgba(0,0,0,0.8)"
+
+	return (
+		<g className="recharts-treemap-node cursor-pointer">
+			<rect
+				x={x}
+				y={y}
+				width={width}
+				height={height}
+				style={{
+					fill: finalFill,
+					stroke: TREEMAP_COLORS.border,
+					strokeWidth: 1.5,
+					transition: "all 0.3s ease",
+				}}
+			/>
+			<foreignObject x={x} y={y} width={width} height={height}>
+				<div className="w-full h-full flex flex-col items-center justify-center p-0.5 overflow-hidden pointer-events-none">
+					<span
+						className="text-label text-center leading-tight break-words px-1"
+						style={{
+							color: textColor,
+							textShadow,
+							display: "-webkit-box",
+							WebkitLineClamp: 2,
+							WebkitBoxOrient: "vertical",
+							overflow: "hidden",
+						}}
+					>
+						{name}
+					</span>
+					{(width ?? 0) > 40 && (height ?? 0) > 20 && (
+						<span className="text-hint font-mono" style={{ color: textColor, textShadow }}>
+							{formatCompactNumber(diff || 0)}
+						</span>
+					)}
+				</div>
+			</foreignObject>
+		</g>
+	)
+}
+
 export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHierarchy, hierarchyLevel = "UG", hierarchyFilter = ["TODOS"] }) => {
 	const [viewMode, setViewMode] = useState<"composition" | "ranking" | "tree">("ranking")
 	const [treeGroupBy, setTreeGroupBy] = useState<"ODS" | "ORGAO" | "UG">("ODS")
@@ -421,92 +516,6 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 
 	if (displayData.length === 0) {
 		return <div className="flex items-center justify-center h-full text-muted-foreground">Sem dados para exibir.</div>
-	}
-
-	interface AxisTickProps {
-		x?: number
-		y?: number
-		payload?: { value: string }
-		data?: { name: string; riskLevel?: RiskLevel }[]
-		hierarchyLevel?: string
-	}
-	const CustomizedAxisTick = (props: AxisTickProps) => {
-		const { x, y, payload, data: tickData, hierarchyLevel: hl } = props
-		const item = tickData?.find((d) => d.name === payload?.value)
-
-		let emoji = ""
-		if (hl === "UG") {
-			emoji = "🟢"
-			if (item?.riskLevel === RiskLevel.MEDIO) emoji = "🟡"
-			if (item?.riskLevel === RiskLevel.ALTO) emoji = "🟠"
-			if (item?.riskLevel === RiskLevel.CRITICO) emoji = "🔴"
-		}
-
-		return (
-			<g transform={`translate(${x},${y})`}>
-				<text x={0} y={0} dy={24} textAnchor="end" fill={chartChrome.axis} fontSize={11} fontWeight="bold" transform="rotate(-45)">
-					{payload?.value} {emoji}
-				</text>
-			</g>
-		)
-	}
-
-	interface TreemapContentProps {
-		x?: number
-		y?: number
-		width?: number
-		height?: number
-		name?: string
-		diff?: number
-		ods?: string
-	}
-	const CustomizedTreemapContent = (props: TreemapContentProps) => {
-		const { x, y, width, height, name, diff, ods } = props
-
-		const finalFill = getOdsColor(ods || name || "N/A")
-		// Os tiles vêm de `ODS_SOLID_COLORS`, escura nos dois temas: o rótulo é claro
-		// sempre. `--foreground` inverteria e sumiria no tema claro.
-		const textColor = "var(--surface-inverted-foreground)"
-		const textShadow = "0 1px 2px rgba(0,0,0,0.8)"
-
-		return (
-			<g className="recharts-treemap-node cursor-pointer">
-				<rect
-					x={x}
-					y={y}
-					width={width}
-					height={height}
-					style={{
-						fill: finalFill,
-						stroke: TREEMAP_COLORS.border,
-						strokeWidth: 1.5,
-						transition: "all 0.3s ease",
-					}}
-				/>
-				<foreignObject x={x} y={y} width={width} height={height}>
-					<div className="w-full h-full flex flex-col items-center justify-center p-0.5 overflow-hidden pointer-events-none">
-						<span
-							className="text-label text-center leading-tight break-words px-1"
-							style={{
-								color: textColor,
-								textShadow,
-								display: "-webkit-box",
-								WebkitLineClamp: 2,
-								WebkitBoxOrient: "vertical",
-								overflow: "hidden",
-							}}
-						>
-							{name}
-						</span>
-						{(width ?? 0) > 40 && (height ?? 0) > 20 && (
-							<span className="text-hint font-mono" style={{ color: textColor, textShadow }}>
-								{formatCompactNumber(diff || 0)}
-							</span>
-						)}
-					</div>
-				</foreignObject>
-			</g>
-		)
 	}
 
 	return (

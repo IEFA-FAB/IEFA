@@ -58,12 +58,19 @@ const hasAny = (lowerQuery: string, terms: string[]) => terms.some((term) => low
 const FALLBACK_ANSWER =
 	'Desculpe, não consegui interpretar essa pergunta. Como Oráculo SUCONT, posso ajudá-lo com:\n- "Qual ODS possui maior risco contábil?"\n- "Qual Órgão Superior concentra mais inconsistências?"\n- "Qual UG apresenta maior risco contábil?"\n- "Quais são as 10 UGs mais críticas do COMAER?"\n- "20% das UGs concentram quantos % das inconsistências?"\n- "Quais inconsistências devem ser tratadas primeiro?"'
 
+/**
+ * Resposta quando o painel consultado não tem o que listar (filtro sem cobrança). As
+ * regras liam `[0].name` direto e lançavam `TypeError` no meio do chat.
+ */
+const EMPTY_PANEL_ANSWER = "Não há inconsistências no recorte atual para responder a essa pergunta. Ajuste o filtro ou carregue outro relatório."
+
 /** Avaliadas em ordem; a primeira que casa responde. */
 const CHAT_RULES: ChatRule[] = [
 	{
 		matches: (q) => q.includes("ods") && hasAny(q, ["mais inconsistências", "maior risco"]),
 		answer: ({ estrategicoData }) => {
 			const topOds = estrategicoData.topOds[0]
+			if (!topOds) return EMPTY_PANEL_ANSWER
 			return `O ODS com maior risco contábil (mais inconsistências) é o **${topOds.name}**, com ${topOds.count} inconsistências (${topOds.percent.toFixed(1)}% do total).`
 		},
 	},
@@ -71,6 +78,7 @@ const CHAT_RULES: ChatRule[] = [
 		matches: (q) => q.includes("órgão superior") && hasAny(q, ["concentra mais", "mais inconsistências"]),
 		answer: ({ estrategicoData }) => {
 			const topOrgao = estrategicoData.topOrgaosSuperiores[0]
+			if (!topOrgao) return EMPTY_PANEL_ANSWER
 			return `O Órgão Superior que concentra mais inconsistências é o **${topOrgao.name}**, com ${topOrgao.count} ocorrências (${topOrgao.percent.toFixed(1)}% do total).`
 		},
 	},
@@ -78,6 +86,7 @@ const CHAT_RULES: ChatRule[] = [
 		matches: (q) => q.includes("ug") && q.includes("maior risco"),
 		answer: ({ managerialData }) => {
 			const topUg = managerialData.topUgs[0]
+			if (!topUg) return EMPTY_PANEL_ANSWER
 			const org = getOrganizacao(topUg.ug)
 			return `A UG que apresenta o maior risco contábil (número de inconsistências) é a **UG ${topUg.ug} (${org.nome})**, com ${topUg.count} inconsistências.`
 		},
@@ -86,6 +95,7 @@ const CHAT_RULES: ChatRule[] = [
 		matches: (q) => q.includes("ug") && q.includes("maior saldo irregular"),
 		answer: ({ managerialData }) => {
 			const topUgValue = [...managerialData.topUgs].sort((a, b) => b.value - a.value)[0]
+			if (!topUgValue) return EMPTY_PANEL_ANSWER
 			const org = getOrganizacao(topUgValue.ug)
 			return `A UG com o maior saldo irregular é a **UG ${topUgValue.ug} (${org.nome})**, totalizando ${formatCurrency(topUgValue.value)}.`
 		},
@@ -94,6 +104,7 @@ const CHAT_RULES: ChatRule[] = [
 		matches: (q) => q.includes("10 ugs") || (q.includes("ugs") && q.includes("mais críticas")),
 		answer: ({ managerialData }) => {
 			const top10 = managerialData.topUgs.slice(0, 10)
+			if (top10.length === 0) return EMPTY_PANEL_ANSWER
 			return `As 10 UGs mais críticas do COMAER (por volume de inconsistências) são:\n\n${top10
 				.map((ug, i) => {
 					const org = getOrganizacao(ug.ug)
@@ -105,6 +116,7 @@ const CHAT_RULES: ChatRule[] = [
 	{
 		matches: (q) => q.includes("20%") && q.includes("concentram"),
 		answer: ({ decisaoData }) => {
+			if (decisaoData?.pareto.totalUgs === 0) return EMPTY_PANEL_ANSWER
 			if (decisaoData) {
 				return `De acordo com a análise de Pareto, **20% das UGs** analisadas concentram **${decisaoData.pareto.paretoPercent.toFixed(1)}%** de todas as inconsistências contábeis.`
 			}
@@ -114,6 +126,7 @@ const CHAT_RULES: ChatRule[] = [
 	{
 		matches: (q) => hasAny(q, ["primeiro", "prioridade", "tratar"]),
 		answer: ({ decisaoData }) => {
+			if (decisaoData?.priorities.length === 0) return EMPTY_PANEL_ANSWER
 			if (decisaoData) {
 				const top3 = decisaoData.priorities.slice(0, 3)
 				return `As inconsistências que devem ser tratadas com prioridade imediata (considerando volume, valor e impacto) são das seguintes UGs:\n\n${top3
@@ -125,15 +138,18 @@ const CHAT_RULES: ChatRule[] = [
 	},
 	{
 		matches: (q) => hasAny(q, ["mapa de risco", "panorama"]),
-		answer: ({ estrategicoData }) =>
-			`O Mapa de Risco Contábil mostra a distribuição das inconsistências por ODS:\n\n${estrategicoData.topOds
+		answer: ({ estrategicoData }) => {
+			if (estrategicoData.topOds.length === 0) return EMPTY_PANEL_ANSWER
+			return `O Mapa de Risco Contábil mostra a distribuição das inconsistências por ODS:\n\n${estrategicoData.topOds
 				.map((o) => `${o.name} — ${o.count} inconsistências — ${formatCurrency(o.value)} — ${o.percent.toFixed(1)}%`)
-				.join("\n")}`,
+				.join("\n")}`
+		},
 	},
 	{
 		matches: (q) => q.includes("questão rac") && hasAny(q, ["mais recorrente", "mais frequente"]),
 		answer: ({ managerialData }) => {
 			const topRac = managerialData.topRacs[0]
+			if (!topRac) return EMPTY_PANEL_ANSWER
 			return `A questão RAC mais recorrente é a **${topRac.name}**, com ${topRac.value} ocorrências.`
 		},
 	},

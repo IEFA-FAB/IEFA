@@ -110,8 +110,24 @@ describe("answerChatQuery", () => {
 		expect(ask("Quem são as setoriais?")).toBe(FALLBACK)
 	})
 
-	it("lança quando o painel consultado está vazio (comportamento herdado)", () => {
-		expect(() => answerChatQuery("Qual ODS tem maior risco?", MANAGERIAL, { ...ESTRATEGICO, topOds: [] }, DECISAO)).toThrow(TypeError)
-		expect(() => answerChatQuery("Qual UG tem maior risco?", { ...MANAGERIAL, topUgs: [] }, ESTRATEGICO, DECISAO)).toThrow(TypeError)
+	it("com o painel consultado vazio, responde que não há inconsistência no recorte (o port lançava TypeError)", () => {
+		const empty = "Não há inconsistências no recorte atual para responder a essa pergunta. Ajuste o filtro ou carregue outro relatório."
+		const emptyManagerial = { ...MANAGERIAL, topUgs: [], topRacs: [] }
+		const emptyEstrategico = { ...ESTRATEGICO, topOds: [], topOrgaosSuperiores: [] }
+		const emptyDecisao = { ...DECISAO, pareto: { ...DECISAO.pareto, totalUgs: 0, twentyPercentCount: 0, paretoPercent: 0, topTwentyUgs: [] }, priorities: [] }
+		const questions = [
+			"Qual ODS tem maior risco?",
+			"Qual órgão superior concentra mais?",
+			"Qual UG tem maior risco?",
+			"Qual UG tem o maior saldo irregular?",
+			"Quais as 10 UGs?",
+			"20% das UGs concentram quanto?",
+			"O que tratar primeiro?",
+			"Mostre o mapa de risco",
+			"Qual questão RAC mais recorrente?",
+		]
+		for (const question of questions) {
+			expect(answerChatQuery(question, emptyManagerial, emptyEstrategico, emptyDecisao)).toBe(empty)
+		}
 	})
 })
