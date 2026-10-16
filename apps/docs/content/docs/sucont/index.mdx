@@ -26,7 +26,7 @@ Três consequências que definem o produto:
 
 1. **A base fica no navegador.** O arquivo do Tesouro Gerencial não é enviado ao servidor em nenhuma ferramenta. O que é persistido é o *resultado*, e só em duas delas — Auditor e SAC-DGC (ver abaixo). Nas outras seis, fechou a aba, acabou a análise.
 2. **Nada é escrito no SIAFI.** A saída é *texto* que o operador copia para a mensagem SIAFI ou para o SAU. A cobrança continua sendo ato humano.
-3. **O recorte do dado é responsabilidade do relatório, não do app.** Isso é o ponto mais mal-entendido do sistema e está detalhado em [Ferramentas](/docs/sucont/ferramentas) — várias telas não reimplementam o critério que dá nome a elas (envelhecimento de 3 meses, genericidade da conta), porque o critério já foi aplicado no Tesouro Gerencial na hora de montar o relatório.
+3. **O recorte do dado é responsabilidade do relatório, não do app.** Isso é o ponto mais mal-entendido do sistema e está detalhado em [Ferramentas](/docs/sucont/ferramentas) — várias telas não reimplementam o critério que dá nome a elas (o envelhecimento de 3 meses, por exemplo; a genericidade da conta passou a ser conferida em 2026-10), porque o critério já foi aplicado no Tesouro Gerencial na hora de montar o relatório.
 
 <Callout type="warn">
 Corolário: **trocar o relatório de origem muda o resultado sem que o app perceba**. Um arquivo com layout parecido mas recorte diferente é processado normalmente e gera mensagens de cobrança normalmente.
@@ -41,7 +41,7 @@ O hub agrega por **etapa do ciclo** (`analisar`, `comunicar`, `acompanhar`, `con
 | Auditor SUCONT-4 | `/auditor` | analisar | — | Divergência SIAFI × SILOMS em consumo, BMP e intangível, com série persistida |
 | Monitoramento Patrimonial | `/monitoramento` | acompanhar | Q26–Q28, Q31, Q32, Q36 | Saldos transitórios que não deveriam sobreviver ao mês |
 | Analista Saldo Alongado | `/analistasaldoalongado` | analisar | Q05–Q25 | Saldos sem movimentação, consolidados por UG |
-| Subitens Genéricos | `/subitens-genericos` | analisar | Q34 | Conta corrente com subitem 99/999 |
+| Subitens Genéricos | `/subitens-genericos` | analisar | Q34 | Conta corrente com subitem 99 ou favorecido 999 |
 | Contas Genéricas | `/conta-generica` | analisar | Q35 | Uso de conta contábil genérica |
 | Compatibilidade de Saldos | `/analista-compatibilidade` | analisar | Q40–Q42 | Três pares de contas que devem espelhar |
 | Cruzamento de Contas | `/cruzamento-contas` | analisar | Q43 | 897210300 × 897110300 por conta corrente |

@@ -1,9 +1,18 @@
 // Extraído de routes/conta-generica.tsx (port do analistacontagenerica): leitura da
 // planilha do Tesouro Gerencial e agrupamento dos saldos por UG e conta.
 import * as XLSX from "xlsx"
+import { parseBrazilianAmount } from "#/lib/analysis/saldo"
 import type { GroupedData } from "#/lib/conta-generica/helpers"
+import { isUgAcompanhada } from "#/lib/ug/registry"
 
-export type ProcessDataResult = { error: string } | { grouped: GroupedData; hasGeneric: boolean }
+export type ProcessDataResult =
+	| { error: string }
+	| {
+			grouped: GroupedData
+			hasGeneric: boolean
+			/** Linhas com saldo cuja conta não é genérica: lidas e deixadas de fora, contadas para a tela avisar. */
+			skippedNonGeneric: number
+	  }
 
 interface ColumnIndices {
 	ug: number
@@ -66,13 +75,48 @@ function findHeaderRow(data: unknown[][]): { headerRowIndex: number; colIndices:
 	return null
 }
 
-/** Número vem como está; texto no formato brasileiro ("1.234,56"). */
-function parseSaldo(rawSaldo: unknown): number {
-	if (typeof rawSaldo === "number") return rawSaldo
-	return parseFloat(String(rawSaldo).replace(/\./g, "").replace(",", "."))
+/** Código no início da célula: dígitos, com ponto ou espaço entre eles ("2.1.8.8.1.01.99"). */
+const LEADING_ACCOUNT_CODE = /^\s*(\d[\d.\s]*)/
+
+/**
+ * Código da conta contábil, sem pontuação. A célula pode trazer a descrição depois do
+ * código ("2.1.8.8.1.01.99 - Outros Créditos", "218810199 OUTROS CRÉDITOS"): só tirar
+ * espaço e ponto deixava "218810199-OutrosCréditos", que não passa em `isGenericAccount`, e
+ * a planilha inteira era descartada. Sem dígito no início, fica o texto sem espaço e
+ * ponto, como antes.
+ */
+export function extractAccountCode(raw: string): string {
+	const leading = LEADING_ACCOUNT_CODE.exec(raw)
+	if (leading) return leading[1].replace(/\D/g, "")
+	return raw.replace(/\s+/g, "").replace(/\./g, "")
 }
 
-/** Linha de dado utilizável, ou `null` quando falta célula ou o saldo é zero/ilegível. */
+/**
+ * Conta contábil genérica: a do saldo residual "Outros…", que a tela descreve como
+ * "terminada em 99".
+ *
+ * No código de 9 dígitos do PCASP (classe, grupo, subgrupo, título e subtítulo com um
+ * dígito cada, item e subitem com dois), o residual aparece em dois lugares:
+ * - no subitem: `218810199` (subitem 99 do item 01);
+ * - no item, quando ele não se desdobra em subitem: `XXXXX9900`. Aqui o código termina em
+ *   `00`, mas o último nível preenchido é o 99.
+ *
+ * Item 99 COM subitem próprio não é genérico: `123119905` é "Bens móveis em trânsito"
+ * (Questão 9 do RAC), uma conta específica que só mora sob o item 99.
+ *
+ * Código fora do formato de 9 dígitos (o relatório nunca o traz, mas a planilha pode vir
+ * editada) cai na regra literal: termina em 99.
+ */
+export function isGenericAccount(conta: string): boolean {
+	if (/^\d{9}$/.test(conta)) {
+		const item = conta.slice(5, 7)
+		const subitem = conta.slice(7, 9)
+		return subitem === "99" || (subitem === "00" && item === "99")
+	}
+	return conta.endsWith("99")
+}
+
+/** Linha de dado utilizável, ou `null` quando falta célula, a UG está fora do acompanhamento ou o saldo é zero/ilegível. */
 function parseDataRow(row: unknown, colIndices: ColumnIndices): DataRow | null {
 	if (!Array.isArray(row) || row.length === 0) return null
 	const rawUg = row[colIndices.ug]
@@ -83,9 +127,12 @@ function parseDataRow(row: unknown, colIndices: ColumnIndices): DataRow | null {
 	if (rawUg === "" || rawConta === "") return null
 
 	const ug = String(rawUg).trim()
-	const conta = String(rawConta).replace(/\s+/g, "").replace(/\./g, "")
+	// A STN (170999) entra no relatório como contraparte, não como UG a cobrar: mesma
+	// exclusão das ferramentas de saldo e do upstream (analistacontagenerica@c64549f).
+	if (!isUgAcompanhada(ug)) return null
+	const conta = extractAccountCode(String(rawConta))
 	const mes = String(rawMes).trim()
-	const saldo = parseSaldo(rawSaldo)
+	const saldo = parseBrazilianAmount(rawSaldo)
 
 	if (Number.isNaN(saldo) || saldo === 0) return null
 	return { ug, conta, mes, saldo }
@@ -100,18 +147,24 @@ export const processData = (data: unknown[][]): ProcessDataResult => {
 
 	const grouped: GroupedData = {}
 	let hasGeneric = false
+	let skippedNonGeneric = 0
 
 	for (let i = header.headerRowIndex + 1; i < data.length; i++) {
 		const parsed = parseDataRow(data[i], header.colIndices)
 		if (!parsed) continue
 		const { ug, conta, mes, saldo } = parsed
-		if (conta.length > 0) {
-			hasGeneric = true
-			if (!grouped[ug]) grouped[ug] = {}
-			if (!grouped[ug][conta]) grouped[ug][conta] = []
-			grouped[ug][conta].push({ mes, saldo })
+		if (conta.length === 0) continue
+		// O port aceitava qualquer conta com saldo, embora a tela prometa identificar as de
+		// final 99: o recorte dependia de o relatório do Tesouro Gerencial vir já filtrado.
+		if (!isGenericAccount(conta)) {
+			skippedNonGeneric++
+			continue
 		}
+		hasGeneric = true
+		if (!grouped[ug]) grouped[ug] = {}
+		if (!grouped[ug][conta]) grouped[ug][conta] = []
+		grouped[ug][conta].push({ mes, saldo })
 	}
 
-	return { grouped, hasGeneric }
+	return { grouped, hasGeneric, skippedNonGeneric }
 }

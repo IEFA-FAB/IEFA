@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import * as XLSX from "xlsx"
-import { GENERIC_SUBITEM_REGEX, isGenericSubitem, parseWorkbook } from "#/subitens/parser"
+import { GENERIC_SUBITEM_REGEX, isGenericSubitem, parseSaldo, parseWorkbook } from "#/subitens/parser"
 
 /** Relatório do Tesouro Gerencial: onze linhas de título antes do cabeçalho (linha 12). */
 function buildWorkbook(header: unknown[], rows: unknown[][], preamble = 11): ArrayBuffer {
@@ -151,5 +151,12 @@ describe("isGenericSubitem", () => {
 			["120001", "1", "P 99", 5],
 		])
 		expect(parseWorkbook(buffer)[0].occurrences.map((o) => o.contaCorrente)).toEqual(["P 99"])
+	})
+})
+
+describe("parseSaldo", () => {
+	it("segue a regra compartilhada e conta 0 o que não for número", () => {
+		// A cópia antiga tirava todo ponto ("1500.25" → 150025) e não lia parênteses.
+		expect([10, "R$ 1.234,56", "1500.25", "(1.234,56)", "abc", undefined].map(parseSaldo)).toEqual([10, 1234.56, 1500.25, -1234.56, 0, 0])
 	})
 })

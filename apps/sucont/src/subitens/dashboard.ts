@@ -1,6 +1,7 @@
 // Extraído de routes/subitens-genericos.tsx (port do sucontsubitem): agregações do
 // painel gerencial (conferente, ODS, órgão superior, RAC, Pareto e níveis críticos)
 // sobre as UGs já filtradas pelo conferente.
+import { computeParetoGroup } from "#/lib/analysis/pareto"
 import type { ProcessedData, UgGroup } from "#/subitens/types"
 import { getConferente, getOdsForUg, getOrgaoSuperiorForUg } from "#/subitens/ug"
 
@@ -14,14 +15,6 @@ export interface CountSaldoSummary {
 	name: string
 	count: number
 	saldo: number
-}
-
-export interface ParetoEntry {
-	ug: string
-	count: number
-	cumulativeCount: number
-	percentage: number
-	ugPercentage: number
 }
 
 /** Quantas ocorrências cada conta contábil tem. */
@@ -87,31 +80,21 @@ export function summarizeByOdsOrgaoAndRac(filteredData: UgGroup[]): {
 	return { odsList, orgaoSuperiorList, racList }
 }
 
-/** Curva de Pareto sobre as UGs já ordenadas da mais para a menos recorrente. */
-export function buildParetoData(topUgsByInconsistencias: UgGroup[], totalInconsistencias: number, totalUgsCount: number): ParetoEntry[] {
-	return topUgsByInconsistencias.reduce(
-		(acc, curr, idx) => {
-			const cumulativeCount = (acc.length > 0 ? acc[acc.length - 1].cumulativeCount : 0) + curr.occurrences.length
-			acc.push({
-				ug: curr.ug,
-				count: curr.occurrences.length,
-				cumulativeCount,
-				percentage: (cumulativeCount / totalInconsistencias) * 100,
-				ugPercentage: ((idx + 1) / totalUgsCount) * 100,
-			})
-			return acc
-		},
-		[] as { ug: string; count: number; cumulativeCount: number; percentage: number; ugPercentage: number }[]
-	)
+/**
+ * Pareto das UGs pelo critério compartilhado (`computeParetoGroup`): as UGs, da mais
+ * recorrente para a menos, até somar 80% das ocorrências; as duas porcentagens e a lista
+ * são desse grupo.
+ *
+ * O port fixava 20% das UGs e lia a concentração no primeiro ponto a partir de 20%, que
+ * já incluía uma UG além das listadas (com 4 UGs, a lista vinha vazia e a concentração era
+ * a da 1ª UG).
+ */
+export function summarizePareto(topUgsByInconsistencias: UgGroup[]) {
+	const { group, ugPercentage, issuePercentage } = computeParetoGroup(topUgsByInconsistencias.map((g) => ({ ug: g.ug, count: g.occurrences.length })))
+	return { group, ugPercentage, issuePercentage }
 }
 
-/** UGs dos primeiros 20% e a fatia das ocorrências que elas concentram. */
-export function summarizePareto(paretoData: ParetoEntry[]) {
-	return {
-		top20PercentUgs: paretoData.filter((d) => d.ugPercentage <= 20),
-		concentrationPercentage: paretoData.find((d) => d.ugPercentage >= 20)?.percentage || 0,
-	}
-}
+export type ParetoSummary = ReturnType<typeof summarizePareto>
 
 /** Primeiro de cada ranking, para o contexto do assistente de IA. Sem dado, "N/A". */
 export function findCriticalLevels(

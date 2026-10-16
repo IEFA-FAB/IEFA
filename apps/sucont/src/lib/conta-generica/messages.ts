@@ -2,6 +2,7 @@
 // mensagens institucionais (por UG e consolidada) e contexto enviado ao oráculo.
 
 import { formatCurrency } from "#/lib/analista/types"
+import { describeParetoConcentration } from "#/lib/analysis/pareto"
 import type { AdvancedAnalysis } from "#/lib/conta-generica/advanced-analysis"
 import { formatMilitaryDate, type GroupedData, getConferente, getRacInfo, getUgName } from "#/lib/conta-generica/helpers"
 import { blocoFundamentacao, FUNDAMENTO_CONTA_GENERICA } from "#/lib/normas"
@@ -127,7 +128,7 @@ Dados da análise atual:
 - Órgão Superior mais crítico: ${criticalSummary?.os}
 - UG com mais inconsistências: ${criticalSummary?.ugCount} (${getUgName(criticalSummary?.ugCount || "")})
 - UG com maior volume irregular: ${criticalSummary?.ugVolume} (${getUgName(criticalSummary?.ugVolume || "")})
-- Análise de Pareto: ${paretoData?.ugPercentage}% das UGs concentram ${paretoData?.inconsistencyPercentage}% das inconsistências.
+- Análise de Pareto: ${paretoData ? describeParetoConcentration({ ugPercentage: paretoData.ugPercentage, issuePercentage: paretoData.inconsistencyPercentage, groupSize: paretoData.topUgs.length }) : "sem dados"}.
 
 Mapa de Risco por ODS:
 ${odsRiskMap.map((o) => `- ${o.ods}: ${o.count} inconsistências (${o.percentage}%), Volume: ${formatCurrency(o.volume)}`).join("\n")}

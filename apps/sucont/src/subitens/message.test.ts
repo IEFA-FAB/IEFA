@@ -1,6 +1,17 @@
 import { describe, expect, it } from "bun:test"
 import { addDays, todayInBrasilia } from "#/lib/brasilia"
-import { CONSOLIDATED_TEMPLATE, defaultDeadline, formatDeadlineText, formatMsgDate, INSTITUTIONAL_TEMPLATE, RAC_QUESTIONS } from "#/subitens/message"
+import {
+	buildRacMessageKey,
+	buildUgMessageKey,
+	CONSOLIDATED_TEMPLATE,
+	defaultDeadline,
+	formatDeadlineText,
+	formatMsgDate,
+	formatReportDate,
+	INSTITUTIONAL_TEMPLATE,
+	NO_GENERIC_CODE_MESSAGE,
+	RAC_QUESTIONS,
+} from "#/subitens/message"
 import type { ProcessedData } from "#/subitens/types"
 
 // O Intl separa "R$" do número com espaço não separável (U+00A0).
@@ -189,6 +200,36 @@ describe("formatMsgDate", () => {
 		expect(formatMsgDate("2026-10-05")).toBe("05OUT2026")
 		expect(formatMsgDate("2027-01-31")).toBe("31JAN2027")
 		expect(formatMsgDate("2026-12-01")).toBe("01DEZ2026")
+	})
+})
+
+describe("NO_GENERIC_CODE_MESSAGE", () => {
+	it("não chama o 999 de subitem (#639: é o favorecido genérico)", () => {
+		expect(NO_GENERIC_CODE_MESSAGE).not.toContain("99/999")
+		expect(NO_GENERIC_CODE_MESSAGE).toContain("subitem 99")
+		expect(NO_GENERIC_CODE_MESSAGE).toContain("favorecido genérico 999")
+	})
+})
+
+describe("chave da mensagem", () => {
+	it("não colide entre a lista por UG e a lista por questão, nem depende da posição", () => {
+		const keys = [buildUgMessageKey("120001"), buildUgMessageKey("120004"), buildRacMessageKey("RAC 28"), buildRacMessageKey("120001")]
+		expect(new Set(keys).size).toBe(keys.length)
+		expect(buildUgMessageKey("120001")).toBe(buildUgMessageKey("120001"))
+	})
+})
+
+describe("formatReportDate", () => {
+	it("formata a data do campo em DD/MM/AAAA, como o Intl pt-BR", () => {
+		expect(formatReportDate("2026-10-05")).toBe("05/10/2026")
+		expect(formatReportDate("2026-10-05")).toBe(new Intl.DateTimeFormat("pt-BR").format(new Date("2026-10-05T12:00:00")))
+	})
+
+	it("campo apagado não lança: devolve vazio", () => {
+		// O caminho antigo lançava RangeError com o campo vazio.
+		expect(() => new Intl.DateTimeFormat("pt-BR").format(new Date("T12:00:00"))).toThrow(RangeError)
+		expect(formatReportDate("")).toBe("")
+		expect(formatReportDate("lixo")).toBe("")
 	})
 })
 

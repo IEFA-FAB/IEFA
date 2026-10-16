@@ -3,7 +3,7 @@
  * mensagem institucional. Extraído de routes/analista-compatibilidade.tsx (port
  * do analistacompatibilidade); o estado continua na rota.
  */
-import { AlertTriangle, Building2, CalendarClock, Copy, TrendingDown, Users } from "lucide-react"
+import { AlertTriangle, Building2, CalendarClock, Check, Copy, TrendingDown, Users } from "lucide-react"
 import type { Dispatch, SetStateAction } from "react"
 import { EditableMessage } from "#/components/editable-message"
 import { Badge } from "#/components/ui/badge"
@@ -69,6 +69,8 @@ interface MessageGeneratorProps {
 	setMessageTypes: PerUgSetter<MessageType>
 	setPrazos: PerUgSetter<string>
 	onCopy: (text: string) => void
+	/** A cópia desta mensagem acabou de dar certo (`useCopyFeedback`). */
+	isCopied: boolean
 }
 
 function MessageGenerator({
@@ -85,6 +87,7 @@ function MessageGenerator({
 	setMessageTypes,
 	setPrazos,
 	onCopy,
+	isCopied,
 }: MessageGeneratorProps) {
 	return (
 		<div className="p-6 lg:col-span-7 flex flex-col">
@@ -181,9 +184,9 @@ function MessageGenerator({
 						</div>
 					)}
 
-					<Button type="button" variant="outline" size="sm" onClick={() => onCopy(draft.text)}>
-						<Copy />
-						Copiar
+					<Button type="button" variant={isCopied ? "success" : "outline"} size="sm" onClick={() => onCopy(draft.text)}>
+						{isCopied ? <Check /> : <Copy />}
+						{isCopied ? "Copiado" : "Copiar"}
 					</Button>
 				</div>
 			</div>

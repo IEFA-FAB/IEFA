@@ -1,6 +1,16 @@
 import { describe, expect, it } from "bun:test"
 import { formatCurrency } from "#/lib/analista/types"
-import { formatMilitaryDate, getConferente, getOds, getOs, getRacInfo, getUgName } from "#/lib/conta-generica/helpers"
+import {
+	formatMilitaryDate,
+	getConferente,
+	getOds,
+	getOs,
+	getRacInfo,
+	getUgName,
+	listConferenteFilterValues,
+	UNMAPPED_CONFERENTE,
+} from "#/lib/conta-generica/helpers"
+import { CONFERENTES } from "#/lib/ug/registry"
 
 describe("helpers da conta genérica", () => {
 	it("lê o cadastro de UG e cai no rótulo próprio quando a UG não existe", () => {
@@ -20,5 +30,11 @@ describe("helpers da conta genérica", () => {
 		expect(formatCurrency(1234.5)).toBe("R$ 1.234,50")
 		expect(formatMilitaryDate("2026-12-01")).toBe("01DEZ2026")
 		expect(formatMilitaryDate("")).toBe("XXXMÊSANO")
+	})
+
+	it("o filtro por responsável ganha o botão NÃO MAPEADO quando há UG sem conferente", () => {
+		expect(listConferenteFilterValues(["120001"])).toEqual([...CONFERENTES])
+		expect(listConferenteFilterValues(["120001", "888888"])).toEqual([...CONFERENTES, UNMAPPED_CONFERENTE])
+		expect(listConferenteFilterValues(["120017"])).toContain("NÃO MAPEADO")
 	})
 })

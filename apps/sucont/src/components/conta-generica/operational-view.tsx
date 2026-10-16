@@ -12,7 +12,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip
 import type { MessageDraft } from "#/hooks/use-editable-message"
 import { formatCurrency } from "#/lib/analista/types"
 import { type GroupedData, getConferente, getOds, getOs, getUgName } from "#/lib/conta-generica/helpers"
-import { CONFERENTES } from "#/lib/ug/registry"
 
 export type MessageMode = "individual" | "unica"
 
@@ -42,9 +41,12 @@ export function OperationalHeader({ messageMode, onMessageModeChange }: { messag
  * pintados de `tech-blue`/`success` conforme o estado.
  */
 export function ConferenteFilterControl({
+	conferentes,
 	conferenteFilter,
 	onConferenteFilterChange,
 }: {
+	/** Opções além de "Todos" (`listConferenteFilterValues`). */
+	conferentes: readonly string[]
 	conferenteFilter: string | null
 	onConferenteFilterChange: (conferente: string | null) => void
 }) {
@@ -55,7 +57,7 @@ export function ConferenteFilterControl({
 				label="Filtrar por responsável"
 				value={conferenteFilter ?? "all"}
 				onValueChange={(value) => onConferenteFilterChange(value === "all" ? null : value)}
-				options={[{ value: "all", label: "Todos" }, ...CONFERENTES.map((conf) => ({ value: conf, label: conf }))]}
+				options={[{ value: "all", label: "Todos" }, ...conferentes.map((conf) => ({ value: conf, label: conf }))]}
 			/>
 		</div>
 	)

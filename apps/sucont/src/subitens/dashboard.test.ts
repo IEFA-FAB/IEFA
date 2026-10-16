@@ -1,6 +1,5 @@
 import { describe, expect, it } from "bun:test"
 import {
-	buildParetoData,
 	countOccurrencesByConta,
 	findCriticalLevels,
 	groupOccurrencesByRac,
@@ -75,29 +74,25 @@ describe("summarizeByOdsOrgaoAndRac", () => {
 
 describe("Pareto", () => {
 	const sorted = [...DATA].sort((a, b) => b.occurrences.length - a.occurrences.length)
-	const pareto = buildParetoData(sorted, 7, 4)
 
-	it("acumula ocorrências e percentuais de UG", () => {
-		expect(pareto).toEqual([
-			{ ug: "120006 GAP-BR", count: 3, cumulativeCount: 3, percentage: (3 / 7) * 100, ugPercentage: 25 },
-			{ ug: "120004 BABR", count: 2, cumulativeCount: 5, percentage: (5 / 7) * 100, ugPercentage: 50 },
-			{ ug: "120005 PABR", count: 1, cumulativeCount: 6, percentage: (6 / 7) * 100, ugPercentage: 75 },
-			{ ug: "999999 X", count: 1, cumulativeCount: 7, percentage: 100, ugPercentage: 100 },
+	it("o grupo vai até 80% das ocorrências, e as porcentagens são dele", () => {
+		// 7 ocorrências: 3 + 2 + 1 = 6 ≥ 5,6 → três UGs de quatro.
+		const summary = summarizePareto(sorted)
+		expect(summary.group).toEqual([
+			{ ug: "120006 GAP-BR", count: 3 },
+			{ ug: "120004 BABR", count: 2 },
+			{ ug: "120005 PABR", count: 1 },
 		])
-		expect(buildParetoData([], 0, 0)).toEqual([])
+		expect(summary.ugPercentage).toBe(75)
+		expect(summary.issuePercentage).toBeCloseTo((6 / 7) * 100)
 	})
 
-	it("resume os 20% de UGs e a concentração no primeiro ponto a partir de 20%", () => {
-		expect(summarizePareto(pareto)).toEqual({ top20PercentUgs: [], concentrationPercentage: (3 / 7) * 100 })
-		const many = buildParetoData(
-			Array.from({ length: 10 }, (_, i) => group(`U${i}`, [["A", 1]])),
-			10,
-			10
-		)
+	it("sem corte fixo de 20% das UGs", () => {
+		const many = Array.from({ length: 10 }, (_, i) => group(`U${i}`, [["A", 1]]))
 		const summary = summarizePareto(many)
-		expect(summary.top20PercentUgs.map((d) => d.ug)).toEqual(["U0", "U1"])
-		expect(summary.concentrationPercentage).toBe(20)
-		expect(summarizePareto([])).toEqual({ top20PercentUgs: [], concentrationPercentage: 0 })
+		expect(summary.group).toHaveLength(8)
+		expect([summary.ugPercentage, summary.issuePercentage]).toEqual([80, 80])
+		expect(summarizePareto([])).toEqual({ group: [], ugPercentage: 0, issuePercentage: 0 })
 	})
 })
 

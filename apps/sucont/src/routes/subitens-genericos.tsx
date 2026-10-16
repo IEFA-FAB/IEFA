@@ -13,6 +13,7 @@ import { EXCEL_ACCEPT, FileDropzone } from "#/components/ui/file-dropzone"
 import { SectionHeader } from "#/components/ui/section-header"
 import { SegmentedControl } from "#/components/ui/segmented-control"
 import { StatTile } from "#/components/ui/stat-tile"
+import { useCopyFeedback } from "#/hooks/use-copy-feedback"
 import { useMessageDrafts } from "#/hooks/use-editable-message"
 import { formatCurrency } from "#/lib/analista/types"
 import { todayInBrasilia } from "#/lib/brasilia"
@@ -28,7 +29,6 @@ import { TacticalDashboard } from "#/subitens/components/TacticalDashboard"
 import { UgMessageCard } from "#/subitens/components/UgMessageCard"
 import { CONFERENTES_MAPPING } from "#/subitens/constants"
 import {
-	buildParetoData,
 	countOccurrencesByConta,
 	findCriticalLevels,
 	groupOccurrencesByRac,
@@ -36,7 +36,17 @@ import {
 	summarizeByOdsOrgaoAndRac,
 	summarizePareto,
 } from "#/subitens/dashboard"
-import { CONSOLIDATED_TEMPLATE, defaultDeadline, formatDeadlineText, formatMsgDate, INSTITUTIONAL_TEMPLATE } from "#/subitens/message"
+import {
+	buildRacMessageKey,
+	buildUgMessageKey,
+	CONSOLIDATED_TEMPLATE,
+	defaultDeadline,
+	formatDeadlineText,
+	formatMsgDate,
+	formatReportDate,
+	INSTITUTIONAL_TEMPLATE,
+	NO_GENERIC_CODE_MESSAGE,
+} from "#/subitens/message"
 import { parseWorkbook } from "#/subitens/parser"
 import type { MessageConfig, UgGroup } from "#/subitens/types"
 import { formatUgName, getConferente } from "#/subitens/ug"
@@ -49,7 +59,7 @@ const ANALYSIS_NOTES = [
 	{
 		icon: Search,
 		title: "O que é analisado",
-		text: "O relatório do Tesouro Gerencial é varrido em busca de subitens genéricos (99, 999, P99, /99) e de outras falhas de classificação previstas no RAC.",
+		text: "O relatório do Tesouro Gerencial é varrido em busca do subitem genérico 99 (“Outros…”, também como P99 ou /99) e do favorecido genérico 999, que não é subitem, e de outras falhas de classificação previstas no RAC.",
 	},
 	{
 		icon: CheckCircle2,
@@ -81,7 +91,7 @@ function SubitensGenericos() {
 	const [data, setData] = useState<UgGroup[]>([])
 	const [error, setError] = useState<string | null>(null)
 	const [isProcessing, setIsProcessing] = useState(false)
-	const [copiedIndex, setCopiedIndex] = useState<number | null>(null)
+	const { copiedKey, copy: copyToClipboard } = useCopyFeedback()
 	const drafts = useMessageDrafts()
 	const [activeTab, setActiveTab] = useState<"messages" | "dashboard">("messages")
 
@@ -95,7 +105,7 @@ function SubitensGenericos() {
 	const [selectedConferente, setSelectedConferente] = useState<string>("all")
 	const [dashboardTab, setDashboardTab] = useState<"operacional" | "tatico" | "estrategico">("operacional")
 
-	const formattedReportDate = new Intl.DateTimeFormat("pt-BR").format(new Date(`${reportDate}T12:00:00`))
+	const formattedReportDate = formatReportDate(reportDate)
 
 	const resetAnalysis = () => {
 		setData([])
@@ -152,7 +162,7 @@ function SubitensGenericos() {
 			try {
 				const result = parseWorkbook(e.target?.result)
 				if (result.length === 0) {
-					setError("Nenhum subitem genérico (99/999) identificado nos dados fornecidos.")
+					setError(NO_GENERIC_CODE_MESSAGE)
 				} else {
 					setData(result)
 				}
@@ -172,12 +182,6 @@ function SubitensGenericos() {
 	const handleFiles = (files: File[]) => {
 		const file = files[0]
 		if (file) processFile(file)
-	}
-
-	const copyToClipboard = (text: string, index: number) => {
-		navigator.clipboard.writeText(text)
-		setCopiedIndex(index)
-		setTimeout(() => setCopiedIndex(null), 2000)
 	}
 
 	// ── Filtering ─────────────────────────────────────────────
@@ -212,10 +216,7 @@ function SubitensGenericos() {
 
 	const topUgsByInconsistencias = [...filteredData].sort((a, b) => b.occurrences.length - a.occurrences.length)
 
-	const totalUgsCount = filteredData.length
-	const paretoData = buildParetoData(topUgsByInconsistencias, totalInconsistencias, totalUgsCount)
-
-	const paretoSummary = summarizePareto(paretoData)
+	const paretoSummary = summarizePareto(topUgsByInconsistencias)
 
 	const criticalLevels = findCriticalLevels(odsList, orgaoSuperiorList, topUgsByInconsistencias, filteredData)
 
@@ -227,7 +228,7 @@ function SubitensGenericos() {
 			source={<TesouroGerencialPath />}
 			reference={
 				<RacReference
-					statement="As Unidades Gestoras utilizam contas contábeis e subitens genéricos (99, 999, P99, /99) no registro de suas transações?"
+					statement="As Unidades Gestoras utilizam subitens genéricos (99, P99, /99) ou o favorecido genérico 999 no registro de suas transações?"
 					objective="Identificar a utilização indevida de contas contábeis e subitens genéricos nos registros das Unidades Gestoras."
 					risk="O uso de subitens genéricos oculta a real natureza da transação, prejudicando a transparência, a precisão da informação e a evidenciação contábil."
 					importance="A regularização preserva a qualidade das demonstrações contábeis e apoia a tomada de decisão da alta administração do COMAER."
@@ -381,7 +382,8 @@ function SubitensGenericos() {
 														currentMsgNumber,
 														"all"
 													)
-													const draft = drafts.of(`ug:${group.ug}`, message)
+													const messageKey = buildUgMessageKey(group.ug)
+													const draft = drafts.of(messageKey, message)
 
 													return (
 														<UgMessageCard
@@ -390,8 +392,8 @@ function SubitensGenericos() {
 															idx={idx}
 															ugConfig={ugConfig}
 															draft={draft}
-															isCopied={copiedIndex === idx}
-															onCopy={copyToClipboard}
+															isCopied={copiedKey === messageKey}
+															onCopy={(text) => copyToClipboard(text, messageKey)}
 															onConfigChange={(field, value) => updateUgConfig(group.ug, field, value)}
 														/>
 													)
@@ -413,7 +415,8 @@ function SubitensGenericos() {
 														getRacDeadlineText(racId),
 														currentMsgNumber
 													)
-													const draft = drafts.of(`rac:${racId}`, message)
+													const messageKey = buildRacMessageKey(racId)
+													const draft = drafts.of(messageKey, message)
 													const totalSaldo = occurrences.reduce((sum, occ) => sum + occ.saldo, 0)
 													const uniqueUgs = new Set(occurrences.map((o) => o.ug)).size
 
@@ -427,8 +430,8 @@ function SubitensGenericos() {
 															occurrencesCount={occurrences.length}
 															totalSaldo={totalSaldo}
 															uniqueUgs={uniqueUgs}
-															isCopied={copiedIndex === idx}
-															onCopy={copyToClipboard}
+															isCopied={copiedKey === messageKey}
+															onCopy={(text) => copyToClipboard(text, messageKey)}
 															onConfigChange={(field, value) => updateRacConfig(racId, field, value)}
 														/>
 													)

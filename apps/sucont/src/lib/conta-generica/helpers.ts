@@ -1,6 +1,6 @@
 // Extraído de routes/conta-generica.tsx (port do analistacontagenerica): mapas e
 // formatadores usados pela análise, pelas mensagens e pela tela.
-import { getUg } from "#/lib/ug/registry"
+import { CONFERENTES, getUg } from "#/lib/ug/registry"
 
 // ── Data Maps ────────────────────────────────────────────────────────────────
 
@@ -24,7 +24,21 @@ export const RAC_QUESTIONS = [
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-export const getConferente = (ug: string) => getUg(ug)?.conferente || "NÃO MAPEADO"
+/** Rótulo do responsável de UG sem conferente no cadastro (ou fora dele). */
+export const UNMAPPED_CONFERENTE = "NÃO MAPEADO"
+
+export const getConferente = (ug: string) => getUg(ug)?.conferente || UNMAPPED_CONFERENTE
+
+/**
+ * Opções do filtro por responsável: os conferentes do cadastro e, quando o resultado tem
+ * UG sem conferente, o "NÃO MAPEADO". Sem esse botão, o filtro escolhido pelo painel
+ * tático (clique no cartão "NÃO MAPEADO") deixava o segmentado sem nada marcado, e não
+ * havia como escolhê-lo de novo.
+ */
+export function listConferenteFilterValues(ugs: readonly string[]): string[] {
+	const hasUnmapped = ugs.some((ug) => getConferente(ug) === UNMAPPED_CONFERENTE)
+	return hasUnmapped ? [...CONFERENTES, UNMAPPED_CONFERENTE] : [...CONFERENTES]
+}
 
 export const getRacInfo = (conta: string) => {
 	const firstDigit = conta.charAt(0)

@@ -3,6 +3,7 @@
 import { AlertTriangle, Award, Target, TrendingUp, Wallet } from "lucide-react"
 import { Badge } from "#/components/ui/badge"
 import { formatCurrency } from "#/lib/analista/types"
+import { describeHiddenUgs, formatParetoShare, formatUgCount, splitParetoList } from "#/lib/analysis/pareto"
 import type { ParetoData, PriorityItem } from "#/lib/conta-generica/advanced-analysis"
 import type { DerivedStats } from "#/lib/conta-generica/derived-stats"
 import { getConferente, getOds, getOs, getUgName, RAC_QUESTIONS } from "#/lib/conta-generica/helpers"
@@ -70,6 +71,7 @@ function TacticalRankings({ topUgsByCount, topContasByFreq }: Pick<TacticalViewP
 }
 
 function ParetoCard({ paretoData }: Pick<TacticalViewProps, "paretoData">) {
+	const { shown, hiddenCount } = splitParetoList(paretoData?.topUgs ?? [])
 	return (
 		<div className="bg-card p-6 rounded-xl border border-border">
 			<div className="flex items-center gap-2 mb-4">
@@ -78,20 +80,22 @@ function ParetoCard({ paretoData }: Pick<TacticalViewProps, "paretoData">) {
 			</div>
 			<div className="bg-action/10 p-4 rounded-xl border border-action/30 mb-4">
 				<p className="text-subheading text-action leading-relaxed">
-					<span className="text-display text-action">{paretoData?.ugPercentage}%</span> das UGs concentram{" "}
-					<span className="text-display text-action">{paretoData?.inconsistencyPercentage}%</span> das inconsistências.
+					<span className="text-display text-action">{formatParetoShare(paretoData?.ugPercentage ?? 0)}</span> das UGs (
+					{formatUgCount(paretoData?.topUgs.length ?? 0)}) concentram{" "}
+					<span className="text-display text-action">{formatParetoShare(paretoData?.inconsistencyPercentage ?? 0)}</span> das inconsistências.
 				</p>
 			</div>
-			<h4 className="text-label text-muted-foreground mb-3">UGs que compõem a concentração (Top 5)</h4>
+			<h4 className="text-label text-muted-foreground mb-3">UGs que compõem a concentração</h4>
 			<div className="space-y-2">
-				{paretoData?.topUgs.slice(0, 5).map((u, i) => (
-					<div key={i} className="flex justify-between items-center text-caption p-2 bg-muted/50 rounded-lg">
+				{shown.map((u) => (
+					<div key={u.ug} className="flex justify-between items-center text-caption p-2 bg-muted/50 rounded-lg">
 						<span className="font-bold text-foreground">
 							UG {u.ug} ({getUgName(u.ug)})
 						</span>
 						<span className="font-bold text-action">{u.count} itens</span>
 					</div>
 				))}
+				{hiddenCount > 0 && <p className="text-caption text-muted-foreground">{describeHiddenUgs(hiddenCount)}</p>}
 			</div>
 		</div>
 	)

@@ -127,12 +127,17 @@ describe("parseWorkbook: ramo com cabeçalho", () => {
 				["120062", "JAN", "115110101", "R$ 1.234,56"],
 				["120062", "FEV", "115110101", "1234,5"],
 				["120062", "MAR", "115110101", "1500.25"],
-				// Só ponto de milhar é lido como decimal (comportamento herdado).
+				// Só pontos em grupos de três: milhar, como no formato brasileiro (o port lia 1,234).
 				["120062", "ABR", "115110101", "1.234"],
 				["120062", "MAI", "115110101", "-R$ 10,00"],
+				["120062", "JUN", "115110101", "12.345.678"],
+				// Parênteses: negativo (o port devolvia NaN e a linha sumia).
+				["120062", "JUL", "115110101", "(1.234,56)"],
+				["120062", "AGO", "115110101", "R$ (500)"],
+				["120062", "SET", "115110101", "(1.234)"],
 			])
 		)
-		expect(result.processed.map((r) => r.saldo)).toEqual([1234.56, 1234.5, 1500.25, 1.234, -10])
+		expect(result.processed.map((r) => r.saldo)).toEqual([1234.56, 1234.5, 1500.25, 1234, -10, 12345678, -1234.56, -500, -1234])
 	})
 
 	it("descarta linha com célula vazia, saldo zero, saldo ilegível ou UG fora do acompanhamento", () => {
@@ -173,6 +178,20 @@ describe("parseWorkbook: fallback heurístico", () => {
 			processed: [cobranca("120062", "jan/2026", 500), cobranca("120062", "01/2026", 10), cobranca("120062", "março", 7)],
 			isHeaderFound: true,
 		})
+	})
+
+	it("palavra que não é mês não vira competência", () => {
+		const result = parseWorkbook(
+			toWorkbook([
+				["UG", "Mês", "Conta", "Saldo"],
+				// O port tomava "TOTAL" como mês; o "FEV/2026" que vinha depois ficava sem lugar.
+				[null, "120062", "TOTAL", "FEV/2026", "115110101", 5],
+				[null, "120062", "BASP", "115110101", 6],
+				[null, "120062", "13/2026", "115110101", 7],
+				[null, "120062", "Março/2026", "115110101", 8],
+			])
+		)
+		expect(result.processed).toEqual([cobranca("120062", "FEV/2026", 5), cobranca("120062", "Março/2026", 8)])
 	})
 
 	it("um segundo código de 6 dígitos vira saldo se o saldo ainda não apareceu", () => {

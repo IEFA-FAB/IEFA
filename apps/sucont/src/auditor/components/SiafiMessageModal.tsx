@@ -5,6 +5,7 @@ import { Button } from "#/components/ui/button"
 import { Input } from "#/components/ui/input"
 import { Label } from "#/components/ui/label"
 import { toast } from "#/components/ui/toast"
+import { useCopyFeedback } from "#/hooks/use-copy-feedback"
 import { todayInBrasilia } from "#/lib/brasilia"
 import { registerAuditorMessageFn } from "#/server/auditor.fn"
 import { applyDeadlineChange, generateMessage, getDefaultMessageDeadline } from "../services/dataProcessor"
@@ -24,6 +25,9 @@ interface SiafiMessageModalProps {
 /** Enquanto a mensagem não foi registrada, o corpo carrega este marcador no lugar do número. */
 const PENDING_NUMBER = "XXX"
 
+/** Chave do "Copiado" do modal: há uma mensagem só. */
+const MESSAGE_COPY_KEY = "message"
+
 export const SiafiMessageModal: React.FC<SiafiMessageModalProps> = ({
 	isOpen,
 	onClose,
@@ -34,7 +38,10 @@ export const SiafiMessageModal: React.FC<SiafiMessageModalProps> = ({
 	analysisRunId = null,
 }) => {
 	const [deadline, setDeadline] = useState("")
-	const [copied, setCopied] = useState(false)
+	// "Copiado" só depois de a escrita resolver (`useCopyFeedback`); antes, a cópia do texto
+	// já registrado não era aguardada e a falha passava como sucesso.
+	const { copiedKey, copy, reset: resetCopied } = useCopyFeedback()
+	const copied = copiedKey === MESSAGE_COPY_KEY
 	const [editedMessage, setEditedMessage] = useState("")
 	/** Número definitivo, atribuído pela sequência do banco no momento do registro. */
 	const [assignedNumber, setAssignedNumber] = useState<number | null>(null)
@@ -48,7 +55,7 @@ export const SiafiMessageModal: React.FC<SiafiMessageModalProps> = ({
 			// ISO, como o `<input type="date">` grava; o texto da mensagem sai em DD/MM/AAAA.
 			const defaultDeadline = getDefaultMessageDeadline()
 			setDeadline(defaultDeadline)
-			setCopied(false)
+			resetCopied()
 			setAssignedNumber(null)
 
 			const initialMsg = generateMessage(context as "RANKING" | "HEATMAP", record, PENDING_NUMBER, defaultDeadline, history, timeFilter)
@@ -56,7 +63,7 @@ export const SiafiMessageModal: React.FC<SiafiMessageModalProps> = ({
 			deadlineRef.current = defaultDeadline
 			setEditedMessage(initialMsg)
 		}
-	}, [isOpen, record, context, history, timeFilter])
+	}, [isOpen, record, context, history, timeFilter, resetCopied])
 
 	// Prazo novo, antes do registro: o texto intocado é regerado; o que o operador editou mantém a
 	// edição e só troca a data antiga pela nova. Data incompleta (o campo emite "" no meio da
@@ -81,14 +88,10 @@ export const SiafiMessageModal: React.FC<SiafiMessageModalProps> = ({
 			// gravado e o texto copiado são o mesmo, senão a prova do envio não vale.
 			setAssignedNumber(result.number)
 			setEditedMessage(result.corpo)
-			try {
-				await navigator.clipboard.writeText(result.corpo)
-				setCopied(true)
-				setTimeout(() => setCopied(false), 2000)
-				toast.success(`MSG NR ${result.number} registrada e copiada`)
-			} catch {
-				toast.success(`MSG NR ${result.number} registrada — copie o texto manualmente`)
-			}
+			await copy(result.corpo, MESSAGE_COPY_KEY, {
+				onCopied: () => toast.success(`MSG NR ${result.number} registrada e copiada`),
+				onFailed: () => toast.success(`MSG NR ${result.number} registrada — copie o texto manualmente`),
+			})
 		},
 		onError: (e) => toast.error(e instanceof Error ? e.message : "Falha ao registrar a mensagem"),
 	})
@@ -97,9 +100,7 @@ export const SiafiMessageModal: React.FC<SiafiMessageModalProps> = ({
 
 	const handleCopy = () => {
 		if (assignedNumber !== null) {
-			navigator.clipboard.writeText(editedMessage)
-			setCopied(true)
-			setTimeout(() => setCopied(false), 2000)
+			void copy(editedMessage, MESSAGE_COPY_KEY)
 			return
 		}
 		registerMutation.mutate(editedMessage)

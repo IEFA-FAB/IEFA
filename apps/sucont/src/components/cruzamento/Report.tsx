@@ -21,6 +21,7 @@ import { Button } from "#/components/ui/button"
 import { Input } from "#/components/ui/input"
 import { Label } from "#/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
+import { useCopyFeedback } from "#/hooks/use-copy-feedback"
 import { CONSOLIDATED_DRAFT_KEY, useMessageDrafts } from "#/hooks/use-editable-message"
 import type { ReportData, UGAnalysis } from "#/lib/cruzamento/analyzer"
 import { CONFERENTES } from "#/lib/ug/registry"
@@ -57,10 +58,14 @@ const formatNormalDate = (dateString: string) => {
 	}
 }
 
+/** Chave do "Copiado" da mensagem consolidada; as por UG usam `ug:<código>`. */
+const CONSOLIDATED_COPY_KEY = "consolidated"
+
 export function Report({ data }: ReportProps) {
 	const { stats, ranking } = data
 	const [expandedUg, setExpandedUg] = useState<string | null>(null)
-	const [copiedUg, setCopiedUg] = useState<string | null>(null)
+	// "Copiado" só depois de a escrita resolver; falha vira aviso de erro (`useCopyFeedback`).
+	const { copiedKey, copy } = useCopyFeedback()
 	const [messageConfigs, setMessageConfigs] = useState<Record<string, MessageConfig>>({})
 	const [selectedConferente, setSelectedConferente] = useState<string>("ALL")
 	const [selectedLevel, setSelectedLevel] = useState<"ESTRATEGICO" | "TATICO" | "OPERACIONAL">("ESTRATEGICO")
@@ -75,7 +80,6 @@ export function Report({ data }: ReportProps) {
 		deadlineDate: nextWeek,
 	})
 	const [showConsolidated, setShowConsolidated] = useState(false)
-	const [copiedConsolidated, setCopiedConsolidated] = useState(false)
 	const drafts = useMessageDrafts()
 
 	const getConfig = (ug: string): MessageConfig => {
@@ -216,9 +220,7 @@ SUCONT-3 • DIREF • COMAER`
 
 	const handleCopyMessage = (e: React.MouseEvent, ug: UGAnalysis) => {
 		e.stopPropagation()
-		navigator.clipboard.writeText(drafts.of(ug.ug, generateMessage(ug)).text)
-		setCopiedUg(ug.ug)
-		setTimeout(() => setCopiedUg(null), 2000)
+		void copy(drafts.of(ug.ug, generateMessage(ug)).text, `ug:${ug.ug}`)
 	}
 
 	const ugsComInconsistencias = useMemo(() => ranking.filter((ug) => ug.status !== "REGULAR"), [ranking])
@@ -644,13 +646,11 @@ SUCONT-3 • DIREF • COMAER`
 										variant="outline"
 										size="sm"
 										onClick={() => {
-											navigator.clipboard.writeText(consolidatedMessage.text)
-											setCopiedConsolidated(true)
-											setTimeout(() => setCopiedConsolidated(false), 2000)
+											void copy(consolidatedMessage.text, CONSOLIDATED_COPY_KEY)
 										}}
 										className="flex items-center py-1.5 bg-card border-border hover:bg-muted/50 hover:border-border/80 text-foreground shadow-sm"
 									>
-										{copiedConsolidated ? (
+										{copiedKey === CONSOLIDATED_COPY_KEY ? (
 											<>
 												<Check className="w-3.5 h-3.5 text-success" />
 												<span className="text-success">Copiado!</span>
@@ -869,7 +869,7 @@ SUCONT-3 • DIREF • COMAER`
 															onClick={(e) => handleCopyMessage(e, ug)}
 															className="flex items-center py-1.5 bg-card border-border hover:bg-muted/50 hover:border-border/80 text-foreground shadow-sm"
 														>
-															{copiedUg === ug.ug ? (
+															{copiedKey === `ug:${ug.ug}` ? (
 																<>
 																	<Check className="w-3.5 h-3.5 text-success" />
 																	<span className="text-success">Copiado!</span>
