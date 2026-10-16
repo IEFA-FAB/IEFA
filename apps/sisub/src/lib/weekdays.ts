@@ -14,6 +14,20 @@ export const WEEKDAYS = [
 	{ num: 7, label: "Domingo", abbr: "Dom" },
 ] as const
 
+/**
+ * Faixas da semana com efetivo próprio — as mesmas que a previsão de comensais pinta de cores
+ * diferentes (`DayCard`): de segunda a quinta o efetivo é o pleno, na sexta cai (expediente
+ * curto, dispensas) e no fim de semana fica a escala. O auxiliador de quantitativos do cardápio
+ * semanal pede um número por faixa.
+ */
+export const WEEKDAY_GROUPS = [
+	{ key: "mon-thu", label: "Seg a Qui", days: [1, 2, 3, 4] },
+	{ key: "fri", label: "Sexta", days: [5] },
+	{ key: "weekend", label: "Fim de semana", days: [6, 7] },
+] as const
+
+export type WeekdayGroup = (typeof WEEKDAY_GROUPS)[number]
+
 /** Rótulo do dia ISO (1–7), `undefined` fora da faixa. */
 export function getWeekdayLabel(day: number): string | undefined {
 	return WEEKDAYS.find((weekday) => weekday.num === day)?.label

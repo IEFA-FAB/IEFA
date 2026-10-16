@@ -1,20 +1,7 @@
 import type { RecipeSummary } from "@iefa/sisub-domain"
 import { Link, useNavigate, useParams, useSearch } from "@tanstack/react-router"
 import { useVirtualizer } from "@tanstack/react-virtual"
-import {
-	ArrowDownAZ,
-	ArrowDownZA,
-	CalendarCheck,
-	ChefHat,
-	Folder as FolderIcon,
-	GitFork,
-	Globe,
-	Loader2,
-	Replace,
-	Search,
-	SquareCheckBig,
-	X,
-} from "lucide-react"
+import { ArrowDownAZ, ArrowDownZA, CalendarCheck, ChefHat, Folder as FolderIcon, GitFork, Globe, Replace, Search, SquareCheckBig, X } from "lucide-react"
 import { type ReactNode, type Ref, useEffect, useId, useImperativeHandle, useMemo, useRef, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -27,7 +14,6 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { TREE_LEAF_TONE, TREE_MUTED_TONE, TreeRow, treeFolderTone } from "@/components/ui/tree-row"
 import type { BulkSelectedRecipe } from "@/hooks/business/useBulkRecipeOps"
-import { useRecipe } from "@/hooks/data/useRecipe"
 import { useRecipeFolders } from "@/hooks/data/useRecipeFolders"
 import { useRecipeLastReviews, useRecipeMenuUsage, useRecipes } from "@/hooks/data/useRecipes"
 import { usePersistentState } from "@/hooks/ui/usePersistentState"
@@ -37,8 +23,8 @@ import { datedCsvFilename, downloadCsv } from "@/lib/csv"
 import { pluralize } from "@/lib/flows/model"
 import { allRecipeFolderIds, buildRecipeTree, type RecipeTreeNode } from "@/lib/recipe-tree"
 import { buildRecipesCsv } from "@/lib/recipes-csv"
-import type { RecipeWithIngredients } from "@/types/domain/recipes"
 import { RecipeFoldersDialog } from "./RecipeFoldersDialog"
+import { RecipeHoverContent } from "./RecipeLink"
 import { RecipesBulkActionsBar } from "./RecipesBulkActionsBar"
 import { RecipesFindReplaceDialog } from "./RecipesFindReplaceDialog"
 import { describeSelectVisible, pickEmptyRecipesHint } from "./recipes-manager-state"
@@ -49,73 +35,9 @@ const ROW_HEIGHT = 48
 /** Ações do catálogo de pastas e a exportação ficam no PageHeader da rota, como em Insumos. */
 export type RecipesManagerHandle = { openFoldersDialog: () => void; exportCsv: () => void }
 
-function formatQty(n: number): string {
-	return n.toLocaleString("pt-BR", { maximumFractionDigits: 2 })
-}
-
 /** Formata a data ISO da revisão como "09/06/2026" (curto, pt-BR). Espelha a árvore de insumos. */
 function formatReviewDate(iso: string): string {
 	return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" })
-}
-
-/** Conteúdo do hovercard de uma preparação: prévia dos ingredientes principais (montado só ao abrir → fetch sob demanda) */
-function RecipeHoverContent({ recipe }: { recipe: RecipeSummary }) {
-	const isGlobal = !recipe.kitchen_id
-	const { data, isLoading } = useRecipe(recipe.id)
-	const detail = data as RecipeWithIngredients | undefined
-
-	// Ingredientes ordenados por prioridade; obrigatórios primeiro.
-	const ingredients = (detail?.ingredients ?? [])
-		.filter((ri) => !ri.deleted_at)
-		.sort((a, b) => Number(a.is_optional ?? false) - Number(b.is_optional ?? false) || (a.priority_order ?? 999) - (b.priority_order ?? 999))
-
-	const preview = ingredients.slice(0, 7)
-	const extra = ingredients.length - preview.length
-
-	return (
-		<>
-			<div className="flex items-start gap-2">
-				<div
-					className={`flex size-7 shrink-0 items-center justify-center rounded-(--radius) border ${
-						isGlobal ? "border-primary/20 bg-primary/10" : "border-border/30 bg-muted/50"
-					}`}
-				>
-					{isGlobal ? <Globe className="size-3.5 text-primary" /> : <ChefHat className="size-3.5 text-muted-foreground" />}
-				</div>
-				<div className="min-w-0">
-					<p className="text-sm font-semibold leading-tight">{recipe.name}</p>
-					<p className="text-xs text-muted-foreground">Ingredientes{recipe.portion_yield != null ? ` · ${recipe.portion_yield} porções` : ""}</p>
-				</div>
-			</div>
-
-			{isLoading ? (
-				<div className="flex items-center gap-2 py-2 text-xs text-muted-foreground">
-					<Loader2 className="size-3.5 animate-spin" />
-					Carregando ingredientes…
-				</div>
-			) : preview.length === 0 ? (
-				<p className="py-1 text-xs text-muted-foreground">Sem ingredientes cadastrados.</p>
-			) : (
-				<div className="flex flex-col gap-1 text-xs">
-					{preview.map((ri) => (
-						<div key={ri.id} className="flex items-baseline justify-between gap-3">
-							<span className="truncate text-muted-foreground">
-								{ri.ingredient?.description ?? "Ingrediente"}
-								{ri.is_optional && <span className="text-[10px] uppercase tracking-wide"> · opc</span>}
-							</span>
-							{ri.net_quantity != null && (
-								<span className="shrink-0 font-mono tabular-nums">
-									{formatQty(ri.net_quantity)}
-									{ri.ingredient?.measure_unit ? ` ${ri.ingredient.measure_unit}` : ""}
-								</span>
-							)}
-						</div>
-					))}
-					{extra > 0 && <p className="pt-0.5 text-[11px] text-muted-foreground">+{extra} outros ingredientes</p>}
-				</div>
-			)}
-		</>
-	)
 }
 
 /**
@@ -745,7 +667,7 @@ function RecipeLeafRow({
 					render={<span className={cn("text-sm truncate font-normal cursor-default", isDeleted && "line-through text-muted-foreground")}>{recipe.name}</span>}
 				/>
 				<HoverCardContent side="right" align="start">
-					<RecipeHoverContent recipe={recipe} />
+					<RecipeHoverContent recipeId={recipe.id} summary={recipe} />
 				</HoverCardContent>
 			</HoverCard>
 			{isDeleted && <Badge variant="destructive">Excluída</Badge>}
