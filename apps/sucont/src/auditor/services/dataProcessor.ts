@@ -36,6 +36,8 @@ import { UG_MAPPING } from "../ugMapping"
  * (≤25, ≤50, ≤75, resto no risco; ≤20, ≤40, ≤60, ≤80, resto no impacto). É posição
  * relativa, não limiar de materialidade: o mesmo valor muda de nível conforme as outras
  * UGs do arquivo. Calibrar com a SUCONT-4 antes de usar o nível como critério de cobrança.
+ * "Recorte" aqui é o arquivo carregado inteiro (`auditor.tsx` classifica `allData`), não o
+ * filtro da tela, e o nível de cada chave vale para todas as competências dela.
  *
  * Decisão do mantenedor no PR #639: até ali a posição era `índice da PRIMEIRA ocorrência
  * / n`, que deixava a maior chave em (n−1)/n (sem CRÍTICO com n ≤ 4, sem CATASTRÓFICO com
@@ -62,6 +64,9 @@ import { UG_MAPPING } from "../ugMapping"
  * (UG, grupo de contas): é sobre uma conta específica que a Setorial cobra.
  */
 const riskKey = (ug: string, group: string) => `${ug}\u0000${group}`
+
+/** Piso da conta conciliada: fora do ranking (bloco acima de `riskKey`). */
+const FLOOR_LEVELS = { riskLevel: RiskLevel.BAIXO, impactLevel: ImpactLevel.INSIGNIFICANTE }
 
 export const applyRiskClassification = (data: FinancialRecord[]): FinancialRecord[] => {
 	if (!data || data.length === 0) return []
@@ -95,26 +100,26 @@ export const applyRiskClassification = (data: FinancialRecord[]): FinancialRecor
 	 */
 	const periodCount = new Set(data.map((r) => r.sortableDate)).size || 1
 
-	const allMaxDiffs = Object.values(stats).map((s) => s.maxDiff)
-	const absoluteMaxDiff = Math.max(...allMaxDiffs, 1)
+	// Só as divergentes entram no ranking e na normalização do impacto; as conciliadas
+	// ficam no piso (bloco acima de `riskKey`).
+	const divergentStats = Object.entries(stats).filter(([, s]) => s.months.size > 0)
+	const absoluteMaxDiff = Math.max(...divergentStats.map(([, s]) => s.maxDiff), 1)
 
-	const scores = Object.entries(stats).map(([key, s]) => {
+	const divergent = divergentStats.map(([key, s]) => {
 		const impactScore = (s.maxDiff / absoluteMaxDiff) * 100
 		const probabilityScore = (s.months.size / periodCount) * 100
 		// Parâmetro sem fonte, a calibrar (origem no bloco acima de `riskKey`).
 		const finalScore = impactScore * 0.7 + probabilityScore * 0.3
-		return { key, score: finalScore, maxDiff: s.maxDiff, months: s.months.size }
+		return { key, score: finalScore, maxDiff: s.maxDiff }
 	})
 
-	// Só as divergentes entram no ranking; as conciliadas ficam no piso (bloco acima de `riskKey`).
-	const divergent = scores.filter((s) => s.months > 0)
 	const sortedScores = divergent.map((s) => s.score).sort((a, b) => a - b)
+	const sortedMaxDiffs = divergent.map((s) => s.maxDiff).sort((a, b) => a - b)
 
 	/** Posição (0–100] do valor na lista ordenada: última ocorrência, para empate não rebaixar. */
 	const rankPosition = (sorted: number[], value: number) => ((sorted.lastIndexOf(value) + 1) / sorted.length) * 100
 
 	const getRiskLevelFromScore = (score: number): RiskLevel => {
-		if (sortedScores.length === 0) return RiskLevel.BAIXO
 		const percentile = rankPosition(sortedScores, score)
 		// Parâmetro sem fonte, a calibrar (origem no bloco acima de `riskKey`).
 		if (percentile <= 25) return RiskLevel.BAIXO
@@ -123,7 +128,6 @@ export const applyRiskClassification = (data: FinancialRecord[]): FinancialRecor
 		return RiskLevel.CRITICO
 	}
 
-	const sortedMaxDiffs = divergent.map((s) => s.maxDiff).sort((a, b) => a - b)
 	const getImpactLevel = (val: number): ImpactLevel => {
 		const p = rankPosition(sortedMaxDiffs, val)
 		// Parâmetro sem fonte, a calibrar (origem no bloco acima de `riskKey`).
@@ -133,6 +137,9 @@ export const applyRiskClassification = (data: FinancialRecord[]): FinancialRecor
 		if (p <= 80) return ImpactLevel.MAIOR
 		return ImpactLevel.CATASTROFICO
 	}
+
+	/** Nível por chave, calculado uma vez; chave ausente é conciliada e fica no piso. */
+	const levelsByKey = new Map(divergent.map((s) => [s.key, { riskLevel: getRiskLevelFromScore(s.score), impactLevel: getImpactLevel(s.maxDiff) }]))
 
 	/** Fração das competências carregadas em que a conta divergiu — não contagem absoluta. */
 	const getProbabilityLevel = (months: number): ProbabilityLevel => {
@@ -145,19 +152,15 @@ export const applyRiskClassification = (data: FinancialRecord[]): FinancialRecor
 		return ProbabilityLevel.CRONICO
 	}
 
-	const riskByKey: Record<string, RiskLevel> = {}
-	scores.forEach((s) => {
-		riskByKey[s.key] = s.months === 0 ? RiskLevel.BAIXO : getRiskLevelFromScore(s.score)
-	})
-
 	return data.map((record) => {
 		const key = riskKey(record.ug, record.group)
 		const s = stats[key]
+		const levels = levelsByKey.get(key) ?? FLOOR_LEVELS
 		return {
 			...record,
-			impactLevel: s.months.size === 0 ? ImpactLevel.INSIGNIFICANTE : getImpactLevel(s.maxDiff),
+			impactLevel: levels.impactLevel,
 			probabilityLevel: getProbabilityLevel(s.months.size),
-			riskLevel: riskByKey[key],
+			riskLevel: levels.riskLevel,
 			monthsWithDivergence: s.months.size,
 		}
 	})
