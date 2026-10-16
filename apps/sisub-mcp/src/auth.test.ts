@@ -311,7 +311,7 @@ describe("indisponibilidade do Supabase não vira credencial inválida", () => {
 	})
 
 	test("falha de transporte na consulta da chave é indisponibilidade, não revogação", async () => {
-		apiKeyLookupOverride = { data: null, error: { code: "", message: "TypeError: Supabase request timed out after 10000ms" } }
+		apiKeyLookupOverride = { data: null, error: { code: "", message: "AbortError: Supabase request timed out after 10000ms" } }
 		try {
 			const promise = resolveApiKey("smcp_chave-de-teste")
 			await expect(promise).rejects.toThrow(/indisponível/)
