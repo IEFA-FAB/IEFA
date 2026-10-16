@@ -75,6 +75,22 @@ function findHeaderRow(data: unknown[][]): { headerRowIndex: number; colIndices:
 	return null
 }
 
+/** Código no início da célula: dígitos, com ponto ou espaço entre eles ("2.1.8.8.1.01.99"). */
+const LEADING_ACCOUNT_CODE = /^\s*(\d[\d.\s]*)/
+
+/**
+ * Código da conta contábil, sem pontuação. A célula pode trazer a descrição depois do
+ * código ("2.1.8.8.1.01.99 - Outros Créditos", "218810199 OUTROS CRÉDITOS"): só tirar
+ * espaço e ponto deixava "218810199-OutrosCréditos", que não passa em `isGenericAccount`, e
+ * a planilha inteira era descartada. Sem dígito no início, fica o texto sem espaço e
+ * ponto, como antes.
+ */
+export function extractAccountCode(raw: string): string {
+	const leading = LEADING_ACCOUNT_CODE.exec(raw)
+	if (leading) return leading[1].replace(/\D/g, "")
+	return raw.replace(/\s+/g, "").replace(/\./g, "")
+}
+
 /**
  * Conta contábil genérica: a do saldo residual "Outros…", que a tela descreve como
  * "terminada em 99".
@@ -114,7 +130,7 @@ function parseDataRow(row: unknown, colIndices: ColumnIndices): DataRow | null {
 	// A STN (170999) entra no relatório como contraparte, não como UG a cobrar: mesma
 	// exclusão das ferramentas de saldo e do upstream (analistacontagenerica@c64549f).
 	if (!isUgAcompanhada(ug)) return null
-	const conta = String(rawConta).replace(/\s+/g, "").replace(/\./g, "")
+	const conta = extractAccountCode(String(rawConta))
 	const mes = String(rawMes).trim()
 	const saldo = parseBrazilianAmount(rawSaldo)
 

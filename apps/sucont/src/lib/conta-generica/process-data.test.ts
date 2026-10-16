@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import * as XLSX from "xlsx"
-import { isGenericAccount, processData, readWorkbookRows } from "#/lib/conta-generica/process-data"
+import { extractAccountCode, isGenericAccount, processData, readWorkbookRows } from "#/lib/conta-generica/process-data"
 
 const HEADER_ERROR = "Não foi possível encontrar o cabeçalho da tabela com as colunas: UG, Conta Contábil, Mês, Saldo - R$. Verifique o formato do arquivo."
 
@@ -203,6 +203,33 @@ describe("processData", () => {
 			["120001", "11101", "JAN", 1],
 		]
 		expect(processData(data)).toEqual({ grouped: {}, hasGeneric: false, skippedNonGeneric: 1 })
+	})
+})
+
+describe("extractAccountCode", () => {
+	it.each([
+		["2.1.8.8.1.01.99 - Outros Créditos", "218810199"],
+		["218810199 OUTROS CRÉDITOS", "218810199"],
+		["218810199-OUTROS", "218810199"],
+		["1.1.1. 99", "11199"],
+		[" 113819900 ", "113819900"],
+		[" . ", ""],
+		["CONTA X", "CONTAX"],
+	])("%p → %p", (raw, expected) => {
+		expect(extractAccountCode(raw)).toBe(expected)
+	})
+
+	it("conta com descrição entra na análise pelo código", () => {
+		const data = [
+			["UG", "Conta Contábil", "Mês", "Saldo"],
+			["120001", "2.1.8.8.1.01.99 - Outros Créditos", "JAN", 5],
+			["120001", "1.2.3.1.1.99.05 - Bens Móveis em Trânsito", "JAN", 6],
+		]
+		expect(processData(data)).toEqual({
+			grouped: { "120001": { "218810199": [{ mes: "JAN", saldo: 5 }] } },
+			hasGeneric: true,
+			skippedNonGeneric: 1,
+		})
 	})
 })
 
