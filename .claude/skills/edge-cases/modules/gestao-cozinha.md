@@ -1,6 +1,8 @@
-# Gestão Cozinha — Planejamento da Produção
+# Gestão Cozinha — Cardápios, previsão e agendamento
 
-Menu: **Planejamento da Produção** → Cardápios Semanais, Eventos, Cardápios de Apoio, **Agendamento da Produção**.
+Menu: **Cardápios** (Preparações, Cardápios Semanais, Eventos, Cardápios de Apoio) → **Planejamento
+da compra** (Previsão de demanda, antes da licitação) → **Execução** (**Agendamento da Produção**,
+com a ata homologada).
 O agendamento é onde o planejado (semanal, evento, apoio) vira o que se produz em cada dia — e é
 onde a realidade chega primeiro. Tudo o que um cardápio pôs num dia é identificado pela origem do
 item (`menu_items.origin_template_id`); os imprevistos agem sobre essa origem.
