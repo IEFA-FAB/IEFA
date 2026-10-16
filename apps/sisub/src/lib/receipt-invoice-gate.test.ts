@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest"
 import { liquidacaoLinkProblems } from "./invoice-gate"
-import { DEFERRAL_REASON_MIN_LENGTH, decideReceiptInvoice } from "./receipt-invoice-gate"
+import { DEFERRAL_REASON_MIN_LENGTH, decideReceiptInvoice, REFUSED_INVOICE_MESSAGE } from "./receipt-invoice-gate"
 
 const NOW = Date.parse("2026-09-26T15:00:00Z")
 const fresh = { status: "imported", situationResult: "authorized", situationCheckedAt: "2026-09-26T12:00:00Z" }
@@ -8,6 +8,14 @@ const neverChecked = { status: "imported", situationResult: null, situationCheck
 const reason = { reason: "Portal da SEFAZ fora do ar desde as 10h" }
 
 describe("decideReceiptInvoice", () => {
+	test("NF-e recusada pela unidade não efetiva, nem com a SEFAZ fora do ar e motivo", () => {
+		// Estado parcial da recusa (nota recusada, recebimento aberto): antes, a nota autorizada e
+		// consultada passava, e a entrega recusada entrava no estoque.
+		const refused = { ...fresh, status: "refused" }
+		expect(decideReceiptInvoice(refused, null, NOW)).toEqual({ kind: "refuse", message: REFUSED_INVOICE_MESSAGE })
+		expect(decideReceiptInvoice({ ...neverChecked, status: "refused" }, reason, NOW)).toEqual({ kind: "refuse", message: REFUSED_INVOICE_MESSAGE })
+	})
+
 	test("recebimento sem nota e nota consultada passam", () => {
 		expect(decideReceiptInvoice(null, null, NOW)).toEqual({ kind: "ok" })
 		expect(decideReceiptInvoice(fresh, null, NOW)).toEqual({ kind: "ok" })

@@ -119,11 +119,18 @@ Hipóteses a verificar; a suíte `inventory-cycle.e2e.operations.test.ts` e as d
   comissão); o cabeçalho e o termo mostram "Recusado em" e o motivo. A NF-e do recebimento é
   marcada como recusada ANTES do recebimento: se a segunda escrita falhar, a tela diz que a nota
   ficou recusada e o recebimento continua aberto, relê o estado e "Recusar" de novo conclui.
+  No estado parcial (nota recusada, recebimento aberto), a efetivação é recusada no servidor
+  ("A NF-e deste recebimento foi recusada. Conclua a recusa do recebimento ou peça a reabertura
+  da NF-e"), sem adiamento possível; a tela mostra o aviso, desabilita "Efetivar definitivo" e
+  oferece "Concluir a recusa". É coerência documental, não trava por falta de dado.
 - **Cobertura:** `invoice-gate.test.ts` (recusado não sustenta liquidação);
-  `apps/sisub/src/lib/receipt-refusal.test.ts` (plano e mensagem do estado parcial).
+  `apps/sisub/src/lib/receipt-refusal.test.ts` (plano e mensagem do estado parcial);
+  `receipt-invoice-gate.test.ts › NF-e recusada pela unidade não efetiva…`;
+  `receipt-documents.test.ts › nota recusada (recusa do recebimento pela metade)…`.
   **LACUNA:** teste de integração da recusa pela tela; nota e recebimento ainda são duas
-  escritas sem transação (a atômica pede função SQL), e no estado parcial nada impede efetivar
-  o recebimento aberto com a nota já marcada como recusada.
+  escritas sem transação (a atômica pede função SQL), e a conferência da nota recusada roda
+  antes de `finalize_goods_receipt`, fora da trava do recebimento (fechar a corrida também pede
+  a checagem dentro da função SQL).
 
 ### EST-REC-12 — "Vinculei a NF-e errada à entrega"
 - **O sistema precisa:** trocar a nota enquanto não houver liquidação; depois dela, a NF-e e o
