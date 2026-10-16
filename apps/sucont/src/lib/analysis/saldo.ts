@@ -3,8 +3,11 @@
  * e pela conta genérica (antes cada um tinha a sua cópia, com defeitos diferentes).
  */
 
-/** Só pontos de milhar, em grupos de três dígitos: "1.234", "12.345.678". */
-const THOUSANDS_ONLY = /^-?\d{1,3}(\.\d{3})+$/
+/**
+ * Só pontos de milhar, em grupos de três dígitos: "1.234", "12.345.678". O primeiro grupo
+ * não começa por zero: "0.500" é meio, não quinhentos.
+ */
+const THOUSANDS_ONLY = /^-?[1-9]\d{0,2}(\.\d{3})+$/
 
 /**
  * Saldo do relatório: número passa direto; texto no formato brasileiro.
