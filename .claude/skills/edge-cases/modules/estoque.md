@@ -187,6 +187,18 @@ Hipóteses a verificar; a suíte `inventory-cycle.e2e.operations.test.ts` e as d
   passar pela cegueira reprova o scan). **LACUNA:** o badge do menu (`fetchExpirySummaryFn`) ainda
   soma o valor em risco de todos os lotes (agregado, sem item; marcado `blind-count-exempt`).
 
+### EST-CNT-05 — "Lancei a contagem, a rede caiu e lancei de novo"
+- **Realidade:** dentro da câmara o sinal some; o operador vê erro (ou acha que o clique não pegou)
+  e lança o mesmo número outra vez. Os 15 fardos não podem virar 30.
+- **O sistema precisa:** o reenvio da mesma linha com o mesmo valor leva a mesma chave
+  (`client_event_id`), e o índice único `(count_id, client_event_id)` ignora a segunda. A chave é
+  uma por intenção (linha + valor), renovada só depois do sucesso; valor corrigido é outra intenção.
+- **UX:** na falha, o número digitado (e o alvo lido pelo scanner) fica no campo para reenviar; no
+  sucesso o campo limpa.
+- **Cobertura:** `apps/sisub/src/components/features/storage/counts/counts-page.test.ts ›
+  claimEntryKey / releaseEntryKey`. **LACUNA:** a chave vive na memória da tela; recarregar a
+  página entre a falha e o reenvio gera chave nova (a fila offline é que vai persistir).
+
 `ENB` = `apps/sisub/src/test/operations/execution-never-blocks.operations.test.ts` (banco real) ·
 `EXU` = `packages/sisub-domain/src/operations/execution.test.ts` (unitário).
 

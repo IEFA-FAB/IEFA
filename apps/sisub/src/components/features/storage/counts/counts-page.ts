@@ -62,3 +62,30 @@ export function buildScopeParams(scope: string, scopeValue: string): Record<stri
 	if (scope === "conservation_class") params.conservation_class = scopeValue
 	return params
 }
+
+/**
+ * Chaves de idempotência dos lançamentos, uma por INTENÇÃO: a linha com o valor digitado.
+ *
+ * O índice único `(count_id, client_event_id)` só deduplica se o reenvio levar a mesma chave.
+ * Gerada por tentativa (com `Date.now()`), dois cliques seguidos, ou o reenvio depois de a rede
+ * cair com o lançamento já gravado, viravam dois lançamentos. Aqui a chave nasce no primeiro
+ * envio da linha, é reaproveitada enquanto o valor não muda e só é liberada depois do sucesso
+ * ({@link releaseEntryKey}): o próximo lançamento da mesma linha é outra contagem e ganha outra.
+ */
+export type EntryIntentKeys = Map<string, { quantity: number; clientEventId: string }>
+
+/** Chave do lançamento da linha: a da intenção em curso, ou uma nova se o valor mudou. */
+export function claimEntryKey(keys: EntryIntentKeys, lineKey: string, quantity: number, generateId: () => string = () => crypto.randomUUID()): string {
+	const current = keys.get(lineKey)
+	if (current && current.quantity === quantity) return current.clientEventId
+	// valor diferente é outra intenção: o operador corrigiu o número antes de reenviar
+	const clientEventId = generateId()
+	keys.set(lineKey, { quantity, clientEventId })
+	return clientEventId
+}
+
+/** Depois do sucesso, a linha volta a aceitar um lançamento novo (com outra chave). */
+export function releaseEntryKey(keys: EntryIntentKeys, lineKey: string, clientEventId: string): void {
+	// Só a chave que foi enviada: um envio posterior pode já ter renovado a intenção.
+	if (keys.get(lineKey)?.clientEventId === clientEventId) keys.delete(lineKey)
+}
