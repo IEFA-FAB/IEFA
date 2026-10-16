@@ -2,6 +2,7 @@
 // os `useMemo` que derivam os painéis operacional, tático, estratégico e de apoio à decisão.
 import { getOrganizacao } from "#/lib/analista/organizacao"
 import type { ProcessedRow } from "#/lib/analista/types"
+import { computeParetoGroup } from "#/lib/analysis/pareto"
 import { chartChrome } from "#/lib/chart-theme"
 import { getConferente } from "#/lib/ug/registry"
 
@@ -161,7 +162,6 @@ export function computeEstrategicoData(filteredData: ProcessedRow[]) {
 export function computeDecisaoData(filteredData: ProcessedRow[], estrategicoData: EstrategicoData | null) {
 	if (filteredData.length === 0) return null
 	const cobrancas = filteredData.filter((r) => r.classificacao === "COBRANÇA" || r.classificacao === "COBRANÇA COM OBSERVAÇÃO")
-	const totalIssues = cobrancas.length
 
 	const ugMap = new Map<string, number>()
 	for (const r of cobrancas) ugMap.set(r.ug, (ugMap.get(r.ug) || 0) + 1)
@@ -171,38 +171,39 @@ export function computeDecisaoData(filteredData: ProcessedRow[], estrategicoData
 		.sort((a, b) => b.count - a.count)
 
 	const totalUgs = sortedUgs.length
-	// Sem cobrança não há UG para os 20%, e o percentual é 0: antes saíam 1 UG e NaN ("NaN%").
-	const twentyPercentCount = totalUgs === 0 ? 0 : Math.max(1, Math.round(totalUgs * 0.2))
-	const topTwentyUgs = sortedUgs.slice(0, twentyPercentCount)
-	const topTwentyIssuesCount = topTwentyUgs.reduce((acc, curr) => acc + curr.count, 0)
-	const paretoPercent = totalIssues === 0 ? 0 : (topTwentyIssuesCount / totalIssues) * 100
 
 	const maxCount = sortedUgs[0]?.count || 1
 	const maxValue = Math.max(...sortedUgs.map((u) => cobrancas.filter((c) => c.ug === u.ug).reduce((acc, curr) => acc + Math.abs(curr.saldo), 0)))
 
-	const prioritizedUgs = sortedUgs
-		.map((u) => {
-			const ugCobrancas = cobrancas.filter((c) => c.ug === u.ug)
-			const value = ugCobrancas.reduce((acc, curr) => acc + Math.abs(curr.saldo), 0)
-			const org = getOrganizacao(u.ug)
-			const score = (u.count / maxCount) * 0.4 + (value / (maxValue || 1)) * 0.4 + 0.2
-			return {
-				...u,
-				value,
-				nome: org.nome,
-				ods: org.ods,
-				superior: org.orgaoSuperior,
-				score,
-			}
-		})
-		.sort((a, b) => b.score - a.score)
+	// Em ordem de contagem, como `sortedUgs`: é a ordem do Pareto.
+	const ugsByCount = sortedUgs.map((u) => {
+		const ugCobrancas = cobrancas.filter((c) => c.ug === u.ug)
+		const value = ugCobrancas.reduce((acc, curr) => acc + Math.abs(curr.saldo), 0)
+		const org = getOrganizacao(u.ug)
+		const score = (u.count / maxCount) * 0.4 + (value / (maxValue || 1)) * 0.4 + 0.2
+		return {
+			...u,
+			value,
+			nome: org.nome,
+			ods: org.ods,
+			superior: org.orgaoSuperior,
+			score,
+		}
+	})
+
+	// Pareto pelo critério compartilhado: o grupo, as duas porcentagens e a lista saem da
+	// mesma ordenação (contagem). O port fixava 20% das UGs pela contagem, mas listava as
+	// primeiras pela prioridade, e a lista não era o grupo medido.
+	const pareto = computeParetoGroup(ugsByCount)
+
+	const prioritizedUgs = [...ugsByCount].sort((a, b) => b.score - a.score)
 
 	return {
 		pareto: {
 			totalUgs,
-			twentyPercentCount,
-			paretoPercent,
-			topTwentyUgs: prioritizedUgs.slice(0, twentyPercentCount),
+			ugPercentage: pareto.ugPercentage,
+			issuePercentage: pareto.issuePercentage,
+			topUgs: pareto.group,
 		},
 		priorities: prioritizedUgs.slice(0, 15),
 		criticalLevels: {

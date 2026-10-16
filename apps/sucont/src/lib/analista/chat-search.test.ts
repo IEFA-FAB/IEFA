@@ -31,7 +31,15 @@ const ESTRATEGICO: EstrategicoData = {
 }
 
 const DECISAO: DecisaoData = {
-	pareto: { totalUgs: 3, twentyPercentCount: 1, paretoPercent: 55.55, topTwentyUgs: [] },
+	pareto: {
+		totalUgs: 3,
+		ugPercentage: 67,
+		issuePercentage: 83,
+		topUgs: [
+			{ ug: "120062", nome: "BASP", count: 3 },
+			{ ug: "120039", nome: "GAP-RJ", count: 2 },
+		],
+	},
 	priorities: [
 		{ ug: "120039", nome: "GAP-RJ", count: 3, value: 900 },
 		{ ug: "120062", nome: "BASP", count: 5, value: 100 },
@@ -48,7 +56,7 @@ const ORGAO = "O Órgão Superior que concentra mais inconsistências é o **IV 
 const UG_RISCO = "A UG que apresenta o maior risco contábil (número de inconsistências) é a **UG 120062 (BASP)**, com 5 inconsistências."
 const TOP10 =
 	"As 10 UGs mais críticas do COMAER (por volume de inconsistências) são:\n\n1º UG 120062 (BASP) — 5 inconsistências\n2º UG 120039 (GAP-RJ) — 3 inconsistências\n3º UG 999001 (UG 999001) — 1 inconsistências"
-const PARETO = "De acordo com a análise de Pareto, **20% das UGs** analisadas concentram **55.5%** de todas as inconsistências contábeis."
+const PARETO = "De acordo com a análise de Pareto, **67% das UGs** (2) concentram **83%** das inconsistências contábeis."
 const PARETO_SEM_DADO =
 	"A análise de Pareto indica que uma parcela reduzida de UGs concentra a maioria das inconsistências. Carregue mais dados para um percentual exato."
 const PRIORIDADE = `As inconsistências que devem ser tratadas com prioridade imediata (considerando volume, valor e impacto) são das seguintes UGs:\n\n1º UG 120039 (GAP-RJ) — 3 inconsistências — ${brl(900)}\n2º UG 120062 (BASP) — 5 inconsistências — ${brl(100)}\n3º UG 999001 (UG 999001) — 1 inconsistências — ${brl(10)}`
@@ -114,7 +122,7 @@ describe("answerChatQuery", () => {
 		const empty = "Não há inconsistências no recorte atual para responder a essa pergunta. Ajuste o filtro ou carregue outro relatório."
 		const emptyManagerial = { ...MANAGERIAL, topUgs: [], topRacs: [] }
 		const emptyEstrategico = { ...ESTRATEGICO, topOds: [], topOrgaosSuperiores: [] }
-		const emptyDecisao = { ...DECISAO, pareto: { ...DECISAO.pareto, totalUgs: 0, twentyPercentCount: 0, paretoPercent: 0, topTwentyUgs: [] }, priorities: [] }
+		const emptyDecisao = { ...DECISAO, pareto: { ...DECISAO.pareto, totalUgs: 0, ugPercentage: 0, issuePercentage: 0, topUgs: [] }, priorities: [] }
 		const questions = [
 			"Qual ODS tem maior risco?",
 			"Qual órgão superior concentra mais?",

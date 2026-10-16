@@ -1,5 +1,6 @@
 // Extraído de routes/conta-generica.tsx (port do analistacontagenerica): Pareto,
 // mapa de risco por ODS, níveis críticos e lista de prioridade.
+import { computeParetoGroup } from "#/lib/analysis/pareto"
 import { type GroupedData, getOds, getOs } from "#/lib/conta-generica/helpers"
 
 export interface UgStat {
@@ -92,36 +93,10 @@ function aggregateByUg(grouped: GroupedData): UgAggregation {
 	return { ugStats, odsAgg, osAgg, totalInc, totalVol }
 }
 
-/** Fração do total que define o grupo do Pareto ("os poucos vitais"). */
-const PARETO_SHARE = 0.8
-
-/**
- * Pareto: as UGs, em ordem decrescente de inconsistências, até a soma alcançar 80% do
- * total. As duas porcentagens são sobre ESSE conjunto: quantas UGs ele tem (sobre o total
- * de UGs) e quantas inconsistências ele soma (sobre o total). A frase da tela ("X% das
- * UGs concentram Y% das inconsistências") passa a ler um mesmo grupo.
- *
- * O port media as UGs até alcançar os 80%, mas somava as inconsistências de outro recorte
- * (no mínimo 3 e no máximo 10 UGs): com uma UG dominante, dizia "25% das UGs concentram
- * 96%", quando a UG sozinha tinha 83%. Empate na fronteira segue a ordem estável da
- * lista (a do `Object.entries`).
- *
- * `topUgs` é o próprio grupo, na mesma ordem; a tela mostra as primeiras.
- */
-function computePareto(sortedByCount: UgStat[], ugCount: number, totalInc: number): ParetoData {
-	if (ugCount === 0 || totalInc === 0) return { ugPercentage: 0, inconsistencyPercentage: 0, topUgs: [] }
-	const topUgs: UgStat[] = []
-	let running = 0
-	for (const ug of sortedByCount) {
-		if (running >= totalInc * PARETO_SHARE) break
-		topUgs.push(ug)
-		running += ug.count
-	}
-	return {
-		ugPercentage: Math.round((topUgs.length / ugCount) * 100),
-		inconsistencyPercentage: Math.round((running / totalInc) * 100),
-		topUgs,
-	}
+/** Pareto pelo critério compartilhado (`computeParetoGroup`): um grupo, uma ordenação. */
+function computePareto(sortedByCount: UgStat[]): ParetoData {
+	const { group, ugPercentage, issuePercentage } = computeParetoGroup(sortedByCount)
+	return { ugPercentage, inconsistencyPercentage: issuePercentage, topUgs: group }
 }
 
 // ODS risk map
@@ -169,7 +144,7 @@ function buildPriorityList(ugStats: UgStat[]): PriorityItem[] {
 export const performAdvancedAnalysis = (grouped: GroupedData): AdvancedAnalysis => {
 	const { ugStats, odsAgg, osAgg, totalInc, totalVol } = aggregateByUg(grouped)
 	const sortedByCount = [...ugStats].sort((a, b) => b.count - a.count)
-	const paretoData = computePareto(sortedByCount, ugStats.length, totalInc)
+	const paretoData = computePareto(sortedByCount)
 	const riskMap = buildOdsRiskMap(odsAgg, totalInc)
 	const criticalSummary = buildCriticalSummary(riskMap, osAgg, sortedByCount, ugStats)
 	const priorityList = buildPriorityList(ugStats)

@@ -26,9 +26,9 @@ export interface EstrategicoData {
 export interface DecisaoData {
 	pareto: {
 		totalUgs: number
-		twentyPercentCount: number
-		paretoPercent: number
-		topTwentyUgs: Array<{ ug: string; nome: string; count: number }>
+		ugPercentage: number
+		issuePercentage: number
+		topUgs: Array<{ ug: string; nome: string; count: number }>
 	}
 	priorities: Array<{ ug: string; nome: string; count: number; value: number }>
 	criticalLevels: {
@@ -118,7 +118,8 @@ const CHAT_RULES: ChatRule[] = [
 		answer: ({ decisaoData }) => {
 			if (decisaoData?.pareto.totalUgs === 0) return EMPTY_PANEL_ANSWER
 			if (decisaoData) {
-				return `De acordo com a análise de Pareto, **20% das UGs** analisadas concentram **${decisaoData.pareto.paretoPercent.toFixed(1)}%** de todas as inconsistências contábeis.`
+				const { ugPercentage, issuePercentage, topUgs } = decisaoData.pareto
+				return `De acordo com a análise de Pareto, **${ugPercentage}% das UGs** (${topUgs.length}) concentram **${issuePercentage}%** das inconsistências contábeis.`
 			}
 			return "A análise de Pareto indica que uma parcela reduzida de UGs concentra a maioria das inconsistências. Carregue mais dados para um percentual exato."
 		},

@@ -82,15 +82,15 @@ export function MonitoramentoDecisaoView({ decisaoData, managerialData, estrateg
 					) : (
 						<div className="flex flex-col items-center justify-center h-full pb-6">
 							<div className="text-center mb-8">
-								<p className="text-display text-action mb-2">{decisaoData.pareto.paretoPercent.toFixed(1)}%</p>
+								<p className="text-display text-action mb-2">{decisaoData.pareto.issuePercentage}%</p>
 								<p className="text-body text-muted-foreground">
-									das inconsistências estão concentradas em apenas <span className="font-bold text-foreground">20% das UGs</span> (
-									{decisaoData.pareto.twentyPercentCount} UGs).
+									das inconsistências estão concentradas em <span className="font-bold text-foreground">{decisaoData.pareto.ugPercentage}% das UGs</span> (
+									{decisaoData.pareto.topUgs.length} UGs).
 								</p>
 							</div>
 							<div className="w-full space-y-3">
 								<p className="text-label text-muted-foreground">UGs que compõem a concentração:</p>
-								{decisaoData.pareto.topTwentyUgs.map((ug, i) => (
+								{decisaoData.pareto.topUgs.map((ug, i) => (
 									<div key={ug.ug} className="flex items-center justify-between p-2 bg-muted/50 rounded-lg border border-border">
 										<div className="flex items-center gap-2">
 											<span className="text-hint bg-action/15 text-action w-5 h-5 flex items-center justify-center rounded-full">{i + 1}</span>
