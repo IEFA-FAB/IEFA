@@ -1,4 +1,5 @@
 import { read, utils } from "xlsx"
+import { parseBrazilianAmountOrZero } from "#/lib/analysis/saldo"
 import type { RawInputRow } from "../types"
 
 // biome-ignore lint/suspicious/noExplicitAny: xlsx types
@@ -89,17 +90,12 @@ const getCol = (row: SheetRow, offset: number, baseIndex: number): any => {
 	return idx >= 0 ? row[idx] : undefined
 }
 
-// biome-ignore lint/suspicious/noExplicitAny: xlsx types
-const safeNum = (val: any): number => {
-	if (typeof val === "number") return Number.isNaN(val) ? 0 : val
-	if (!val) return 0
-	if (typeof val === "string") {
-		const clean = val.replace(/[^\d,-]/g, "").replace(",", ".")
-		const num = Number.parseFloat(clean)
-		return Number.isNaN(num) ? 0 : num
-	}
-	return 0
-}
+/**
+ * Valor da célula pela regra compartilhada (`parseBrazilianAmount`); vazio, booleano, data
+ * e o que não for número contam 0, como antes. A cópia antiga tirava todo ponto: "1500.25"
+ * virava 150025 e "1,234.56" virava 1,23456. Parênteses agora são negativo.
+ */
+const safeNum = (val: unknown): number => parseBrazilianAmountOrZero(val)
 
 // biome-ignore lint/suspicious/noExplicitAny: xlsx types
 const safeStr = (val: any) => {

@@ -2,6 +2,7 @@
 // relatório do Tesouro Gerencial (cabeçalho na linha 12) e agrupamento dos
 // subitens genéricos por UG. Era o corpo do `reader.onload` de `processFile`.
 import * as XLSX from "xlsx"
+import { parseBrazilianAmountOrZero } from "#/lib/analysis/saldo"
 import type { ProcessedData, UgGroup } from "#/subitens/types"
 
 /**
@@ -89,19 +90,13 @@ function resolveColumns(firstRow: Record<string, unknown>): ReportColumns {
 	return { ugCol, contaCol, ccCol, saldoCol }
 }
 
-/** Saldo numérico da célula; texto no formato "R$ 1.234,56" é convertido, e o que não for número vira 0. */
-function parseSaldo(saldoRaw: unknown): number {
-	let saldo = 0
-	if (typeof saldoRaw === "number") {
-		saldo = saldoRaw
-	} else {
-		const cleaned = String(saldoRaw)
-			.replace(/[R$\s]/g, "")
-			.replace(/\./g, "")
-			.replace(",", ".")
-		saldo = parseFloat(cleaned)
-	}
-	return Number.isNaN(saldo) ? 0 : saldo
+/**
+ * Saldo da célula pela regra compartilhada (`parseBrazilianAmount`); o que não for número
+ * vira 0, como antes. A cópia antiga tirava todo ponto ("1500.25" virava 150025) e não
+ * lia parênteses.
+ */
+export function parseSaldo(saldoRaw: unknown): number {
+	return parseBrazilianAmountOrZero(saldoRaw)
 }
 
 const toProcessedRow = (row: Record<string, unknown>, { ugCol, contaCol, ccCol, saldoCol }: ReportColumns): ProcessedData => {

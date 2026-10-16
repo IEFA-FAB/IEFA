@@ -31,7 +31,8 @@
       "targets": [
         "apps/sucont/src/lib/compatibilidade/",
         "apps/sucont/src/components/compatibilidade/",
-        "apps/sucont/src/routes/analista-compatibilidade.tsx"
+        "apps/sucont/src/routes/analista-compatibilidade.tsx",
+        "apps/sucont/src/lib/analysis/saldo.ts"
       ],
       "checkpoint": null,
       "checkpointDate": null,
@@ -44,7 +45,8 @@
       "route": "/analistasaldoalongado",
       "targets": [
         "apps/sucont/src/analistasaldoalongado/",
-        "apps/sucont/src/routes/analistasaldoalongado.tsx"
+        "apps/sucont/src/routes/analistasaldoalongado.tsx",
+        "apps/sucont/src/lib/analysis/saldo.ts"
       ],
       "checkpoint": null,
       "checkpointDate": null,
@@ -89,7 +91,8 @@
       "targets": [
         "apps/sucont/src/lib/cruzamento/",
         "apps/sucont/src/components/cruzamento/",
-        "apps/sucont/src/routes/cruzamento-contas.tsx"
+        "apps/sucont/src/routes/cruzamento-contas.tsx",
+        "apps/sucont/src/lib/analysis/saldo.ts"
       ],
       "checkpoint": "3f1245cf",
       "checkpointDate": "2026-07-06",
@@ -115,7 +118,8 @@
       "route": "/subitens-genericos",
       "targets": [
         "apps/sucont/src/subitens/",
-        "apps/sucont/src/routes/subitens-genericos.tsx"
+        "apps/sucont/src/routes/subitens-genericos.tsx",
+        "apps/sucont/src/lib/analysis/saldo.ts"
       ],
       "checkpoint": null,
       "checkpointDate": null,
@@ -168,7 +172,8 @@
       "targets": [
         "apps/sucont/src/auditor/",
         "apps/sucont/src/routes/auditor.tsx",
-        "apps/sucont/src/server/auditor.fn.ts"
+        "apps/sucont/src/server/auditor.fn.ts",
+        "apps/sucont/src/lib/analysis/saldo.ts"
       ],
       "portedIn": "PR #207",
       "checkpoint": "87d53450",

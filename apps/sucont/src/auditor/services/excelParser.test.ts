@@ -405,9 +405,10 @@ describe("parseExcelFile — conversão numérica", () => {
 		expect(values(row)).toEqual([1234.56, -50.5, 100, 0, 0, 12.3, 0, 0, 0])
 	})
 
-	it("esquisitice de origem: texto em formato americano perde a escala", async () => {
-		const [row] = await parseAoa([HEADER, dataRow("JAN/2024", 1, "U", ["1,234.56", 0, 0, 0, 0, 0, 0, 0, 0])])
-		expect(row.g1_siafi).toBe(1.23456)
+	it("texto com ponto decimal, formato americano e parênteses segue a regra compartilhada", async () => {
+		// O port tirava todo ponto: "1500.25" virava 150025 e "1,234.56" virava 1,23456.
+		const [row] = await parseAoa([HEADER, dataRow("JAN/2024", 1, "U", ["1,234.56", "1500.25", "(1.234,56)", "1.234", "0.500", 0, 0, 0, 0])])
+		expect(values(row).slice(0, 5)).toEqual([1234.56, 1500.25, -1234.56, 1234, 0.5])
 	})
 
 	it("booleano e data viram 0", async () => {
