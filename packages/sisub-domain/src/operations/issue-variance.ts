@@ -16,6 +16,8 @@
  * toda linha, todo dia.
  */
 
+import { roundToCents } from "./money.ts"
+
 export const ISSUE_VARIANCE_REASONS = ["headcount_change", "production_loss", "yield_difference", "recipe_substitution", "portion_adjustment", "other"] as const
 export type IssueVarianceReason = (typeof ISSUE_VARIANCE_REASONS)[number]
 
@@ -80,7 +82,7 @@ export function roundToIssuePackage(grossQuantity: number, packageQuantity?: num
 export function evaluateVariance(line: IssueLineForVariance, settings: IssueToleranceSettings): VarianceVerdict {
 	const suggested = line.suggestedQty ?? 0
 	const delta = Number((line.issuedNetQty - suggested).toFixed(4))
-	const deltaValue = Number((Math.abs(delta) * (line.unitCost ?? 0)).toFixed(2))
+	const deltaValue = roundToCents(Math.abs(delta) * (line.unitCost ?? 0))
 	const deltaPct = suggested > 0 ? Number(((Math.abs(delta) / suggested) * 100).toFixed(2)) : null
 
 	// Sem sugestão não há variância: a cozinha que não planeja no sisub não é

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { competenciaFromDate, normalizeNsNumber, resolvePurchaseUnitId, suggestedLiquidacaoValue } from "./liquidacao-math.ts"
+import { competenciaFromDate, deductionFromRate, normalizeNsNumber, resolvePurchaseUnitId, suggestedLiquidacaoValue } from "./liquidacao-math.ts"
 
 describe("suggestedLiquidacaoValue", () => {
 	test("soma quantidade × custo, fechado em centavos", () => {
@@ -72,5 +72,15 @@ describe("resolvePurchaseUnitId", () => {
 		expect(resolvePurchaseUnitId(null)).toBeNull()
 		expect(resolvePurchaseUnitId(undefined)).toBeNull()
 		expect(resolvePurchaseUnitId({ unitId: null, purchaseUnitId: null })).toBeNull()
+	})
+})
+
+describe("deductionFromRate", () => {
+	test("alíquota que cai no meio-centavo sobe, como o saldo que confere a dedução", () => {
+		// 1,15 × 50 = 57,4999… em binário: a tela sugeria 0,57
+		expect(deductionFromRate(1.15, 50)).toBe(0.58)
+		expect(deductionFromRate(4.35, 50)).toBe(2.18)
+		expect(deductionFromRate(16.15, 50)).toBe(8.08)
+		expect(deductionFromRate(1000, 1.5)).toBe(15)
 	})
 })

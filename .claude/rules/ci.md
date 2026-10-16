@@ -66,6 +66,9 @@ Bump do Bun = `packageManager` + as duas imagens (tag e digest) + `bun run gener
   origem no passo "Resolve build args"; variável que o manifesto usa e o passo não declara falha
   o job. rumaer, sucont e assignment-selection usam o Supabase do sisub de propósito (o porquê
   está no `$comment` do `apps.manifest.json`).
+- **`transit` no `turbo.json` não tem script e não sai.** Existe para levar o hash das
+  dependências (`^transit`) a `typecheck`, `test` e `test:unit`: sem ele, mudar um pacote não
+  mudava o hash do app que o importa e o turbo reaproveitava o resultado velho do cache (#556).
 - **PR do Dependabot e de fork** não recebem segredo: o `gate` pula (verde) e a integração deles
   roda no push da `main`. Para validar antes, dispare o workflow numa branch-cópia.
 

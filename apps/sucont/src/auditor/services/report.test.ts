@@ -68,8 +68,8 @@ describe("buildReportDataset — totais", () => {
 		expect(dataset.totals.siloms).toBe(14_000)
 		// 100 + 500 + 3000 + 500: o que existe para conciliar.
 		expect(dataset.totals.absoluteDifference).toBe(4100)
-		// 17.900 − 14.000: a sobra da GAP-RJ em Consumo compensa parte da falta.
-		expect(dataset.totals.netDifference).toBe(3900)
+		// 14.000 − 17.900 (SILOMS − SIAFI): a sobra da GAP-RJ em Consumo compensa parte da falta.
+		expect(dataset.totals.netDifference).toBe(-3900)
 		// Se as duas fossem iguais o teste não provaria nada — é a distância entre
 		// elas que a nota apresenta como diagnóstico.
 		expect(dataset.totals.netDifference).not.toBe(dataset.totals.absoluteDifference)

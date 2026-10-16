@@ -1,8 +1,10 @@
 import { describe, expect, test } from "vitest"
 import {
+	applyHeadcountByDays,
 	applyHeadcountToMeals,
 	applyRecipeSelection,
 	copyMenuItems,
+	countHeadcountByDays,
 	countHeadcountTargets,
 	findMenuItems,
 	type MealHeadcountDraft,
@@ -14,6 +16,7 @@ import {
 	setItemHeadcount,
 	swapMenuRecipes,
 } from "./menu-fill"
+import { WEEKDAY_GROUPS } from "./weekdays"
 
 const ALMOCO = "almoco"
 const JANTAR = "jantar"
@@ -82,6 +85,35 @@ describe("countHeadcountTargets", () => {
 
 	test("valor idêntico ao que já está gravado não conta", () => {
 		expect(countHeadcountTargets([meal(1, ALMOCO, 800)], new Map([[ALMOCO, 800]]), { days: [1], overwrite: true })).toBe(0)
+	})
+})
+
+describe("applyHeadcountByDays / countHeadcountByDays", () => {
+	// Seg–qui 800, sexta 500, fim de semana 200: o efetivo que a previsão de comensais distingue.
+	const plans = WEEKDAY_GROUPS.map((group, index) => ({ days: group.days, plan: new Map([[ALMOCO, [800, 500, 200][index] ?? null]]) }))
+
+	test("cada faixa leva o próprio número aos seus dias", () => {
+		const result = applyHeadcountByDays([], plans)
+		const byDay = Object.fromEntries(result.map((m) => [m.day_of_week, m.base_headcount]))
+		expect(byDay).toEqual({ 1: 800, 2: 800, 3: 800, 4: 800, 5: 500, 6: 200, 7: 200 })
+	})
+
+	test("faixa em branco não mexe nos dias dela", () => {
+		const onlyFriday = WEEKDAY_GROUPS.map((group) => ({ days: group.days, plan: new Map([[ALMOCO, group.key === "fri" ? 500 : null]]) }))
+		const result = applyHeadcountByDays([meal(6, ALMOCO, 150)], onlyFriday)
+		expect(result).toEqual([meal(6, ALMOCO, 150), meal(5, ALMOCO, 500)])
+	})
+
+	test("sem substituir, preserva o que já está preenchido em cada faixa", () => {
+		const result = applyHeadcountByDays([meal(5, ALMOCO, 450)], plans)
+		expect(result.find((m) => m.day_of_week === 5)?.base_headcount).toBe(450)
+		expect(applyHeadcountByDays([meal(5, ALMOCO, 450)], plans, true).find((m) => m.day_of_week === 5)?.base_headcount).toBe(500)
+	})
+
+	test("a contagem soma as faixas sem contar dia duas vezes", () => {
+		expect(countHeadcountByDays([], plans)).toBe(7)
+		expect(countHeadcountByDays([meal(1, ALMOCO, 800), meal(6, ALMOCO, 90)], plans)).toBe(5)
+		expect(countHeadcountByDays([meal(1, ALMOCO, 800), meal(6, ALMOCO, 90)], plans, true)).toBe(6)
 	})
 })
 

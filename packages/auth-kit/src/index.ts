@@ -24,7 +24,6 @@ export {
 	persistRememberedEmail,
 	type RegisterInput,
 	type RegisterInputCheck,
-	type SignInFailure,
 	shouldRedirectAuthenticated,
 	syncRememberedEmailOnToggle,
 } from "./auth-screen.ts"

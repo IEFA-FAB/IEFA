@@ -1537,11 +1537,11 @@ export async function applyTemplate(
 
 	const allDates = listApplyDates(input)
 
-	// conflictMode="skip": preserva CÉLULAS (dia + refeição) que já têm cardápio ativo
-	// (inclusive ajustes manuais do DayDrawer) e só materializa as vazias. Default
-	// "replace" faz soft-delete + re-materialização.
+	// conflictMode="skip" (o default): preserva CÉLULAS (dia + refeição) que já têm cardápio
+	// ativo (inclusive ajustes manuais do DayDrawer) e só materializa as vazias.
+	// conflictMode="replace", só quando pedido: soft-delete + re-materialização.
 	//
-	// O default é "skip": apagar o planejamento de alguém é ato pedido, não presumido. Com o
+	// O default é "skip" porque apagar o planejamento de alguém é ato pedido, não presumido. Com
 	// default destrutivo, qualquer chamador que omitisse o campo — uma tool de IA, um script —
 	// levava junto os ajustes manuais do dia.
 	const conflictMode = input.conflictMode ?? "skip"

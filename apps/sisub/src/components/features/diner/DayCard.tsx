@@ -12,17 +12,22 @@ import { MEAL_TYPES } from "@/constants/meal"
 import type { DishDetails } from "@/hooks/data/useDailyMenuContent"
 import { useMessHalls } from "@/hooks/data/useMessHalls"
 import { cn } from "@/lib/cn"
+import { type WeekdayGroup, weekdayGroupOf } from "@/lib/weekdays"
 import type { DayMeals, PendingChange } from "@/types/domain/meal"
 
 const MONTH_ABBR = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
 
-// 0=Dom, 1=Seg, ..., 5=Sex, 6=Sáb
+/** Cor do dia pela faixa da semana — as mesmas faixas do quantitativo do cardápio semanal. */
+const GROUP_TEXT_TONE: Record<WeekdayGroup["key"], string> = {
+	"mon-thu": "text-primary",
+	fri: "text-success",
+	weekend: "text-warning",
+}
+
 function getDayOfWeekColor(dateStr: string): string {
 	const [year, month, day] = dateStr.split("-").map(Number)
-	const dow = new Date(year, month - 1, day).getDay()
-	if (dow === 0 || dow === 6) return "text-warning" // fim de semana
-	if (dow === 5) return "text-success" // sexta
-	return "text-primary" // seg–qui
+	const dow = new Date(year, month - 1, day).getDay() // 0 = domingo
+	return GROUP_TEXT_TONE[weekdayGroupOf(dow === 0 ? 7 : dow)]
 }
 
 interface DayCardProps {

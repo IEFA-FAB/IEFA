@@ -17,11 +17,8 @@
 
 import { createAdapterFromEnv, defaultRateLimitStore, enforceRequestRateLimit, maxIterationsMiddleware, RateLimitError } from "@iefa/ai-provider"
 import { checkSameOriginJsonRequest } from "@iefa/auth-kit"
-import type { Database } from "@iefa/database"
 import { resolveUserPermissions } from "@iefa/pbac"
 import { metrics, trace } from "@opentelemetry/api"
-import { createServerClient } from "@supabase/ssr"
-import { createClient } from "@supabase/supabase-js"
 import { chat, chatParamsFromRequestBody, toServerSentEventsResponse } from "@tanstack/ai"
 import { otelMiddleware } from "@tanstack/ai/middlewares/otel"
 import { type H3Event, HTTPError, readBody } from "h3"
@@ -31,10 +28,10 @@ import { AI_CHAT_MAX_ITERATIONS, SISUB_AI_RATE_LIMIT_DEFAULTS } from "@/lib/ai-c
 import { getServerCapabilities } from "@/lib/capabilities.server"
 import { assertResumeMatchesPending, ChatRequestError, checkChatPayloadSize, parseApprovalResume, sanitizeClientMessages } from "@/lib/chat-client-messages"
 import { getDb } from "@/lib/db.server"
-import { envServer } from "@/lib/env.server"
 import { getModuleConfig } from "@/lib/module-chat/tools/registry"
 import { getMaxLevel, resolveRouteScope, type ToolContext } from "@/lib/module-chat/tools/shared"
-import { getAccessControlClient } from "@/lib/supabase.server"
+import { requireSisubUser } from "@/lib/nitro-auth.server"
+import { getAccessControlClient, getKitchenClient } from "@/lib/supabase.server"
 import type { ChatModule } from "@/types/domain/module-chat"
 import type { AppModule, UserPermission } from "@/types/domain/permissions"
 
@@ -45,33 +42,6 @@ const otel = otelMiddleware({
 	meter: metrics.getMeter("sisub-module-chat"),
 	captureContent: false,
 })
-
-// ── Auth helpers ────────────────────────────────────────────────────────────
-
-function getAuthClientFromEvent(event: H3Event) {
-	const cookieHeader = event.req.headers.get("cookie") ?? ""
-	const parsedCookies = cookieHeader.split(";").map((c: string) => {
-		const [name, ...v] = c.split("=")
-		return { name: name.trim(), value: v.join("=") }
-	})
-
-	return createServerClient<Database, "sisub">(envServer.VITE_SISUB_SUPABASE_URL, envServer.SISUB_SUPABASE_SECRET_KEY, {
-		db: { schema: "sisub" },
-		cookies: {
-			getAll: () => parsedCookies,
-			setAll: () => {},
-		},
-	})
-}
-
-// Client default no schema kitchen (maioria das tools); queries a core/procurement
-// usam `.schema()` explícito. Permissões vêm de access_control (`.schema(...)`).
-function getDataClient() {
-	return createClient<Database, "kitchen">(envServer.VITE_SISUB_SUPABASE_URL, envServer.SISUB_SUPABASE_SECRET_KEY, {
-		db: { schema: "kitchen" },
-		auth: { persistSession: false },
-	})
-}
 
 /**
  * Permissões EFETIVAS do usuário — grants inline + políticas, com os denies (level 0).
@@ -102,15 +72,7 @@ export default defineHandler(async (event: H3Event) => {
 	}
 
 	// 1. Auth
-	const authClient = getAuthClientFromEvent(event)
-	const {
-		data: { user },
-		error: authError,
-	} = await authClient.auth.getUser()
-
-	if (!user || authError) {
-		throw new HTTPError({ status: 401, message: "Não autenticado" })
-	}
+	const user = await requireSisubUser(event)
 
 	// 2. Parse body
 	const rawBody = await readBody(event)
@@ -150,7 +112,9 @@ export default defineHandler(async (event: H3Event) => {
 	}
 
 	// 3. PBAC check
-	const supabase = getDataClient()
+	// Client de dados service-role (via kit, com deadline de fetch) no schema kitchen, que é o
+	// da maioria das tools; queries a core/procurement usam `.schema()` explícito.
+	const supabase = getKitchenClient()
 	const permissions = await loadUserPermissions(user.id)
 
 	const appModule: AppModule = module

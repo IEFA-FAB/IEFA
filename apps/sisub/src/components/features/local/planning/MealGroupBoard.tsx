@@ -16,6 +16,7 @@ import { CSS } from "@dnd-kit/utilities"
 import { demandRoundingFor, MAX_RECOMMENDED_PROPORTION, resolveItemDemand } from "@iefa/sisub-domain/schemas"
 import { AlertTriangle, ArrowRightLeft, ClipboardPaste, Copy, GripVertical, Package, Percent, Plus, Users, X } from "lucide-react"
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react"
+import { RecipeLink } from "@/components/features/shared/RecipeLink"
 import { SelectAllCheckbox } from "@/components/features/shared/SelectAllCheckbox"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -31,6 +32,8 @@ import { MAX_PORTIONS_PER_KIT, type ProportionMode, parseProportionInput, propor
 export type BoardItem = {
 	id: string
 	title: string
+	/** Preparação do item: com ela o título abre a ficha e mostra a prévia (ver `RecipeLink`). */
+	recipeId?: string
 	subtitle?: string | null
 	/** Selo ao lado do título (ex.: versão desatualizada da preparação). */
 	badge?: ReactNode
@@ -213,7 +216,7 @@ function SortableItem({
 
 			<div className="flex-1 min-w-0">
 				<div className="flex items-center gap-1.5 min-w-0">
-					<p className="text-sm truncate">{item.title}</p>
+					<p className="text-sm truncate">{item.recipeId ? <RecipeLink recipeId={item.recipeId}>{item.title}</RecipeLink> : item.title}</p>
 					{item.badge}
 				</div>
 				{item.subtitle && <p className="text-xs text-muted-foreground font-mono truncate">{item.subtitle}</p>}

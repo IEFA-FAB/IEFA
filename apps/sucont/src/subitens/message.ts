@@ -18,7 +18,7 @@ export const RAC_QUESTIONS: Record<string, { title: string; description: string 
 	"RAC 28": {
 		title: "Utilização de Contas/Subitens Genéricos",
 		description:
-			"Identificação de saldos em contas contábeis que utilizam subitens genéricos (terminados em 99 ou 999), o que prejudica a transparência e a correta evidenciação dos atos e fatos administrativos.",
+			"Identificação de saldos em contas contábeis cuja conta corrente usa código genérico: o subitem 99 (“Outros…”) da natureza de despesa ou o conta corrente 999, que a Macrofunção 02.03.18 manda evitar. O uso prejudica a transparência e a correta evidenciação dos atos e fatos administrativos.",
 	},
 }
 

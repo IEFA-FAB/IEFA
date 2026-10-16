@@ -8,6 +8,7 @@ import { analyticNoteRequestSchema } from "#/auditor/services/report-request"
 import { analyticNoteJsonSchema, normalizeAnalyticNote } from "#/auditor/services/report-schema"
 import { silentAdapterLogger } from "#/lib/ai-logger"
 import { getServerCapabilities } from "#/lib/capabilities.server"
+import { withGenerationDeadline } from "#/lib/generation-deadline"
 import { requireSameOriginJson, requireSucontUser } from "#/lib/nitro-auth.server"
 
 /**
@@ -134,41 +135,35 @@ export default defineHandler(async (event: H3Event) => {
 				}
 			}, HEARTBEAT_MS)
 
-			// Cliente foi embora: aborta a geração em vez de deixá-la correr até o
-			// deadline. Sem isto o modelo termina a saída inteira e o consumo entra no
-			// teto do usuário por um documento que ninguém vai ler.
-			const generation = new AbortController()
-			let deadlineTimer: ReturnType<typeof setTimeout> | undefined
+			// Cliente foi embora (aba fechada, "Interromper", rede): o `cancel` do stream aborta
+			// a geração em vez de deixá-la correr até o prazo. Sem isto o modelo termina a saída
+			// inteira e o consumo entra no teto do usuário por uma resposta que ninguém vai ler.
+			// Prazo, abort e limpeza do timer ficam em `withGenerationDeadline`.
+			const clientGone = new AbortController()
 
 			const finish = () => {
 				closed = true
 				clearInterval(heartbeat)
-				if (deadlineTimer) clearTimeout(deadlineTimer)
 			}
 
 			cancelGeneration = () => {
-				generation.abort()
+				clientGone.abort()
 				finish()
 			}
 
-			const deadline = new Promise<never>((_, reject) => {
-				deadlineTimer = setTimeout(() => {
-					generation.abort()
-					reject(new Error("A geração da nota excedeu o tempo máximo de espera. Tente novamente."))
-				}, DEADLINE_MS)
-			})
-
-			const generated = adapter
-				.structuredOutput({
-					chatOptions: { ...(chatOptions as object), abortController: generation } as StructuredArgs["chatOptions"],
-					outputSchema: analyticNoteJsonSchema as unknown as StructuredArgs["outputSchema"],
-				})
-				.then((result) => {
-					const note = normalizeAnalyticNote(result.data)
-					return { note, markdown: buildAnalyticNoteMarkdown(dataset, note) }
-				})
-
-			Promise.race([generated, deadline])
+			withGenerationDeadline(
+				{ deadlineMs: DEADLINE_MS, timeoutMessage: "A geração da nota excedeu o tempo máximo de espera. Tente novamente.", signal: clientGone.signal },
+				(generation) =>
+					adapter
+						.structuredOutput({
+							chatOptions: { ...(chatOptions as object), abortController: generation } as StructuredArgs["chatOptions"],
+							outputSchema: analyticNoteJsonSchema as unknown as StructuredArgs["outputSchema"],
+						})
+						.then((result) => {
+							const note = normalizeAnalyticNote(result.data)
+							return { note, markdown: buildAnalyticNoteMarkdown(dataset, note) }
+						})
+			)
 				.then((payload) => send("done", payload))
 				.catch((error: unknown) => send("failed", { message: error instanceof Error ? error.message : "Falha ao gerar a nota analítica." }))
 				.finally(() => {

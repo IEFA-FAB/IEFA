@@ -24,12 +24,14 @@ import {
 	buildTimeSeries,
 	type ComparisonViewMode,
 	computeComparisonLayout,
+	computeTotalNetDifference,
 	type EvolutionViewMode,
 	resolveTooltipValues,
 	type TimeSeriesItem,
 	type TooltipDataPayload,
 } from "../services/chart-data"
 import { formatCompactNumber, formatCurrency, toShortDate } from "../services/dataProcessor"
+import { NET_DIFFERENCE_LABEL } from "../services/net-difference"
 import { chartChrome, chartSeries } from "../theme"
 import type { FinancialRecord, TimeFilter } from "../types"
 import { RiskLevel } from "../types"
@@ -274,17 +276,19 @@ function ComparisonToolbar({ totalFinancialImpact, viewMode, onViewModeChange, t
 	)
 }
 
-/** Divergência líquida (SILOMS − SIAFI) da visão de Composição expandida. */
+/**
+ * Diferença líquida (SILOMS − SIAFI, mesmo sentido da Nota Analítica) da visão de
+ * Composição expandida. A cor não julga o sinal: sobra em qualquer dos dois sistemas é
+ * divergência.
+ */
 function NetDivergencePanel({ totalNetDivergence }: { totalNetDivergence: number }) {
 	return (
 		<div
 			className={`mb-2 px-3 py-2 rounded-lg border flex items-center justify-between max-w-md
            bg-muted/50 border-border`}
 		>
-			<span className="text-label text-muted-foreground">Divergência Líquida</span>
-			<span
-				className={`text-subheading font-mono ${totalNetDivergence > 0 ? "text-success" : totalNetDivergence < 0 ? "text-destructive" : "text-muted-foreground"}`}
-			>
+			<span className="text-label text-muted-foreground">{NET_DIFFERENCE_LABEL}</span>
+			<span className={`text-subheading font-mono ${totalNetDivergence === 0 ? "text-muted-foreground" : "text-foreground"}`}>
 				{totalNetDivergence > 0 ? "+" : ""}
 				{formatCurrency(totalNetDivergence)}
 			</span>
@@ -404,7 +408,7 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isExpanded, setHie
 
 	if (!data) return null
 
-	const totalNetDivergence = aggregated.reduce((sum, item) => sum + item.netDiff, 0)
+	const totalNetDivergence = computeTotalNetDifference(aggregated)
 	const totalFinancialImpact = aggregated.reduce((sum, item) => sum + item.diff, 0)
 
 	// Contagem de barras, contêiner e eixo: ver `computeComparisonLayout`.

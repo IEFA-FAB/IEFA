@@ -44,25 +44,19 @@ import {
 	sumTheoreticalConsumption,
 	tallyIssueMovements,
 } from "@/lib/issue-day"
+import { readKitchenStockSettings } from "@/lib/kitchen-stock-settings.server"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 
 const inventory = () => getServerClient("inventory")
 const kitchen = () => getServerClient("kitchen")
 
-/** Tolerâncias da cozinha, com os defaults do banco. */
+/** Tolerâncias da cozinha, com os defaults resolvidos pelo banco. */
 async function toleranceFor(kitchenId: number) {
-	const { data: row, error } = await inventory()
-		.from("kitchen_stock_settings")
-		.select("issue_tolerance_pct, issue_tolerance_floor_value")
-		.eq("kitchen_id", kitchenId)
-		.maybeSingle()
-	// Sem linha valem os defaults — mas leitura que FALHA não é "sem linha": cair
-	// no default aqui trocaria a tolerância da cozinha pela de fábrica em silêncio.
-	if (error) throw new Error(`Erro ao carregar a tolerância da cozinha: ${publicDbMessage(error)}`)
+	const settings = await readKitchenStockSettings(kitchenId)
 	return {
-		tolerancePct: Number(row?.issue_tolerance_pct ?? 10),
-		toleranceFloorValue: Number(row?.issue_tolerance_floor_value ?? 20),
+		tolerancePct: Number(settings.issue_tolerance_pct),
+		toleranceFloorValue: Number(settings.issue_tolerance_floor_value),
 	}
 }
 

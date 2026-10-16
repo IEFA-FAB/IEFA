@@ -2,6 +2,7 @@ import type { UIMessage } from "@tanstack/ai-client"
 import { fetchServerSentEvents, useChat } from "@tanstack/ai-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useCreateModuleChatSession, useModuleChatMessages, useSaveModuleChatMessage } from "@/hooks/data/useModuleChatHistory"
+import { persistAssistantReply } from "@/lib/chat-persistence"
 import {
 	CLOSED_TURN,
 	collectTurnRecord,
@@ -137,26 +138,14 @@ export function useModuleChatSession({ sessionId, module, scopeId, onSessionCrea
 	const persistTurn = useCallback((messages: readonly UIMessage[]) => {
 		const record = collectTurnRecord(messages)
 		if (!record) return
-		void sessionPromiseRef.current
-			?.then(async (sid) => {
-				const doSave = async (attempt = 0): Promise<void> => {
-					try {
-						await saveMessageRef.current.mutateAsync({
-							sessionId: sid,
-							role: "assistant",
-							content: record.content,
-							toolCalls: record.toolCalls.length > 0 ? record.toolCalls : undefined,
-						})
-					} catch {
-						if (attempt < 3) {
-							await new Promise<void>((r) => setTimeout(r, 1000 * 2 ** attempt))
-							return doSave(attempt + 1)
-						}
-					}
-				}
-				await doSave()
+		persistAssistantReply(sessionPromiseRef.current, (sessionId) =>
+			saveMessageRef.current.mutateAsync({
+				sessionId,
+				role: "assistant",
+				content: record.content,
+				toolCalls: record.toolCalls.length > 0 ? record.toolCalls : undefined,
 			})
-			.catch((_err: unknown) => {})
+		)
 	}, [])
 
 	useEffect(() => {

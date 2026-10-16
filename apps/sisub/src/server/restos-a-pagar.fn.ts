@@ -30,6 +30,7 @@ import {
 	type RestosAPagarAction,
 	type RestosAPagarKind,
 	reconcileRestosAPagar,
+	roundToCents,
 	splitRestosAPagar,
 } from "@iefa/sisub-domain"
 import { describeDriverError } from "@iefa/sisub-domain/utils"
@@ -280,8 +281,8 @@ export const inscribeRpParcelsFn = createServerFn({ method: "POST" })
 						return {
 							...counts,
 							empenhos: counts.inserted + counts.migrated + counts.replaced,
-							processado: Math.round(counts.processado * 100) / 100,
-							naoProcessado: Math.round(counts.naoProcessado * 100) / 100,
+							processado: roundToCents(counts.processado),
+							naoProcessado: roundToCents(counts.naoProcessado),
 						}
 					})
 				} catch (error) {

@@ -67,11 +67,24 @@ function buildOptions(input: z.output<typeof materialQuerySchema> | z.output<typ
 	}
 }
 
-function getSupabase() {
+function createSchemaClient() {
 	return createClient(env.API_SUPABASE_URL, env.API_SUPABASE_SERVICE_ROLE_KEY, {
 		db: { schema: "procurement" },
-		auth: { persistSession: false },
+		auth: { persistSession: false, autoRefreshToken: false },
 	})
+}
+
+let cachedClient: ReturnType<typeof createSchemaClient> | undefined
+
+/**
+ * Client memoizado no módulo, como em `catalog.ts`: a service role não carrega sessão de
+ * usuário, então um client por processo serve a todos os requests, em vez de montar GoTrue,
+ * Realtime, PostgREST e Storage a cada chamada. Lazy para o módulo continuar importável num
+ * teste sem credencial no ambiente.
+ */
+function getSupabase() {
+	cachedClient ??= createSchemaClient()
+	return cachedClient
 }
 
 type Supabase = ReturnType<typeof getSupabase>

@@ -1,9 +1,7 @@
 import { createAdapterFromEnv, defaultRateLimitStore, enforceRequestRateLimit, maxIterationsMiddleware, RateLimitError } from "@iefa/ai-provider"
 import { checkSameOriginJsonRequest } from "@iefa/auth-kit"
-import type { Database } from "@iefa/database"
 import { resolveUserPermissions } from "@iefa/pbac"
 import { metrics, trace } from "@opentelemetry/api"
-import { createServerClient } from "@supabase/ssr"
 import { chat, chatParamsFromRequestBody, toServerSentEventsResponse } from "@tanstack/ai"
 import { otelMiddleware } from "@tanstack/ai/middlewares/otel"
 import { type H3Event, HTTPError, readBody } from "h3"
@@ -12,7 +10,7 @@ import { AI_CHAT_MAX_ITERATIONS, canUseAnalyticsAssistant, SISUB_AI_RATE_LIMIT_D
 import { ANALYTICS_SYSTEM_PROMPT } from "@/lib/analytics-prompt"
 import { getServerCapabilities } from "@/lib/capabilities.server"
 import { checkChatPayloadSize, sanitizeClientMessages } from "@/lib/chat-client-messages"
-import { envServer } from "@/lib/env.server"
+import { requireSisubUser } from "@/lib/nitro-auth.server"
 import { renderChartTool } from "@/lib/render-chart-tool"
 import { getAccessControlClient } from "@/lib/supabase.server"
 
@@ -21,21 +19,6 @@ const otel = otelMiddleware({
 	meter: metrics.getMeter("sisub-analytics"),
 	captureContent: false,
 })
-
-function getAuthClientFromEvent(event: H3Event) {
-	const cookieHeader = event.req.headers.get("cookie") ?? ""
-	const parsedCookies = cookieHeader.split(";").map((c: string) => {
-		const [name, ...v] = c.split("=")
-		return { name: name.trim(), value: v.join("=") }
-	})
-	return createServerClient<Database, "sisub">(envServer.VITE_SISUB_SUPABASE_URL, envServer.SISUB_SUPABASE_SECRET_KEY, {
-		db: { schema: "sisub" },
-		cookies: {
-			getAll: () => parsedCookies,
-			setAll: () => {},
-		},
-	})
-}
 
 export default defineHandler(async (event: H3Event) => {
 	// Capability gate — sem secrets ANALYTICS_AI_* o assistente fica "Em breve"
@@ -50,15 +33,7 @@ export default defineHandler(async (event: H3Event) => {
 		throw new HTTPError({ status: 403, message: origin.reason })
 	}
 
-	const authClient = getAuthClientFromEvent(event)
-	const {
-		data: { user },
-		error: authError,
-	} = await authClient.auth.getUser()
-
-	if (!user || authError) {
-		throw new HTTPError({ status: 401, message: "Não autenticado" })
-	}
+	const user = await requireSisubUser(event)
 
 	// `analytics:1` SEM escopo: o `render_chart` roda SQL com BYPASSRLS sobre todas as OMs, e um
 	// grant escopado não recortaria nada do que ele lê (ver `canUseAnalyticsAssistant`).

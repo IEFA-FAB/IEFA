@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test"
 import { untrustedContentRule } from "@iefa/ai-provider/untrusted"
 import { splitPromptBlocks } from "#/test/prompt-blocks"
 import { AccountGroup } from "../types"
+import { computeNetDifference } from "./net-difference"
 import type { ReportDataset } from "./report"
 import { ANALYTIC_NOTE_SYSTEM_PROMPT, buildAnalyticNoteUserPrompt } from "./report-prompt"
 
@@ -17,7 +18,7 @@ const DATASET: ReportDataset = {
 	periodsLoaded: 2,
 	ugCount: 2,
 	recordCount: 6,
-	totals: { siafi: 17_900, siloms: 14_000, absoluteDifference: 4100, netDifference: 3900 },
+	totals: { siafi: 17_900, siloms: 14_000, absoluteDifference: 4100, netDifference: -3900 },
 	previous: null,
 	preponderance: { siafi: 3, siloms: 1, equal: 2 },
 	groups: [{ group: AccountGroup.BMP, siafi: 15_000, siloms: 11_500, difference: 3500, ugCount: 2 }],
@@ -32,6 +33,10 @@ describe("ANALYTIC_NOTE_SYSTEM_PROMPT", () => {
 	it("traz a regra de dado não confiável, sem nonce", () => {
 		expect(ANALYTIC_NOTE_SYSTEM_PROMPT).toContain(untrustedContentRule("planilha_"))
 		expect(ANALYTIC_NOTE_SYSTEM_PROMPT).not.toContain(NONCE)
+	})
+	it("diz ao modelo o sentido da diferença líquida, o mesmo de `computeNetDifference`", () => {
+		expect(ANALYTIC_NOTE_SYSTEM_PROMPT).toContain("totals.netDifference) é SILOMS − SIAFI")
+		expect(computeNetDifference(DATASET.totals.siafi, DATASET.totals.siloms)).toBe(DATASET.totals.netDifference)
 	})
 })
 

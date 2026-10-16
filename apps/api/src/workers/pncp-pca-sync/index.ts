@@ -1,7 +1,7 @@
 import { parsePcaCsv } from "@iefa/sisub-domain/pncp-pca"
 import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 import { env } from "../../env.ts"
-import { beatSync, claimSync, finishSync, SYNC_SOURCES } from "../../lib/sync-log.ts"
+import { beatSync, type ClaimResult, claimSync, finishSync, SYNC_SOURCES } from "../../lib/sync-log.ts"
 import { fetchPcaCsv } from "./client.ts"
 import { dedupeAnos } from "./index-pure.ts"
 import { checkSnapshotSanity, contentHash, planReconciliation } from "./reconcile.ts"
@@ -30,6 +30,8 @@ export interface RunPcaSyncOptions {
 	cnpj?: string
 	/** Anos a coletar. Padrão: exercício corrente e o seguinte (2027 já está publicado). */
 	anos?: number[]
+	/** Recebe o resultado do `claimSync` assim que ele sai (ver `launchSync`). */
+	onClaimed?: (claim: ClaimResult) => void
 }
 
 export interface PcaSyncYearResult {
@@ -44,7 +46,7 @@ export interface PcaSyncYearResult {
 function getClient(): SupabaseClient<any, any> {
 	return createClient(env.API_SUPABASE_URL, env.API_SUPABASE_SERVICE_ROLE_KEY, {
 		db: { schema: "compras_gov_integration" },
-		auth: { persistSession: false },
+		auth: { persistSession: false, autoRefreshToken: false },
 	})
 }
 
@@ -212,6 +214,7 @@ export async function runPcaSync(opts: RunPcaSyncOptions): Promise<number> {
 		triggeredBy: opts.triggeredBy,
 		totalSteps: anos.length,
 	})
+	opts.onClaimed?.(claim)
 
 	if (!claim.claimed) {
 		console.log("[pncp-pca] Ingestão já em andamento. Saindo silenciosamente.")

@@ -16,7 +16,7 @@
  */
 
 import type { SisubDb } from "@iefa/database/drizzle/sisub"
-import { hasPermission } from "@iefa/pbac"
+import { hasPermission, resolveEffectivePermissions, type UserPermission } from "@iefa/pbac"
 import { sql } from "drizzle-orm"
 import { requireUnit } from "../guards/require-permission.ts"
 import type { UserContext } from "../types/context.ts"
@@ -24,6 +24,7 @@ import { DomainError } from "../types/errors.ts"
 import { addCivilDays, getBrasiliaToday } from "../utils/civil-date.ts"
 import { runQuery } from "../utils/index.ts"
 import { ACQUISITION_KIND_LABEL, type AcquisitionKind } from "./acquisition.ts"
+import { listEffectiveUserPermissions } from "./permissions.ts"
 
 /**
  * Papel na designação, na língua da norma (Lei 14.133/2021, arts. 7º, 117 e 140, II, b; Decreto
@@ -71,9 +72,11 @@ export const DESIGNATION_SOURCE_LABELS: Record<DesignationSource, string> = {
 export type ReceiptStage = "provisional" | "definitive"
 
 /**
- * Quem pode designar ali mesmo ("Designar agora"): `unit:2` na unidade COMPRADORA da cozinha,
- * que é onde a designação mora e onde `inventory.designations_covering` procura. Regra única
- * do painel "A caminho" e da tela do recebimento.
+ * Quem pode designar ali mesmo ("Designar agora"): `unit:2` na unidade COMPRADORA da cozinha, que é
+ * onde a designação mora e onde `inventory.designations_covering` procura. Regra única do painel
+ * "A caminho", da tela do recebimento e da lista de quem pode designar na trava de segregação, e a
+ * mesma do guard de `createDesignation` (`requireUnit(ctx, 2, unitId)`): `unit:2` sem escopo
+ * (acesso global, de suporte e administração) designa em qualquer OM; deny de qualquer origem tira.
  */
 export function canDesignateInUnit(permissions: UserContext["permissions"], purchaseUnitId: number | null): boolean {
 	return purchaseUnitId != null && hasPermission(permissions, "unit", 2, { type: "unit", id: purchaseUnitId })
@@ -85,18 +88,29 @@ export function canDesignateInUnit(permissions: UserContext["permissions"], purc
  * pela autoridade competente" (art. 140, II, b), e a designação é o controle de outro papel.
  * Designar-se fiscal (o provisório) não entra na trava: o definitivo continua sendo de outra
  * pessoa. Quando ninguém mais na OM pode designar, a mensagem diz isso e o caminho.
+ *
+ * Quem designa vem em dois grupos: o pessoal da OM (`unit:2` escopado nela) PRIMEIRO, e depois quem
+ * só tem acesso global (suporte e administração), marcado. Na ordem alfabética pura os globais,
+ * que são vários, tomavam os nomes visíveis e empurravam o designador da OM para o "…".
  */
 export function selfDesignationProblem(input: {
 	isSelf: boolean
 	role: DesignationRole
 	designatorCanFinalize: boolean
-	otherDesignators: readonly string[]
+	/** Outros com `unit:2` escopado na OM. */
+	unitDesignators: readonly string[]
+	/** Outros que designam só pelo acesso global. */
+	globalDesignators: readonly string[]
 }): string | null {
 	if (!input.isSelf || !DEFINITIVE_RECEIPT_ROLES.includes(input.role) || !input.designatorCanFinalize) return null
+	const globals = input.globalDesignators.map((name) => `${name} (acesso global)`)
+	const list = (names: readonly string[]) => `${names.slice(0, 5).join(", ")}${names.length > 5 ? "…" : ""}`
 	const who =
-		input.otherDesignators.length > 0
-			? `Quem pode designar nesta OM: ${input.otherDesignators.slice(0, 5).join(", ")}${input.otherDesignators.length > 5 ? "…" : ""}.`
-			: "Ninguém mais tem Gestão Unidade nível 2 nesta OM: peça a concessão ao administrador do sisub, ou que o comandante designe outro servidor."
+		input.unitDesignators.length > 0
+			? `Quem pode designar: ${list([...input.unitDesignators, ...globals])}.`
+			: globals.length > 0
+				? `Ninguém mais tem Gestão Unidade nível 2 nesta OM; com acesso global, pode designar: ${list(globals)}. Ou peça a concessão ao administrador do sisub.`
+				: "Ninguém mais tem Gestão Unidade nível 2 nesta OM: peça a concessão ao administrador do sisub, ou que o comandante designe outro servidor."
 	return `A designação de gestor (do contrato ou setorial) ou de comissão para o recebimento definitivo é feita por outra pessoa: você também efetiva o definitivo nesta OM (segregação de funções, Lei 14.133/2021, art. 7º, § 1º). ${who}`
 }
 
@@ -185,6 +199,11 @@ const isoDate = (value: unknown): string => (value instanceof Date ? value.toISO
 /** Rótulo de pessoa: posto + nome de guerra; sem cadastro militar, o e-mail. */
 const PERSON_LABEL = sql`coalesce(nullif(btrim(concat_ws(' ', m.posto, m.nome_guerra)), ''), u.email, 'Usuário sem cadastro')`
 
+/**
+ * Lista de tela. O teto de 500 só alcança histórico: as vigentes vêm antes de toda encerrada, e
+ * nenhuma regra decide a partir desta lista (o recebimento confere a vigência no banco, por
+ * `inventory.find_designation`).
+ */
 export async function listDesignations(db: SisubDb, ctx: UserContext, input: { unitId: number }): Promise<DesignationRow[]> {
 	requireUnit(ctx, 1, input.unitId)
 	const today = getBrasiliaToday()
@@ -233,38 +252,156 @@ export async function listDesignations(db: SisubDb, ctx: UserContext, input: { u
 export interface DesignationCandidate {
 	personId: string
 	label: string
+	/**
+	 * Entra só por acesso sem escopo (suporte e administração), sem `unit`/`storage` na OM nem numa
+	 * cozinha dela. A tela marca, para a OM não confundir com o próprio efetivo.
+	 */
+	viaGlobalAccess: boolean
 }
 
 /**
- * Quem pode ser designado: quem opera o recebimento numa cozinha da OM (`storage`) ou a própria
- * gestão da OM (`unit`), com permissão vigente. Designar quem não entra no sisub não daria a
- * ninguém como assinar o termo aqui — e aceitar qualquer UUID deixaria a tela designar
- * usuário de outra OM.
+ * Quem pode ser designado: quem opera o recebimento numa cozinha da OM (`storage` ≥ 1 numa cozinha
+ * com `unit_id` ou `purchase_unit_id` da OM) ou a própria gestão da OM (`unit` ≥ 1 nela). Designar
+ * quem não entra no sisub não daria a ninguém como assinar o termo aqui — e aceitar qualquer UUID
+ * deixaria a tela designar usuário de outra OM.
+ *
+ * A resolução é a do `@iefa/pbac` e dos guards (`resolveEffectivePermissions` + `hasPermission`):
+ * as duas origens (grant inline e statement de política anexada), o deny de qualquer origem ou
+ * escopo precedendo o allow, e o allow SEM escopo (acesso global) valendo para qualquer OM. Uma
+ * regra própria em SQL divergia: quem tinha acesso só por política não aparecia, e quem tinha
+ * deny aparecia.
  */
-export async function listDesignationCandidates(db: SisubDb, ctx: UserContext, input: { unitId: number }): Promise<DesignationCandidate[]> {
-	requireUnit(ctx, 2, input.unitId)
+export function isDesignationCandidate(permissions: UserPermission[], unitId: number, kitchenIds: readonly number[]): boolean {
+	return (
+		hasPermission(permissions, "unit", 1, { type: "unit", id: unitId }) ||
+		kitchenIds.some((id) => hasPermission(permissions, "storage", 1, { type: "kitchen", id }))
+	)
+}
+
+/**
+ * Candidato que só entra pelo acesso sem escopo: sem os allows globais (os denies ficam todos), ele
+ * deixaria de ser candidato. É a marca `viaGlobalAccess` da lista.
+ */
+export function isCandidateOnlyViaGlobalAccess(permissions: UserPermission[], unitId: number, kitchenIds: readonly number[]): boolean {
+	return isDesignationCandidate(permissions, unitId, kitchenIds) && !isDesignationCandidate(withoutUnscopedAllows(permissions), unitId, kitchenIds)
+}
+
+/**
+ * O conjunto efetivo sem os allows sem escopo; os denies ficam todos. Não decide acesso: só separa
+ * o pessoal da OM de quem chega pelo acesso global, para marcar ou ordenar.
+ */
+function withoutUnscopedAllows(permissions: UserPermission[]): UserPermission[] {
+	return permissions.filter((p) => p.level <= 0 || p.unit_id !== null || p.kitchen_id !== null || p.mess_hall_id !== null)
+}
+
+async function loadUnitKitchenIds(db: SisubDb, unitId: number): Promise<number[]> {
+	const rows = (await runQuery(
+		"QUERY_FAILED",
+		() => db.execute(sql`select k.id from kitchen.kitchen k where k.unit_id = ${unitId} or k.purchase_unit_id = ${unitId}`),
+		{ prefix: "Erro ao ler as cozinhas da OM" }
+	)) as unknown as Row[]
+	return rows.map((r) => Number(r.id))
+}
+
+interface UnitAccessPerson {
+	personId: string
+	label: string
+	/** Conjunto efetivo de `unit` e `storage` relevante para a OM (ver `loadUnitAccess`). */
+	permissions: UserPermission[]
+}
+
+/**
+ * Quem tem algum allow de `unit` ou `storage` que alcança a OM (escopado nela, numa cozinha dela,
+ * ou sem escopo), com o conjunto efetivo desses dois módulos já resolvido pelo `@iefa/pbac`. O
+ * acesso sem escopo é de pouca gente (suporte e administração), então entra inteiro.
+ *
+ * Lê as duas origens (`user_permissions` e `user_policy_attachment` → `policy` viva →
+ * `policy_statement`), com o prazo das duas, e só as linhas que podem decidir `hasPermission` com
+ * escopo de unidade ou de cozinha da OM: as sem escopo e as escopadas na OM ou numa cozinha dela.
+ * Linha de outro escopo não muda a resposta (o deny escopado só cobre o próprio escopo), então o
+ * recorte dá o mesmo veredito do conjunto completo. Os demais módulos não entram: deny é por
+ * módulo. As cozinhas vêm de quem chama quando ele já as leu; com `null`, o próprio SQL as
+ * recorta, e quem chama pode ler as cozinhas em paralelo.
+ */
+async function loadUnitAccess(db: SisubDb, unitId: number, kitchenIds: readonly number[] | null): Promise<UnitAccessPerson[]> {
+	const inKitchens =
+		kitchenIds == null
+			? sql`g.kitchen_id in (select k.id from kitchen.kitchen k where k.unit_id = ${unitId} or k.purchase_unit_id = ${unitId})`
+			: kitchenIds.length
+				? sql`g.kitchen_id in (${sql.join(
+						kitchenIds.map((id) => sql`${id}`),
+						sql`, `
+					)})`
+				: sql`false`
 	const rows = (await runQuery(
 		"QUERY_FAILED",
 		() =>
 			db.execute(sql`
-				select distinct p.user_id, ${PERSON_LABEL} as label
-				from access_control.user_permissions p
-				left join core.user_data u on u.id = p.user_id
+				with grants as (
+					select p.user_id, p.module, p.level, p.mess_hall_id, p.kitchen_id, p.unit_id
+					from access_control.user_permissions p
+					where p.module in ('unit', 'storage') and (p.expires_at is null or p.expires_at > now())
+					union all
+					select a.user_id, s.module, s.level, s.mess_hall_id, s.kitchen_id, s.unit_id
+					from access_control.user_policy_attachment a
+					join access_control.policy pol on pol.id = a.policy_id and pol.deleted_at is null
+					join access_control.policy_statement s on s.policy_id = a.policy_id
+					where s.module in ('unit', 'storage') and (a.expires_at is null or a.expires_at > now())
+				),
+				relevant as (
+					select g.* from grants g
+					where (g.unit_id is null and g.kitchen_id is null and g.mess_hall_id is null)
+						or g.unit_id = ${unitId}
+						or ${inKitchens}
+				)
+				select r.user_id, r.module, r.level, r.mess_hall_id, r.kitchen_id, r.unit_id, ${PERSON_LABEL} as label
+				from relevant r
+				left join core.user_data u on u.id = r.user_id
 				left join core.military_identity m on m.saram = core.visible_saram(u.id)
-				where (p.expires_at is null or p.expires_at > now())
-					and p.level >= 1
-					and (
-						(p.module = 'unit' and p.unit_id = ${input.unitId})
-						or (p.module = 'storage' and p.kitchen_id in (
-							select k.id from kitchen.kitchen k where k.unit_id = ${input.unitId} or k.purchase_unit_id = ${input.unitId}
-						))
-					)
-				order by label
-				limit 500
+				where r.user_id in (select user_id from relevant where level >= 1)
 			`),
-		{ prefix: "Erro ao ler quem pode ser designado" }
+		{ prefix: "Erro ao ler quem tem acesso à OM" }
 	)) as unknown as Row[]
-	return rows.map((r) => ({ personId: String(r.user_id), label: String(r.label) }))
+
+	const byPerson = new Map<string, { label: string; rows: UserPermission[] }>()
+	for (const r of rows) {
+		const personId = String(r.user_id)
+		const entry = byPerson.get(personId) ?? { label: String(r.label), rows: [] }
+		entry.rows.push({
+			// `module` é text no banco; aqui só chegam `unit` e `storage`, pelo filtro da consulta.
+			module: String(r.module) as UserPermission["module"],
+			level: Number(r.level),
+			mess_hall_id: r.mess_hall_id == null ? null : Number(r.mess_hall_id),
+			kitchen_id: r.kitchen_id == null ? null : Number(r.kitchen_id),
+			unit_id: r.unit_id == null ? null : Number(r.unit_id),
+		})
+		byPerson.set(personId, entry)
+	}
+	return [...byPerson].map(([personId, { label, rows: personRows }]) => ({
+		personId,
+		label,
+		permissions: resolveEffectivePermissions(personRows),
+	}))
+}
+
+const byLabel = (a: { label: string }, b: { label: string }) => a.label.localeCompare(b.label, "pt-BR")
+
+/**
+ * A lista inteira, sem teto: a tela (`DesignationForm`) carrega tudo num select com busca no
+ * cliente, e um corte calado esconderia justamente quem está no fim da ordem alfabética. O universo
+ * já é limitado por quem tem acesso à OM, mais o pouco acesso global.
+ */
+export async function listDesignationCandidates(db: SisubDb, ctx: UserContext, input: { unitId: number }): Promise<DesignationCandidate[]> {
+	requireUnit(ctx, 2, input.unitId)
+	const [kitchenIds, people] = await Promise.all([loadUnitKitchenIds(db, input.unitId), loadUnitAccess(db, input.unitId, null)])
+	return people
+		.filter((person) => isDesignationCandidate(person.permissions, input.unitId, kitchenIds))
+		.map((person) => ({
+			personId: person.personId,
+			label: person.label,
+			viaGlobalAccess: isCandidateOnlyViaGlobalAccess(person.permissions, input.unitId, kitchenIds),
+		}))
+		.sort(byLabel)
 }
 
 export async function createDesignation(db: SisubDb, ctx: UserContext, input: DesignationInput): Promise<{ id: string }> {
@@ -272,29 +409,25 @@ export async function createDesignation(db: SisubDb, ctx: UserContext, input: De
 	const problems = designationInputProblems(input)
 	if (problems.length > 0) throw new DomainError("DESIGNATION_INVALID", problems.join(". "))
 
-	const candidates = await listDesignationCandidates(db, ctx, { unitId: input.unitId })
-	if (!candidates.some((c) => c.personId === input.personId)) {
+	// A pessoa é conferida direto, pelo conjunto efetivo DELA — a mesma resolução da sessão —, e não
+	// procurada numa lista: a recusa não pode depender de corte nem de ordem de leitura.
+	const [kitchenIds, personPermissions] = await Promise.all([
+		loadUnitKitchenIds(db, input.unitId),
+		listEffectiveUserPermissions(db, { userId: input.personId }),
+	])
+	if (!isDesignationCandidate(personPermissions, input.unitId, kitchenIds)) {
 		throw new DomainError("DESIGNATION_PERSON_OUT_OF_UNIT", "Esta pessoa não opera o estoque nem a gestão desta OM — conceda o acesso antes de designá-la")
 	}
 	if (input.personId === ctx.userId && DEFINITIVE_RECEIPT_ROLES.includes(input.role)) {
-		const rows = (await runQuery("QUERY_FAILED", () =>
-			db.execute(sql`
-				select
-					(select coalesce(array_agg(k.id), '{}') from kitchen.kitchen k where k.unit_id = ${input.unitId} or k.purchase_unit_id = ${input.unitId}) as kitchen_ids,
-					(select coalesce(array_agg(distinct ${PERSON_LABEL}), '{}')
-						from access_control.user_permissions p
-						left join core.user_data u on u.id = p.user_id
-						left join core.military_identity m on m.saram = core.visible_saram(u.id)
-						where p.module = 'unit' and p.level >= 2 and p.unit_id = ${input.unitId}
-							and p.user_id <> ${ctx.userId} and (p.expires_at is null or p.expires_at > now())) as designators
-			`)
-		)) as unknown as Row[]
-		const kitchenIds = ((rows[0]?.kitchen_ids as unknown[]) ?? []).map(Number)
+		const people = await loadUnitAccess(db, input.unitId, kitchenIds)
+		const designators = people.filter((person) => person.personId !== ctx.userId && canDesignateInUnit(person.permissions, input.unitId)).sort(byLabel)
+		const isUnitDesignator = (person: UnitAccessPerson) => canDesignateInUnit(withoutUnscopedAllows(person.permissions), input.unitId)
 		const problem = selfDesignationProblem({
 			isSelf: true,
 			role: input.role,
 			designatorCanFinalize: kitchenIds.some((id) => hasPermission(ctx.permissions, "storage", 3, { type: "kitchen", id })),
-			otherDesignators: ((rows[0]?.designators as unknown[]) ?? []).map(String),
+			unitDesignators: designators.filter(isUnitDesignator).map((person) => person.label),
+			globalDesignators: designators.filter((person) => !isUnitDesignator(person)).map((person) => person.label),
 		})
 		if (problem) throw new DomainError("DESIGNATION_SELF_SEGREGATION", problem)
 	}

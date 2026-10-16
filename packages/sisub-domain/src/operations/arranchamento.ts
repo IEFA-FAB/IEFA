@@ -12,7 +12,8 @@ import { arranchamentoInKitchen, messHallsInKitchen, type SisubDb, userDataInCor
 import { and, asc, eq, gte, lte } from "drizzle-orm"
 import type { DeleteArranchamento, GetUserDefaultMessHall, ListArranchamentos, PersistDefaultMessHall, UpsertArranchamento } from "../schemas/meal-ops.ts"
 import type { UserContext } from "../types/context.ts"
-import { runQuery } from "../utils/index.ts"
+import type { DomainError } from "../types/errors.ts"
+import { driverFailure, retryOnceOnTransientConnectionError, runQuery, unwrapPgError } from "../utils/index.ts"
 import { assertAccountCanEat, toSaramDomainError } from "./saram-link.ts"
 
 type ArranchamentoListItem = { date: string; meal: string; will_eat: boolean; mess_halls: { code: string | null } | null }
@@ -61,29 +62,36 @@ export async function upsertArranchamento(db: SisubDb, ctx: UserContext, input: 
 	if (input.willEat) await assertAccountCanEat(db, ctx.userId)
 	const row = { date: input.date, userId: ctx.userId, meal: input.meal, willEat: input.willEat, messHallId: input.messHallId }
 
-	try {
-		await db
-			.insert(arranchamentoInKitchen)
-			.values(row)
-			.onConflictDoUpdate({
-				target: [arranchamentoInKitchen.userId, arranchamentoInKitchen.date, arranchamentoInKitchen.meal],
-				set: { willEat: input.willEat, messHallId: input.messHallId },
-			})
-	} catch (error) {
-		// A recusa do banco à conta institucional não é caso de borda: o fallback a repetiria.
-		const refusal = toSaramDomainError(error)
-		if (refusal.code === "ACCOUNT_INSTITUTIONAL") throw refusal
-		// Fallback: delete + insert — cobre casos de borda que o onConflict não resolve.
-		// Em transação: se o insert falhar, o delete reverte (senão a linha sumiria de vez).
-		await runQuery("UPSERT_FAILED", () =>
-			db.transaction(async (tx) => {
-				await tx
-					.delete(arranchamentoInKitchen)
-					.where(and(eq(arranchamentoInKitchen.userId, ctx.userId), eq(arranchamentoInKitchen.date, input.date), eq(arranchamentoInKitchen.meal, input.meal)))
-				await tx.insert(arranchamentoInKitchen).values(row)
-			})
-		)
-	}
+	// O único (user_id, date, meal) é a única unicidade de negócio da tabela; a PK `id` não entra no
+	// insert. Por isso o upsert é idempotente e aguenta repetir uma vez numa queda de conexão; erro
+	// de dado (FK, check) ou a recusa do trigger propaga na primeira.
+	await runQuery(
+		"UPSERT_FAILED",
+		() =>
+			retryOnceOnTransientConnectionError(
+				() =>
+					db
+						.insert(arranchamentoInKitchen)
+						.values(row)
+						.onConflictDoUpdate({
+							target: [arranchamentoInKitchen.userId, arranchamentoInKitchen.date, arranchamentoInKitchen.meal],
+							set: { willEat: input.willEat, messHallId: input.messHallId },
+						}),
+				{ label: "arranchamento.upsert" }
+			),
+		{ mapError: toUpsertError }
+	)
+}
+
+const SAVE_FAILED_MESSAGE = "Não foi possível salvar o arranchamento. Tente novamente."
+
+/**
+ * A recusa do trigger `refuse_institutional_account_meal` (corrida: a conta virou institucional
+ * depois do `assertAccountCanEat`) sai com a mensagem dela; o resto, com a de salvar.
+ */
+function toUpsertError(error: unknown): DomainError {
+	if (unwrapPgError(error).message === "ACCOUNT_INSTITUTIONAL_NO_MEALS") return toSaramDomainError(error)
+	return driverFailure("UPSERT_FAILED", error, "upsert de kitchen.arranchamento", SAVE_FAILED_MESSAGE)
 }
 
 export async function deleteArranchamento(db: SisubDb, ctx: UserContext, input: DeleteArranchamento) {

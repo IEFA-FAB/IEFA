@@ -54,6 +54,15 @@ function create() {
 			connect_timeout: isDev ? 30 : 5, // s — falha rápido em vez de pendurar o SSR
 			idle_timeout: 30, // s — devolve conexão ociosa ao pooler
 			max_lifetime: 60 * 30, // s — recicla conexão a cada 30 min
+			// Por task, não por serviço. No pico, no mesmo transaction pooler do Supabase:
+			//   sisub      10 × `autoscaling_max_count` 6 (`infra/sisub/sizing.auto.tfvars`) = 60
+			//   alpha      10 × 3 (checkpointer, `infra/alpha/sizing.auto.tfvars`)          = 30
+			//   sisub-mcp  10 × `desired_count` (sem autoscaling: o teto do módulo é 0)
+			// ≈ 100 clientes do pooler. O que limita é do PLANO do Supabase, não do repo: o teto de
+			// clientes e o pool size do Supavisor (dashboard, Database → Connection pooling) e o
+			// `max_connections` do Postgres, 60 em 2026-10-15. Pooler esgotado deixa o request
+			// esperando conexão, o sintoma do 504 de 2026-09-13; subir este número ou um teto de
+			// tasks exige refazer a soma contra esses limites.
 			max: 10,
 		},
 		onReset: (error) => {

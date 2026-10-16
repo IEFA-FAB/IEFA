@@ -1,8 +1,13 @@
 import { Hono } from "hono"
 import { browserCors } from "./cors.ts"
 
-const MEMORY_LIMIT_BYTES = 450 * 1024 * 1024 // 450MB — 90% of ~500MB effective budget
+// A task tem 1024 MB (`memory` em `infra/alpha/sizing.auto.tfvars`), mas o `rss` daqui é só
+// o do processo principal: a leitura de PDF roda em até `MAX_CONCURRENT_READS` (2) filhos de
+// até `PDF_READ_MAX_RSS_BYTES` (256 MB) cada (`extraction/pdf-isolated.ts`), que ele não conta.
+// Sobram 1024 − 2 × 256 = 512 MB para o principal; 450 MB é ~90% disso. Mudou a memória da
+// task, a concorrência ou o teto do filho, refaça a conta aqui.
 const MEMORY_LIMIT_MB = 450
+const MEMORY_LIMIT_BYTES = MEMORY_LIMIT_MB * 1024 * 1024
 
 /**
  * Estado do serviço: pressão de memória, e só isso.

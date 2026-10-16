@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 import { env } from "../../env.ts"
-import { claimSync, hasLiveSync, isSyncLive, recoverStaleSyncs, SYNC_SOURCES } from "../../lib/sync-log.ts"
+import { type ClaimResult, claimSync, hasLiveSync, isSyncLive, recoverStaleSyncs, SYNC_SOURCES } from "../../lib/sync-log.ts"
 import {
 	syncMaterialCaracteristica,
 	syncMaterialClasse,
@@ -83,6 +83,8 @@ const WAVES: Array<Array<{ name: string; fn: StepFn }>> = [
 
 export interface RunComprasSyncOptions {
 	triggeredBy: "cron" | "manual"
+	/** Recebe o resultado do `claimSync` assim que ele sai (ver `launchSync`). */
+	onClaimed?: (claim: ClaimResult) => void
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
@@ -90,7 +92,7 @@ export interface RunComprasSyncOptions {
 export async function runComprasSync(opts: RunComprasSyncOptions): Promise<number> {
 	const supabase = createClient(env.API_SUPABASE_URL, env.API_SUPABASE_SERVICE_ROLE_KEY, {
 		db: { schema: "compras_gov_integration" },
-		auth: { persistSession: false },
+		auth: { persistSession: false, autoRefreshToken: false },
 	})
 
 	// ── Trava de concorrência, garantida pelo banco ────────────────────────────
@@ -101,6 +103,7 @@ export async function runComprasSync(opts: RunComprasSyncOptions): Promise<numbe
 		triggeredBy: opts.triggeredBy,
 		totalSteps: TOTAL_STEPS,
 	})
+	opts.onClaimed?.(claim)
 
 	if (!claim.claimed) {
 		if (opts.triggeredBy === "cron") {
@@ -255,7 +258,7 @@ function scheduleNextRun() {
 export async function startComprasSyncWorker() {
 	const supabase = createClient(env.API_SUPABASE_URL, env.API_SUPABASE_SERVICE_ROLE_KEY, {
 		db: { schema: "compras_gov_integration" },
-		auth: { persistSession: false },
+		auth: { persistSession: false, autoRefreshToken: false },
 	})
 
 	// Recupera syncs presas de instâncias anteriores (belt-and-suspenders;
