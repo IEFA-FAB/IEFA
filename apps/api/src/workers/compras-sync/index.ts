@@ -92,7 +92,7 @@ export interface RunComprasSyncOptions {
 export async function runComprasSync(opts: RunComprasSyncOptions): Promise<number> {
 	const supabase = createClient(env.API_SUPABASE_URL, env.API_SUPABASE_SERVICE_ROLE_KEY, {
 		db: { schema: "compras_gov_integration" },
-		auth: { persistSession: false },
+		auth: { persistSession: false, autoRefreshToken: false },
 	})
 
 	// ── Trava de concorrência, garantida pelo banco ────────────────────────────
@@ -258,7 +258,7 @@ function scheduleNextRun() {
 export async function startComprasSyncWorker() {
 	const supabase = createClient(env.API_SUPABASE_URL, env.API_SUPABASE_SERVICE_ROLE_KEY, {
 		db: { schema: "compras_gov_integration" },
-		auth: { persistSession: false },
+		auth: { persistSession: false, autoRefreshToken: false },
 	})
 
 	// Recupera syncs presas de instâncias anteriores (belt-and-suspenders;

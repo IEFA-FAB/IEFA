@@ -191,13 +191,13 @@ describe("runQuery: mapError", () => {
 
 describe("isTransientConnectionError", () => {
 	test("falha de conexão do driver, do socket e SQLSTATE 08/57P0x, mesmo dentro do DrizzleQueryError", () => {
-		for (const code of ["CONNECT_TIMEOUT", "CONNECTION_CLOSED", "CONNECTION_ENDED", "ECONNRESET", "08006", "08001", "57P01", "57P03"]) {
+		for (const code of ["CONNECT_TIMEOUT", "CONNECTION_CLOSED", "CONNECTION_ENDED", "ECONNRESET", "08006", "08001", "08P01", "57P01", "57P03"]) {
 			expect(isTransientConnectionError(drizzleQueryError("insert …", { code, message: code }))).toBe(true)
 		}
 	})
 
 	test("erro de dado, permissão, RAISE, statement_timeout e QUERY_DEADLINE não são transitórios", () => {
-		for (const code of ["23503", "23505", "23514", "42501", "P0001", "57014", "QUERY_DEADLINE", undefined]) {
+		for (const code of ["23503", "23505", "23514", "42501", "P0001", "57014", "QUERY_DEADLINE", "08", "080", "0800", "080000", "08abc", undefined]) {
 			expect(isTransientConnectionError(drizzleQueryError("insert …", { code, message: "x" }))).toBe(false)
 		}
 		expect(isTransientConnectionError("texto")).toBe(false)

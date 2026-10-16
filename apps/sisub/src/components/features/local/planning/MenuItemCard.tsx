@@ -1,6 +1,7 @@
 import { MAX_RECOMMENDED_PROPORTION } from "@iefa/sisub-domain/schemas"
 import { ArrowLeftRight, Replace, Trash2 } from "lucide-react"
 import { useState } from "react"
+import { RecipeLink } from "@/components/features/shared/RecipeLink"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -100,7 +101,7 @@ export function MenuItemCard({ item, onSubstitute, onReplaceRecipe, onDelete, ou
 			    ("Trocada (era …)") a linha única empurrava os botões para fora do cartão. */}
 			<div className="flex items-start justify-between gap-2">
 				<div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
-					<p className="text-subheading">{recipeName}</p>
+					<p className="text-subheading">{item.recipe_origin_id ? <RecipeLink recipeId={item.recipe_origin_id}>{recipeName}</RecipeLink> : recipeName}</p>
 					{/* O dia guarda a ficha da versão aplicada; sem este selo a cozinha produzia por uma
 					    ficha antiga sem sinal nenhum. Para atualizar, é no cardápio semanal + reaplicar. */}
 					<RecipeVersionBadge outdated={outdated} />

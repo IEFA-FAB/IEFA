@@ -5,7 +5,7 @@ import { env } from "../env.ts"
 // auth.persistSession false em ambiente server
 const supabase = createClient(env.API_SUPABASE_URL, env.API_SUPABASE_SERVICE_ROLE_KEY, {
 	db: { schema: "sisub" },
-	auth: { persistSession: false },
+	auth: { persistSession: false, autoRefreshToken: false },
 })
 
 export default supabase

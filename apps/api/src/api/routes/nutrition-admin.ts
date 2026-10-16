@@ -23,11 +23,24 @@ function requiredEnv(name: "API_SUPABASE_URL" | "API_SUPABASE_SERVICE_ROLE_KEY" 
  * `compras_gov_integration`, NÃO no schema de dados da nutrição — estas rotas só leem e
  * escrevem log, então este é o único cliente de que precisam.
  */
-function getSupabase() {
+function createSchemaClient() {
 	return createClient(requiredEnv("API_SUPABASE_URL"), requiredEnv("API_SUPABASE_SERVICE_ROLE_KEY"), {
 		db: { schema: "compras_gov_integration" },
-		auth: { persistSession: false },
+		auth: { persistSession: false, autoRefreshToken: false },
 	})
+}
+
+let cachedClient: ReturnType<typeof createSchemaClient> | undefined
+
+/**
+ * Client memoizado no módulo, como em `catalog.ts`: a service role não carrega sessão de
+ * usuário, então um client por processo serve a todos os requests, em vez de montar GoTrue,
+ * Realtime, PostgREST e Storage a cada chamada. Lazy para o módulo continuar importável num
+ * teste sem credencial no ambiente.
+ */
+function getSupabase() {
+	cachedClient ??= createSchemaClient()
+	return cachedClient
 }
 
 const ErrorSchema = z.object({ error: z.string() })

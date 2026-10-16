@@ -36,7 +36,7 @@ type DbSchema = Exclude<keyof Database, "__InternalSupabase">
 export function getDataClient<S extends DbSchema>(schema: S): SupabaseClient<Database, S> {
 	return createClient(requireEnv("VITE_SISUB_SUPABASE_URL"), requireEnv("SISUB_SUPABASE_SECRET_KEY"), {
 		db: { schema },
-		auth: { persistSession: false },
+		auth: { persistSession: false, autoRefreshToken: false },
 	}) as unknown as SupabaseClient<Database, S>
 }
 
@@ -47,6 +47,6 @@ export function getDataClient<S extends DbSchema>(schema: S): SupabaseClient<Dat
 export function getAuthClient() {
 	return createClient<Database, "sisub">(requireEnv("VITE_SISUB_SUPABASE_URL"), requireEnv("SISUB_SUPABASE_ANON_KEY"), {
 		db: { schema: "sisub" },
-		auth: { persistSession: false },
+		auth: { persistSession: false, autoRefreshToken: false },
 	})
 }

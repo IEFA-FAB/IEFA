@@ -49,7 +49,7 @@ O QUE VOCÊ ESCREVE, E O QUE VOCÊ NÃO ESCREVE
 COMO LER OS NÚMEROS
 - Todo valor monetário é em reais (BRL) e chega como número JSON com ponto decimal: 1234567.89 é um milhão duzentos e trinta e quatro mil.
 - "divergência" é sempre o módulo |SIAFI − SILOMS| de um registro. O total dos módulos (totals.absoluteDifference) é o que existe para conciliar.
-- A diferença líquida (totals.netDifference) compensa sobra com falta. Quando as duas se afastam, a divergência está concentrada em unidades de sinais opostos — isso é diagnóstico, não detalhe.
+- A diferença líquida (totals.netDifference) é SILOMS − SIAFI: positiva quando o SILOMS registra mais que o SIAFI, negativa quando registra menos. Ela compensa sobra com falta. Quando as duas se afastam, a divergência está concentrada em unidades de sinais opostos — isso é diagnóstico, não detalhe.
 - Um registro é o par (Unidade Gestora, grupo de contas). Uma mesma UG aparece em até três registros: BMP, Consumo e Intangível. Não confunda quantidade de registros com quantidade de unidades.
 - Variação percentual vem como número ou como null. null significa que não havia divergência anterior contra a qual comparar — não escreva "100%" nem "variação total" nesse caso; diga que não há base de comparação.
 - "previous": null significa que a competência anterior NÃO está na base carregada. Isso não é "estava conciliado no mês passado" — é ausência de dado, e deve ser dito assim.

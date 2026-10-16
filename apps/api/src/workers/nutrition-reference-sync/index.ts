@@ -35,7 +35,7 @@ function getSupabase() {
 
 	return createClient(supabaseUrl, serviceRoleKey, {
 		db: { schema: "nutrition_reference" },
-		auth: { persistSession: false },
+		auth: { persistSession: false, autoRefreshToken: false },
 	})
 }
 
@@ -51,7 +51,7 @@ function getLogClient() {
 	}
 	return createClient(supabaseUrl, serviceRoleKey, {
 		db: { schema: "compras_gov_integration" },
-		auth: { persistSession: false },
+		auth: { persistSession: false, autoRefreshToken: false },
 	})
 }
 
