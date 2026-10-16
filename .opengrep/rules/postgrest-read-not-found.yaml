@@ -1,0 +1,67 @@
+##
+# Falha de leitura respondida como "não encontrado", no servidor do sisub.
+#
+# `if (error || !row) throw new Error("… não encontrado")` junta dois casos que pedem respostas
+# diferentes: a linha não existe (o usuário confere o que pediu) e o banco não respondeu (o
+# usuário tenta de novo). Com a condição junta, um banco fora do ar diz que a NF-e, o recebimento
+# ou o lote não existem. Achado nos testes de caracterização do #624 e corrigido no #651 em
+# `nfe.fn`, `receiving.fn`, `arp.fn`, `budget.fn`, `siafi-import.fn` e nas tools do chat.
+#
+# Caminho certo:
+#
+#     const row = requireReadRow(await inv.from("t").select("…").eq("id", id).maybeSingle(), {
+#       readError: "Erro ao carregar o recebimento",
+#       notFound: "Recebimento não encontrado",
+#     })
+#
+# ou `if (error) throw …publicDbMessage(error)` antes de `if (!row) throw …não encontrado`.
+#
+# `error || !row` continua legítimo quando a mensagem traz o motivo do banco (depois de
+# `insert(...).select().single()`, por exemplo): por isso a regra só acusa quando a mensagem diz
+# "não encontrad".
+#
+# A segunda regra pega o vizinho: `(await ….maybeSingle()).data` descarta o `error` sem
+# desestruturar, e `postgrest-read-error-discarded` (que olha a desestruturação) não vê.
+#
+# Casos de teste: `__fixtures__/postgrest-read-not-found.ts` (opengrep test --config
+# .opengrep/rules/postgrest-read-not-found.yaml .opengrep/rules/__fixtures__/postgrest-read-not-found.ts).
+##
+rules:
+  - id: postgrest-read-error-as-not-found
+    languages: [typescript]
+    severity: ERROR
+    message: >-
+      Erro de leitura e ausência na mesma condição, respondidos como "não encontrado". Com o
+      banco fora do ar o usuário ouve que o registro não existe. Separe os dois: `requireReadRow`
+      (`lib/db-error-message.ts`), ou `if (error)` com `publicDbMessage` antes de `if (!row)`.
+    paths:
+      include:
+        - "apps/sisub/src/server/**/*.ts"
+        - "apps/sisub/src/lib/**/*.ts"
+      exclude:
+        - "**/*.test.ts"
+    patterns:
+      - pattern-either:
+          - pattern: 'if ($ERR || !$ROW) { ... }'
+          - pattern: 'if ($ERR || $ROW == null) { ... }'
+          - pattern: 'if ($ERR || $ROW === null) { ... }'
+          - pattern: 'if ($ERR || !$ROW) $STMT;'
+          - pattern: 'if ($ERR || $ROW == null) $STMT;'
+          - pattern: 'if ($ERR || $ROW === null) $STMT;'
+      - pattern-regex: 'n[ãa]o encontrad'
+  - id: postgrest-read-data-without-error
+    languages: [typescript]
+    severity: ERROR
+    message: >-
+      `(await …).data` descarta o `error` da leitura: se ela falhar, `data` vem `null` e a função
+      segue como se não houvesse registro. Desestruture `{ data, error }` e lance com
+      `publicDbMessage`, ou use `requireReadRow`.
+    paths:
+      include:
+        - "apps/sisub/src/server/**/*.ts"
+        - "apps/sisub/src/lib/**/*.ts"
+      exclude:
+        - "**/*.test.ts"
+    pattern-either:
+      - pattern: '(await $Q.maybeSingle()).data'
+      - pattern: '(await $Q.single()).data'
