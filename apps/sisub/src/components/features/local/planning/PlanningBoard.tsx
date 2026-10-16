@@ -106,7 +106,7 @@ export function PlanningBoard() {
 
 	const { data: menus } = useDailyMenus(kitchenId, startDate, endDate)
 	const { data: templates, isLoading: templatesLoading } = useMenuTemplates(kitchenId)
-	const { data: availability } = usePlanningAvailability(kitchenId, format(startDate, "yyyy-MM-dd"), format(endDate, "yyyy-MM-dd"))
+	const { data: availability, error: availabilityError } = usePlanningAvailability(kitchenId, format(startDate, "yyyy-MM-dd"), format(endDate, "yyyy-MM-dd"))
 	// Insumos distintos com aviso, por dia: o marcador diz "olhe este dia", o detalhe fica no painel.
 	const shortagesByDay = new Map<string, Set<string>>()
 	for (const warning of availability?.warnings ?? []) {
@@ -380,6 +380,10 @@ export function PlanningBoard() {
 				</div>
 			</div>
 
+			{/* Falha não é "atende": sem esta linha o calendário limpo pareceria tudo conferido. */}
+			{availabilityError && (
+				<p className="text-caption text-muted-foreground">Não foi possível conferir os insumos que podem faltar: {availabilityError.message}</p>
+			)}
 			{/* Fonte que a OM não usa no sisub fica fora do aviso: dizer isso evita ler silêncio como "atende". */}
 			{availability?.checks && !(availability.checks.stock && availability.checks.contracts) && (
 				<p className="text-caption text-muted-foreground">
@@ -399,7 +403,13 @@ export function PlanningBoard() {
 				<ExpiringInPeriod kitchenId={kitchenId} from={format(startDate, "yyyy-MM-dd")} until={format(endDate, "yyyy-MM-dd")} />
 			)}
 
-			<DayDrawer open={isDrawerOpen} onClose={() => dispatch({ type: "SET_DRAWER_OPEN", value: false })} date={selectedDay} kitchenId={kitchenId} />
+			<DayDrawer
+				open={isDrawerOpen}
+				onClose={() => dispatch({ type: "SET_DRAWER_OPEN", value: false })}
+				date={selectedDay}
+				kitchenId={kitchenId}
+				availabilityWarnings={availabilityError ? null : (availability?.warnings ?? [])}
+			/>
 
 			<ApplyTemplateDialog
 				// Remonta a cada abertura: o estado interno (template, modo de conflito) nasce da

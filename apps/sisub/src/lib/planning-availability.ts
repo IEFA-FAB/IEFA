@@ -98,9 +98,13 @@ export function endOfCivilWeek(today: string): string {
 	return addCivilDays(today, weekday === 0 ? 0 : 7 - weekday)
 }
 
-/** Em que horizonte a data cai; `null` para o passado, que não tem mais o que trocar. */
+/**
+ * Em que horizonte a data cai. `null` para o passado e para HOJE: o dia de hoje já é execução
+ * (o turno troca a preparação ou o insumo, GC-AGD-05/06), e o saldo de hoje já desconta o que
+ * saiu de manhã; somar o almoço já baixado à demanda contaria a mesma saída duas vezes.
+ */
 export function horizonOf(date: string, today: string): AvailabilityHorizon | null {
-	if (date < today) return null
+	if (date <= today) return null
 	if (date <= endOfCivilWeek(today)) return "week"
 	if (date <= getCivilMonthBounds(today).end) return "month"
 	return "future"
@@ -140,15 +144,16 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 }
 
 /**
- * Uma linha por insumo de cada preparação agendada a partir de hoje, já com a substituição do
- * dia aplicada: o substituto é o que vai ser usado, então é ele que precisa existir. Substituição
- * sem insumo do catálogo (texto livre) sai da conta: quem a registrou já resolveu à mão.
- * Insumo opcional e preparação congelada (produzida em casa) também ficam de fora.
+ * Uma linha por insumo de cada preparação agendada depois de hoje, já com a substituição do dia
+ * aplicada: o substituto é o que vai ser usado, então é ele que precisa existir. Substituição sem
+ * insumo do catálogo (texto livre) sai da conta: quem a registrou já resolveu à mão. Insumo
+ * opcional e preparação congelada (produzida em casa) também ficam de fora. O mesmo insumo duas
+ * vezes na ficha (óleo da fritura e do tempero) vira uma linha só, somada.
  */
 export function collectPlannedNeeds(menus: readonly DailyMenuForAvailability[], today: string): PlannedNeed[] {
-	const needs: PlannedNeed[] = []
+	const needs = new Map<string, PlannedNeed>()
 	for (const menu of menus) {
-		if (!menu.service_date || menu.service_date < today) continue
+		if (!menu.service_date || menu.service_date <= today) continue
 		for (const item of menu.menu_items) {
 			const snapshot = asRecord(item.recipe)
 			const rows = Array.isArray(snapshot?.ingredients) ? (snapshot.ingredients as SnapshotIngredient[]) : []
@@ -158,6 +163,8 @@ export function collectPlannedNeeds(menus: readonly DailyMenuForAvailability[], 
 				item.planned_portion_quantity ??
 				resolveItemDemand({ baseHeadcount: menu.forecasted_headcount, recommendedProportion: item.recommended_proportion }) ??
 				0
+			// Ficha sem rendimento não tem por que número dividir (`scaleIngredientQuantity` usaria 1 e
+			// inflaria a conta pelo rendimento real): a quantidade fica desconhecida, e basta ter saldo.
 			const portionYield = Number(snapshot?.portion_yield ?? 0)
 			const recipeName = (typeof snapshot?.name === "string" ? snapshot.name : null) ?? item.recipe_origin?.name ?? "Preparação"
 
@@ -166,23 +173,31 @@ export function collectPlannedNeeds(menus: readonly DailyMenuForAvailability[], 
 				const substitution = asRecord(substitutions[row.ingredient_id]) as SubstitutionEntry | null
 				if (substitution && !substitution.substitute_ingredient_id) continue
 				const net = Number(row.net_quantity ?? 0)
-				needs.push({
+				const ingredientId = substitution?.substitute_ingredient_id ?? row.ingredient_id
+				const quantity = Number.isFinite(net) && net > 0 && demand > 0 && portionYield > 0 ? scaleIngredientQuantity(net, demand, portionYield) : 0
+				const key = `${item.id}:${ingredientId}`
+				const existing = needs.get(key)
+				if (existing) {
+					existing.quantity += quantity
+					continue
+				}
+				needs.set(key, {
 					date: menu.service_date,
 					dailyMenuId: menu.id,
 					mealName: menu.meal_type?.name ?? "Refeição",
 					menuItemId: item.id,
 					recipeName,
-					ingredientId: substitution?.substitute_ingredient_id ?? row.ingredient_id,
+					ingredientId,
 					description: substitution?.substitute_description ?? row.ingredient?.description ?? "(insumo sem descrição)",
 					// Unidade do substituto não está no registro; a do original é a melhor pista.
 					measureUnit: row.ingredient?.measure_unit ?? null,
-					quantity: Number.isFinite(net) && net > 0 && demand > 0 ? scaleIngredientQuantity(net, demand, portionYield) : 0,
+					quantity,
 					excludedFromProcurement: (item.excluded_from_procurement ?? 0) > 0,
 				})
 			}
 		}
 	}
-	return needs
+	return [...needs.values()]
 }
 
 // ─── Classificação ───────────────────────────────────────────────────────────
@@ -191,17 +206,24 @@ function isCoveredOn(windows: ReadonlyArray<{ from: string | null; to: string | 
 	return (windows ?? []).some((w) => (w.from == null || w.from <= date) && (w.to == null || date <= w.to))
 }
 
+function sumBy(needs: readonly PlannedNeed[], today: string, horizon: AvailabilityHorizon): Map<string, number> {
+	const total = new Map<string, number>()
+	for (const need of needs) {
+		if (horizonOf(need.date, today) !== horizon) continue
+		total.set(need.ingredientId, (total.get(need.ingredientId) ?? 0) + need.quantity)
+	}
+	return total
+}
+
 /**
  * Os avisos, um por insumo de cada preparação agendada que não tem como ser atendido no horizonte
  * da data. Silêncio é "atende": a lista vazia não precisa de outro sinal.
  */
 export function classifyAvailability(needs: readonly PlannedNeed[], coverage: CoverageIndex, today: string): AvailabilityWarning[] {
-	// A semana se mede no total: o arroz de segunda e o de quarta saem do mesmo saldo.
-	const weekNeed = new Map<string, number>()
-	for (const need of needs) {
-		if (horizonOf(need.date, today) !== "week") continue
-		weekNeed.set(need.ingredientId, (weekNeed.get(need.ingredientId) ?? 0) + need.quantity)
-	}
+	// Os totais se medem por horizonte: o arroz de terça e o de quinta saem do mesmo saldo, e o do
+	// resto do mês sai do que a semana deixar.
+	const weekNeed = sumBy(needs, today, "week")
+	const monthNeed = sumBy(needs, today, "month")
 
 	const warnings: AvailabilityWarning[] = []
 	for (const need of needs) {
@@ -211,6 +233,7 @@ export function classifyAvailability(needs: readonly PlannedNeed[], coverage: Co
 		const hidden = coverage.hiddenStock.has(id)
 		const stock = coverage.stock.get(id) ?? 0
 		const inTransit = coverage.inTransit.has(id)
+		const purchasable = coverage.purchasable.has(id)
 		const { quantity: _quantity, excludedFromProcurement, ...rest } = need
 		const base = { ...rest, horizon, inTransit }
 
@@ -219,24 +242,33 @@ export function classifyAvailability(needs: readonly PlannedNeed[], coverage: Co
 			// Em contagem cega o saldo não sai daqui, nem como "falta": seria dizer o esperado.
 			if (hidden) continue
 			const total = weekNeed.get(id) ?? 0
-			// Sem efetivo definido não há quantidade: basta ter algum saldo.
+			// Sem quantidade conhecida (efetivo ou rendimento em falta): basta ter algum saldo.
 			if (total > 0 ? stock >= total : stock > 0) continue
 			warnings.push({ ...base, gap: "short_stock", weekNeed: total, stock })
 			continue
 		}
 
-		// Item fora da compra (doação, produção própria) não depende de contratação; sem ata nem
-		// empenho no sisub, não há com o que comparar.
-		if (excludedFromProcurement || !coverage.checks.contracts) continue
+		// Item fora da compra (doação, produção própria) não depende de contratação.
+		if (excludedFromProcurement) continue
 
 		if (horizon === "month") {
-			if (hidden || (coverage.checks.stock && stock > 0) || inTransit || coverage.empenhoCovered.has(id)) continue
-			warnings.push({ ...base, gap: coverage.purchasable.has(id) ? "no_empenho_or_stock" : "no_purchase_item" })
+			// O estoque cobre o mês se sobrar, depois da semana, o que o resto do mês agendado usa.
+			const needed = (weekNeed.get(id) ?? 0) + (monthNeed.get(id) ?? 0)
+			const stockCovers = coverage.checks.stock && (needed > 0 ? stock >= needed : stock > 0)
+			if (hidden || stockCovers || inTransit || coverage.empenhoCovered.has(id)) continue
+			// Sem item de compra não há como comprar, com ou sem ata no sisub.
+			if (!purchasable) warnings.push({ ...base, gap: "no_purchase_item" })
+			else if (coverage.checks.contracts) warnings.push({ ...base, gap: "no_empenho_or_stock" })
 			continue
 		}
 
-		if (isCoveredOn(coverage.contractWindows.get(id), need.date)) continue
-		warnings.push({ ...base, gap: coverage.purchasable.has(id) ? "no_contract" : "no_purchase_item" })
+		if (!purchasable) {
+			warnings.push({ ...base, gap: "no_purchase_item" })
+			continue
+		}
+		// Sem ata nem empenho no sisub, não há com o que comparar.
+		if (!coverage.checks.contracts || isCoveredOn(coverage.contractWindows.get(id), need.date)) continue
+		warnings.push({ ...base, gap: "no_contract" })
 	}
 	return warnings
 }

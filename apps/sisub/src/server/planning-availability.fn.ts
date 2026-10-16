@@ -7,8 +7,9 @@
  * a ignorar o aviso) ou "atende" (aviso que some quando mais importa).
  */
 
+import { hasPermission } from "@iefa/pbac"
 import { fetchDailyMenus } from "@iefa/sisub-domain"
-import { getBrasiliaToday } from "@iefa/sisub-domain/civil-date"
+import { addCivilDays, getBrasiliaToday } from "@iefa/sisub-domain/civil-date"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAuth } from "@/lib/auth.server"
@@ -22,6 +23,7 @@ import { readAllPages, readAllPagesIn } from "@/lib/read-all-pages"
 import { getServerClient } from "@/lib/supabase.server"
 
 const civilDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
+const MAX_RANGE_DAYS = 62
 
 type Window = { from: string | null; to: string | null }
 
@@ -32,7 +34,14 @@ function pushWindow(map: Map<string, Window[]>, ingredientId: string, window: Wi
 }
 
 export const fetchPlanningAvailabilityFn = createServerFn({ method: "GET" })
-	.validator(z.object({ kitchenId: z.number().int().positive(), startDate: civilDate, endDate: civilDate }))
+	.validator(
+		z
+			.object({ kitchenId: z.number().int().positive(), startDate: civilDate, endDate: civilDate })
+			// O calendário pede ~6 semanas; período sem teto faria a leitura crescer sem limite.
+			.refine((d) => d.startDate <= d.endDate && d.endDate <= addCivilDays(d.startDate, MAX_RANGE_DAYS), {
+				message: `Período de até ${MAX_RANGE_DAYS} dias`,
+			})
+	)
 	.handler(async ({ data }): Promise<{ today: string; warnings: AvailabilityWarning[]; checks: AvailabilityChecks | null }> => {
 		const ctx = await requireAuth()
 		const today = getBrasiliaToday()
@@ -133,10 +142,10 @@ export const fetchPlanningAvailabilityFn = createServerFn({ method: "GET" })
 		const contractWindows = new Map<string, Window[]>()
 		const empenhoCovered = new Set<string>()
 		let usesContracts = false
-		// Sem unidade compradora não há ata nem empenho: tudo que não está em estoque vira aviso.
+		// Sem unidade compradora não há ata nem empenho: a checagem de contratação fica desligada.
 		if (purchaseUnitId != null) {
 			const catmatCodes = [...ingredientsByCatmat.keys()]
-			const [arpByAnnex, arpByCatmat, empenhos] = await Promise.all([
+			const [arpByAnnex, arpByCatmat, empenhos, hasArp] = await Promise.all([
 				// ARP que nasceu do anexo: o item aponta o insumo.
 				readAllPagesIn("os itens de ata dos insumos", ingredientIds, (chunk, from, to) =>
 					proc
@@ -162,8 +171,9 @@ export const fetchPlanningAvailabilityFn = createServerFn({ method: "GET" })
 						.range(from, to)
 				),
 				readAllPages("os empenhos ativos", (from, to) =>
-					fin.from("empenho").select("id, acquisition_id").eq("unit_id", purchaseUnitId).eq("status", "ativo").order("id").range(from, to)
+					fin.from("empenho").select("id, acquisition_id, data_empenho").eq("unit_id", purchaseUnitId).eq("status", "ativo").order("id").range(from, to)
 				),
+				unitHasArp(purchaseUnitId),
 			])
 
 			// item de ata → insumos agendados que ele atende (pelo anexo ou pelo CATMAT)
@@ -185,7 +195,7 @@ export const fetchPlanningAvailabilityFn = createServerFn({ method: "GET" })
 				for (const id of ids) pushWindow(contractWindows, id, { from: item.arp.data_vigencia_inicio, to: item.arp.data_vigencia_fim })
 			}
 
-			usesContracts = empenhos.length > 0 || (await unitHasArp(purchaseUnitId))
+			usesContracts = empenhos.length > 0 || hasArp
 			const empenhoIds = empenhos.map((e) => e.id)
 			const acquisitionIds = [...new Set(empenhos.map((e) => e.acquisition_id).filter((id): id is string => Boolean(id)))]
 			const [saldos, empenhoItems, acquisitions] = await Promise.all([
@@ -212,7 +222,7 @@ export const fetchPlanningAvailabilityFn = createServerFn({ method: "GET" })
 			for (const item of extraArpItems) indexArpItem(item)
 
 			const withBalance = new Set(saldos.filter((s) => s.empenho_id && Number(s.saldo_a_liquidar ?? 0) > 0).map((s) => s.empenho_id as string))
-			const acquisitionOf = new Map(empenhos.map((e) => [e.id, e.acquisition_id]))
+			const empenhoById = new Map(empenhos.map((e) => [e.id, e]))
 			const windowOf = new Map(acquisitions.map((a) => [a.id, { from: a.valid_from, to: a.valid_to }]))
 			for (const item of empenhoItems) {
 				const ids = new Set<string>([
@@ -223,15 +233,28 @@ export const fetchPlanningAvailabilityFn = createServerFn({ method: "GET" })
 				if (withBalance.has(item.empenho_id)) for (const id of ids) empenhoCovered.add(id)
 				// Dispensa, contrato e inexigibilidade não têm item próprio: o empenho é que diz o
 				// que a contratação cobre, pela vigência dela.
-				const acquisitionId = acquisitionOf.get(item.empenho_id)
-				const window = acquisitionId ? windowOf.get(acquisitionId) : undefined
+				const empenho = empenhoById.get(item.empenho_id)
+				const window = empenho?.acquisition_id ? windowOf.get(empenho.acquisition_id) : undefined
 				if (window && (window.from != null || window.to != null)) for (const id of ids) pushWindow(contractWindows, id, window)
+				// Empenho com saldo e sem contratação de origem ligada (NE antiga, estimativo do ano):
+				// atende até o fim do exercício dele.
+				else if (!window && withBalance.has(item.empenho_id) && empenho?.data_empenho) {
+					for (const id of ids) pushWindow(contractWindows, id, { from: null, to: `${empenho.data_empenho.slice(0, 4)}-12-31` })
+				}
 			}
 		}
 
 		const checks: AvailabilityChecks = { stock: anyLot, contracts: usesContracts }
 		const warnings = classifyAvailability(needs, { purchasable, contractWindows, empenhoCovered, inTransit, stock, hiddenStock: hidden, checks }, today)
-		return { today, checks, warnings: warnings.filter((w) => w.date >= startDate && w.date <= data.endDate) }
+		// O saldo em número é leitura do Estoque: quem só planeja vê que falta, não quanto há.
+		const seesStock = hasPermission(ctx.permissions, "storage", 1, { type: "kitchen", id: kitchenId })
+		return {
+			today,
+			checks,
+			warnings: warnings
+				.filter((w) => w.date >= startDate && w.date <= data.endDate)
+				.map((w) => (seesStock ? w : { ...w, weekNeed: undefined, stock: undefined })),
+		}
 	})
 
 /** O que liga um item de ata a um insumo: o item do anexo de onde ele veio, ou o CATMAT. */

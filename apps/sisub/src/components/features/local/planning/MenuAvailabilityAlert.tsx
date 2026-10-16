@@ -11,7 +11,6 @@
 
 import { AlertTriangle } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { usePlanningAvailability } from "@/hooks/data/usePlanningAvailability"
 import type { AvailabilityWarning } from "@/lib/planning-availability"
 
 const NUM = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 })
@@ -20,7 +19,11 @@ export function describeAvailabilityGap(warning: AvailabilityWarning): string {
 	switch (warning.gap) {
 		case "short_stock": {
 			const unit = warning.measureUnit ? ` ${warning.measureUnit}` : ""
-			const amounts = warning.weekNeed ? `: a semana agendada usa ${NUM.format(warning.weekNeed)}${unit} e há ${NUM.format(warning.stock ?? 0)}${unit}` : ""
+			// Sem permissão de Estoque os números não vêm: o aviso diz que falta, não quanto há.
+			const amounts =
+				warning.weekNeed && warning.stock != null
+					? `: a semana agendada usa ${NUM.format(warning.weekNeed)}${unit} e há ${NUM.format(warning.stock ?? 0)}${unit}`
+					: ""
 			return `estoque não cobre esta semana${amounts}.${warning.inTransit ? " Há OF a caminho, confira a entrega." : ""}`
 		}
 		case "no_empenho_or_stock":
@@ -32,9 +35,11 @@ export function describeAvailabilityGap(warning: AvailabilityWarning): string {
 	}
 }
 
-export function MenuAvailabilityAlert({ kitchenId, date, dailyMenuId }: { kitchenId: number; date: string | null; dailyMenuId: string }) {
-	const { data } = usePlanningAvailability(kitchenId, date, date)
-	const warnings = (data?.warnings ?? []).filter((w) => w.dailyMenuId === dailyMenuId)
+/** Recebe os avisos já lidos pelo calendário: o painel do dia não refaz a conta. */
+export function MenuAvailabilityAlert({ warnings: all, dailyMenuId }: { warnings: readonly AvailabilityWarning[] | null; dailyMenuId: string }) {
+	// Falha não é "atende": calar aqui deixaria agendar achando que tudo foi conferido.
+	if (all == null) return <p className="text-caption text-muted-foreground">Não foi possível conferir se os insumos desta refeição podem faltar.</p>
+	const warnings = all.filter((w) => w.dailyMenuId === dailyMenuId)
 	if (warnings.length === 0) return null
 
 	const byRecipe = new Map<string, { recipeName: string; items: AvailabilityWarning[] }>()

@@ -46,7 +46,9 @@ function coverage(partial: Partial<CoverageIndex> = {}): CoverageIndex {
 describe("horizonOf", () => {
 	it("separa passado, semana, mês e depois", () => {
 		expect(horizonOf("2026-10-13", TODAY)).toBeNull()
-		expect(horizonOf(TODAY, TODAY)).toBe("week")
+		// hoje já é execução: o turno resolve, e o saldo já desconta o que saiu
+		expect(horizonOf(TODAY, TODAY)).toBeNull()
+		expect(horizonOf("2026-10-15", TODAY)).toBe("week")
 		expect(horizonOf("2026-10-18", TODAY)).toBe("week")
 		expect(horizonOf("2026-10-19", TODAY)).toBe("month")
 		expect(horizonOf("2026-10-31", TODAY)).toBe("month")
@@ -141,7 +143,9 @@ describe("classifyAvailability", () => {
 	it("no mês, estoque, OF ou empenho atendem; sem nenhum, avisa", () => {
 		const needs = collectPlannedNeeds([menu("2026-10-25", [item("a", [{ ingredient_id: RICE, net_quantity: 1 }])])], TODAY)
 		expect(classifyAvailability(needs, coverage(), TODAY)).toMatchObject([{ gap: "no_empenho_or_stock", horizon: "month" }])
-		expect(classifyAvailability(needs, coverage({ stock: new Map([[RICE, 1]]) }), TODAY)).toEqual([])
+		// o estoque precisa cobrir o que o mês agendado usa (10), não só existir
+		expect(classifyAvailability(needs, coverage({ stock: new Map([[RICE, 1]]) }), TODAY)).toMatchObject([{ gap: "no_empenho_or_stock" }])
+		expect(classifyAvailability(needs, coverage({ stock: new Map([[RICE, 10]]) }), TODAY)).toEqual([])
 		expect(classifyAvailability(needs, coverage({ inTransit: new Set([RICE]) }), TODAY)).toEqual([])
 		expect(classifyAvailability(needs, coverage({ empenhoCovered: new Set([RICE]) }), TODAY)).toEqual([])
 		expect(classifyAvailability(needs, coverage({ purchasable: new Set() }), TODAY)).toMatchObject([{ gap: "no_purchase_item" }])
@@ -182,5 +186,54 @@ describe("classifyAvailability", () => {
 		const noStock = coverage({ checks: { stock: false, contracts: true }, stock: new Map([[RICE, 99]]) })
 		// sem Estoque no sisub, o saldo (mesmo que viesse) não responde pelo mês
 		expect(classifyAvailability([...weekNeeds, ...month], noStock, TODAY).map((w) => w.gap)).toEqual(["no_empenho_or_stock"])
+	})
+
+	it("o mês conta com o que a semana deixar no estoque", () => {
+		const month = collectPlannedNeeds([menu("2026-10-25", [item("c", [{ ingredient_id: RICE, net_quantity: 1 }])])], TODAY)
+		// semana usa 20, o dia 25 usa 10: 25 de saldo cobre a semana mas não o mês
+		const warnings = classifyAvailability([...weekNeeds, ...month], coverage({ stock: new Map([[RICE, 25]]) }), TODAY)
+		expect(warnings.map((w) => [w.horizon, w.gap])).toEqual([["month", "no_empenho_or_stock"]])
+	})
+
+	it("sem item de compra avisa fora da semana mesmo sem ata no sisub", () => {
+		const later = collectPlannedNeeds(
+			[
+				menu("2026-10-25", [item("a", [{ ingredient_id: RICE, net_quantity: 1 }])]),
+				menu("2026-11-20", [item("b", [{ ingredient_id: RICE, net_quantity: 1 }])]),
+			],
+			TODAY
+		)
+		const warnings = classifyAvailability(later, coverage({ purchasable: new Set(), checks: { stock: true, contracts: false } }), TODAY)
+		expect(warnings.map((w) => w.gap)).toEqual(["no_purchase_item", "no_purchase_item"])
+	})
+})
+
+describe("collectPlannedNeeds — ficha", () => {
+	it("o mesmo insumo duas vezes na ficha vira uma linha somada", () => {
+		const needs = collectPlannedNeeds(
+			[
+				menu("2026-10-15", [
+					item("a", [
+						{ ingredient_id: RICE, net_quantity: 1 },
+						{ ingredient_id: RICE, net_quantity: 0.5 },
+					]),
+				]),
+			],
+			TODAY
+		)
+		expect(needs).toHaveLength(1)
+		expect(needs[0]?.quantity).toBe(15)
+	})
+
+	it("ficha sem rendimento não inventa quantidade", () => {
+		const needs = collectPlannedNeeds(
+			[
+				menu("2026-10-15", [
+					{ ...item("a", []), recipe: { name: "Sem rendimento", portion_yield: null, ingredients: [{ ingredient_id: RICE, net_quantity: 1 }] } },
+				]),
+			],
+			TODAY
+		)
+		expect(needs[0]?.quantity).toBe(0)
 	})
 })

@@ -31,6 +31,7 @@ import { usePersistentState } from "@/hooks/ui/usePersistentState"
 import { isHeadcountPending } from "@/lib/headcount-pending"
 import type { HeadcountPlan, MenuClipboardEntry } from "@/lib/menu-fill"
 import { groupMenuItems, type MenuGroup } from "@/lib/menu-item-groups"
+import type { AvailabilityWarning } from "@/lib/planning-availability"
 import type { OutdatedRecipe } from "@/lib/recipe-versions"
 import type { DailyMenuWithItems, MenuItem } from "@/types/domain/planning"
 import { DayOccasionDialog } from "./DayOccasionDialog"
@@ -48,9 +49,11 @@ interface DayDrawerProps {
 	kitchenId: number
 	onClose: () => void
 	open: boolean
+	/** Avisos de insumo que pode faltar, já lidos pelo calendário; `null` quando a leitura falhou. */
+	availabilityWarnings: readonly AvailabilityWarning[] | null
 }
 
-export function DayDrawer({ date, kitchenId, onClose, open }: DayDrawerProps) {
+export function DayDrawer({ date, kitchenId, onClose, open, availabilityWarnings }: DayDrawerProps) {
 	"use no memo"
 
 	const isoDate = toIsoDate(date)
@@ -261,6 +264,7 @@ export function DayDrawer({ date, kitchenId, onClose, open }: DayDrawerProps) {
 									menu={menu}
 									date={date}
 									kitchenId={kitchenId}
+									availabilityWarnings={availabilityWarnings}
 									onSubstitute={(item) => setSubstitutionItem(item)}
 									onReplaceRecipe={setReplaceItem}
 									onDelete={handleDeleteItem}
@@ -482,6 +486,7 @@ function MealSection({
 	menu,
 	date,
 	kitchenId,
+	availabilityWarnings,
 	onSubstitute,
 	onReplaceRecipe,
 	onDelete,
@@ -501,6 +506,7 @@ function MealSection({
 	menu?: DailyMenuWithItems
 	date: Date | null
 	kitchenId: number
+	availabilityWarnings: readonly AvailabilityWarning[] | null
 	onSubstitute: (item: MenuItem) => void
 	onReplaceRecipe: (item: MenuItem) => void
 	onDelete: (itemId: string, recipeName: string) => void
@@ -600,7 +606,7 @@ function MealSection({
 						<MenuEquipmentAlert dailyMenuId={menu.id} />
 
 						{/* Insumo agendado sem ata, empenho ou estoque — só aparece quando falta. */}
-						<MenuAvailabilityAlert kitchenId={kitchenId} date={toIsoDate(date) || null} dailyMenuId={menu.id} />
+						<MenuAvailabilityAlert warnings={availabilityWarnings} dailyMenuId={menu.id} />
 
 						<div className="space-y-2">
 							<div className="flex items-center justify-between gap-2">
