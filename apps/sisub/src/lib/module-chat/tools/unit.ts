@@ -201,8 +201,9 @@ const listEmpenhos: ModuleToolDefinition = {
 		const { data: quantityEstimate, error: quantityEstimateError } = await untypedFrom(ctx, "quantity_estimate", "procurement")
 			.select("unit_id")
 			.eq("id", quantityEstimateId)
-			.single()
-		if (quantityEstimateError || !quantityEstimate) return toolErr("Anexo quantitativo não encontrado")
+			.maybeSingle()
+		if (quantityEstimateError) return toolErr(sanitizeDbError(quantityEstimateError, "list_empenhos"))
+		if (!quantityEstimate) return toolErr("Anexo quantitativo não encontrado")
 
 		requireUnitPermission(ctx, 1, { type: "unit", id: quantityEstimate.unit_id })
 		assertRouteScope(ctx, "unit", quantityEstimate.unit_id)

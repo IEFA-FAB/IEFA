@@ -528,8 +528,14 @@ export const fetchNfeItemSuggestionsFn = createServerFn({ method: "GET" })
 		// Sem descrição não há texto para sugerir: lista vazia, que é resposta, não falha.
 		if (!item.description) return []
 
-		const brick =
-			item.gtin != null ? ((await gs1().from("gtin").select("gpc_brick_code").eq("gtin", item.gtin).maybeSingle()).data?.gpc_brick_code ?? null) : null
+		// Falha na leitura do GTIN sobe: descartada, a sugestão saía sem o reforço do brick, e uma
+		// lista vazia ou pior lida como "nenhum candidato". GTIN que não está no catálogo é só sem brick.
+		let brick: string | null = null
+		if (item.gtin != null) {
+			const { data: gtinRow, error: gtinError } = await gs1().from("gtin").select("gpc_brick_code").eq("gtin", item.gtin).maybeSingle()
+			if (gtinError) throw new Error(`Erro ao ler o GTIN do item: ${publicDbMessage(gtinError)}`)
+			brick = gtinRow?.gpc_brick_code ?? null
+		}
 		const { data: suggestions, error: suggestionsError } = await inv.rpc("suggest_purchase_items", {
 			p_description: item.description,
 			p_gpc_brick: brick ?? undefined,
