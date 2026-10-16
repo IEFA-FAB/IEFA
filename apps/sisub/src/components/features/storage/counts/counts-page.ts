@@ -64,28 +64,30 @@ export function buildScopeParams(scope: string, scopeValue: string): Record<stri
 }
 
 /**
- * Chaves de idempotência dos lançamentos, uma por INTENÇÃO: a linha com o valor digitado.
+ * Chaves de idempotência dos lançamentos, uma por INTENÇÃO: o lançamento da linha que ainda não
+ * foi confirmado.
  *
  * O índice único `(count_id, client_event_id)` só deduplica se o reenvio levar a mesma chave.
  * Gerada por tentativa (com `Date.now()`), dois cliques seguidos, ou o reenvio depois de a rede
  * cair com o lançamento já gravado, viravam dois lançamentos. Aqui a chave nasce no primeiro
- * envio da linha, é reaproveitada enquanto o valor não muda e só é liberada depois do sucesso
- * ({@link releaseEntryKey}): o próximo lançamento da mesma linha é outra contagem e ganha outra.
+ * envio da linha e é reaproveitada até o sucesso ({@link releaseEntryKey}), MESMO que o valor
+ * mude: a tentativa anterior pode ter sido gravada (resposta perdida), e o servidor corrige o
+ * lançamento daquela chave para o valor novo em vez de somar os dois. Depois do sucesso, o
+ * próximo lançamento da mesma linha é outra contagem e ganha outra chave.
  */
-export type EntryIntentKeys = Map<string, { quantity: number; clientEventId: string }>
+export type EntryIntentKeys = Map<string, string>
 
-/** Chave do lançamento da linha: a da intenção em curso, ou uma nova se o valor mudou. */
-export function claimEntryKey(keys: EntryIntentKeys, lineKey: string, quantity: number, generateId: () => string = () => crypto.randomUUID()): string {
-	const current = keys.get(lineKey)
-	if (current && current.quantity === quantity) return current.clientEventId
-	// valor diferente é outra intenção: o operador corrigiu o número antes de reenviar
+/** Chave do lançamento da linha: a da intenção ainda não confirmada, ou uma nova. */
+export function claimEntryKey(keys: EntryIntentKeys, lineKey: string, generateId: () => string = () => crypto.randomUUID()): string {
+	const pending = keys.get(lineKey)
+	if (pending) return pending
 	const clientEventId = generateId()
-	keys.set(lineKey, { quantity, clientEventId })
+	keys.set(lineKey, clientEventId)
 	return clientEventId
 }
 
 /** Depois do sucesso, a linha volta a aceitar um lançamento novo (com outra chave). */
 export function releaseEntryKey(keys: EntryIntentKeys, lineKey: string, clientEventId: string): void {
 	// Só a chave que foi enviada: um envio posterior pode já ter renovado a intenção.
-	if (keys.get(lineKey)?.clientEventId === clientEventId) keys.delete(lineKey)
+	if (keys.get(lineKey) === clientEventId) keys.delete(lineKey)
 }

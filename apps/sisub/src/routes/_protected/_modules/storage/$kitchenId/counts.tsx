@@ -111,18 +111,19 @@ function CountsPage() {
 	/**
 	 * Lança a quantidade de uma linha.
 	 *
-	 * O identificador é um por intenção (linha + valor), não por tentativa: dois
-	 * cliques iguais seguidos, ou o reenvio depois de uma falha de rede, levam a
-	 * mesma chave, e o índice único no banco ignora o segundo. A chave só se
-	 * renova depois do sucesso. É a mesma proteção que a fila offline vai usar
-	 * quando existir. Na falha, o valor digitado fica no campo para reenviar.
+	 * O identificador é um por intenção (o lançamento da linha ainda não
+	 * confirmado), não por tentativa: dois cliques seguidos, ou o reenvio depois
+	 * de uma falha de rede, levam a mesma chave; o mesmo valor não soma de novo e
+	 * o valor corrigido substitui o da tentativa anterior, se ela tiver entrado.
+	 * A chave só se renova depois do sucesso. É a mesma proteção que a fila
+	 * offline vai usar quando existir. Na falha, o valor digitado fica no campo.
 	 */
 	async function postLine(
 		line: { key: string; lotId: string | null; ingredientId: string | null; frozenPreparationId: string | null },
 		quantity: number
 	): Promise<boolean> {
 		if (!sheet) return false
-		const clientEventId = claimEntryKey(entryKeys.current, line.key, quantity)
+		const clientEventId = claimEntryKey(entryKeys.current, line.key)
 		const posted = await run(
 			() =>
 				postCountEntriesFn({
