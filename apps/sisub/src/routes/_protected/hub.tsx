@@ -143,11 +143,16 @@ function ModuleCard({ module, color }: { module: ModuleDef; color: GroupColor })
 				    a altura da tela, e quem quer uma página específica tem a busca (Ctrl+K). */}
 				{summary.length > 0 && (
 					<p className="text-xs leading-relaxed text-muted-foreground">
-						{/* O ponto fica colado ao item anterior: a linha quebra depois dele, nunca começa nele */}
+						{/* O ponto fica colado ao item anterior (a linha quebra depois dele, nunca começa nele);
+						    o espaço fica fora do aria-hidden para o leitor de tela não fundir os nomes. */}
 						{summary.map((label, i) => (
 							<span key={label}>
 								{label}
-								{i < summary.length - 1 && <span aria-hidden="true">{"\u00a0· "}</span>}
+								{i < summary.length - 1 && (
+									<>
+										<span aria-hidden="true">{"\u00a0·"}</span>{" "}
+									</>
+								)}
 							</span>
 						))}
 					</p>
@@ -212,7 +217,7 @@ function HubPage() {
 					{isLoading ? (
 						<div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
 							{Array.from({ length: 3 }).map((_, i) => (
-								<Skeleton key={i} className="h-24" />
+								<Skeleton key={i} className="h-28" />
 							))}
 						</div>
 					) : modules.length === 0 ? (

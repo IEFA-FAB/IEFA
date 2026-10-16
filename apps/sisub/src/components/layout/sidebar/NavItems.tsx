@@ -291,7 +291,7 @@ export const ALL_MODULES: ModuleDef[] = [
 				url: "/kitchen/planning",
 				icon: Calendar,
 				group: "Execução",
-				keywords: ["calendário", "planejamento", "agenda", "dia", "o que produzir", "ata homologada", "empenho"],
+				keywords: ["calendário", "planejamento", "agenda", "dia", "o que produzir"],
 			},
 			{
 				title: "Pedidos de Lanche",
