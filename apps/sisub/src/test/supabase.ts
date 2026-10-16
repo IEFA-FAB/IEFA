@@ -1,4 +1,5 @@
 import { type SisubDb, sisubSchema } from "@iefa/database/drizzle/sisub"
+import { createTimeoutFetch, SERVER_AUTH_OPTIONS } from "@iefa/supabase-kit"
 import { createClient } from "@supabase/supabase-js"
 import { drizzle } from "drizzle-orm/postgres-js"
 import postgres from "postgres"
@@ -25,28 +26,6 @@ const integrationEnabled = process.env.SISUB_RUN_INTEGRATION === "true"
 const integrationRequired = process.env.SISUB_INTEGRATION_REQUIRED === "true"
 
 export const describeSupabaseIntegration = integrationEnabled ? describe : describe.skip
-
-function createTimeoutFetch(timeoutMs: number): typeof fetch {
-	return (async (input, init = {}) => {
-		const controller = new AbortController()
-		const timer = setTimeout(() => controller.abort(new Error(`Supabase test request timed out after ${timeoutMs}ms`)), timeoutMs)
-		const signal = init.signal
-		const abort = () => controller.abort(signal?.reason)
-
-		if (signal?.aborted) {
-			abort()
-		} else {
-			signal?.addEventListener("abort", abort, { once: true })
-		}
-
-		try {
-			return await fetch(input, { ...init, signal: controller.signal })
-		} finally {
-			clearTimeout(timer)
-			signal?.removeEventListener("abort", abort)
-		}
-	}) as typeof fetch
-}
 
 export function getSupabaseTestEnv(options: SupabaseTestEnvOptions = {}): SupabaseTestEnv | null {
 	const url = process.env.VITE_SISUB_SUPABASE_URL
@@ -78,7 +57,7 @@ export function getSupabaseTestEnv(options: SupabaseTestEnvOptions = {}): Supaba
 export function createSisubServiceClient(env: SupabaseTestEnv, options: SupabaseClientOptions = {}) {
 	return createClient(env.url, env.serviceRoleKey, {
 		db: { schema: "sisub" },
-		auth: { persistSession: false },
+		auth: SERVER_AUTH_OPTIONS,
 		global: { fetch: createTimeoutFetch(options.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS) },
 	})
 }
@@ -86,7 +65,7 @@ export function createSisubServiceClient(env: SupabaseTestEnv, options: Supabase
 export function createPublicServiceClient(env: SupabaseTestEnv, options: SupabaseClientOptions = {}) {
 	return createClient(env.url, env.serviceRoleKey, {
 		db: { schema: "public" },
-		auth: { persistSession: false },
+		auth: SERVER_AUTH_OPTIONS,
 		global: { fetch: createTimeoutFetch(options.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS) },
 	})
 }
@@ -94,7 +73,7 @@ export function createPublicServiceClient(env: SupabaseTestEnv, options: Supabas
 export function createSisubAnonClient(env: SupabaseTestEnv & { anonKey: string }, options: SupabaseClientOptions = {}) {
 	return createClient(env.url, env.anonKey, {
 		db: { schema: "sisub" },
-		auth: { persistSession: false },
+		auth: SERVER_AUTH_OPTIONS,
 		global: { fetch: createTimeoutFetch(options.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS) },
 	})
 }
@@ -102,7 +81,7 @@ export function createSisubAnonClient(env: SupabaseTestEnv & { anonKey: string }
 export function createSisubReachabilityClient(env: SupabaseTestEnv) {
 	return createClient(env.url, env.serviceRoleKey, {
 		db: { schema: "sisub" },
-		auth: { persistSession: false },
+		auth: SERVER_AUTH_OPTIONS,
 		global: { fetch: createTimeoutFetch(REACHABILITY_TIMEOUT_MS) },
 	})
 }

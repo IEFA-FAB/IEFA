@@ -11,11 +11,39 @@
  * protegido assume, em vez de derrubar o servidor inteiro.
  *
  * Compõe com um `signal` do chamador (se houver): aborta quando QUALQUER um dispara.
+ *
+ * O deadline é por chamada de `fetch`. Ele só vale para a operação inteira porque o motivo do
+ * abort é um `AbortError` (ver {@link timeoutError}).
  */
+/**
+ * Motivo do abort por deadline: `DOMException` de nome `AbortError` (`code` 20, `ABORT_ERR`).
+ *
+ * O nome não é cosmético. O `fetchWithRetry` do postgrest-js (2.117) repete GET/HEAD/OPTIONS
+ * que rejeitam (até 3 vezes, esperando 1 + 2 + 4 s), exceto quando a rejeição tem nome
+ * `AbortError` ou `code` `ABORT_ERR`; `TimeoutError` só escapa se o signal do PRÓPRIO chamador
+ * estiver abortado, o que aqui não acontece. Com um `Error` comum o deadline era tratado como
+ * falha de rede e repetido: 4 × 10 s + 7 s ≈ 47 s numa leitura travada. Com `AbortError`, a
+ * leitura travada custa uma tentativa e um deadline, e a falha que CHEGA (`ECONNRESET`, 503/520)
+ * continua sendo repetida, cada tentativa com deadline novo.
+ *
+ * Pior caso de uma leitura, com 10 s de deadline:
+ * - falha instantânea nas três primeiras tentativas e a quarta travada: deadline + 7 s ≈ 17 s;
+ * - falha que chega perto do deadline em todas: 4 × deadline + 7 s ≈ 47 s, o mesmo teto de
+ *   antes, mas só quando o upstream RESPONDE devagar, não quando trava;
+ * - 503/520 com `Retry-After`: o postgrest espera o valor do header, sem teto, e essa espera
+ *   não passa por este deadline: um `Retry-After` longo estouraria sozinho o orçamento do ALB.
+ * Não há orçamento por operação: o `fetch` não enxerga onde uma operação começa e termina.
+ *
+ * Vale para qualquer client montado com estes `fetch`, inclusive fora do kit.
+ */
+function timeoutError(timeoutMs: number): DOMException {
+	return new DOMException(`Supabase request timed out after ${timeoutMs}ms`, "AbortError")
+}
+
 export function createTimeoutFetch(timeoutMs: number): typeof fetch {
 	return (async (input, init = {}) => {
 		const controller = new AbortController()
-		const timer = setTimeout(() => controller.abort(new Error(`Supabase request timed out after ${timeoutMs}ms`)), timeoutMs)
+		const timer = setTimeout(() => controller.abort(timeoutError(timeoutMs)), timeoutMs)
 		const signal = init.signal
 		const abort = () => controller.abort(signal?.reason)
 

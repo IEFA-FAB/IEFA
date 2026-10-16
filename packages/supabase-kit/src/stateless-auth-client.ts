@@ -27,6 +27,7 @@
  */
 import { createClient } from "@supabase/supabase-js"
 
+import { SERVER_AUTH_OPTIONS } from "./server-options.ts"
 import { authTimeoutFetch } from "./timeout-fetch.ts"
 
 export type StatelessAuthClientOptions = {
@@ -50,7 +51,7 @@ export type StatelessAuthClientOptions = {
  */
 export function createStatelessAuthClient({ url, publishableKey, fetch }: StatelessAuthClientOptions) {
 	return createClient(url, publishableKey, {
-		auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+		auth: SERVER_AUTH_OPTIONS,
 		global: { fetch: fetch ?? authTimeoutFetch },
 	})
 }

@@ -33,8 +33,8 @@ const DATASET: ReportDataset = {
 	periodsLoaded: 2,
 	ugCount: 2,
 	recordCount: 6,
-	totals: { siafi: 17_900, siloms: 14_000, absoluteDifference: 4100, netDifference: 3900 },
-	previous: { period: "2025-06", label: "JUN/25", totals: { siafi: 16_000, siloms: 13_000, absoluteDifference: 3000, netDifference: 3000 } },
+	totals: { siafi: 17_900, siloms: 14_000, absoluteDifference: 4100, netDifference: -3900 },
+	previous: { period: "2025-06", label: "JUN/25", totals: { siafi: 16_000, siloms: 13_000, absoluteDifference: 3000, netDifference: -3000 } },
 	preponderance: { siafi: 3, siloms: 1, equal: 2 },
 	groups: [{ group: AccountGroup.BMP, siafi: 15_000, siloms: 11_500, difference: 3500, ugCount: 2 }],
 	topOffenders: [
@@ -92,7 +92,7 @@ describe("buildAnalyticNoteMarkdown", () => {
 
 	it("imprime os totais calculados, os dois separados", () => {
 		expect(markdown).toContain("Divergência total (soma dos módulos)")
-		expect(markdown).toContain("Diferença líquida (SIAFI − SILOMS)")
+		expect(markdown).toContain("Diferença líquida (SILOMS − SIAFI)")
 		// Formatação pt-BR com espaço não separável entre o símbolo e o número.
 		expect(markdown).toMatch(/R\$\s4\.100,00/)
 		expect(markdown).toMatch(/R\$\s3\.900,00/)

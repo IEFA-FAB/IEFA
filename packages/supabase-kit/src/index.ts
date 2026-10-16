@@ -7,6 +7,7 @@ export {
 	resolveCookieSessionUser,
 	sessionCookieName,
 } from "./cookie-session.ts"
+export { SERVER_AUTH_OPTIONS } from "./server-options.ts"
 export { createServiceRoleClient, type ServiceRoleClientOptions } from "./service-client.ts"
 export { createStatelessAuthClient, type StatelessAuthClientOptions } from "./stateless-auth-client.ts"
 export {

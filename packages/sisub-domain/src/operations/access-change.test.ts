@@ -6,7 +6,7 @@
 import { describe, expect, test } from "bun:test"
 import type { SisubDb } from "@iefa/database/drizzle/sisub"
 import { sql } from "drizzle-orm"
-import { DomainError, NotFoundError } from "../types/errors.ts"
+import { DomainError, GENERIC_DB_ERROR_MESSAGE, NotFoundError, QueryFailedError } from "../types/errors.ts"
 import { assertSisubGrantable, defaultAccessAudit, runAccessFunction, toAccessDomainError } from "./access-change.ts"
 
 /** Como o erro chega do driver: o drizzle embrulha e o Postgres fica em `.cause`. */
@@ -42,6 +42,18 @@ describe("toAccessDomainError", () => {
 		})
 		expect(error.code).toBe("UPDATE_FAILED")
 		expect(error.message).toContain("CONNECT_TIMEOUT")
+	})
+
+	test("falha fora do contrato: o cliente lê a mensagem genérica, sem SQL, parâmetros nem host", () => {
+		const cause = { code: "CONNECTION_CLOSED", message: "write CONNECTION_CLOSED aws-0-sa-east-1.pooler.supabase.com:6543" }
+		const driver = Object.assign(new Error("Failed query: select access_control.revoke_user_permission($1, $2) as result\nparams: user-1,perm-9"), { cause })
+		const error = toAccessDomainError(driver, { fallbackCode: "DELETE_FAILED" })
+		expect(error).toBeInstanceOf(QueryFailedError)
+		const failed = error as QueryFailedError
+		expect(failed.publicMessage).toBe(GENERIC_DB_ERROR_MESSAGE)
+		expect(failed.cause).toBe(driver)
+		// O diagnóstico continua na `message`, que só vai ao log.
+		expect(failed.message).toContain("CONNECTION_CLOSED")
 	})
 
 	test("DomainError já pronto passa intacto", () => {

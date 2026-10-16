@@ -20,7 +20,7 @@ if (!supabaseUrl || !serviceKey) {
 
 const supabase = createClient(supabaseUrl, serviceKey, {
 	db: { schema: "gs1_integration" },
-	auth: { persistSession: false },
+	auth: { persistSession: false, autoRefreshToken: false },
 })
 
 const bricks = await importGpc(supabase, url)
