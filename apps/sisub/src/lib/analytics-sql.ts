@@ -354,6 +354,8 @@ function findBlockedKeyword(normalized: string, up: string): string | null {
 	return null
 }
 
+const UNBALANCED_PARENS = "Parênteses desbalanceados"
+
 /** Estado da varredura de tokens. */
 type TokenScan = {
 	tokens: Token[]
@@ -382,14 +384,18 @@ function scanTokens(scan: TokenScan): string | null {
 			continue
 		}
 		if (isPunct(token, ")")) {
+			// `)` sem par fecharia o parêntese do invólucro do `executeSql`
+			// (`SELECT * FROM (<sql>) AS analytics_q`): `units) , secrets s, (SELECT 1` vira SQL
+			// válido com `secrets` fora do que esta varredura confere.
+			if (scan.depth === 0) return UNBALANCED_PARENS
 			scan.inFromList[scan.depth] = false
-			scan.depth = Math.max(0, scan.depth - 1)
+			scan.depth--
 			continue
 		}
 		const err = token.kind === "ident" ? checkIdentToken(scan, i) : checkFromListComma(scan, i)
 		if (err) return err
 	}
-	return null
+	return scan.depth === 0 ? null : UNBALANCED_PARENS
 }
 
 function checkIdentToken(scan: TokenScan, i: number): string | null {
