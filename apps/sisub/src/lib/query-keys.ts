@@ -51,6 +51,9 @@ export const queryKeys = {
 		all: () => ["planning"] as const,
 		menus: () => ["planning", "menus"] as const,
 		menu: (kitchenId: number | null, startDate: string, endDate: string) => ["planning", "menus", kitchenId, startDate, endDate] as const,
+		// Sob `menus`: mexer no cardápio invalida o aviso de disponibilidade junto.
+		availability: (kitchenId: number | null, startDate: string, endDate: string) =>
+			["planning", "menus", "availability", kitchenId, startDate, endDate] as const,
 		day: () => ["planning", "day"] as const,
 		dayDetail: (kitchenId: number | null, date: string) => ["planning", "day", kitchenId, date] as const,
 		templates: (kitchenId: number | null) => ["planning", "templates", kitchenId] as const,

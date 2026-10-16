@@ -70,6 +70,22 @@ Arquivos de teste citados:
 - **UX:** no dia → "Trocar o dia" → escolhe o apoio de contingência → alerta do que acontece → confirma.
 - **Cobertura:** `INT › faltou luz ou água…` · `E2E › …e depois faltou luz no dia`
 
+### GC-AGD-17 — "Troquei a preparação depois da licitação e o insumo não tem como chegar"
+- **Realidade:** o cardápio que foi base da contratação não é o que se produz; depois da
+  homologação a nutricionista troca preparações, e a nova usa insumo sem ata, sem empenho ou sem
+  estoque. Hoje a falta só aparece no dia, para o turno (GC-AGD-05/06).
+- **O sistema precisa:** avisar no agendamento, por horizonte da data: na semana atual, estoque
+  que não cobre o total da semana; no resto do mês, nem estoque, nem OF a caminho, nem empenho com
+  saldo; depois do mês, nenhuma ata (com saldo) ou contratação de origem vigente na data. Insumo
+  sem item de compra avisa em qualquer horizonte. Nunca bloqueia. Fonte que a OM não usa no sisub
+  (cozinha sem Estoque, unidade sem ata nem empenho) fica fora, e a tela diz isso.
+- **UX:** ⚠ amarelo no dia do calendário; no painel do dia, "Insumo que pode faltar" por refeição,
+  preparação e insumo, com o motivo. Em contagem cega o saldo não vira aviso (EST-CNT-04).
+- **Cobertura:** `apps/sisub/src/lib/planning-availability.test.ts` (regra por horizonte,
+  substituição, opcional, contagem cega, fonte desligada). Leituras sem teste de integração.
+- **Limite conhecido:** empenho conta por saldo em dinheiro da NE, não por quantidade do item; o
+  item de ata de carona ou manual liga ao insumo só pelo CATMAT do item de compra.
+
 ## Eventos
 
 ### GC-AGD-08 — "Surgiu um evento"

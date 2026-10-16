@@ -36,6 +36,7 @@ import type { DailyMenuWithItems, MenuItem } from "@/types/domain/planning"
 import { DayOccasionDialog } from "./DayOccasionDialog"
 import { DayOriginsPanel } from "./DayOriginsPanel"
 import { buildDayMeals, collectOutdatedById, findSnackMenu, formatDayTitle, replaceRecipeDescription, toIsoDate } from "./day-drawer"
+import { MenuAvailabilityAlert } from "./MenuAvailabilityAlert"
 import { MenuEquipmentAlert } from "./MenuEquipmentAlert"
 import { MenuHeadcountDialog } from "./MenuHeadcountDialog"
 import { MenuItemCard } from "./MenuItemCard"
@@ -597,6 +598,9 @@ function MealSection({
 
 						{/* Disputa de equipamento entre as preparações DESTA refeição — só aparece quando falta. */}
 						<MenuEquipmentAlert dailyMenuId={menu.id} />
+
+						{/* Insumo agendado sem ata, empenho ou estoque — só aparece quando falta. */}
+						<MenuAvailabilityAlert kitchenId={kitchenId} date={toIsoDate(date) || null} dailyMenuId={menu.id} />
 
 						<div className="space-y-2">
 							<div className="flex items-center justify-between gap-2">

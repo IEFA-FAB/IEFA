@@ -1,12 +1,13 @@
 import { Link, useNavigate, useParams } from "@tanstack/react-router"
 import { addDays, addMonths, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, startOfMonth, startOfWeek, subMonths } from "date-fns"
 import { ptBR } from "date-fns/locale"
-import { CalendarDays, Calendar as CalendarIcon, ChevronLeft, ChevronRight, Settings, Trash2, Users } from "lucide-react"
+import { AlertTriangle, CalendarDays, Calendar as CalendarIcon, ChevronLeft, ChevronRight, Settings, Trash2, Users } from "lucide-react"
 import { useReducer } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useDailyMenus } from "@/hooks/data/usePlanning"
+import { usePlanningAvailability } from "@/hooks/data/usePlanningAvailability"
 import { useMenuTemplates } from "@/hooks/data/useTemplates"
 import { cn } from "@/lib/cn"
 import { isHeadcountPending } from "@/lib/headcount-pending"
@@ -105,6 +106,14 @@ export function PlanningBoard() {
 
 	const { data: menus } = useDailyMenus(kitchenId, startDate, endDate)
 	const { data: templates, isLoading: templatesLoading } = useMenuTemplates(kitchenId)
+	const { data: availability } = usePlanningAvailability(kitchenId, format(startDate, "yyyy-MM-dd"), format(endDate, "yyyy-MM-dd"))
+	// Insumos distintos com aviso, por dia: o marcador diz "olhe este dia", o detalhe fica no painel.
+	const shortagesByDay = new Map<string, Set<string>>()
+	for (const warning of availability?.warnings ?? []) {
+		const set = shortagesByDay.get(warning.date) ?? new Set()
+		set.add(warning.ingredientId)
+		shortagesByDay.set(warning.date, set)
+	}
 
 	const calendarDays = eachDayOfInterval({ start: startDate, end: endDate })
 
@@ -309,13 +318,14 @@ export function PlanningBoard() {
 						const hasMenus = dayMenus.length > 0
 						// Refeição aplicada sem efetivo: o total do dia estaria incompleto, então o selo diz "a definir".
 						const pendingMeals = dayMenus.filter(isHeadcountPending).map((m) => m.meal_type?.name || "Refeição")
+						const shortages = shortagesByDay.get(format(day, "yyyy-MM-dd"))?.size ?? 0
 
 						return (
 							<button
 								key={day.toString()}
 								type="button"
 								// Nome acessível com a data inteira: "25" sozinho não diz de que mês é o dia.
-								aria-label={`${format(day, "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR })}${hasMenus ? ` — ${dayMenus.length} ${dayMenus.length === 1 ? "refeição planejada" : "refeições planejadas"}` : ""}${pendingMeals.length > 0 ? ` — efetivo a definir: ${pendingMeals.join(", ")}` : ""}`}
+								aria-label={`${format(day, "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR })}${hasMenus ? ` — ${dayMenus.length} ${dayMenus.length === 1 ? "refeição planejada" : "refeições planejadas"}` : ""}${pendingMeals.length > 0 ? ` — efetivo a definir: ${pendingMeals.join(", ")}` : ""}${shortages > 0 ? ` — ${shortages} ${shortages === 1 ? "insumo pode faltar" : "insumos podem faltar"}` : ""}`}
 								data-date={format(day, "yyyy-MM-dd")}
 								onClick={(e) => handleDayClick(day, e)}
 								className={cn(
@@ -328,8 +338,14 @@ export function PlanningBoard() {
 								)}
 							>
 								<div className="flex items-center justify-between mb-2">
-									<span className={cn("text-subheading size-7 flex items-center justify-center rounded-full", isToday && "bg-primary text-primary-foreground")}>
-										{format(day, "d")}
+									<span className="flex items-center gap-1">
+										<span
+											className={cn("text-subheading size-7 flex items-center justify-center rounded-full", isToday && "bg-primary text-primary-foreground")}
+										>
+											{format(day, "d")}
+										</span>
+										{/* Insumo sem ata, empenho ou estoque no horizonte do dia: não impede, avisa. */}
+										{shortages > 0 && <AlertTriangle className="size-3.5 text-warning" aria-hidden="true" />}
 									</span>
 									{hasMenus && (
 										<Badge
@@ -363,6 +379,17 @@ export function PlanningBoard() {
 					})}
 				</div>
 			</div>
+
+			{/* Fonte que a OM não usa no sisub fica fora do aviso: dizer isso evita ler silêncio como "atende". */}
+			{availability?.checks && !(availability.checks.stock && availability.checks.contracts) && (
+				<p className="text-caption text-muted-foreground">
+					{availability.checks.stock || availability.checks.contracts ? "Aviso de insumo que pode faltar: " : "Aviso de insumo que pode faltar desligado: "}
+					{!availability.checks.stock && "a cozinha não controla estoque no sisub"}
+					{!availability.checks.stock && !availability.checks.contracts && " e "}
+					{!availability.checks.contracts && "a unidade não tem ata nem empenho registrado no sisub"}
+					{availability.checks.stock || availability.checks.contracts ? ", então isso não é conferido." : "."}
+				</p>
+			)}
 
 			{/*
 			 * O período é o do calendário na tela (inclui a semana que transborda o
