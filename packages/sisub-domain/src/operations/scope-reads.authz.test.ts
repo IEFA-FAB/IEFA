@@ -12,7 +12,15 @@
  */
 
 import { describe, expect, test } from "bun:test"
-import { kitchenInKitchen, mealTypeInKitchen, recipesInKitchen, type SisubDb, sisubSchema } from "@iefa/database/drizzle/sisub"
+import {
+	kitchenInKitchen,
+	mealTypeInKitchen,
+	menuTemplateEventMealInKitchen,
+	menuTemplateItemsInKitchen,
+	recipesInKitchen,
+	type SisubDb,
+	sisubSchema,
+} from "@iefa/database/drizzle/sisub"
 import type { SQL } from "drizzle-orm"
 import { drizzle } from "drizzle-orm/postgres-js"
 import { canReachKitchen, kitchenBelongsToUnit, requireKitchenOrItsUnit } from "../guards/kitchen-unit.ts"
@@ -306,8 +314,38 @@ const CAFE_MEAL = "22222222-2222-4222-8222-222222222222"
 const COQUETEL_MEAL = "33333333-3333-4333-8333-333333333333"
 const GLOBAL_RECIPE = "recipe-global"
 
+type RecordedInsert = { table: unknown; values: unknown }
+
+/**
+ * Transação que conclui: toda cadeia resolve vazia, e o `insert … returning` devolve a linha nova.
+ * Grava o que cada `insert` levou, para a asserção sobre o que a cópia gravou.
+ */
+function recordingTransaction(inserts: RecordedInsert[]) {
+	const chain = (result: unknown[]): unknown => {
+		const proxy: unknown = new Proxy(
+			{},
+			{
+				get: (_target, prop) => (prop === "then" ? (resolve: (value: unknown) => void) => resolve(result) : () => proxy),
+			}
+		)
+		return proxy
+	}
+	const tx = {
+		select: () => chain([]),
+		update: () => chain([]),
+		delete: () => chain([]),
+		insert: (table: unknown) => ({
+			values: (values: unknown) => {
+				inserts.push({ table, values })
+				return chain([{ id: "new-template", kitchenId: OTHER_KITCHEN, name: "Evento", templateType: "event" }])
+			},
+		}),
+	}
+	return <T>(fn: (transaction: typeof tx) => Promise<T>) => fn(tx)
+}
+
 /** Cozinha das preparações pelo id pedido (o stub lê os ids do SQL que o Drizzle monta). */
-function eventForkDb(): SisubDb {
+function eventForkDb(inserts: RecordedInsert[] = []): SisubDb {
 	const recipeOwner: Record<string, number | null> = { [LOCAL_RECIPE_OF_A]: KITCHEN, [GLOBAL_RECIPE]: null }
 	const source = {
 		id: SOURCE_TEMPLATE,
@@ -349,13 +387,14 @@ function eventForkDb(): SisubDb {
 			menuTemplateEventMealInKitchen: { findMany: () => Promise.resolve([eventMeal(CAFE_MEAL, "Café", 0), eventMeal(COQUETEL_MEAL, "Coquetel", 1)]) },
 		},
 		select,
+		transaction: recordingTransaction(inserts),
 	} as unknown as SisubDb
 }
 
 describe("forkTemplate — refeições escolhidas", () => {
 	const forker = ctx(perm("kitchen", 1, { kitchen_id: KITCHEN }), perm("kitchen", 2, { kitchen_id: OTHER_KITCHEN }))
-	const fork = (occasionMealIds?: string[]) =>
-		forkTemplate(eventForkDb(), forker, { sourceTemplateId: SOURCE_TEMPLATE, targetKitchenId: OTHER_KITCHEN, occasionMealIds }).then(
+	const fork = (occasionMealIds?: string[], inserts: RecordedInsert[] = []) =>
+		forkTemplate(eventForkDb(inserts), forker, { sourceTemplateId: SOURCE_TEMPLATE, targetKitchenId: OTHER_KITCHEN, occasionMealIds }).then(
 			() => null,
 			(e: unknown) => e
 		)
@@ -366,9 +405,13 @@ describe("forkTemplate — refeições escolhidas", () => {
 
 	test("escolhido só o coquetel, a preparação local do café (que não vai) não recusa a cópia", async () => {
 		// Antes, a conferência olhava os itens de TODAS as refeições da origem.
-		const error = await fork([COQUETEL_MEAL])
-		expect((error as DomainError | null)?.code).not.toBe("TEMPLATE_FORK_OUT_OF_SCOPE")
-		expect(error).not.toBeInstanceOf(PermissionDeniedError)
+		const inserts: RecordedInsert[] = []
+		expect(await fork([COQUETEL_MEAL], inserts)).toBeNull()
+		// A cópia leva só o coquetel e o item dele.
+		const items = inserts.find((i) => i.table === menuTemplateItemsInKitchen)?.values as { recipeId: string }[]
+		expect(items.map((i) => i.recipeId)).toEqual([GLOBAL_RECIPE])
+		const meals = inserts.find((i) => i.table === menuTemplateEventMealInKitchen)?.values as { name: string }[]
+		expect(meals.map((m) => m.name)).toEqual(["Coquetel"])
 	})
 
 	test("escolhido o café, a preparação local vai junto: recusado", async () => {
