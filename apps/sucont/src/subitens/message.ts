@@ -34,6 +34,28 @@ export const formatMsgDate = (dateStr: string) => {
 }
 
 /**
+ * Chave de uma mensagem na tela: identifica o rascunho e o "Copiado". As duas listas
+ * (por UG e consolidada por questão) usam prefixos diferentes; antes o "Copiado" era
+ * guardado pelo índice, e a primeira mensagem de uma lista marcava a primeira da outra.
+ */
+export const ugMessageKey = (ug: string) => `ug:${ug}`
+export const racMessageKey = (racId: string) => `rac:${racId}`
+
+/**
+ * Data do relatório em `DD/MM/AAAA`, a partir do valor do `<input type="date">`.
+ *
+ * O campo vazio (a conferente apagou a data) devolve "". A tela formatava com
+ * `Intl.DateTimeFormat` sobre `new Date("T12:00:00")`, que é data inválida e lançava
+ * `RangeError` no meio da renderização, derrubando a tela de resultados.
+ */
+export const formatReportDate = (dateStr: string): string => {
+	const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr)
+	if (!match) return ""
+	const [, year, month, day] = match
+	return `${day}/${month}/${year}`
+}
+
+/**
  * Prazo que entra no texto (`DD/MM/AAAA`), só para mensagem "com prazo". Era o corpo de
  * `getDeadlineText`/`getRacDeadlineText`; o prazo padrão vem por parâmetro para o teste
  * fixar a data, e só é calculado quando a configuração não tem data limite.

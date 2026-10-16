@@ -13,6 +13,7 @@ import { EXCEL_ACCEPT, FileDropzone } from "#/components/ui/file-dropzone"
 import { SectionHeader } from "#/components/ui/section-header"
 import { SegmentedControl } from "#/components/ui/segmented-control"
 import { StatTile } from "#/components/ui/stat-tile"
+import { useCopyFeedback } from "#/hooks/use-copy-feedback"
 import { useMessageDrafts } from "#/hooks/use-editable-message"
 import { formatCurrency } from "#/lib/analista/types"
 import { todayInBrasilia } from "#/lib/brasilia"
@@ -36,7 +37,16 @@ import {
 	summarizeByOdsOrgaoAndRac,
 	summarizePareto,
 } from "#/subitens/dashboard"
-import { CONSOLIDATED_TEMPLATE, defaultDeadline, formatDeadlineText, formatMsgDate, INSTITUTIONAL_TEMPLATE } from "#/subitens/message"
+import {
+	CONSOLIDATED_TEMPLATE,
+	defaultDeadline,
+	formatDeadlineText,
+	formatMsgDate,
+	formatReportDate,
+	INSTITUTIONAL_TEMPLATE,
+	racMessageKey,
+	ugMessageKey,
+} from "#/subitens/message"
 import { parseWorkbook } from "#/subitens/parser"
 import type { MessageConfig, UgGroup } from "#/subitens/types"
 import { formatUgName, getConferente } from "#/subitens/ug"
@@ -81,7 +91,7 @@ function SubitensGenericos() {
 	const [data, setData] = useState<UgGroup[]>([])
 	const [error, setError] = useState<string | null>(null)
 	const [isProcessing, setIsProcessing] = useState(false)
-	const [copiedIndex, setCopiedIndex] = useState<number | null>(null)
+	const { copiedKey, copy: copyToClipboard } = useCopyFeedback()
 	const drafts = useMessageDrafts()
 	const [activeTab, setActiveTab] = useState<"messages" | "dashboard">("messages")
 
@@ -95,7 +105,7 @@ function SubitensGenericos() {
 	const [selectedConferente, setSelectedConferente] = useState<string>("all")
 	const [dashboardTab, setDashboardTab] = useState<"operacional" | "tatico" | "estrategico">("operacional")
 
-	const formattedReportDate = new Intl.DateTimeFormat("pt-BR").format(new Date(`${reportDate}T12:00:00`))
+	const formattedReportDate = formatReportDate(reportDate)
 
 	const resetAnalysis = () => {
 		setData([])
@@ -172,12 +182,6 @@ function SubitensGenericos() {
 	const handleFiles = (files: File[]) => {
 		const file = files[0]
 		if (file) processFile(file)
-	}
-
-	const copyToClipboard = (text: string, index: number) => {
-		navigator.clipboard.writeText(text)
-		setCopiedIndex(index)
-		setTimeout(() => setCopiedIndex(null), 2000)
 	}
 
 	// ── Filtering ─────────────────────────────────────────────
@@ -381,7 +385,8 @@ function SubitensGenericos() {
 														currentMsgNumber,
 														"all"
 													)
-													const draft = drafts.of(`ug:${group.ug}`, message)
+													const messageKey = ugMessageKey(group.ug)
+													const draft = drafts.of(messageKey, message)
 
 													return (
 														<UgMessageCard
@@ -390,8 +395,8 @@ function SubitensGenericos() {
 															idx={idx}
 															ugConfig={ugConfig}
 															draft={draft}
-															isCopied={copiedIndex === idx}
-															onCopy={copyToClipboard}
+															isCopied={copiedKey === messageKey}
+															onCopy={(text) => copyToClipboard(text, messageKey)}
 															onConfigChange={(field, value) => updateUgConfig(group.ug, field, value)}
 														/>
 													)
@@ -413,7 +418,8 @@ function SubitensGenericos() {
 														getRacDeadlineText(racId),
 														currentMsgNumber
 													)
-													const draft = drafts.of(`rac:${racId}`, message)
+													const messageKey = racMessageKey(racId)
+													const draft = drafts.of(messageKey, message)
 													const totalSaldo = occurrences.reduce((sum, occ) => sum + occ.saldo, 0)
 													const uniqueUgs = new Set(occurrences.map((o) => o.ug)).size
 
@@ -427,8 +433,8 @@ function SubitensGenericos() {
 															occurrencesCount={occurrences.length}
 															totalSaldo={totalSaldo}
 															uniqueUgs={uniqueUgs}
-															isCopied={copiedIndex === idx}
-															onCopy={copyToClipboard}
+															isCopied={copiedKey === messageKey}
+															onCopy={(text) => copyToClipboard(text, messageKey)}
 															onConfigChange={(field, value) => updateRacConfig(racId, field, value)}
 														/>
 													)

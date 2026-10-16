@@ -18,7 +18,8 @@ interface RacMessageCardProps {
 	totalSaldo: number
 	uniqueUgs: number
 	isCopied: boolean
-	onCopy: (text: string, index: number) => void
+	/** Copia o texto da mensagem; a chave do "Copiado" é a da mensagem, decidida pela tela. */
+	onCopy: (text: string) => void
 	onConfigChange: (field: string, value: string) => void
 }
 
@@ -76,7 +77,7 @@ export function RacMessageCard({
 					<MessageCardControls idPrefix="rac" idx={idx} config={racConfig} onConfigChange={onConfigChange} />
 				</div>
 
-				<CopyMessageButton isCopied={isCopied} onClick={() => onCopy(draft.text, idx)} />
+				<CopyMessageButton isCopied={isCopied} onClick={() => onCopy(draft.text)} />
 			</div>
 
 			<div className="flex-1 p-6 bg-card">
