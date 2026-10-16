@@ -283,6 +283,102 @@ describe("formas de export e import no package", () => {
 })
 
 describe("propagação dentro do módulo", () => {
+	test("chave solta depois de `export { … }` contamina também os exports da lista", () => {
+		// O fallback "sem unidade → todos os exports" só olhava `export function/const`: `load`,
+		// exportado por lista, ficava de fora.
+		const files: Array<[string, string]> = [
+			[
+				"packages/kit/src/index.ts",
+				["function load() {", "\treturn 1", "}", "function hidden() {", "\treturn 2", "}", "export { load }", 'localStorage.setItem("kit_loose", "1")'].join(
+					"\n"
+				),
+			],
+		]
+		expect(
+			writersWith(
+				files,
+				[
+					["apps/a/src/x.ts", 'import { load } from "@iefa/kit"'],
+					["apps/b/src/y.ts", 'import { hidden } from "@iefa/kit"'],
+				],
+				"kit_loose"
+			)
+		).toEqual(["apps/a/src/x.ts"])
+	})
+
+	test("chave solta contamina o default, seja ele declaração ou expressão", () => {
+		for (const exportDefault of ["export default function () {\n\treturn 1\n}", "export default memo(View)", "const view = 1\nexport default view"]) {
+			const files: Array<[string, string]> = [["packages/kit/src/index.ts", `${exportDefault}\nsessionStorage.removeItem("kit_loose")`]]
+			expect(writersWith(files, [["apps/a/src/x.ts", 'import kit from "@iefa/kit"']], "kit_loose")).toEqual(["apps/a/src/x.ts"])
+		}
+	})
+
+	test("export default de expressão marca `default` quando a chave está nele ou o alcança", () => {
+		const defaults = [
+			"export default memo(load)",
+			"export default () => load()",
+			"export default function () {\n\treturn load()\n}",
+			"export default load satisfies () => string | null",
+			"export default load // comentário",
+		]
+		for (const exportDefault of defaults) {
+			const files: Array<[string, string]> = [
+				[
+					"packages/kit/src/index.ts",
+					['const STORAGE_KEY = "kit_limit"', "function load() {", "\treturn localStorage.getItem(STORAGE_KEY)", "}", exportDefault].join("\n"),
+				],
+			]
+			expect(writersWith(files, [["apps/a/src/x.ts", 'import kit from "@iefa/kit"']])).toEqual(["apps/a/src/x.ts"])
+		}
+		const inline: Array<[string, string]> = [["packages/kit/src/index.ts", 'export default () => localStorage.getItem("kit_inline_default")']]
+		expect(writersWith(inline, [["apps/a/src/x.ts", 'import kit from "@iefa/kit"']], "kit_inline_default")).toEqual(["apps/a/src/x.ts"])
+	})
+
+	test("interface, type, enum, classe abstrata e chamada solta fecham o trecho da unidade anterior", () => {
+		const files: Array<[string, string]> = [
+			[
+				"packages/kit/src/index.ts",
+				[
+					'const STORAGE_KEY = "kit_limit"',
+					"function load() {",
+					"\treturn localStorage.getItem(STORAGE_KEY)",
+					"}",
+					"export function a() {",
+					"\treturn 1",
+					"}",
+					"interface Uses {",
+					"\tf: typeof load",
+					"}",
+					"export function b() {",
+					"\treturn 2",
+					"}",
+					"type AlsoUses = ReturnType<typeof load>",
+					"export function c() {",
+					"\treturn 3",
+					"}",
+					"register(load)",
+					"export enum Mode {",
+					"\tA = 1,",
+					"}",
+					"export abstract class Store {",
+					"\tread() {",
+					"\t\treturn load()",
+					"\t}",
+					"}",
+				].join("\n"),
+			],
+		]
+		expect(
+			writersWith(files, [
+				["apps/a/src/x.ts", 'import { a } from "@iefa/kit"'],
+				["apps/b/src/y.ts", 'import { b } from "@iefa/kit"'],
+				["apps/c/src/z.ts", 'import { c } from "@iefa/kit"'],
+				["apps/d/src/w.ts", 'import { Mode } from "@iefa/kit"'],
+				["apps/e/src/v.ts", 'import { Store } from "@iefa/kit"'],
+			])
+		).toEqual(["apps/e/src/v.ts"])
+	})
+
 	test("chave em código solto no topo do módulo contamina todos os exports", () => {
 		const files: Array<[string, string]> = [
 			[
