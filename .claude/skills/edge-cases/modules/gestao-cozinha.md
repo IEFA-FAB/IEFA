@@ -61,16 +61,6 @@ Arquivos de teste citados:
   que retire uma chave de `substitutions`. Hoje só se corrige registrando de novo, pela tela, no
   mesmo insumo; o registro no insumo errado fica no selo do dia.
 
-### GC-AGD-16 — "Na sexta e no fim de semana come menos gente"
-- **Realidade:** almoço com 800 de segunda a quinta, 500 na sexta (expediente curto) e 200 no fim
-  de semana (só a escala). É a mesma divisão que a previsão de comensais pinta de três cores.
-- **O sistema precisa:** o efetivo base de cada (dia + refeição) do semanal recebe o número da
-  faixa dele; faixa em branco não mexe; sem "Substituir", o que já foi digitado fica.
-- **UX:** no cardápio semanal → "Quantitativo" → uma coluna por faixa (Seg a Qui, Sexta, Fim de
-  semana, nas cores da previsão) → "Preencher N" diz quantos (dia + refeição) mudam.
-- **Cobertura:** `menu-fill.test.ts › applyHeadcountByDays / countHeadcountByDays` (unitário; sem E2E
-  do diálogo).
-
 ### GC-AGD-07 — "Faltou luz (ou água): o dia inteiro muda"
 - **Realidade:** sem cocção; entra o cardápio de contingência (refeição fria).
 - **O sistema precisa:** o planejado do dia vai para a lixeira e a contingência entra, numa transação
@@ -110,6 +100,16 @@ Arquivos de teste citados:
   definir" no dia → "Quantitativo do dia".
 - **Cobertura:** `templates.operations.test.ts › semanal global aplicado: o efetivo vem da aplicação…` ·
   `planning.rescale.test.ts › portionsForArrivingHeadcount`
+
+### GC-AGD-16 — "Na sexta e no fim de semana come menos gente"
+- **Realidade:** almoço com 800 de segunda a quinta, 500 na sexta (expediente curto) e 200 no fim
+  de semana (só a escala). É a mesma divisão que a previsão de comensais pinta de três cores.
+- **O sistema precisa:** o efetivo base de cada (dia + refeição) do semanal recebe o número da
+  faixa dele; faixa em branco não mexe; sem "Substituir", o que já foi digitado fica.
+- **UX:** no cardápio semanal → "Quantitativo" → uma coluna por faixa (Seg a Qui, Sexta, Fim de
+  semana, nas cores da previsão) → "Preencher N" diz quantos (dia + refeição) mudam.
+- **Cobertura:** `menu-fill.test.ts › applyHeadcountByDays / countHeadcountByDays` (unitário; sem E2E
+  do diálogo).
 
 ## Lacunas conhecidas (imprevisto sem caminho completo)
 

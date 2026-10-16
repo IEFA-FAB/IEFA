@@ -10,14 +10,14 @@ import { cn } from "@/lib/cn"
 import type { HeadcountPlan, HeadcountPlanByDays } from "@/lib/menu-fill"
 import type { WeekdayGroup } from "@/lib/weekdays"
 
-/** Mesmas cores da previsão de comensais (`DayCard`): seg–qui, sexta e fim de semana. */
+/** Mesmas faixas e cores da previsão de comensais (`DayCard`): seg–qui, sexta e fim de semana. */
 const GROUP_TONE: Record<WeekdayGroup["key"], string> = {
 	"mon-thu": "bg-primary/10 text-primary",
 	fri: "bg-success/10 text-success",
 	weekend: "bg-warning/10 text-warning",
 }
 
-/** Coluna única (evento, apoio, dia): a chave não chega a aparecer. */
+/** Coluna única (evento, apoio, dia): a chave só separa os valores digitados. */
 const SINGLE_COLUMN = "all"
 
 /**
@@ -67,6 +67,9 @@ export function MenuHeadcountDialog({
 	/** Chave `${coluna}|${refeição}`. */
 	const [values, setValues] = useState<Record<string, string>>({})
 	const [overwrite, setOverwrite] = useState(false)
+
+	/** Uma coluna por faixa; sem faixas, uma coluna só. */
+	const columns: readonly { key: string; label?: string }[] = apply.dayGroups ?? [{ key: SINGLE_COLUMN }]
 
 	const planFor = (columnKey: string): HeadcountPlan =>
 		new Map(
@@ -128,8 +131,8 @@ export function MenuHeadcountDialog({
 					</p>
 				) : (
 					<FieldGroup>
-						{apply.dayGroups ? (
-							<div className="flex flex-col gap-2">
+						<div className="flex flex-col gap-2">
+							{apply.dayGroups && (
 								<div className="flex items-center gap-2" aria-hidden="true">
 									<span className="flex-1" />
 									{apply.dayGroups.map((group) => (
@@ -138,42 +141,26 @@ export function MenuHeadcountDialog({
 										</span>
 									))}
 								</div>
-								{mealTypes.map((mealType) => (
-									<div key={mealType.id} className="flex items-center gap-2">
-										<span className="flex-1 truncate">{mealType.name}</span>
-										{apply.dayGroups.map((group) => (
-											<Input
-												key={group.key}
-												type="number"
-												min="1"
-												inputMode="numeric"
-												className="w-24"
-												aria-label={`${mealType.name} — ${group.label}`}
-												placeholder={placeholder}
-												value={values[`${group.key}|${mealType.id}`] ?? ""}
-												onChange={(e) => setValue(group.key, mealType.id, e.target.value)}
-											/>
-										))}
-									</div>
-								))}
-							</div>
-						) : (
-							mealTypes.map((mealType) => (
-								<Field key={mealType.id} orientation="horizontal">
-									<FieldLabel htmlFor={`headcount-${mealType.id}`}>{mealType.name}</FieldLabel>
-									<Input
-										id={`headcount-${mealType.id}`}
-										type="number"
-										min="1"
-										inputMode="numeric"
-										className="w-28"
-										placeholder={placeholder}
-										value={values[`${SINGLE_COLUMN}|${mealType.id}`] ?? ""}
-										onChange={(e) => setValue(SINGLE_COLUMN, mealType.id, e.target.value)}
-									/>
-								</Field>
-							))
-						)}
+							)}
+							{mealTypes.map((mealType) => (
+								<div key={mealType.id} className="flex items-center gap-2">
+									<span className="flex-1 truncate">{mealType.name}</span>
+									{columns.map((column) => (
+										<Input
+											key={column.key}
+											type="number"
+											min="1"
+											inputMode="numeric"
+											className="w-24"
+											aria-label={column.label ? `${mealType.name} — ${column.label}` : (mealType.name ?? undefined)}
+											placeholder={placeholder}
+											value={values[`${column.key}|${mealType.id}`] ?? ""}
+											onChange={(e) => setValue(column.key, mealType.id, e.target.value)}
+										/>
+									))}
+								</div>
+							))}
+						</div>
 						<Field orientation="horizontal">
 							<FieldLabel htmlFor={overwriteId}>Substituir o que já está preenchido</FieldLabel>
 							<Switch id={overwriteId} checked={overwrite} onCheckedChange={setOverwrite} />

@@ -1,6 +1,6 @@
 import { format } from "date-fns"
 import { CalendarPlus, ClipboardPaste, Copy, Loader2, Plus, RefreshCcw, Users } from "lucide-react"
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { SnackDayPanel } from "@/components/features/local/planning/SnackDayPanel"
 import { RecipeLinkScope } from "@/components/features/shared/RecipeLink"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
@@ -446,11 +446,12 @@ function MealMenuItems({
 	/** Cozinha do dia: o nome da preparação abre a ficha pela tela da cozinha. */
 	kitchenId: number
 }) {
+	const linkScope = useMemo(() => ({ scope: "kitchen" as const, kitchenId }), [kitchenId])
 	if (!menuItems || menuItems.length === 0) {
 		return <div className="border border-dashed rounded-md p-4 text-center text-sm text-muted-foreground">Nenhuma preparação adicionada.</div>
 	}
 	return (
-		<RecipeLinkScope scope={{ scope: "kitchen", kitchenId }}>
+		<RecipeLinkScope scope={linkScope}>
 			<div className="space-y-3">
 				{groupMenuItems(menuItems, groups).map((group) => (
 					<div key={group.key} className="space-y-2">

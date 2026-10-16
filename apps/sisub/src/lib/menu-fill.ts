@@ -136,7 +136,9 @@ export type HeadcountPlanByDays = readonly { days: readonly number[]; plan: Head
 
 /** `applyHeadcountToMeals` faixa a faixa. */
 export function applyHeadcountByDays(meals: readonly MealHeadcountDraft[], plans: HeadcountPlanByDays, overwrite = false): MealHeadcountDraft[] {
-	return plans.reduce<MealHeadcountDraft[]>((acc, { days, plan }) => applyHeadcountToMeals(acc, plan, { days, overwrite }), [...meals])
+	let result: readonly MealHeadcountDraft[] = meals
+	for (const { days, plan } of plans) result = applyHeadcountToMeals(result, plan, { days, overwrite })
+	return [...result]
 }
 
 /** Soma de `countHeadcountTargets` das faixas — disjuntas, então nenhum (dia + refeição) conta duas vezes. */

@@ -28,6 +28,11 @@ export const WEEKDAY_GROUPS = [
 
 export type WeekdayGroup = (typeof WEEKDAY_GROUPS)[number]
 
+/** Faixa do dia ISO (1–7); fora da faixa cai em seg–qui. */
+export function weekdayGroupOf(isoDay: number): WeekdayGroup["key"] {
+	return WEEKDAY_GROUPS.find((group) => (group.days as readonly number[]).includes(isoDay))?.key ?? "mon-thu"
+}
+
 /** Rótulo do dia ISO (1–7), `undefined` fora da faixa. */
 export function getWeekdayLabel(day: number): string | undefined {
 	return WEEKDAYS.find((weekday) => weekday.num === day)?.label

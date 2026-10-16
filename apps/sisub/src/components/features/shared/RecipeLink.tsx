@@ -18,13 +18,26 @@ type RecipePreviewSummary = { name: string; kitchen_id: number | null; portion_y
  * Prévia da preparação no hover card: nome, origem e os primeiros ingredientes.
  * A ficha só é buscada quando o cartão abre (o conteúdo do hover card monta ao abrir).
  */
-export function RecipeHoverContent({ recipeId, summary, hint }: { recipeId: string; summary?: RecipePreviewSummary; hint?: string }) {
-	const { data, isLoading } = useRecipe(recipeId)
+export function RecipeHoverContent({
+	recipeId,
+	summary,
+	fallbackName,
+	hint,
+}: {
+	recipeId: string
+	summary?: RecipePreviewSummary
+	/** Nome já exibido por quem abriu a prévia: o cabeçalho não espera a ficha carregar. */
+	fallbackName?: string
+	hint?: string
+}) {
+	const { data, isLoading, isError } = useRecipe(recipeId)
 	const detail = data as RecipeWithIngredients | undefined
-	const name = summary?.name ?? detail?.name
+	const name = summary?.name ?? detail?.name ?? fallbackName
 	const kitchenId = summary ? summary.kitchen_id : detail?.kitchen_id
 	const portionYield = summary ? summary.portion_yield : detail?.portion_yield
+	// `undefined` = origem ainda desconhecida (ficha carregando): nem globo nem chapéu até saber.
 	const isGlobal = kitchenId === null
+	const isOriginKnown = kitchenId !== undefined
 
 	// Ingredientes ordenados por prioridade; obrigatórios primeiro.
 	const ingredients = (detail?.ingredients ?? [])
@@ -42,7 +55,7 @@ export function RecipeHoverContent({ recipeId, summary, hint }: { recipeId: stri
 						isGlobal ? "border-primary/20 bg-primary/10" : "border-border/30 bg-muted/50"
 					}`}
 				>
-					{isGlobal ? <Globe className="size-3.5 text-primary" /> : <ChefHat className="size-3.5 text-muted-foreground" />}
+					{isOriginKnown && (isGlobal ? <Globe className="size-3.5 text-primary" /> : <ChefHat className="size-3.5 text-muted-foreground" />)}
 				</div>
 				<div className="min-w-0">
 					<p className="text-sm font-semibold leading-tight">{name ?? "Preparação"}</p>
@@ -55,6 +68,9 @@ export function RecipeHoverContent({ recipeId, summary, hint }: { recipeId: stri
 					<Loader2 className="size-3.5 animate-spin" />
 					Carregando ingredientes…
 				</div>
+			) : isError || !detail ? (
+				// Falha de rede ou ficha que não existe mais não é "sem ingredientes".
+				<p className="py-1 text-xs text-muted-foreground">Não foi possível carregar a ficha.</p>
 			) : preview.length === 0 ? (
 				<p className="py-1 text-xs text-muted-foreground">Sem ingredientes cadastrados.</p>
 			) : (
@@ -100,7 +116,7 @@ export function RecipeLinkScope({ scope, children }: { scope: EditScope; childre
  * Salvar explícito (modelo global aberto na cozinha), e sair da tela no meio descartava a
  * edição. Fora de um `RecipeLinkScope` é texto puro.
  */
-export function RecipeLink({ recipeId, children, className }: { recipeId: string; children: ReactNode; className?: string }) {
+export function RecipeLink({ recipeId, children, className }: { recipeId: string; children: string; className?: string }) {
 	const scope = useContext(RecipeLinkScopeContext)
 	if (!scope) return <span className={className}>{children}</span>
 
@@ -122,7 +138,7 @@ export function RecipeLink({ recipeId, children, className }: { recipeId: string
 		<HoverCard>
 			<HoverCardTrigger render={link}>{children}</HoverCardTrigger>
 			<HoverCardContent side="right" align="start">
-				<RecipeHoverContent recipeId={recipeId} hint="Clique para abrir a preparação em outra aba." />
+				<RecipeHoverContent recipeId={recipeId} fallbackName={children} hint="Clique para abrir a preparação em outra aba." />
 			</HoverCardContent>
 		</HoverCard>
 	)
