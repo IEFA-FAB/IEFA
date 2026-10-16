@@ -22,7 +22,13 @@ import { z } from "zod"
 import { publicDbMessage } from "@/lib/db-error-message"
 import { readKitchenStockSettings } from "@/lib/kitchen-stock-settings.server"
 import { readAllPagesIn } from "@/lib/read-all-pages"
-import { buildAdjustmentDocumentRow, buildAdjustmentItemRow, buildPostFailureRecovery, findAdjustmentLotProblem } from "@/lib/stock-adjustment"
+import {
+	abandonDraftAdjustment,
+	buildAdjustmentDocumentRow,
+	buildAdjustmentItemRow,
+	buildPostFailureRecovery,
+	findAdjustmentLotProblem,
+} from "@/lib/stock-adjustment"
 import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 
@@ -404,25 +410,17 @@ export const createAdjustmentFn = createServerFn({ method: "POST" })
 			.single()
 		if (error || !doc) throw new Error(`Erro ao criar o ajuste: ${publicDbMessage(error)}`)
 
-		const { error: itemsError } = await inv.from("stock_adjustment_item").insert(data.items.map((item) => buildAdjustmentItemRow(doc.id, item)))
-		if (itemsError) {
-			await inv.from("stock_adjustment").delete().eq("id", doc.id)
-			throw new Error(`Erro nos itens do ajuste: ${publicDbMessage(itemsError)}`)
-		}
+		// O documento existe daqui para baixo. Falha antes do lançamento (nos itens
+		// inclusive) APAGA o documento, senão ele fica encalhado em `draft`, sem ação
+		// nenhuma na tela, e o operador reenvia e nasce um segundo documento para a
+		// mesma perda. Se o próprio desfazer falhar, a mensagem diz que o rascunho
+		// ficou (`abandonDraftAdjustment`). Documento e itens numa transação só fica
+		// para quando a criação do ajuste sair do PostgREST (função SQL ou operation).
+		const abandon = (message: string): Promise<never> =>
+			abandonDraftAdjustment(() => inv.from("stock_adjustment").delete().eq("id", doc.id).eq("status", "draft"), doc.id, message)
 
-		// Documento e itens já existem daqui para baixo. Falha antes do lançamento
-		// APAGA o documento — como a falha nos itens —, senão ele fica encalhado em
-		// `draft`, sem ação nenhuma na tela, e o operador reenvia e nasce um segundo
-		// documento para a mesma perda.
-		// Desfaz o rascunho e lança. Se o próprio desfazer falhar, a mensagem DIZ
-		// que o rascunho ficou: calado, o operador lia só o primeiro erro, tentava
-		// de novo e deixava um documento encalhado em `draft` que tela nenhuma
-		// mostra.
-		const abandon = async (message: string): Promise<never> => {
-			const { error: deleteError } = await inv.from("stock_adjustment").delete().eq("id", doc.id).eq("status", "draft")
-			if (deleteError) throw new Error(`${message} — e o rascunho ${doc.id} não pôde ser desfeito (${publicDbMessage(deleteError)}); avise o nível 3`)
-			throw new Error(message)
-		}
+		const { error: itemsError } = await inv.from("stock_adjustment_item").insert(data.items.map((item) => buildAdjustmentItemRow(doc.id, item)))
+		if (itemsError) await abandon(`Erro nos itens do ajuste: ${publicDbMessage(itemsError)}`)
 
 		const { data: requires, error: requiresError } = await inv.rpc("adjustment_requires_approval", { p_adjustment_id: doc.id })
 		if (requiresError) await abandon(`Erro ao conferir a alçada do ajuste: ${publicDbMessage(requiresError)}`)

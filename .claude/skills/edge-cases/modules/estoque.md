@@ -116,9 +116,13 @@ Hipóteses a verificar; a suíte `inventory-cycle.e2e.operations.test.ts` e as d
   não sustenta liquidação. A decisão tem colunas próprias (`rejected_at`/`rejected_by`,
   20260926205000), nunca `definitive_at`.
 - **UX:** "Recusar entrega" no recebimento aberto (nível 3, com designação de gestor ou
-  comissão); o cabeçalho e o termo mostram "Recusado em" e o motivo.
-- **Cobertura:** `invoice-gate.test.ts` (recusado não sustenta liquidação). **LACUNA:** teste
-  de integração da recusa pela tela.
+  comissão); o cabeçalho e o termo mostram "Recusado em" e o motivo. Se a NF-e do recebimento
+  não puder ser marcada como recusada (falha do banco depois de o recebimento ficar recusado), a
+  tela diz isso, e "Recusar" de novo só conclui a marca da nota.
+- **Cobertura:** `invoice-gate.test.ts` (recusado não sustenta liquidação);
+  `apps/sisub/src/lib/receipt-refusal.test.ts` (plano da recusa, repetição que conclui a nota).
+  **LACUNA:** teste de integração da recusa pela tela; recebimento e nota ainda são duas
+  escritas sem transação (a atômica pede função SQL).
 
 ### EST-REC-12 — "Vinculei a NF-e errada à entrega"
 - **O sistema precisa:** trocar a nota enquanto não houver liquidação; depois dela, a NF-e e o

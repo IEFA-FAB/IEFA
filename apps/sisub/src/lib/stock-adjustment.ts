@@ -5,6 +5,8 @@
  * Fora de `adjustment.fn.ts` porque teste unitário não pode importar `@/server/*`.
  */
 
+import { type DbErrorLike, publicDbMessage } from "@/lib/db-error-message"
+
 /**
  * Lote informado tem de ser da cozinha do ajuste — o guard é por cozinha, e sem esta checagem o
  * nível 2 de uma cozinha ajustaria lote de outra. "Outra cozinha" é conferido antes de "não
@@ -96,4 +98,27 @@ export function buildPostFailureRecovery(input: {
 		notes: composeRecoveryNotes(input.operatorNote, input.failureNote),
 		...(input.isRequirementUnknown || input.nowRequires === true ? { approval_required: true as const } : {}),
 	}
+}
+
+/**
+ * Desfaz o rascunho do ajuste que falhou antes do lançamento e lança o erro original. Se o
+ * próprio desfazer falhar, a mensagem DIZ que o rascunho ficou, com os dois motivos: calado, o
+ * operador lia só o primeiro erro, tentava de novo e deixava um documento órfão em `draft` que
+ * tela nenhuma mostra (e um segundo documento para a mesma perda). O diagnóstico das duas falhas
+ * fica no log pelo `publicDbMessage`.
+ */
+export async function abandonDraftAdjustment(
+	deleteDraft: () => PromiseLike<{ error: DbErrorLike | null }>,
+	documentId: string,
+	message: string
+): Promise<never> {
+	let deleteError: DbErrorLike | null
+	try {
+		const result = await deleteDraft()
+		deleteError = result.error
+	} catch (error) {
+		deleteError = { code: "", message: error instanceof Error ? error.message : String(error) }
+	}
+	if (deleteError) throw new Error(`${message} — e o rascunho ${documentId} não pôde ser desfeito (${publicDbMessage(deleteError)}); avise o nível 3`)
+	throw new Error(message)
 }
