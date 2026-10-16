@@ -154,10 +154,40 @@ describe("formas de export e import no package", () => {
 				["apps/c/src/z.ts", 'import { other } from "@iefa/kit"'],
 				["apps/d/src/w.ts", 'import { LoadType } from "@iefa/kit"'],
 			])
-			// `other` entra por caracterização: a última declaração do módulo vai até o fim
-			// do arquivo, então engloba a lista `export { load, other }` e "cita" `load`.
-			// Erra para o lado de atribuir demais, que o inventário tolera.
-		).toEqual(["apps/a/src/x.ts", "apps/b/src/y.ts", "apps/c/src/z.ts"])
+		).toEqual(["apps/a/src/x.ts", "apps/b/src/y.ts"])
+	})
+
+	test("a lista `export { … }` não entra no trecho da declaração anterior", () => {
+		// A última declaração do módulo ia até o fim do arquivo e "citava" `load` na lista de
+		// exports; com uma declaração depois da lista, a lista ficava no trecho de `other`.
+		const files: Array<[string, string]> = [
+			[
+				"packages/kit/src/index.ts",
+				[
+					'const STORAGE_KEY = "kit_limit"',
+					"function load() {",
+					"\treturn localStorage.getItem(STORAGE_KEY)",
+					"}",
+					"export function other() {",
+					"\treturn 1",
+					"}",
+					"export { load }",
+					"export function last() {",
+					"\treturn 2",
+					"}",
+					'export * from "./redirect.ts"',
+				].join("\n"),
+			],
+			["packages/kit/src/redirect.ts", "export function safeRedirect(to: string) {\n\treturn to\n}"],
+		]
+		expect(
+			writersWith(files, [
+				["apps/a/src/x.ts", 'import { load } from "@iefa/kit"'],
+				["apps/b/src/y.ts", 'import { other } from "@iefa/kit"'],
+				["apps/c/src/z.ts", 'import { last } from "@iefa/kit"'],
+				["apps/d/src/w.ts", 'import { safeRedirect } from "@iefa/kit"'],
+			])
+		).toEqual(["apps/a/src/x.ts"])
 	})
 
 	test("import default de módulo do package propaga quando `default` chega à chave", () => {
@@ -175,9 +205,8 @@ describe("formas de export e import no package", () => {
 		).toEqual(["apps/a/src/x.ts", "apps/b/src/y.ts", "apps/c/src/z.ts"])
 	})
 
-	test("export default function entra com o nome da função, não como `default` (comportamento atual)", () => {
-		// Caracterização: o import default do app não é atribuído nesse caso. Fica registrado
-		// para a forma não mudar sem alguém ver.
+	test("export default function entra como `default`, não com o nome da função", () => {
+		// O nome da função é só local: `import { useRun }` não existe nesse módulo.
 		const files: Array<[string, string]> = [
 			LIMITER,
 			["packages/kit/src/index.ts", 'import { remaining } from "./limiter.ts"\nexport default function useRun() {\n\treturn remaining()\n}'],
@@ -187,7 +216,20 @@ describe("formas de export e import no package", () => {
 				["apps/a/src/x.ts", 'import kit from "@iefa/kit"'],
 				["apps/b/src/y.ts", 'import { useRun } from "@iefa/kit"'],
 			])
-		).toEqual(["apps/b/src/y.ts"])
+		).toEqual(["apps/a/src/x.ts"])
+	})
+
+	test("export default de um local já declarado entra como `default`", () => {
+		const files: Array<[string, string]> = [
+			LIMITER,
+			["packages/kit/src/index.ts", 'import { remaining } from "./limiter.ts"\nfunction useRun() {\n\treturn remaining()\n}\nexport default useRun'],
+		]
+		expect(
+			writersWith(files, [
+				["apps/a/src/x.ts", 'import kit from "@iefa/kit"'],
+				["apps/b/src/y.ts", 'import { useRun } from "@iefa/kit"'],
+			])
+		).toEqual(["apps/a/src/x.ts"])
 	})
 
 	test("import default de módulo sem `default` contaminado não propaga", () => {

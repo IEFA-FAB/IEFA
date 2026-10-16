@@ -59,7 +59,15 @@ const TEMPLATE_INLINE = /(?:usePersistentState(?:<[^(]*?>)?|(?:localStorage|sess
 const STORAGE_API = /localStorage|sessionStorage|document\.cookie|usePersistentState|useScrollRestoration|getStoredScrollOffset/
 
 /** Declaração de topo de módulo: o que pode carregar a chave até um export. */
-const TOP_LEVEL_DECLARATION = /^(export\s+)?(?:default\s+)?(?:declare\s+)?(?:async\s+)?(?:function\*?|const|let|var|class)\s+([A-Za-z_$][\w$]*)/gm
+const TOP_LEVEL_DECLARATION = /^(export\s+)?(default\s+)?(?:declare\s+)?(?:async\s+)?(?:function\*?|const|let|var|class)\s+([A-Za-z_$][\w$]*)/gm
+/**
+ * Início de instrução de topo que não é declaração (`export { … }`, `export * from`,
+ * `export default x`, `import …`): fecha o trecho da declaração anterior, que senão iria até
+ * a próxima declaração e "citaria" os nomes dessas listas.
+ */
+const TOP_LEVEL_STATEMENT = /^(?:export|import)\b/gm
+/** `export default nome` — exporta como `default` um local já declarado. */
+const DEFAULT_EXPORT_OF_LOCAL = /^export\s+default\s+([A-Za-z_$][\w$]*)\s*;?\s*$/gm
 /** `import [type] [Padrão,] [{ a, type b, c as d } | * as ns] from "x"`. */
 const IMPORT = /\bimport\s+(type\s+)?(?:([A-Za-z_$][\w$]*)\s*,?\s*)?(?:\{([^}]*)\}|\*\s*as\s+([A-Za-z_$][\w$]*))?\s*from\s*["']([^"']+)["']/g
 /** `export [type] { a, type b, c as d } from "x"` e `export * [as ns] from "x"`. */
@@ -127,16 +135,26 @@ function normalizePath(path: string): string {
 	return out.join("/")
 }
 
-type Declaration = { name: string; exported: boolean; start: number; end: number }
+/**
+ * `name` é o nome local (o que o resto do módulo cita); `exportedAs` é o nome que quem importa
+ * enxerga: `default` em `export default function f`, o próprio nome em `export function f`, e
+ * `null` quando a declaração não é exportada.
+ */
+type Declaration = { name: string; exportedAs: string | null; start: number; end: number }
 
 function declarationsOf(source: string): Declaration[] {
 	const matches = [...source.matchAll(TOP_LEVEL_DECLARATION)]
-	return matches.map((match, i) => ({
-		name: match[2] as string,
-		exported: Boolean(match[1]),
-		start: match.index,
-		end: matches[i + 1]?.index ?? source.length,
-	}))
+	// O trecho de cada declaração termina na próxima instrução de topo, seja ela declaração ou não.
+	const boundaries = [...new Set([...matches, ...source.matchAll(TOP_LEVEL_STATEMENT)].map((match) => match.index))].sort((a, b) => a - b)
+	return matches.map((match) => {
+		const name = match[3] as string
+		return {
+			name,
+			exportedAs: match[1] ? (match[2] ? "default" : name) : null,
+			start: match.index,
+			end: boundaries.find((index) => index > match.index) ?? source.length,
+		}
+	})
 }
 
 function escapeRegExp(text: string): string {
@@ -191,7 +209,7 @@ function seedHitLocals(hit: KeyHit, declarations: Declaration[], locals: Set<str
 	// Chave usada fora de qualquer declaração (código solto no topo do módulo):
 	// não há como saber qual export a alcança, então todos alcançam.
 	if (holder) locals.add(holder.name)
-	else for (const decl of declarations) if (decl.exported) locals.add(decl.name)
+	else for (const decl of declarations) if (decl.exportedAs) locals.add(decl.name)
 }
 
 /** Nomes locais que um import de VALOR traz de um módulo cujos exports chegam à chave. */
@@ -254,7 +272,8 @@ function propagateFile(file: string, hit: KeyHit, tree: SourceTree, resolve: Res
 
 	const mine = taintedExports.get(file) as Set<string>
 	const before = mine.size
-	for (const decl of declarations) if (decl.exported && locals.has(decl.name)) mine.add(decl.name)
+	for (const decl of declarations) if (decl.exportedAs && locals.has(decl.name)) mine.add(decl.exportedAs)
+	for (const match of source.matchAll(DEFAULT_EXPORT_OF_LOCAL)) if (locals.has(match[1] as string)) mine.add("default")
 	addLocalExportList(source, locals, mine)
 	addReexports(file, source, mine, resolve, taintedExports)
 	return mine.size !== before
