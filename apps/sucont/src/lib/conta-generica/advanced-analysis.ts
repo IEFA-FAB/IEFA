@@ -93,7 +93,7 @@ function aggregateByUg(grouped: GroupedData): UgAggregation {
 	return { ugStats, odsAgg, osAgg, totalInc, totalVol }
 }
 
-/** Pareto pelo critério compartilhado (`computeParetoGroup`): um grupo, uma ordenação. */
+/** Pareto pelo critério compartilhado (`computeParetoGroup`): um grupo, uma ordenação. Porcentagens sem arredondar. */
 function computePareto(sortedByCount: UgStat[]): ParetoData {
 	const { group, ugPercentage, issuePercentage } = computeParetoGroup(sortedByCount)
 	return { ugPercentage, inconsistencyPercentage: issuePercentage, topUgs: group }
@@ -119,7 +119,7 @@ function buildCriticalSummary(riskMap: OdsRisk[], osAgg: Aggregate, sortedByCoun
 }
 
 /** Parcela de `value` sobre o maior valor do conjunto; 0 quando o maior não é positivo. */
-function shareOfMax(value: number, max: number): number {
+function computeShareOfMax(value: number, max: number): number {
 	return max > 0 ? value / max : 0
 }
 
@@ -135,7 +135,7 @@ function buildPriorityList(ugStats: UgStat[]): PriorityItem[] {
 	return ugStats
 		.map((u) => ({
 			...u,
-			priorityScore: Math.round(shareOfMax(u.count, maxCount) * 50 + shareOfMax(u.volume, maxVolume) * 50),
+			priorityScore: Math.round(computeShareOfMax(u.count, maxCount) * 50 + computeShareOfMax(u.volume, maxVolume) * 50),
 		}))
 		.sort((a, b) => b.priorityScore - a.priorityScore)
 		.slice(0, 5)

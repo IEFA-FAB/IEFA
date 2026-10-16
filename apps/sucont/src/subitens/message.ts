@@ -46,8 +46,8 @@ export const formatMsgDate = (dateStr: string) => {
  * (por UG e consolidada por questão) usam prefixos diferentes; antes o "Copiado" era
  * guardado pelo índice, e a primeira mensagem de uma lista marcava a primeira da outra.
  */
-export const ugMessageKey = (ug: string) => `ug:${ug}`
-export const racMessageKey = (racId: string) => `rac:${racId}`
+export const buildUgMessageKey = (ug: string) => `ug:${ug}`
+export const buildRacMessageKey = (racId: string) => `rac:${racId}`
 
 /**
  * Data do relatório em `DD/MM/AAAA`, a partir do valor do `<input type="date">`.

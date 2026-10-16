@@ -1,62 +1,35 @@
 // Extraído de components/analista/chat-assistant.tsx (`handleSearch`, port do Analistasaldoimproprio):
 // a interpretação da pergunta ao Oráculo SUCONT e a resposta montada a partir dos painéis.
+import type { DecisaoData, EstrategicoData, ManagerialData } from "#/lib/analista/monitoramento-panels"
 import { getOrganizacao } from "#/lib/analista/organizacao"
+import { describeParetoConcentration } from "#/lib/analysis/pareto"
 
-export interface MangerialData {
-	totalRiskValue: number
-	topUgs: { ug: string; count: number; value: number }[]
-	topRacs: { name: string; value: number }[]
-	totalIssues: number
-	conferentes: { name: string; count: number; ugs: string[] }[]
-}
-
-export interface EstrategicoData {
-	totalRiskValue: number
-	topOds: { name: string; count: number; value: number; percent: number }[]
-	topOrgaosSuperiores: {
-		name: string
-		count: number
-		value: number
-		percent: number
-	}[]
-	topContas: { conta: string; count: number; value: number; descricao: string }[]
-	totalIssues: number
-}
-
-export interface DecisaoData {
-	pareto: {
-		totalUgs: number
-		ugPercentage: number
-		issuePercentage: number
-		topUgs: Array<{ ug: string; nome: string; count: number }>
-	}
-	priorities: Array<{ ug: string; nome: string; count: number; value: number }>
-	criticalLevels: {
-		ods: string
-		superior: string
-		ugCount: string
-		ugValue: string
-	}
-}
+// Os tipos dos painéis vêm da fonte (`monitoramento-panels.ts`). Eram cópias à mão, e a
+// troca do Pareto mostrou o risco: a cópia teria de mudar junto, sem o compilador cobrar.
+export type { DecisaoData, EstrategicoData, ManagerialData } from "#/lib/analista/monitoramento-panels"
 
 const formatCurrency = (value: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value)
 
 interface ChatContext {
-	managerialData: MangerialData
+	managerialData: ManagerialData
 	estrategicoData: EstrategicoData
 	decisaoData: DecisaoData | null
 }
 
-/** Uma pergunta reconhecida: `matches` recebe a pergunta já em minúsculas. */
+/** Uma pergunta reconhecida: `matches` e `answer` recebem a pergunta já em minúsculas. */
 interface ChatRule {
 	matches: (lowerQuery: string) => boolean
-	answer: (ctx: ChatContext) => string
+	answer: (ctx: ChatContext, lowerQuery: string) => string
 }
+
+/** Aviso quando a pergunta fala em "20% das UGs", que não é o recorte do painel. */
+const PARETO_SCOPE_NOTE =
+	"O painel não mede um corte fixo de 20% das UGs: o recorte é o grupo de UGs, da maior contagem para a menor, que soma 80% das inconsistências."
 
 const hasAny = (lowerQuery: string, terms: string[]) => terms.some((term) => lowerQuery.includes(term))
 
 const FALLBACK_ANSWER =
-	'Desculpe, não consegui interpretar essa pergunta. Como Oráculo SUCONT, posso ajudá-lo com:\n- "Qual ODS possui maior risco contábil?"\n- "Qual Órgão Superior concentra mais inconsistências?"\n- "Qual UG apresenta maior risco contábil?"\n- "Quais são as 10 UGs mais críticas do COMAER?"\n- "20% das UGs concentram quantos % das inconsistências?"\n- "Quais inconsistências devem ser tratadas primeiro?"'
+	'Desculpe, não consegui interpretar essa pergunta. Como Oráculo SUCONT, posso ajudá-lo com:\n- "Qual ODS possui maior risco contábil?"\n- "Qual Órgão Superior concentra mais inconsistências?"\n- "Qual UG apresenta maior risco contábil?"\n- "Quais são as 10 UGs mais críticas do COMAER?"\n- "Quantas UGs concentram 80% das inconsistências?"\n- "Quais inconsistências devem ser tratadas primeiro?"'
 
 /**
  * Resposta quando o painel consultado não tem o que listar (filtro sem cobrança). As
@@ -114,16 +87,23 @@ const CHAT_RULES: ChatRule[] = [
 		},
 	},
 	{
-		matches: (q) => q.includes("20%") && q.includes("concentram"),
-		answer: ({ decisaoData }) => {
+		// O Pareto do painel é o grupo de UGs que soma 80% das inconsistências
+		// (`computeParetoGroup`), não um corte fixo de 20% das UGs. A pergunta antiga ("20%
+		// das UGs concentram quanto?") ainda chega: responde com o recorte do painel, dito
+		// explicitamente, em vez de um número que não responde ao que foi perguntado.
+		matches: (q) => hasAny(q, ["80%", "20%", "pareto"]) && q.includes("concentr"),
+		answer: ({ decisaoData }, lowerQuery) => {
 			if (decisaoData?.pareto.totalUgs === 0) return EMPTY_PANEL_ANSWER
 			if (decisaoData) {
 				const { ugPercentage, issuePercentage, topUgs } = decisaoData.pareto
-				return `De acordo com a análise de Pareto, **${ugPercentage}% das UGs** (${topUgs.length}) concentram **${issuePercentage}%** das inconsistências contábeis.`
+				const concentration = describeParetoConcentration({ ugPercentage, issuePercentage, groupSize: topUgs.length })
+				const answer = `De acordo com a análise de Pareto, **${concentration}** contábeis.`
+				return lowerQuery.includes("20%") ? `${PARETO_SCOPE_NOTE} ${answer}` : answer
 			}
 			return "A análise de Pareto indica que uma parcela reduzida de UGs concentra a maioria das inconsistências. Carregue mais dados para um percentual exato."
 		},
 	},
+
 	{
 		matches: (q) => hasAny(q, ["primeiro", "prioridade", "tratar"]),
 		answer: ({ decisaoData }) => {
@@ -166,8 +146,8 @@ const CHAT_RULES: ChatRule[] = [
 	},
 ]
 
-export function answerChatQuery(query: string, managerialData: MangerialData, estrategicoData: EstrategicoData, decisaoData: DecisaoData | null): string {
+export function answerChatQuery(query: string, managerialData: ManagerialData, estrategicoData: EstrategicoData, decisaoData: DecisaoData | null): string {
 	const lowerQuery = query.toLowerCase()
 	const rule = CHAT_RULES.find((r) => r.matches(lowerQuery))
-	return rule ? rule.answer({ managerialData, estrategicoData, decisaoData }) : FALLBACK_ANSWER
+	return rule ? rule.answer({ managerialData, estrategicoData, decisaoData }, lowerQuery) : FALLBACK_ANSWER
 }

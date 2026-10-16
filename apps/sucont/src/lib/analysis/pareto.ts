@@ -21,9 +21,9 @@ export const PARETO_SHARE = 0.8
 export interface ParetoGroup<T> {
 	/** UGs do grupo, na ordem recebida (contagem decrescente). */
 	group: T[]
-	/** Tamanho do grupo sobre o total de UGs, em % arredondado. */
+	/** Tamanho do grupo sobre o total de UGs, em %, sem arredondar (exiba com `formatParetoShare`). */
 	ugPercentage: number
-	/** Ocorrências do grupo sobre o total, em % arredondado. */
+	/** Ocorrências do grupo sobre o total, em %, sem arredondar (exiba com `formatParetoShare`). */
 	issuePercentage: number
 }
 
@@ -40,7 +40,41 @@ export function computeParetoGroup<T extends { count: number }>(sortedByCount: r
 	}
 	return {
 		group,
-		ugPercentage: Math.round((group.length / sortedByCount.length) * 100),
-		issuePercentage: Math.round((running / total) * 100),
+		ugPercentage: (group.length / sortedByCount.length) * 100,
+		issuePercentage: (running / total) * 100,
 	}
+}
+
+/**
+ * Porcentagem do Pareto para exibir. Arredonda ao inteiro, mas não deixa o arredondamento
+ * apagar o extremo: 1 UG em 250 (0,4%) sai "<1%", não "0%"; 249 em 250 sai ">99%", não
+ * "100%".
+ */
+export function formatParetoShare(percent: number): string {
+	if (percent > 0 && percent < 1) return "<1%"
+	if (percent > 99 && percent < 100) return ">99%"
+	return `${Math.round(percent)}%`
+}
+
+/** "1 UG", "3 UGs". */
+export function formatUgCount(count: number): string {
+	return count === 1 ? "1 UG" : `${count} UGs`
+}
+
+/** Frase do Pareto, para o chat e o contexto do oráculo: "X% das UGs (N UGs) concentram Y% das inconsistências". */
+export function describeParetoConcentration(pareto: { ugPercentage: number; issuePercentage: number; groupSize: number }): string {
+	return `${formatParetoShare(pareto.ugPercentage)} das UGs (${formatUgCount(pareto.groupSize)}) concentram ${formatParetoShare(pareto.issuePercentage)} das inconsistências`
+}
+
+/** Quantas UGs do grupo a tela lista; o resto vira "e mais K UGs". */
+export const PARETO_LIST_LIMIT = 10
+
+/** As primeiras `limit` UGs do grupo e quantas ficaram de fora da lista. */
+export function splitParetoList<T>(group: readonly T[], limit = PARETO_LIST_LIMIT): { shown: T[]; hiddenCount: number } {
+	return { shown: group.slice(0, limit), hiddenCount: Math.max(0, group.length - limit) }
+}
+
+/** "e mais 1 UG", "e mais 5 UGs"; vazio quando nada ficou de fora. */
+export function describeHiddenUgs(hiddenCount: number): string {
+	return hiddenCount > 0 ? `e mais ${formatUgCount(hiddenCount)}` : ""
 }

@@ -163,27 +163,33 @@ export function computeDecisaoData(filteredData: ProcessedRow[], estrategicoData
 	if (filteredData.length === 0) return null
 	const cobrancas = filteredData.filter((r) => r.classificacao === "COBRANÇA" || r.classificacao === "COBRANÇA COM OBSERVAÇÃO")
 
-	const ugMap = new Map<string, number>()
-	for (const r of cobrancas) ugMap.set(r.ug, (ugMap.get(r.ug) || 0) + 1)
+	// Uma passada só: contagem e valor absoluto por UG. Antes cada UG refiltrava todas as
+	// cobranças duas vezes (O(UGs × linhas)).
+	const ugTotals = new Map<string, { count: number; value: number }>()
+	for (const r of cobrancas) {
+		const totals = ugTotals.get(r.ug) ?? { count: 0, value: 0 }
+		totals.count += 1
+		totals.value += Math.abs(r.saldo)
+		ugTotals.set(r.ug, totals)
+	}
 
-	const sortedUgs = Array.from(ugMap.entries())
-		.map(([ug, count]) => ({ ug, count }))
+	const sortedUgs = Array.from(ugTotals.entries())
+		.map(([ug, totals]) => ({ ug, ...totals }))
 		.sort((a, b) => b.count - a.count)
 
 	const totalUgs = sortedUgs.length
 
 	const maxCount = sortedUgs[0]?.count || 1
-	const maxValue = Math.max(...sortedUgs.map((u) => cobrancas.filter((c) => c.ug === u.ug).reduce((acc, curr) => acc + Math.abs(curr.saldo), 0)))
+	const maxValue = sortedUgs.reduce((max, u) => Math.max(max, u.value), 0)
 
 	// Em ordem de contagem, como `sortedUgs`: é a ordem do Pareto.
 	const ugsByCount = sortedUgs.map((u) => {
-		const ugCobrancas = cobrancas.filter((c) => c.ug === u.ug)
-		const value = ugCobrancas.reduce((acc, curr) => acc + Math.abs(curr.saldo), 0)
 		const org = getOrganizacao(u.ug)
-		const score = (u.count / maxCount) * 0.4 + (value / (maxValue || 1)) * 0.4 + 0.2
+		const score = (u.count / maxCount) * 0.4 + (u.value / (maxValue || 1)) * 0.4 + 0.2
 		return {
-			...u,
-			value,
+			ug: u.ug,
+			count: u.count,
+			value: u.value,
 			nome: org.nome,
 			ods: org.ods,
 			superior: org.orgaoSuperior,
@@ -210,7 +216,7 @@ export function computeDecisaoData(filteredData: ProcessedRow[], estrategicoData
 			ods: estrategicoData?.topOds[0]?.name ?? "-",
 			superior: estrategicoData?.topOrgaosSuperiores[0]?.name ?? "-",
 			ugCount: sortedUgs[0]?.ug ?? "-",
-			ugValue: prioritizedUgs.sort((a, b) => b.value - a.value)[0]?.ug ?? "-",
+			ugValue: [...prioritizedUgs].sort((a, b) => b.value - a.value)[0]?.ug ?? "-",
 		},
 	}
 }

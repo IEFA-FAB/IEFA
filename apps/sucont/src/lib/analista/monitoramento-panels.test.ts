@@ -1,6 +1,7 @@
 // Caracterização das derivações dos painéis da rota /monitoramento.
 import { describe, expect, it } from "bun:test"
 import type { ProcessedRow } from "#/lib/analista/types"
+import { formatParetoShare } from "#/lib/analysis/pareto"
 import { UNIDADES_GESTORAS } from "#/lib/ug/registry"
 import {
 	computeDashboardData,
@@ -157,7 +158,7 @@ describe("computeDecisaoData", () => {
 		expect(result?.priorities).toHaveLength(15)
 		// 18 UGs com uma cobrança cada: 80% de 18 = 14,4 → 15 UGs.
 		expect(result?.pareto.topUgs).toHaveLength(15)
-		expect([result?.pareto.ugPercentage, result?.pareto.issuePercentage]).toEqual([83, 83])
+		expect([result?.pareto.ugPercentage, result?.pareto.issuePercentage].map((p) => formatParetoShare(p ?? 0))).toEqual(["83%", "83%"])
 	})
 
 	it("sem cobrança, o Pareto fica zerado (o port mostrava NaN%)", () => {
@@ -194,6 +195,6 @@ describe("computeDecisaoData: Pareto", () => {
 		expect(result?.priorities[0].ug).toBe("120039")
 		// 6 de 8 = 75% < 80% → entra a próxima pela contagem.
 		expect(result?.pareto.topUgs.map((u) => u.ug)).toEqual(["120062", "120039"])
-		expect([result?.pareto.ugPercentage, result?.pareto.issuePercentage]).toEqual([67, 88])
+		expect([result?.pareto.ugPercentage, result?.pareto.issuePercentage].map((p) => formatParetoShare(p ?? 0))).toEqual(["67%", "88%"])
 	})
 })

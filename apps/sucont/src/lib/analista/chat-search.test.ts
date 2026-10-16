@@ -1,10 +1,10 @@
 // Caracterização das respostas do Oráculo SUCONT (chat-assistant.tsx).
 import { describe, expect, it } from "bun:test"
-import { answerChatQuery, type DecisaoData, type EstrategicoData, type MangerialData } from "./chat-search"
+import { answerChatQuery, type DecisaoData, type EstrategicoData, type ManagerialData } from "./chat-search"
 
 const brl = (value: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value)
 
-const MANAGERIAL: MangerialData = {
+const MANAGERIAL: ManagerialData = {
 	totalRiskValue: 1000,
 	topUgs: [
 		{ ug: "120062", count: 5, value: 100 },
@@ -12,8 +12,8 @@ const MANAGERIAL: MangerialData = {
 		{ ug: "999001", count: 1, value: 10 },
 	],
 	topRacs: [
-		{ name: "Questão 35", value: 4 },
-		{ name: "Questão 26", value: 2 },
+		{ name: "Questão 35", value: 4, fill: "#000" },
+		{ name: "Questão 26", value: 2, fill: "#000" },
 	],
 	totalIssues: 9,
 	conferentes: [],
@@ -22,29 +22,29 @@ const MANAGERIAL: MangerialData = {
 const ESTRATEGICO: EstrategicoData = {
 	totalRiskValue: 1000,
 	topOds: [
-		{ name: "COMPREP", count: 5, value: 100, percent: 62.5 },
-		{ name: "SEFA", count: 3, value: 900, percent: 37.5 },
+		{ name: "COMPREP", count: 5, value: 100, percent: 62.5, fill: "#000" },
+		{ name: "SEFA", count: 3, value: 900, percent: 37.5, fill: "#000" },
 	],
 	topOrgaosSuperiores: [{ name: "IV COMAR", count: 5, value: 100, percent: 62.54 }],
 	topContas: [],
 	totalIssues: 8,
 }
 
+/** Linha de prioridade do painel; ODS, órgão e score não entram nas respostas testadas. */
+const priority = (ug: string, nome: string, count: number, value: number) => ({ ug, nome, count, value, ods: "-", superior: "-", score: 0 })
+
 const DECISAO: DecisaoData = {
 	pareto: {
 		totalUgs: 3,
-		ugPercentage: 67,
-		issuePercentage: 83,
-		topUgs: [
-			{ ug: "120062", nome: "BASP", count: 3 },
-			{ ug: "120039", nome: "GAP-RJ", count: 2 },
-		],
+		ugPercentage: (2 / 3) * 100,
+		issuePercentage: (5 / 6) * 100,
+		topUgs: [priority("120062", "BASP", 3, 100), priority("120039", "GAP-RJ", 2, 900)],
 	},
 	priorities: [
-		{ ug: "120039", nome: "GAP-RJ", count: 3, value: 900 },
-		{ ug: "120062", nome: "BASP", count: 5, value: 100 },
-		{ ug: "999001", nome: "UG 999001", count: 1, value: 10 },
-		{ ug: "120002", nome: "DIREF", count: 1, value: 1 },
+		priority("120039", "GAP-RJ", 3, 900),
+		priority("120062", "BASP", 5, 100),
+		priority("999001", "UG 999001", 1, 10),
+		priority("120002", "DIREF", 1, 1),
 	],
 	criticalLevels: { ods: "COMPREP", superior: "IV COMAR", ugCount: "120062", ugValue: "120039" },
 }
@@ -56,7 +56,9 @@ const ORGAO = "O Órgão Superior que concentra mais inconsistências é o **IV 
 const UG_RISCO = "A UG que apresenta o maior risco contábil (número de inconsistências) é a **UG 120062 (BASP)**, com 5 inconsistências."
 const TOP10 =
 	"As 10 UGs mais críticas do COMAER (por volume de inconsistências) são:\n\n1º UG 120062 (BASP) — 5 inconsistências\n2º UG 120039 (GAP-RJ) — 3 inconsistências\n3º UG 999001 (UG 999001) — 1 inconsistências"
-const PARETO = "De acordo com a análise de Pareto, **67% das UGs** (2) concentram **83%** das inconsistências contábeis."
+const PARETO = "De acordo com a análise de Pareto, **67% das UGs (2 UGs) concentram 83% das inconsistências** contábeis."
+// A pergunta antiga fala em 20% das UGs; a resposta diz qual é o recorte do painel.
+const PARETO_20 = `O painel não mede um corte fixo de 20% das UGs: o recorte é o grupo de UGs, da maior contagem para a menor, que soma 80% das inconsistências. ${PARETO}`
 const PARETO_SEM_DADO =
 	"A análise de Pareto indica que uma parcela reduzida de UGs concentra a maioria das inconsistências. Carregue mais dados para um percentual exato."
 const PRIORIDADE = `As inconsistências que devem ser tratadas com prioridade imediata (considerando volume, valor e impacto) são das seguintes UGs:\n\n1º UG 120039 (GAP-RJ) — 3 inconsistências — ${brl(900)}\n2º UG 120062 (BASP) — 5 inconsistências — ${brl(100)}\n3º UG 999001 (UG 999001) — 1 inconsistências — ${brl(10)}`
@@ -68,7 +70,7 @@ const STN =
 const SETORIAL =
 	"As Setoriais Contábeis do COMAER (SEFA) são a autoridade máxima em normas e fiscalização contábil. São elas:\n- UG 120002 (DIREF), subordinada ao SEFA / SEFA\n- UG 120701 (DIREF/SUCONT), subordinada ao SEFA / SEFA\n- UG 120702 (DIREF/SUCONV), subordinada ao SEFA / SEFA\n- UG 121002 (DIREF - FAer), subordinada ao SEFA / SEFA"
 const FALLBACK =
-	'Desculpe, não consegui interpretar essa pergunta. Como Oráculo SUCONT, posso ajudá-lo com:\n- "Qual ODS possui maior risco contábil?"\n- "Qual Órgão Superior concentra mais inconsistências?"\n- "Qual UG apresenta maior risco contábil?"\n- "Quais são as 10 UGs mais críticas do COMAER?"\n- "20% das UGs concentram quantos % das inconsistências?"\n- "Quais inconsistências devem ser tratadas primeiro?"'
+	'Desculpe, não consegui interpretar essa pergunta. Como Oráculo SUCONT, posso ajudá-lo com:\n- "Qual ODS possui maior risco contábil?"\n- "Qual Órgão Superior concentra mais inconsistências?"\n- "Qual UG apresenta maior risco contábil?"\n- "Quais são as 10 UGs mais críticas do COMAER?"\n- "Quantas UGs concentram 80% das inconsistências?"\n- "Quais inconsistências devem ser tratadas primeiro?"'
 
 describe("answerChatQuery", () => {
 	it.each([
@@ -79,7 +81,9 @@ describe("answerChatQuery", () => {
 		["Qual UG apresenta maior risco contábil?", UG_RISCO],
 		["Quais são as 10 UGs com mais inconsistências?", TOP10],
 		["Quais UGs são as mais críticas?", TOP10],
-		["20% das UGs concentram quantos %?", PARETO],
+		["Quantas UGs concentram 80% das inconsistências?", PARETO],
+		["Qual a concentração do Pareto?", PARETO],
+		["20% das UGs concentram quantos %?", PARETO_20],
 		["O que tratar primeiro?", PRIORIDADE],
 		["Qual a prioridade?", PRIORIDADE],
 		["O que devo tratar?", PRIORIDADE],
@@ -111,7 +115,7 @@ describe("answerChatQuery", () => {
 		// "ods" + "maior risco" passa à frente de "ug" + "maior risco".
 		expect(ask("Qual ODS e qual UG têm maior risco?")).toBe(ODS)
 		// Pareto passa à frente de prioridade.
-		expect(ask("Os 20% que concentram devem ser tratados primeiro?")).toBe(PARETO)
+		expect(ask("Os 20% que concentram devem ser tratados primeiro?")).toBe(PARETO_20)
 		// "ugs" sozinho, sem "mais críticas", não é o top 10.
 		expect(ask("Quais UGs existem?")).toBe(FALLBACK)
 		// "setoriais" não contém "setorial".

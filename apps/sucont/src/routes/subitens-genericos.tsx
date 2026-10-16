@@ -38,6 +38,8 @@ import {
 	summarizePareto,
 } from "#/subitens/dashboard"
 import {
+	buildRacMessageKey,
+	buildUgMessageKey,
 	CONSOLIDATED_TEMPLATE,
 	defaultDeadline,
 	formatDeadlineText,
@@ -45,8 +47,6 @@ import {
 	formatReportDate,
 	INSTITUTIONAL_TEMPLATE,
 	NO_GENERIC_CODE_MESSAGE,
-	racMessageKey,
-	ugMessageKey,
 } from "#/subitens/message"
 import { parseWorkbook } from "#/subitens/parser"
 import type { MessageConfig, UgGroup } from "#/subitens/types"
@@ -386,7 +386,7 @@ function SubitensGenericos() {
 														currentMsgNumber,
 														"all"
 													)
-													const messageKey = ugMessageKey(group.ug)
+													const messageKey = buildUgMessageKey(group.ug)
 													const draft = drafts.of(messageKey, message)
 
 													return (
@@ -419,7 +419,7 @@ function SubitensGenericos() {
 														getRacDeadlineText(racId),
 														currentMsgNumber
 													)
-													const messageKey = racMessageKey(racId)
+													const messageKey = buildRacMessageKey(racId)
 													const draft = drafts.of(messageKey, message)
 													const totalSaldo = occurrences.reduce((sum, occ) => sum + occ.saldo, 0)
 													const uniqueUgs = new Set(occurrences.map((o) => o.ug)).size

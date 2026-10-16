@@ -2,10 +2,10 @@ import { Bot, Search, Send } from "lucide-react"
 import { useState } from "react"
 import { Button } from "#/components/ui/button"
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "#/components/ui/input-group"
-import { answerChatQuery, type DecisaoData, type EstrategicoData, type MangerialData } from "#/lib/analista/chat-search"
+import { answerChatQuery, type DecisaoData, type EstrategicoData, type ManagerialData } from "#/lib/analista/chat-search"
 
 interface ChatAssistantProps {
-	managerialData: MangerialData | null
+	managerialData: ManagerialData | null
 	estrategicoData: EstrategicoData | null
 	decisaoData: DecisaoData | null
 }

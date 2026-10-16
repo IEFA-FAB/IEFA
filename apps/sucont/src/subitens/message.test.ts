@@ -1,6 +1,8 @@
 import { describe, expect, it } from "bun:test"
 import { addDays, todayInBrasilia } from "#/lib/brasilia"
 import {
+	buildRacMessageKey,
+	buildUgMessageKey,
 	CONSOLIDATED_TEMPLATE,
 	defaultDeadline,
 	formatDeadlineText,
@@ -9,8 +11,6 @@ import {
 	INSTITUTIONAL_TEMPLATE,
 	NO_GENERIC_CODE_MESSAGE,
 	RAC_QUESTIONS,
-	racMessageKey,
-	ugMessageKey,
 } from "#/subitens/message"
 import type { ProcessedData } from "#/subitens/types"
 
@@ -213,9 +213,9 @@ describe("NO_GENERIC_CODE_MESSAGE", () => {
 
 describe("chave da mensagem", () => {
 	it("não colide entre a lista por UG e a lista por questão, nem depende da posição", () => {
-		const keys = [ugMessageKey("120001"), ugMessageKey("120004"), racMessageKey("RAC 28"), racMessageKey("120001")]
+		const keys = [buildUgMessageKey("120001"), buildUgMessageKey("120004"), buildRacMessageKey("RAC 28"), buildRacMessageKey("120001")]
 		expect(new Set(keys).size).toBe(keys.length)
-		expect(ugMessageKey("120001")).toBe(ugMessageKey("120001"))
+		expect(buildUgMessageKey("120001")).toBe(buildUgMessageKey("120001"))
 	})
 })
 

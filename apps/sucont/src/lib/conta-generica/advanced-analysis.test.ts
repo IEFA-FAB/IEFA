@@ -74,7 +74,7 @@ describe("performAdvancedAnalysis", () => {
 		})
 		// 20 de 23 = 87%. O port dizia "25% das UGs concentram 96%": media 1 UG e somava 3.
 		expect(result.paretoData.ugPercentage).toBe(25)
-		expect(result.paretoData.inconsistencyPercentage).toBe(87)
+		expect(result.paretoData.inconsistencyPercentage).toBeCloseTo((20 / 23) * 100)
 		expect(result.paretoData.topUgs.map((u) => u.ug)).toEqual(["120001"])
 	})
 

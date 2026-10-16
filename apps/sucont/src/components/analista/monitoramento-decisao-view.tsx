@@ -3,6 +3,7 @@ import { Lightbulb, ShieldAlert, Target, TrendingUp } from "lucide-react"
 import { ChatAssistant } from "#/components/analista/chat-assistant"
 import type { DecisaoData, EstrategicoData, ManagerialData } from "#/lib/analista/monitoramento-panels"
 import { formatCurrency } from "#/lib/analista/types"
+import { describeHiddenUgs, formatParetoShare, formatUgCount, splitParetoList } from "#/lib/analysis/pareto"
 import { cn } from "#/lib/utils"
 
 interface MonitoramentoDecisaoViewProps {
@@ -12,6 +13,8 @@ interface MonitoramentoDecisaoViewProps {
 }
 
 export function MonitoramentoDecisaoView({ decisaoData, managerialData, estrategicoData }: MonitoramentoDecisaoViewProps) {
+	// O grupo pode ter dezenas de UGs; o cartão lista as primeiras e conta o resto.
+	const paretoList = splitParetoList(decisaoData.pareto.topUgs)
 	return (
 		<div className="space-y-8">
 			<div className="bg-card p-8 rounded-xl shadow-sm border border-border">
@@ -82,15 +85,16 @@ export function MonitoramentoDecisaoView({ decisaoData, managerialData, estrateg
 					) : (
 						<div className="flex flex-col items-center justify-center h-full pb-6">
 							<div className="text-center mb-8">
-								<p className="text-display text-action mb-2">{decisaoData.pareto.issuePercentage}%</p>
+								<p className="text-display text-action mb-2">{formatParetoShare(decisaoData.pareto.issuePercentage)}</p>
 								<p className="text-body text-muted-foreground">
-									das inconsistências estão concentradas em <span className="font-bold text-foreground">{decisaoData.pareto.ugPercentage}% das UGs</span> (
-									{decisaoData.pareto.topUgs.length} UGs).
+									das inconsistências estão concentradas em{" "}
+									<span className="font-bold text-foreground">{formatParetoShare(decisaoData.pareto.ugPercentage)} das UGs</span> (
+									{formatUgCount(decisaoData.pareto.topUgs.length)}).
 								</p>
 							</div>
 							<div className="w-full space-y-3">
 								<p className="text-label text-muted-foreground">UGs que compõem a concentração:</p>
-								{decisaoData.pareto.topUgs.map((ug, i) => (
+								{paretoList.shown.map((ug, i) => (
 									<div key={ug.ug} className="flex items-center justify-between p-2 bg-muted/50 rounded-lg border border-border">
 										<div className="flex items-center gap-2">
 											<span className="text-hint bg-action/15 text-action w-5 h-5 flex items-center justify-center rounded-full">{i + 1}</span>
@@ -101,6 +105,7 @@ export function MonitoramentoDecisaoView({ decisaoData, managerialData, estrateg
 										<span className="text-caption text-muted-foreground">{ug.count} itens</span>
 									</div>
 								))}
+								{paretoList.hiddenCount > 0 && <p className="text-caption text-muted-foreground">{describeHiddenUgs(paretoList.hiddenCount)}</p>}
 							</div>
 						</div>
 					)}
