@@ -391,35 +391,34 @@ function ArranchamentoPage() {
 
 			if (newChanges.length === 0) {
 				setSuccess("Nenhuma alteração necessária para aplicar o template em dias úteis.")
-				setShowBulkMealSelector(false)
-				return
-			}
-
-			setSelections((prev: SelectionsByDate) => {
-				const next: SelectionsByDate = { ...prev }
-				targetDates.forEach((date: string) => {
-					next[date] = afterByDate[date]
+			} else {
+				setSelections((prev: SelectionsByDate) => {
+					const next: SelectionsByDate = { ...prev }
+					targetDates.forEach((date: string) => {
+						next[date] = afterByDate[date]
+					})
+					return next
 				})
-				return next
-			})
 
-			setPendingChanges((prev: PendingChange[]) => {
-				const toRemove = new Set(newChanges.map((c) => `${c.date}|${String(c.meal)}`))
-				const filtered = prev.filter((c) => !toRemove.has(`${c.date}|${String(c.meal)}`))
-				return [...filtered, ...newChanges]
-			})
+				setPendingChanges((prev: PendingChange[]) => {
+					const toRemove = new Set(newChanges.map((c) => `${c.date}|${String(c.meal)}`))
+					const filtered = prev.filter((c) => !toRemove.has(`${c.date}|${String(c.meal)}`))
+					return [...filtered, ...newChanges]
+				})
 
-			const diasStr = `${targetDates.length} ${labelDiaUtil(targetDates.length)}`
-			const alteracoesStr = `${newChanges.length} ${labelAlteracao(newChanges.length)}`
+				const diasStr = `${targetDates.length} ${labelDiaUtil(targetDates.length)}`
+				const alteracoesStr = `${newChanges.length} ${labelAlteracao(newChanges.length)}`
 
-			setSuccess(`Template de refeições aplicado a ${diasStr} no modo ${modoStr}: ${alteracoesStr}.`)
+				setSuccess(`Template de refeições aplicado a ${diasStr} no modo ${modoStr}: ${alteracoesStr}.`)
+			}
 			setShowBulkMealSelector(false)
 		} catch (_err) {
 			setError("Erro ao aplicar template de refeições. Tente novamente.")
-		} finally {
-			// No finally: o retorno antecipado de "nenhuma alteração" deixava o seletor travado em "aplicando".
-			setIsApplyingMealTemplate(false)
 		}
+		// Sem retorno dentro do try e com o catch engolindo o erro, esta linha roda em todo caminho,
+		// inclusive "nenhuma alteração" (que antes deixava o seletor travado em "aplicando"). Não é
+		// `finally` porque o React Compiler não compila try com finalizer (react-hooks-js/todo).
+		setIsApplyingMealTemplate(false)
 	}
 
 	// O flag "aplicando" é só daqui: destrava o botão quando persistir, aplicar e recarregar
@@ -434,9 +433,9 @@ function ArranchamentoPage() {
 			await loadExistingArranchamentos()
 		} catch {
 			// persistDefaultMessHallId e applyDefaultMessHallToAll mostram o próprio erro; o refetch do React Query não lança.
-		} finally {
-			setIsApplyingDefaultMessHall(false)
 		}
+		// Fora de `finally` pelo mesmo motivo de applyMealTemplateToAll: o catch engole tudo.
+		setIsApplyingDefaultMessHall(false)
 	}
 
 	/* ============================
