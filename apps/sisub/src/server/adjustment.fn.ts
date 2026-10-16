@@ -417,7 +417,7 @@ export const createAdjustmentFn = createServerFn({ method: "POST" })
 		// ficou (`abandonDraftAdjustment`). Documento e itens numa transação só fica
 		// para quando a criação do ajuste sair do PostgREST (função SQL ou operation).
 		const abandon = (message: string): Promise<never> =>
-			abandonDraftAdjustment(() => inv.from("stock_adjustment").delete().eq("id", doc.id).eq("status", "draft"), doc.id, message)
+			abandonDraftAdjustment(() => inv.from("stock_adjustment").delete().eq("id", doc.id).eq("status", "draft").select("id"), doc.id, message)
 
 		const { error: itemsError } = await inv.from("stock_adjustment_item").insert(data.items.map((item) => buildAdjustmentItemRow(doc.id, item)))
 		if (itemsError) await abandon(`Erro nos itens do ajuste: ${publicDbMessage(itemsError)}`)

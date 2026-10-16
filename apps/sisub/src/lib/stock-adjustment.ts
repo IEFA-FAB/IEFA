@@ -106,19 +106,30 @@ export function buildPostFailureRecovery(input: {
  * operador lia só o primeiro erro, tentava de novo e deixava um documento órfão em `draft` que
  * tela nenhuma mostra (e um segundo documento para a mesma perda). O diagnóstico das duas falhas
  * fica no log pelo `publicDbMessage`.
+ *
+ * O `delete` só apaga em `draft` e devolve as linhas apagadas. Nenhuma linha não é "desfeito": a
+ * escrita que "falhou" pode ter sido gravada e só a resposta se perdido (o envio para aprovação,
+ * por exemplo). Aí o documento existe fora do rascunho, e reenviar duplicaria o ajuste.
  */
 export async function abandonDraftAdjustment(
-	deleteDraft: () => PromiseLike<{ error: DbErrorLike | null }>,
+	deleteDraft: () => PromiseLike<{ data: readonly unknown[] | null; error: DbErrorLike | null }>,
 	documentId: string,
 	message: string
 ): Promise<never> {
 	let deleteError: DbErrorLike | null
+	let deletedCount = 0
 	try {
 		const result = await deleteDraft()
 		deleteError = result.error
+		deletedCount = result.data?.length ?? 0
 	} catch (error) {
 		deleteError = { code: "", message: error instanceof Error ? error.message : String(error) }
 	}
 	if (deleteError) throw new Error(`${message} — e o rascunho ${documentId} não pôde ser desfeito (${publicDbMessage(deleteError)}); avise o nível 3`)
+	if (deletedCount === 0) {
+		throw new Error(
+			`${message} — e o documento ${documentId} não estava mais em rascunho: o ajuste pode já ter sido enviado. Confira a lista de ajustes antes de lançar de novo`
+		)
+	}
 	throw new Error(message)
 }
