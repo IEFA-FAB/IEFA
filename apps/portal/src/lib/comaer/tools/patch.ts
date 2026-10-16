@@ -140,13 +140,51 @@ function asGender(value: unknown): "m" | "f" | undefined {
 	return value === "m" || value === "f" ? value : undefined
 }
 
+/**
+ * Campo opcional de texto: ausente fica `undefined`; presente precisa ser string. O cast direto
+ * gravava no documento o que viesse (número, objeto), e o documento parava de serializar.
+ */
+function readOptionalString(value: unknown, field: string): string | undefined {
+	if (value === undefined) return undefined
+	if (typeof value !== "string") throw new PatchError(`O campo \`${field}\` precisa ser texto.`)
+	return value
+}
+
+/**
+ * Lista de textos (referências, anexos, linhas de endereço). `null` de dentro de array escapa da
+ * poda do boundary, então cada entrada é conferida: `[null]` ou texto solto no lugar da lista
+ * entravam no documento como vieram.
+ */
+function readOptionalStringList(value: unknown, field: string): string[] | undefined {
+	if (value === undefined) return undefined
+	if (!Array.isArray(value) || value.some((entry) => typeof entry !== "string")) {
+		throw new PatchError(`O campo \`${field}\` precisa ser uma lista de textos.`)
+	}
+	return value as string[]
+}
+
+/** Valor de enum: ausente fica `undefined`; fora da lista é erro de remendo. */
+function readOptionalEnum<T extends string>(value: unknown, allowed: readonly T[], field: string): T | undefined {
+	if (value === undefined) return undefined
+	if (!allowed.includes(value as T)) throw new PatchError(`O campo \`${field}\` aceita só: ${allowed.join(", ")}.`)
+	return value as T
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
 // `null` de dentro de array chega INTEIRO: a poda do boundary não desce em array, de
 // propósito (posição em array é significativa). Copiar `gender`/`via` como vieram
 // gravava `null` num campo `.optional()` — o documento parava de serializar, o salvar
 // falhava, o rascunho local parava em silêncio e todo turno seguinte ia sem contexto.
+// Destinatário que não é objeto (`[null]`) é erro de remendo: ler `.position` dele lançava
+// TypeError, que o modelo não sabe corrigir.
 function parseRecipients(raw: unknown): DocumentInput["recipients"] | undefined {
-	if (!Array.isArray(raw)) return undefined
-	return (raw as { position?: unknown; gender?: unknown; via?: unknown }[])
+	if (raw === undefined) return undefined
+	if (!Array.isArray(raw)) throw new PatchError("O campo `recipients` precisa ser uma lista de destinatários.")
+	if (!raw.every(isPlainObject)) throw new PatchError("Cada destinatário precisa ser um objeto com `position`.")
+	return raw
 		.filter((r) => typeof r.position === "string" && r.position.trim() !== "")
 		.map((r) => ({
 			position: r.position as string,
@@ -160,8 +198,23 @@ function parseSender(raw: unknown): { position: string | undefined; gender: "m" 
 	return rawSender ? { position: typeof rawSender.position === "string" ? rawSender.position : undefined, gender: asGender(rawSender.gender) } : undefined
 }
 
+type AddressingPatch = Partial<NonNullable<DocumentInput["addressing"]>>
+
+/** Endereçamento do modelo, campo a campo conferido: o que vier fora do tipo é erro de remendo. */
+function parseAddressing(raw: unknown): AddressingPatch | undefined {
+	if (raw === undefined) return undefined
+	if (!isPlainObject(raw)) throw new PatchError("O campo `addressing` precisa ser um objeto.")
+	return {
+		formOfAddress: readOptionalEnum(raw.formOfAddress, ["excelencia", "senhoria"] as const, "addressing.formOfAddress"),
+		gender: readOptionalEnum(raw.gender, ["m", "f"] as const, "addressing.gender"),
+		name: readOptionalString(raw.name, "addressing.name"),
+		position: readOptionalString(raw.position, "addressing.position"),
+		addressLines: readOptionalStringList(raw.addressLines, "addressing.addressLines"),
+	}
+}
+
 /** Campo a campo: o que veio do modelo vence, o que não veio fica como estava. */
-function mergeAddressing(addressing: DocumentInput["addressing"] | undefined, current: DocumentInput["addressing"]): DocumentInput["addressing"] {
+function mergeAddressing(addressing: AddressingPatch | undefined, current: DocumentInput["addressing"]): DocumentInput["addressing"] {
 	if (!addressing) return current
 	return {
 		formOfAddress: addressing.formOfAddress ?? current?.formOfAddress ?? "senhoria",
@@ -175,14 +228,14 @@ function mergeAddressing(addressing: DocumentInput["addressing"] | undefined, cu
 function applySetParties(document: DocumentInput, args: Record<string, unknown>): PatchResult {
 	const recipients = parseRecipients(args.recipients)
 	const sender = parseSender(args.sender)
-	const addressing = args.addressing as DocumentInput["addressing"] | undefined
+	const addressing = parseAddressing(args.addressing)
 	const next: DocumentInput = {
 		...document,
 		sender: sender?.position?.trim() ? { position: sender.position, gender: sender.gender ?? document.sender?.gender } : document.sender,
 		recipients: recipients?.length ? recipients : document.recipients,
 		addressing: mergeAddressing(addressing, document.addressing),
-		vocativo: (args.vocativo as string | undefined) ?? document.vocativo,
-		distribution: (args.distribution as DocumentInput["distribution"]) ?? document.distribution,
+		vocativo: readOptionalString(args.vocativo, "vocativo") ?? document.vocativo,
+		distribution: readOptionalEnum(args.distribution, ["circular", "difral"] as const, "distribution") ?? document.distribution,
 	}
 	return { document: next, summary: "Partes atualizadas.", touched: ["preambulo", "enderecamento", "vocativo"] }
 }
@@ -190,9 +243,9 @@ function applySetParties(document: DocumentInput, args: Record<string, unknown>)
 function applySetEmenta(document: DocumentInput, args: Record<string, unknown>): PatchResult {
 	const next: DocumentInput = {
 		...document,
-		subject: (args.subject as string | undefined) ?? document.subject,
-		references: (args.references as string[] | undefined) ?? document.references,
-		annexes: (args.annexes as string[] | undefined) ?? document.annexes,
+		subject: readOptionalString(args.subject, "subject") ?? document.subject,
+		references: readOptionalStringList(args.references, "references") ?? document.references,
+		annexes: readOptionalStringList(args.annexes, "annexes") ?? document.annexes,
 	}
 	return { document: next, summary: "Ementa atualizada.", touched: ["ementa"] }
 }

@@ -173,7 +173,7 @@ describe("cada remendo: resumo, blocos tocados e recusas", () => {
 
 	it("set_parties: endereçamento novo sem anterior usa senhoria e masculino; remetente em branco não apaga", () => {
 		const doc = { ...base(), addressing: undefined, sender: { position: "Chefe", gender: "m" as const } }
-		const patch = applyPatch(doc, "set_parties", { addressing: {}, sender: { position: "  ", gender: "f" }, vocativo: "Senhor", recipients: "x" })
+		const patch = applyPatch(doc, "set_parties", { addressing: {}, sender: { position: "  ", gender: "f" }, vocativo: "Senhor" })
 		expect(patch.document.addressing).toEqual({ formOfAddress: "senhoria", gender: "m", name: undefined, position: undefined, addressLines: undefined })
 		expect(patch.document.sender).toEqual({ position: "Chefe", gender: "m" })
 		expect(patch.document.vocativo).toBe("Senhor")
@@ -181,6 +181,46 @@ describe("cada remendo: resumo, blocos tocados e recusas", () => {
 		expect(viaKept).toEqual([{ position: "A", gender: "f", via: "Via B" }])
 		expect(applyPatch(doc, "set_parties", { sender: { position: "Novo", gender: "f" } }).document.sender).toEqual({ position: "Novo", gender: "f" })
 		expect(applyPatch(doc, "set_parties", { sender: null }).document.sender).toEqual({ position: "Chefe", gender: "m" })
+	})
+
+	it("set_parties: destinatário, difusão e endereçamento fora do tipo são erro de remendo", () => {
+		// `null` dentro de array escapa da poda do boundary; ler `.position` dele lançava TypeError,
+		// e `distribution`/`addressing` entravam no documento por cast, como viessem.
+		const cases: [Record<string, unknown>, string][] = [
+			[{ recipients: [null] }, "Cada destinatário precisa ser um objeto com `position`."],
+			[{ recipients: ["Chefe do COMGEP"] }, "Cada destinatário precisa ser um objeto com `position`."],
+			[{ recipients: "x" }, "O campo `recipients` precisa ser uma lista de destinatários."],
+			[{ distribution: "geral" }, "O campo `distribution` aceita só: circular, difral."],
+			[{ distribution: 1 }, "O campo `distribution` aceita só: circular, difral."],
+			[{ addressing: [] }, "O campo `addressing` precisa ser um objeto."],
+			[{ addressing: { addressLines: [null] } }, "O campo `addressing.addressLines` precisa ser uma lista de textos."],
+			[{ addressing: { addressLines: "Rua A" } }, "O campo `addressing.addressLines` precisa ser uma lista de textos."],
+			[{ addressing: { formOfAddress: "magnificencia" } }, "O campo `addressing.formOfAddress` aceita só: excelencia, senhoria."],
+			[{ addressing: { gender: "x" } }, "O campo `addressing.gender` aceita só: m, f."],
+			[{ addressing: { name: 1 } }, "O campo `addressing.name` precisa ser texto."],
+			[{ vocativo: 1 }, "O campo `vocativo` precisa ser texto."],
+		]
+		for (const [args, message] of cases) {
+			expect(() => applyPatch(base(), "set_parties", args)).toThrow(PatchError)
+			expect(() => applyPatch(base(), "set_parties", args)).toThrow(message)
+		}
+		const ok = applyPatch(base(), "set_parties", { distribution: "difral", addressing: { addressLines: ["Rua A", "Brasília"] } }).document
+		expect([ok.distribution, ok.addressing?.addressLines]).toEqual(["difral", ["Rua A", "Brasília"]])
+		expect(() => toPayload(ok)).not.toThrow()
+	})
+
+	it("set_ementa: referências, anexos e assunto fora do tipo são erro de remendo", () => {
+		const cases: [Record<string, unknown>, string][] = [
+			[{ references: [null] }, "O campo `references` precisa ser uma lista de textos."],
+			[{ references: "Ref 1" }, "O campo `references` precisa ser uma lista de textos."],
+			[{ annexes: [null, "B"] }, "O campo `annexes` precisa ser uma lista de textos."],
+			[{ annexes: { a: 1 } }, "O campo `annexes` precisa ser uma lista de textos."],
+			[{ subject: ["Assunto"] }, "O campo `subject` precisa ser texto."],
+		]
+		for (const [args, message] of cases) {
+			expect(() => applyPatch(base(), "set_ementa", args)).toThrow(PatchError)
+			expect(() => applyPatch(base(), "set_ementa", args)).toThrow(message)
+		}
 	})
 
 	it("set_ementa: troca o que veio e mantém o resto", () => {
