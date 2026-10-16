@@ -10,14 +10,26 @@ interface DataStart {
 	offset: number
 }
 
-/** Meses que contam quando vêm colados ao ano ("JAN2024"), sem separador. */
-const COLLATED_MONTHS = ["JAN", "FEV", "MAR", "ABR", "SET"]
+/**
+ * Mês colado ao ano ("JAN2024", "DEZ2025", "MARÇO2024"). O port só aceitava JAN/FEV/MAR/ABR/
+ * SET, e por `includes` em qualquer lugar do texto: "MAI2024" ou "DEZ2024" não contavam.
+ * Exigir o ano logo depois do mês vale para os doze sem pegar palavra que só contém as
+ * letras ("OUTROS 2024" já conta pelo espaço).
+ */
+const COLLATED_MONTH_YEAR = /(JAN|FEV|MAR|ABR|MAI|JUN|JUL|AGO|SET|OUT|NOV|DEZ)[A-ZÇ]*20\d{2}/
+
+/**
+ * Texto que é só um valor: sinal, "R$" e dígitos com ponto e vírgula ("-100", "R$ -50,5",
+ * "-R$ 1.234,56"). O traço de sinal não é separador de data.
+ */
+const AMOUNT_TEXT = /^[-+]?\s*(R\$)?\s*[-+]?\d[\d.,]*$/
 
 /** Célula com cara de competência, na varredura da competência inicial. */
 const isDateLikeCell = (str: string): boolean => {
+	if (AMOUNT_TEXT.test(str)) return false
 	const hasDigit = /\d/.test(str)
 	if (hasDigit && (str.includes("/") || str.includes("-") || str.includes(" "))) return true
-	return str.includes("202") && COLLATED_MONTHS.some((month) => str.includes(month))
+	return COLLATED_MONTH_YEAR.test(str)
 }
 
 /** Primeira célula com cara de data nas 100 primeiras linhas; "" se não houver. */
@@ -26,7 +38,8 @@ const findInitialDate = (jsonData: SheetRow[]): string => {
 		const row = jsonData[i]
 		if (!row || !Array.isArray(row)) continue
 		for (const cell of row) {
-			if (!cell) continue
+			// Número não é competência: um saldo negativo (-100) passava pelo teste do traço.
+			if (!cell || typeof cell === "number") continue
 			const str = String(cell).trim().toUpperCase()
 			if (isDateLikeCell(str)) return String(cell)
 		}
@@ -94,9 +107,17 @@ const safeStr = (val: any) => {
 	return val !== undefined && val !== null ? String(val).trim() : ""
 }
 
-/** Competência da linha: a da coluna de data, se parecer data; senão a última conhecida. */
+/**
+ * Competência da linha: a da coluna de data, se parecer data; senão a última conhecida.
+ *
+ * Com `offset` -1 (cabeçalho "COD"/"UG" na coluna 0) não há coluna de data: a coluna 0 é
+ * o COD. O port lia mesmo assim, e o COD de 6 caracteres passava no teste de "mais de 5
+ * caracteres" e virava a competência de cada linha. Aqui a competência fica a da
+ * varredura inicial.
+ */
 const resolveRowDate = (row: SheetRow, offset: number, lastKnownDate: string): string => {
-	const dateCandidate = safeStr(row[0]) || (offset > 0 ? safeStr(row[offset]) : "")
+	if (offset < 0) return lastKnownDate
+	const dateCandidate = safeStr(row[0])
 	if (dateCandidate && dateCandidate.length >= 3) {
 		if (dateCandidate.includes("/") || dateCandidate.includes("-") || dateCandidate.includes(" ") || dateCandidate.length > 5) {
 			return dateCandidate
