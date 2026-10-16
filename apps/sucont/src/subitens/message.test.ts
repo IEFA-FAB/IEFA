@@ -7,6 +7,7 @@ import {
 	formatMsgDate,
 	formatReportDate,
 	INSTITUTIONAL_TEMPLATE,
+	NO_GENERIC_CODE_MESSAGE,
 	RAC_QUESTIONS,
 	racMessageKey,
 	ugMessageKey,
@@ -199,6 +200,14 @@ describe("formatMsgDate", () => {
 		expect(formatMsgDate("2026-10-05")).toBe("05OUT2026")
 		expect(formatMsgDate("2027-01-31")).toBe("31JAN2027")
 		expect(formatMsgDate("2026-12-01")).toBe("01DEZ2026")
+	})
+})
+
+describe("NO_GENERIC_CODE_MESSAGE", () => {
+	it("não chama o 999 de subitem (#639: é o favorecido genérico)", () => {
+		expect(NO_GENERIC_CODE_MESSAGE).not.toContain("99/999")
+		expect(NO_GENERIC_CODE_MESSAGE).toContain("subitem 99")
+		expect(NO_GENERIC_CODE_MESSAGE).toContain("favorecido genérico 999")
 	})
 })
 

@@ -22,6 +22,14 @@ export const RAC_QUESTIONS: Record<string, { title: string; description: string 
 	},
 }
 
+/**
+ * Aviso de relatório sem nenhum código genérico na conta corrente. A regex marca o subitem
+ * 99 e também o 999, que NÃO é subitem: é o favorecido genérico do c/c 002 (ver
+ * `GENERIC_SUBITEM_REGEX`). O texto antigo, "Nenhum subitem genérico (99/999)", chamava os
+ * dois de subitem.
+ */
+export const NO_GENERIC_CODE_MESSAGE = "Nenhum código genérico identificado na conta corrente: nem subitem 99 (“Outros…”) nem favorecido genérico 999."
+
 /** Data da mensagem no formato do número (`05OUT2026`). Sem data, o marcador `XXXMÊSANO`. */
 export const formatMsgDate = (dateStr: string) => {
 	if (!dateStr) return "XXXMÊSANO"

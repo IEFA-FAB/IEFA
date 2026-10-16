@@ -44,6 +44,7 @@ import {
 	formatMsgDate,
 	formatReportDate,
 	INSTITUTIONAL_TEMPLATE,
+	NO_GENERIC_CODE_MESSAGE,
 	racMessageKey,
 	ugMessageKey,
 } from "#/subitens/message"
@@ -59,7 +60,7 @@ const ANALYSIS_NOTES = [
 	{
 		icon: Search,
 		title: "O que é analisado",
-		text: "O relatório do Tesouro Gerencial é varrido em busca de subitens genéricos (99, 999, P99, /99) e de outras falhas de classificação previstas no RAC.",
+		text: "O relatório do Tesouro Gerencial é varrido em busca do subitem genérico 99 (“Outros…”, também como P99 ou /99) e do favorecido genérico 999, que não é subitem, e de outras falhas de classificação previstas no RAC.",
 	},
 	{
 		icon: CheckCircle2,
@@ -162,7 +163,7 @@ function SubitensGenericos() {
 			try {
 				const result = parseWorkbook(e.target?.result)
 				if (result.length === 0) {
-					setError("Nenhum subitem genérico (99/999) identificado nos dados fornecidos.")
+					setError(NO_GENERIC_CODE_MESSAGE)
 				} else {
 					setData(result)
 				}
@@ -231,7 +232,7 @@ function SubitensGenericos() {
 			source={<TesouroGerencialPath />}
 			reference={
 				<RacReference
-					statement="As Unidades Gestoras utilizam contas contábeis e subitens genéricos (99, 999, P99, /99) no registro de suas transações?"
+					statement="As Unidades Gestoras utilizam subitens genéricos (99, P99, /99) ou o favorecido genérico 999 no registro de suas transações?"
 					objective="Identificar a utilização indevida de contas contábeis e subitens genéricos nos registros das Unidades Gestoras."
 					risk="O uso de subitens genéricos oculta a real natureza da transação, prejudicando a transparência, a precisão da informação e a evidenciação contábil."
 					importance="A regularização preserva a qualidade das demonstrações contábeis e apoia a tomada de decisão da alta administração do COMAER."
