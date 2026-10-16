@@ -101,6 +101,16 @@ Arquivos de teste citados:
 - **Cobertura:** `templates.operations.test.ts › semanal global aplicado: o efetivo vem da aplicação…` ·
   `planning.rescale.test.ts › portionsForArrivingHeadcount`
 
+### GC-AGD-16 — "Na sexta e no fim de semana come menos gente"
+- **Realidade:** almoço com 800 de segunda a quinta, 500 na sexta (expediente curto) e 200 no fim
+  de semana (só a escala). É a mesma divisão que a previsão de comensais pinta de três cores.
+- **O sistema precisa:** o efetivo base de cada (dia + refeição) do semanal recebe o número da
+  faixa dele; faixa em branco não mexe; sem "Substituir", o que já foi digitado fica.
+- **UX:** no cardápio semanal → "Quantitativo" → uma coluna por faixa (Seg a Qui, Sexta, Fim de
+  semana, nas cores da previsão) → "Preencher N" diz quantos (dia + refeição) mudam.
+- **Cobertura:** `menu-fill.test.ts › applyHeadcountByDays / countHeadcountByDays` (unitário; sem E2E
+  do diálogo).
+
 ## Lacunas conhecidas (imprevisto sem caminho completo)
 
 ### GC-AGD-10 — "Só uma refeição do evento foi cancelada"
