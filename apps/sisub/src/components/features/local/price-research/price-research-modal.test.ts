@@ -3,8 +3,8 @@ import { describe, expect, test } from "vitest"
 import type { ComprasMaterialPriceResult } from "@/types/domain/price-research"
 import {
 	BRL,
-	buildPriceRowIds,
 	computeVirtualPadding,
+	createPriceRowIdResolver,
 	formatCapacityLabel,
 	formatDate,
 	formatMunicipalityLabel,
@@ -219,7 +219,7 @@ describe("formatCapacityLabel", () => {
 	})
 })
 
-describe("buildPriceRowIds", () => {
+describe("createPriceRowIdResolver", () => {
 	const row = (idCompra: string, idItemCompra: number, dataResultado: string | null) =>
 		({ idCompra, idItemCompra, dataResultado, dataCompra: null }) as ComprasMaterialPriceResult
 
@@ -227,20 +227,29 @@ describe("buildPriceRowIds", () => {
 		const old = row("C1", 1, "2020-01-01")
 		const recent = row("C2", 3, "2026-09-01")
 		const all = [old, recent]
-		const ids = buildPriceRowIds(all)
-		expect(ids.get(recent)).toBe("C2-3")
+		const idOf = createPriceRowIdResolver(all)
+		expect(idOf(recent)).toBe("C2-3")
 		// Antes o id era `compra-item-índice` sobre a lista recortada: "C2-3-1" com a janela
 		// aberta e "C2-3-0" com ela fechada, e a seleção apontava para outra linha.
 		const scoped = all.filter((r) => r.dataResultado?.startsWith("2026"))
-		expect(scoped.map((r) => ids.get(r))).toEqual(["C2-3"])
+		expect(scoped.map(idOf)).toEqual(["C2-3"])
 	})
 
 	test("o mesmo item de compra repetido ganha sufixo pela ordem de chegada, sem colidir", () => {
 		const a = row("C1", 1, null)
 		const b = row("C1", 1, null)
 		const c = row("C1", 2, null)
-		const ids = buildPriceRowIds([a, b, c])
-		expect([ids.get(a), ids.get(b), ids.get(c)]).toEqual(["C1-1", "C1-1#2", "C1-2"])
-		expect(new Set(ids.values()).size).toBe(3)
+		const idOf = createPriceRowIdResolver([a, b, c])
+		expect([idOf(a), idOf(b), idOf(c)]).toEqual(["C1-1", "C1-1#2", "C1-2"])
+	})
+
+	test("registro fora da lista ganha o próximo sufixo, nunca o id de outra linha", () => {
+		const a = row("C1", 1, null)
+		const idOf = createPriceRowIdResolver([a])
+		const stray = row("C1", 1, null)
+		expect(idOf(stray)).toBe("C1-1#2")
+		// e o mesmo registro mantém o id que recebeu
+		expect(idOf(stray)).toBe("C1-1#2")
+		expect(idOf(a)).toBe("C1-1")
 	})
 })

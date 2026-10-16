@@ -68,8 +68,8 @@ import { savePriceResearchFn } from "@/server/price-research.fn"
 import type { ComprasMaterialPriceResult } from "@/types/domain/price-research"
 import {
 	BRL,
-	buildPriceRowIds,
 	computeVirtualPadding,
+	createPriceRowIdResolver,
 	formatCapacityLabel,
 	formatDate,
 	formatMunicipalityLabel,
@@ -716,7 +716,7 @@ export function PriceResearchModal({
 		staleTime: 5 * 60 * 1000,
 	})
 	const allResults = data?.results ?? EMPTY_RESULTS
-	const rowIds = useMemo(() => buildPriceRowIds(allResults), [allResults])
+	const resolveRowId = useMemo(() => createPriceRowIdResolver(allResults), [allResults])
 
 	// A tabela mostra a janela e as amostras sem data (visíveis, marcadas); o cálculo só leva as
 	// sem data quando o usuário as inclui ou seleciona.
@@ -897,8 +897,8 @@ export function PriceResearchModal({
 		// Sem data só se seleciona depois de incluída: "Selecionar todos" não a põe no cálculo.
 		enableRowSelection: (row) => isSampleSelectable(row.original, includeUndated),
 		enableSortingRemoval: true,
-		// Id do registro, calculado sobre a lista inteira: a janela de recência não o desloca.
-		getRowId: (row) => rowIds.get(row) ?? `${row.idCompra}-${row.idItemCompra}`,
+		// Id do registro, atribuído sobre a lista inteira: a janela de recência não o desloca.
+		getRowId: (row) => resolveRowId(row),
 	})
 
 	// ── Virtualizer ───────────────────────────────────────────────────────────
@@ -1044,8 +1044,6 @@ export function PriceResearchModal({
 	}
 
 	function handleTogglePeriod() {
-		// A janela muda as amostras da tabela: a seleção feita sobre a janela anterior não vale.
-		setRowSelection({})
 		setPeriodMonths((prev) => (prev ? null : DEFAULT_PERIOD_MONTHS))
 	}
 

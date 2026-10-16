@@ -116,19 +116,26 @@ export function formatCapacityLabel(capacity: number, unitName: string | null): 
  * Id estável de cada linha da pesquisa, para a seleção da tabela.
  *
  * O id era `compra-item-ÍNDICE`, com o índice da lista JÁ recortada pela janela de recência:
- * mudar a janela deslocava os índices, e a seleção guardada passava a apontar para outras linhas
- * (ou voltava fantasma ao reabrir a janela). Aqui o id vem do registro (`idCompra`-`idItemCompra`)
- * e é calculado sobre a lista INTEIRA; o mesmo item de compra repetido (um por fornecedor, por
- * exemplo) ganha `#2`, `#3` na ordem em que chegou, o que não muda com a janela.
+ * mudar a janela (ou a lista mudar num refetch) deslocava os índices, e a seleção guardada
+ * passava a apontar para outras linhas. Aqui o id vem do registro (`idCompra`-`idItemCompra`) e é
+ * atribuído sobre a lista INTEIRA; o mesmo item de compra repetido (um por fornecedor, por
+ * exemplo) ganha `#2`, `#3` na ordem em que chegou. A seleção sobrevive à troca da janela: a
+ * linha fora dela sai da tabela e do cálculo, e volta marcada quando a janela a inclui de novo.
+ *
+ * Registro que não estava na lista (não acontece: a tabela mostra um recorte dela) ganha o
+ * próximo sufixo do mesmo contador, nunca um id que outra linha já tenha.
  */
-export function buildPriceRowIds(results: readonly ComprasMaterialPriceResult[]): Map<ComprasMaterialPriceResult, string> {
+export function createPriceRowIdResolver(results: readonly ComprasMaterialPriceResult[]): (row: ComprasMaterialPriceResult) => string {
 	const ids = new Map<ComprasMaterialPriceResult, string>()
 	const seen = new Map<string, number>()
-	for (const result of results) {
-		const base = `${result.idCompra}-${result.idItemCompra}`
+	const assign = (row: ComprasMaterialPriceResult): string => {
+		const base = `${row.idCompra}-${row.idItemCompra}`
 		const occurrence = (seen.get(base) ?? 0) + 1
 		seen.set(base, occurrence)
-		ids.set(result, occurrence === 1 ? base : `${base}#${occurrence}`)
+		const id = occurrence === 1 ? base : `${base}#${occurrence}`
+		ids.set(row, id)
+		return id
 	}
-	return ids
+	for (const row of results) assign(row)
+	return (row) => ids.get(row) ?? assign(row)
 }
