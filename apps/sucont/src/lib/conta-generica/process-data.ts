@@ -1,7 +1,9 @@
 // Extraído de routes/conta-generica.tsx (port do analistacontagenerica): leitura da
 // planilha do Tesouro Gerencial e agrupamento dos saldos por UG e conta.
 import * as XLSX from "xlsx"
+import { parseBrazilianAmount } from "#/lib/analysis/saldo"
 import type { GroupedData } from "#/lib/conta-generica/helpers"
+import { isUgAcompanhada } from "#/lib/ug/registry"
 
 export type ProcessDataResult =
 	| { error: string }
@@ -73,12 +75,6 @@ function findHeaderRow(data: unknown[][]): { headerRowIndex: number; colIndices:
 	return null
 }
 
-/** Número vem como está; texto no formato brasileiro ("1.234,56"). */
-function parseSaldo(rawSaldo: unknown): number {
-	if (typeof rawSaldo === "number") return rawSaldo
-	return parseFloat(String(rawSaldo).replace(/\./g, "").replace(",", "."))
-}
-
 /**
  * Conta contábil genérica: a do saldo residual "Outros…", que a tela descreve como
  * "terminada em 99".
@@ -104,7 +100,7 @@ export function isGenericAccount(conta: string): boolean {
 	return conta.endsWith("99")
 }
 
-/** Linha de dado utilizável, ou `null` quando falta célula ou o saldo é zero/ilegível. */
+/** Linha de dado utilizável, ou `null` quando falta célula, a UG está fora do acompanhamento ou o saldo é zero/ilegível. */
 function parseDataRow(row: unknown, colIndices: ColumnIndices): DataRow | null {
 	if (!Array.isArray(row) || row.length === 0) return null
 	const rawUg = row[colIndices.ug]
@@ -115,9 +111,12 @@ function parseDataRow(row: unknown, colIndices: ColumnIndices): DataRow | null {
 	if (rawUg === "" || rawConta === "") return null
 
 	const ug = String(rawUg).trim()
+	// A STN (170999) entra no relatório como contraparte, não como UG a cobrar: mesma
+	// exclusão das ferramentas de saldo e do upstream (analistacontagenerica@c64549f).
+	if (!isUgAcompanhada(ug)) return null
 	const conta = String(rawConta).replace(/\s+/g, "").replace(/\./g, "")
 	const mes = String(rawMes).trim()
-	const saldo = parseSaldo(rawSaldo)
+	const saldo = parseBrazilianAmount(rawSaldo)
 
 	if (Number.isNaN(saldo) || saldo === 0) return null
 	return { ug, conta, mes, saldo }

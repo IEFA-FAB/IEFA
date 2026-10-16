@@ -110,7 +110,7 @@ Linhas que casam viram ocorrência; ocorrências com mesma conta contábil e mes
 
 **Regra.**
 
-Só entra conta genérica (`isGenericAccount`, em `lib/conta-generica/process-data.ts`): no código de 9 dígitos do PCASP, subitem `99` (`218810199`) ou item `99` sem desdobramento (`XXXXX9900`). Item `99` com subitem próprio não conta (`123119905` é "Bens móveis em trânsito"). Código fora de 9 dígitos cai na regra literal, termina em `99`. Linha com saldo em conta não genérica fica fora e é contada; a tela diz quantas.
+Só entra conta genérica (`isGenericAccount`, em `lib/conta-generica/process-data.ts`): no código de 9 dígitos do PCASP, subitem `99` (`218810199`) ou item `99` sem desdobramento (`XXXXX9900`). Item `99` com subitem próprio não conta (`123119905` é "Bens móveis em trânsito"). Código fora de 9 dígitos cai na regra literal, termina em `99`. Linha com saldo em conta não genérica fica fora e é contada; a tela diz quantas. A UG 170999 (STN) fica fora, como nas ferramentas de saldo.
 
 <Callout type="warn">
 Até 2026-10 não havia teste de genericidade: toda linha com conta preenchida e saldo diferente de zero virava ocorrência, e o recorte vinha inteiro do relatório do Tesouro Gerencial. `getRacInfo` continua devolvendo a mesma questão para qualquer primeiro dígito de 1 a 9, ou seja, a classificação por questão é constante.

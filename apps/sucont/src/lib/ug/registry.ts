@@ -301,7 +301,8 @@ export const UG_INATIVAS_SIAFI: readonly string[] = Object.entries(UNIDADES_GEST
  * Ela entra nos relatórios por ser a contraparte de lançamentos do COMAER, não
  * por ter saldo a regularizar: cobrar uma UG do Tesouro por saldo transitório
  * seria endereçar a mensagem a quem não a executa. As ferramentas de saldo
- * (impróprio, alongado e cruzamento de contas) descartam essas linhas.
+ * (impróprio, alongado e cruzamento de contas) e a de conta genérica descartam
+ * essas linhas.
  *
  * Isto NÃO é a mesma coisa que UG desconhecida: uma UG fora do registro cai em
  * ODS "OUTROS" e continua no relatório de propósito — pode ser cadastro faltando.

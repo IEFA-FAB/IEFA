@@ -164,6 +164,39 @@ describe("processData", () => {
 		})
 	})
 
+	it("lê o saldo pela regra compartilhada: ponto decimal fora do padrão de milhar e parênteses negativos", () => {
+		const data = [
+			["UG", "Conta Contábil", "Mês", "Saldo"],
+			// O port lia "1500.25" como 150025 e "(1.234,56)" como NaN (a linha sumia).
+			["120001", "11199", "JAN", "1500.25"],
+			["120001", "11199", "FEV", "(1.234,56)"],
+			["120001", "11199", "MAR", "R$ 1.234"],
+		]
+		expect(processData(data)).toEqual({
+			grouped: {
+				"120001": {
+					"11199": [
+						{ mes: "JAN", saldo: 1500.25 },
+						{ mes: "FEV", saldo: -1234.56 },
+						{ mes: "MAR", saldo: 1234 },
+					],
+				},
+			},
+			hasGeneric: true,
+			skippedNonGeneric: 0,
+		})
+	})
+
+	it("descarta a UG 170999 (STN), em código puro ou com o nome", () => {
+		const data = [
+			["UG", "Conta Contábil", "Mês", "Saldo"],
+			["170999", "11199", "JAN", 1],
+			["170999 - STN", "11199", "JAN", 2],
+			["120001", "11199", "JAN", 3],
+		]
+		expect(processData(data)).toEqual({ grouped: { "120001": { "11199": [{ mes: "JAN", saldo: 3 }] } }, hasGeneric: true, skippedNonGeneric: 0 })
+	})
+
 	it("relatório sem nenhuma conta genérica não marca achado", () => {
 		const data = [
 			["UG", "Conta Contábil", "Mês", "Saldo"],

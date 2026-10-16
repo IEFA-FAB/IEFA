@@ -1,6 +1,7 @@
 // Extraído de routes/monitoramento.tsx (port do Analistasaldoimproprio e do centromonitoramento).
 import * as XLSX from "xlsx"
 import { classifyAccount, type ProcessedRow } from "#/lib/analista/types"
+import { parseBrazilianAmount } from "#/lib/analysis/saldo"
 import { isUgAcompanhada } from "#/lib/ug/registry"
 
 export interface ParsedWorkbook {
@@ -76,33 +77,6 @@ function findHeader(rows: unknown[][]): { colIndices: ColumnIndices; dataStartIn
 	return { colIndices: { ug: -1, mes: -1, conta: -1, saldo: -1 }, dataStartIndex: -1 }
 }
 
-/** Só pontos de milhar, em grupos de três dígitos: "1.234", "12.345.678". */
-const THOUSANDS_ONLY = /^-?\d{1,3}(\.\d{3})+$/
-
-/**
- * Saldo do relatório: número passa direto; texto no formato brasileiro.
- *
- * - "1.234,56" → 1234.56; "1234,5" → 1234.5.
- * - Só pontos em grupos de três ("1.234") são milhar, como no formato brasileiro: 1234.
- *   O port lia 1,234. Ponto com outro agrupamento ("1500.25") segue decimal.
- * - Parênteses são negativo, como a contabilidade escreve: "(1.234,56)" → -1234.56.
- *   O port devolvia NaN e a linha sumia.
- */
-export const parseSaldo = (saldoRaw: unknown): number => {
-	if (typeof saldoRaw === "number") return saldoRaw
-	if (typeof saldoRaw !== "string") return NaN
-	let cleaned = saldoRaw.replace(/[R$\s]/g, "")
-	let sign = 1
-	const parenthesized = /^\((.*)\)$/.exec(cleaned)
-	if (parenthesized) {
-		cleaned = parenthesized[1]
-		sign = -1
-	}
-	if (cleaned.includes(",")) return sign * parseFloat(cleaned.replace(/\./g, "").replace(",", "."))
-	if (THOUSANDS_ONLY.test(cleaned)) return sign * parseFloat(cleaned.replace(/\./g, ""))
-	return sign * parseFloat(cleaned)
-}
-
 function isFilledCell(value: unknown): boolean {
 	return value != null && String(value).trim() !== ""
 }
@@ -138,7 +112,7 @@ function parseRowsWithHeader(rows: unknown[][], colIndices: ColumnIndices, dataS
 		const ug = String(ugRaw).trim()
 		const mes = String(mesRaw).trim()
 		const conta = String(contaRaw).trim()
-		const saldo = parseSaldo(saldoRaw)
+		const saldo = parseBrazilianAmount(saldoRaw)
 
 		if (!Number.isNaN(saldo) && saldo !== 0 && isUgAcompanhada(ug)) {
 			processed.push(buildProcessedRow(ug, mes, conta, saldo))
@@ -195,7 +169,7 @@ function assignHeuristicCell(state: HeuristicRow, cell: unknown): void {
 		state.mes = str
 		state.foundMes = true
 	} else if (!state.foundSaldo) {
-		const parsed = parseSaldo(cell)
+		const parsed = parseBrazilianAmount(cell)
 		if (!Number.isNaN(parsed)) {
 			state.saldo = parsed
 			state.foundSaldo = true
