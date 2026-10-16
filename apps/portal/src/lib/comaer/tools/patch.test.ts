@@ -204,6 +204,20 @@ describe("cada remendo: resumo, blocos tocados e recusas", () => {
 		expect(patch).toMatchObject({ summary: "Texto reescrito com 2 parágrafo(s). Numeração impressa agora: 1; 2.", touched: ["texto"] })
 	})
 
+	it("write_body: `null` dentro das listas é erro de remendo, não TypeError", () => {
+		// `null` dentro de array escapa da poda do boundary; ler `.text` dele lançava TypeError.
+		const cases: [unknown, string][] = [
+			[[null], "Cada parágrafo precisa de `text`."],
+			[["texto solto"], "Cada parágrafo precisa de `text`."],
+			[[{ text: "a", items: [null] }], "Cada item precisa de `text`."],
+			[[{ text: "a", items: [{ text: "b", alineas: [null] }] }], "Cada alínea precisa de `text`."],
+		]
+		for (const [paragraphs, message] of cases) {
+			expect(() => applyPatch(base(), "write_body", { paragraphs })).toThrow(PatchError)
+			expect(() => applyPatch(base(), "write_body", { paragraphs })).toThrow(message)
+		}
+	})
+
 	it("replace, insert e remove: resumo com a posição e a numeração; limites do índice", () => {
 		expect(applyPatch(base(), "replace_paragraph", { number: 1, text: "X." }).summary).toBe("Parágrafo 1 substituído. Numeração impressa agora: 1; 2.")
 		expect(applyPatch(base(), "insert_paragraph", { number: 3, text: "Fim." }).summary).toBe(

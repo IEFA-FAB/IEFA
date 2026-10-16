@@ -59,25 +59,29 @@ function textSummary(document: DocumentInput, change: string): string {
 /** Erro de remendo: o modelo lê a mensagem e corrige na chamada seguinte. */
 export class PatchError extends Error {}
 
+/**
+ * Entrada de lista (parágrafo, item ou alínea) com `text` string. `null` dentro de array chega
+ * inteiro (a poda do boundary não desce em array): sem esta checagem, ler `.text` de `null`
+ * lançava `TypeError`, que não é erro de remendo e o modelo não sabia corrigir.
+ */
+function readTextEntry<T extends { text: string }>(value: unknown, message: string): T {
+	if (typeof value !== "object" || value === null || typeof (value as { text?: unknown }).text !== "string") throw new PatchError(message)
+	return value as T
+}
+
 function asParagraphs(value: unknown): Paragraph[] {
 	if (!Array.isArray(value)) throw new PatchError("O campo `paragraphs` precisa ser uma lista de parágrafos.")
 	return value.map((p) => {
-		const item = p as { text?: unknown; items?: unknown }
-		if (typeof item.text !== "string") throw new PatchError("Cada parágrafo precisa de `text`.")
+		const item = readTextEntry<{ text: string; items?: unknown }>(p, "Cada parágrafo precisa de `text`.")
 		return {
 			text: item.text,
 			items: Array.isArray(item.items)
 				? item.items.map((i) => {
-						const sub = i as { text?: unknown; alineas?: unknown }
-						if (typeof sub.text !== "string") throw new PatchError("Cada item precisa de `text`.")
+						const sub = readTextEntry<{ text: string; alineas?: unknown }>(i, "Cada item precisa de `text`.")
 						return {
 							text: sub.text,
 							alineas: Array.isArray(sub.alineas)
-								? sub.alineas.map((a) => {
-										const alinea = a as { text?: unknown }
-										if (typeof alinea.text !== "string") throw new PatchError("Cada alínea precisa de `text`.")
-										return { text: alinea.text }
-									})
+								? sub.alineas.map((a) => ({ text: readTextEntry<{ text: string }>(a, "Cada alínea precisa de `text`.").text }))
 								: undefined,
 						}
 					})
