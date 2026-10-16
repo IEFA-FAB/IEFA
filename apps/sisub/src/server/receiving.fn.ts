@@ -86,7 +86,7 @@ import {
 	findInvoiceLotSource,
 	hasLotInfo,
 } from "@/lib/receipt-lot"
-import { formatInvoiceRefusalNotRecordedMessage, planReceiptRefusal } from "@/lib/receipt-refusal"
+import { formatReceiptRefusalNotRecordedMessage, planReceiptRefusal } from "@/lib/receipt-refusal"
 import { collectCatalogGtinsBySku, collectHierarchyGtinsBySku, indexInvoiceItems, type ScanInvoiceItem, toScanLine } from "@/lib/receipt-scan-lines"
 import {
 	buildReceiptItemDetails,
@@ -1147,26 +1147,24 @@ export const refuseReceiptFn = createServerFn({ method: "POST" })
 		if (!receipt) throw new Error("Recebimento não encontrado")
 		const ctx = await requireStorageForKitchen(3, Number(receipt.kitchen_id))
 		const { userId } = ctx
-		const plan = planReceiptRefusal(receipt)
+		const { invoiceToRefuse } = planReceiptRefusal(receipt)
 		// Recusar o todo é decisão de quem recebe definitivamente (art. 140, II, b; § 1º).
 		await requireDesignation(data.receiptId, ctx, "definitive")
 
-		if (plan.updateReceipt) {
-			const { error } = await inv
-				.from("goods_receipt")
-				// A recusa tem colunas próprias: `definitive_at` é "entrega atestada" para todo leitor (e o
-				// banco recusa recusado com ele preenchido — goods_receipt_rejected_not_attested).
-				.update({ status: "rejected", notes: data.reason.trim(), rejected_by: userId, rejected_at: new Date().toISOString() })
-				.eq("id", data.receiptId)
-			if (error) throw new Error(`Erro ao recusar o recebimento: ${publicDbMessage(error)}`)
+		// A nota ANTES do recebimento (`receipt-refusal.ts`): se a segunda escrita falhar, o
+		// recebimento continua aberto e a tela oferece "Recusar" de novo, que conclui.
+		if (invoiceToRefuse) {
+			const { error: invoiceError } = await inv.from("nfe_document").update({ status: "refused" }).eq("id", invoiceToRefuse)
+			if (invoiceError) throw new Error(`Erro ao marcar a NF-e como recusada: ${publicDbMessage(invoiceError)}`)
 		}
 
-		// Só a nota do recebimento criado DELA vira recusada (`planReceiptRefusal`). A falha aqui
-		// volta para a tela: calada, o recebimento ficava recusado com a NF-e ainda aceita.
-		if (plan.markInvoiceRefused && receipt.nfe_document_id) {
-			const { error: invoiceError } = await inv.from("nfe_document").update({ status: "refused" }).eq("id", receipt.nfe_document_id)
-			if (invoiceError) throw new Error(formatInvoiceRefusalNotRecordedMessage(invoiceError))
-		}
+		const { error } = await inv
+			.from("goods_receipt")
+			// A recusa tem colunas próprias: `definitive_at` é "entrega atestada" para todo leitor (e o
+			// banco recusa recusado com ele preenchido — goods_receipt_rejected_not_attested).
+			.update({ status: "rejected", notes: data.reason.trim(), rejected_by: userId, rejected_at: new Date().toISOString() })
+			.eq("id", data.receiptId)
+		if (error) throw new Error(formatReceiptRefusalNotRecordedMessage(error, invoiceToRefuse != null))
 		return { refused: true }
 	})
 

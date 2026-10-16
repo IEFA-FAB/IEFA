@@ -1,38 +1,34 @@
 /**
- * Recusa do recebimento inteiro (`refuseReceiptFn`): o que gravar, e o que dizer quando a
- * segunda escrita falha.
+ * Recusa do recebimento inteiro (`refuseReceiptFn`): o que gravar, em que ordem, e o que dizer
+ * quando só a primeira escrita vale.
  *
- * São duas escritas sem transação: o recebimento vira `rejected` e, se ele nasceu DA nota, a NF-e
- * vira `refused`. Se a segunda falha, o recebimento já está recusado e a nota não. Antes o erro
- * da nota era descartado e a tela dizia "recusado" com a NF-e ainda aceita. Agora a falha volta
- * com instrução, e recusar de novo um recebimento já recusado só conclui a marca da nota.
+ * São duas escritas sem transação (a atômica pede função SQL): a NF-e do recebimento criado dela
+ * vira `refused` e o recebimento vira `rejected`. A ordem é essa de propósito. Recebimento
+ * recusado sai da tela de decisão (o botão "Recusar" só existe no editável); com ele recusado e a
+ * nota aceita, não havia caminho para concluir. Com a nota primeiro, o estado parcial é nota
+ * recusada e recebimento ainda aberto: a tela continua oferecendo "Recusar", e repetir é
+ * idempotente (marcar recusada uma nota já recusada não falha).
  */
 
 import { isReceiptEditable } from "@iefa/sisub-domain/operations"
 import { type DbErrorLike, publicDbMessage } from "@/lib/db-error-message"
 
-export type ReceiptRefusalPlan = {
-	/** Grava `rejected` no recebimento (falso quando ele já está recusado: é a repetição). */
-	updateReceipt: boolean
-	/** Marca a NF-e como `refused`: só a do recebimento criado DELA. */
-	markInvoiceRefused: boolean
-}
-
 type RefusableReceipt = { status: string; nfe_document_id: string | null; source: string | null }
 
 /**
- * Plano da recusa. A NF-e semanal vinculada à entrega de um dia cobre as outras entregas da
- * semana, que foram aceitas: só a nota do recebimento criado dela vira recusada.
+ * NF-e a marcar como recusada antes de recusar o recebimento, ou nulo. A NF-e semanal vinculada à
+ * entrega de um dia cobre as outras entregas da semana, que foram aceitas: só a nota do
+ * recebimento criado DELA vira recusada.
  */
-export function planReceiptRefusal(receipt: RefusableReceipt): ReceiptRefusalPlan {
-	const markInvoiceRefused = receipt.nfe_document_id != null && receipt.source === "nfe"
-	// Repetição depois de a marca da nota falhar: o recebimento fica como está e a nota é marcada.
-	if (receipt.status === "rejected") return { updateReceipt: false, markInvoiceRefused }
+export function planReceiptRefusal(receipt: RefusableReceipt): { invoiceToRefuse: string | null } {
+	if (receipt.status === "rejected") throw new Error("Recebimento já recusado")
 	if (!isReceiptEditable(receipt.status)) throw new Error("Recebimento já efetivado")
-	return { updateReceipt: true, markInvoiceRefused }
+	return { invoiceToRefuse: receipt.source === "nfe" ? receipt.nfe_document_id : null }
 }
 
-/** O recebimento ficou recusado e a NF-e não: diz o que houve e como concluir. */
-export function formatInvoiceRefusalNotRecordedMessage(error: DbErrorLike): string {
-	return `O recebimento foi recusado, mas a NF-e não ficou marcada como recusada (${publicDbMessage(error)}). Recuse de novo para concluir.`
+/** A NF-e ficou recusada e o recebimento não: diz o que houve e como concluir pela tela. */
+export function formatReceiptRefusalNotRecordedMessage(error: DbErrorLike, isInvoiceRefused: boolean): string {
+	const reason = publicDbMessage(error)
+	if (!isInvoiceRefused) return `Erro ao recusar o recebimento: ${reason}`
+	return `A NF-e ficou marcada como recusada, mas o recebimento não (${reason}). Ele continua aberto: recuse de novo para concluir.`
 }

@@ -116,13 +116,14 @@ Hipóteses a verificar; a suíte `inventory-cycle.e2e.operations.test.ts` e as d
   não sustenta liquidação. A decisão tem colunas próprias (`rejected_at`/`rejected_by`,
   20260926205000), nunca `definitive_at`.
 - **UX:** "Recusar entrega" no recebimento aberto (nível 3, com designação de gestor ou
-  comissão); o cabeçalho e o termo mostram "Recusado em" e o motivo. Se a NF-e do recebimento
-  não puder ser marcada como recusada (falha do banco depois de o recebimento ficar recusado), a
-  tela diz isso, e "Recusar" de novo só conclui a marca da nota.
+  comissão); o cabeçalho e o termo mostram "Recusado em" e o motivo. A NF-e do recebimento é
+  marcada como recusada ANTES do recebimento: se a segunda escrita falhar, a tela diz que a nota
+  ficou recusada e o recebimento continua aberto, relê o estado e "Recusar" de novo conclui.
 - **Cobertura:** `invoice-gate.test.ts` (recusado não sustenta liquidação);
-  `apps/sisub/src/lib/receipt-refusal.test.ts` (plano da recusa, repetição que conclui a nota).
-  **LACUNA:** teste de integração da recusa pela tela; recebimento e nota ainda são duas
-  escritas sem transação (a atômica pede função SQL).
+  `apps/sisub/src/lib/receipt-refusal.test.ts` (plano e mensagem do estado parcial).
+  **LACUNA:** teste de integração da recusa pela tela; nota e recebimento ainda são duas
+  escritas sem transação (a atômica pede função SQL), e no estado parcial nada impede efetivar
+  o recebimento aberto com a nota já marcada como recusada.
 
 ### EST-REC-12 — "Vinculei a NF-e errada à entrega"
 - **O sistema precisa:** trocar a nota enquanto não houver liquidação; depois dela, a NF-e e o
@@ -194,13 +195,15 @@ Hipóteses a verificar; a suíte `inventory-cycle.e2e.operations.test.ts` e as d
 ### EST-CNT-05 — "Lancei a contagem, a rede caiu e lancei de novo"
 - **Realidade:** dentro da câmara o sinal some; o operador vê erro (ou acha que o clique não pegou)
   e lança o mesmo número outra vez. Os 15 fardos não podem virar 30.
-- **O sistema precisa:** o reenvio da mesma linha com o mesmo valor leva a mesma chave
-  (`client_event_id`), e o índice único `(count_id, client_event_id)` ignora a segunda. A chave é
-  uma por intenção (linha + valor), renovada só depois do sucesso; valor corrigido é outra intenção.
+- **O sistema precisa:** o reenvio da mesma linha leva a mesma chave (`client_event_id`) até o
+  sucesso. Com o mesmo valor, o servidor não grava nada; com o valor corrigido antes da confirmação
+  (o operador viu o erro e recontou: 16), o lançamento daquela chave, se tiver entrado, passa a 16
+  em vez de somar 15 + 16. Chave de outro autor é recusada.
 - **UX:** na falha, o número digitado (e o alvo lido pelo scanner) fica no campo para reenviar; no
   sucesso o campo limpa.
 - **Cobertura:** `apps/sisub/src/components/features/storage/counts/counts-page.test.ts ›
-  claimEntryKey / releaseEntryKey`. **LACUNA:** a chave vive na memória da tela; recarregar a
+  claimEntryKey / releaseEntryKey`; `apps/sisub/src/lib/count-entry-writes.test.ts` (reenvio,
+  correção, chave de outro autor). **LACUNA:** teste de integração do `postCountEntriesFn`; a chave vive na memória da tela; recarregar a
   página entre a falha e o reenvio gera chave nova (a fila offline é que vai persistir).
 
 `ENB` = `apps/sisub/src/test/operations/execution-never-blocks.operations.test.ts` (banco real) ·
