@@ -76,19 +76,31 @@ function findHeader(rows: unknown[][]): { colIndices: ColumnIndices; dataStartIn
 	return { colIndices: { ug: -1, mes: -1, conta: -1, saldo: -1 }, dataStartIndex: -1 }
 }
 
+/** Só pontos de milhar, em grupos de três dígitos: "1.234", "12.345.678". */
+const THOUSANDS_ONLY = /^-?\d{1,3}(\.\d{3})+$/
+
+/**
+ * Saldo do relatório: número passa direto; texto no formato brasileiro.
+ *
+ * - "1.234,56" → 1234.56; "1234,5" → 1234.5.
+ * - Só pontos em grupos de três ("1.234") são milhar, como no formato brasileiro: 1234.
+ *   O port lia 1,234. Ponto com outro agrupamento ("1500.25") segue decimal.
+ * - Parênteses são negativo, como a contabilidade escreve: "(1.234,56)" → -1234.56.
+ *   O port devolvia NaN e a linha sumia.
+ */
 export const parseSaldo = (saldoRaw: unknown): number => {
 	if (typeof saldoRaw === "number") return saldoRaw
-	if (typeof saldoRaw === "string") {
-		const cleaned = saldoRaw.replace(/[R$\s]/g, "")
-		if (cleaned.includes(",") && cleaned.includes(".")) {
-			return parseFloat(cleaned.replace(/\./g, "").replace(",", "."))
-		} else if (cleaned.includes(",")) {
-			return parseFloat(cleaned.replace(",", "."))
-		} else {
-			return parseFloat(cleaned)
-		}
+	if (typeof saldoRaw !== "string") return NaN
+	let cleaned = saldoRaw.replace(/[R$\s]/g, "")
+	let sign = 1
+	const parenthesized = /^\((.*)\)$/.exec(cleaned)
+	if (parenthesized) {
+		cleaned = parenthesized[1]
+		sign = -1
 	}
-	return NaN
+	if (cleaned.includes(",")) return sign * parseFloat(cleaned.replace(/\./g, "").replace(",", "."))
+	if (THOUSANDS_ONLY.test(cleaned)) return sign * parseFloat(cleaned.replace(/\./g, ""))
+	return sign * parseFloat(cleaned)
 }
 
 function isFilledCell(value: unknown): boolean {
@@ -135,12 +147,26 @@ function parseRowsWithHeader(rows: unknown[][], colIndices: ColumnIndices, dataS
 	return processed
 }
 
+const MONTH_NAMES = "janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro"
+const MONTH_ABBREVIATIONS = "jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez"
+
+/** Mês por extenso ou abreviado, com ano opcional ("JAN", "jan/2026", "Março/26", "JAN2026"). */
+const NAMED_MONTH = new RegExp(`^(${MONTH_NAMES}|${MONTH_ABBREVIATIONS})(\\/?(\\d{2}|\\d{4}))?$`)
+
+/** "01/2026": mês de 01 a 12. */
+const NUMERIC_MONTH = /^(0[1-9]|1[0-2])\/\d{4}$/
+
+/**
+ * Célula com cara de competência, no fallback sem cabeçalho. O port aceitava qualquer
+ * palavra de três letras ou mais ("TEXTO", "TOTAL", "BASP"): a primeira palavra da linha
+ * virava a competência, e o mês de verdade, se viesse depois, era descartado.
+ */
 function isMonthLike(str: string): boolean {
-	return (
-		/^[A-Za-z]{3,}\/?\d{0,4}$/.test(str) ||
-		/^\d{2}\/\d{4}$/.test(str) ||
-		/^(janeiro|fevereiro|março|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)$/i.test(str)
-	)
+	const normalized = str
+		.toLowerCase()
+		.normalize("NFD")
+		.replace(/[\u0300-\u036f]/g, "")
+	return NAMED_MONTH.test(normalized) || NUMERIC_MONTH.test(str)
 }
 
 interface HeuristicRow {

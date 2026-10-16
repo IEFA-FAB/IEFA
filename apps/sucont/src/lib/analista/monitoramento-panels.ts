@@ -20,6 +20,15 @@ export type ManagerialData = NonNullable<ReturnType<typeof computeManagerialData
 export type EstrategicoData = NonNullable<ReturnType<typeof computeEstrategicoData>>
 export type DecisaoData = NonNullable<ReturnType<typeof computeDecisaoData>>
 
+/**
+ * Legenda do cartão "Maior risco por ODS". Sem cobrança não há ODS no topo, e a tela
+ * mostrava "undefined% das inconsistências".
+ */
+export function describeTopOdsShare(topOds: readonly { percent: number }[]): string {
+	const top = topOds[0]
+	return top ? `${top.percent.toFixed(1)}% das inconsistências` : "nenhuma inconsistência no recorte"
+}
+
 export function computeDashboardData(filteredData: ProcessedRow[]) {
 	if (filteredData.length === 0) return null
 	const cobrancas = filteredData.filter((r) => r.classificacao === "COBRANÇA" || r.classificacao === "COBRANÇA COM OBSERVAÇÃO")
@@ -162,10 +171,11 @@ export function computeDecisaoData(filteredData: ProcessedRow[], estrategicoData
 		.sort((a, b) => b.count - a.count)
 
 	const totalUgs = sortedUgs.length
-	const twentyPercentCount = Math.max(1, Math.round(totalUgs * 0.2))
+	// Sem cobrança não há UG para os 20%, e o percentual é 0: antes saíam 1 UG e NaN ("NaN%").
+	const twentyPercentCount = totalUgs === 0 ? 0 : Math.max(1, Math.round(totalUgs * 0.2))
 	const topTwentyUgs = sortedUgs.slice(0, twentyPercentCount)
 	const topTwentyIssuesCount = topTwentyUgs.reduce((acc, curr) => acc + curr.count, 0)
-	const paretoPercent = (topTwentyIssuesCount / totalIssues) * 100
+	const paretoPercent = totalIssues === 0 ? 0 : (topTwentyIssuesCount / totalIssues) * 100
 
 	const maxCount = sortedUgs[0]?.count || 1
 	const maxValue = Math.max(...sortedUgs.map((u) => cobrancas.filter((c) => c.ug === u.ug).reduce((acc, curr) => acc + Math.abs(curr.saldo), 0)))

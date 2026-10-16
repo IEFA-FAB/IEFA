@@ -2,7 +2,15 @@
 import { describe, expect, it } from "bun:test"
 import type { ProcessedRow } from "#/lib/analista/types"
 import { UNIDADES_GESTORAS } from "#/lib/ug/registry"
-import { computeDashboardData, computeDecisaoData, computeEstrategicoData, computeManagerialData, ODS_PIE_COLORS, PIE_COLORS } from "./monitoramento-panels"
+import {
+	computeDashboardData,
+	computeDecisaoData,
+	computeEstrategicoData,
+	computeManagerialData,
+	describeTopOdsShare,
+	ODS_PIE_COLORS,
+	PIE_COLORS,
+} from "./monitoramento-panels"
 
 function row(partial: Partial<ProcessedRow> & Pick<ProcessedRow, "ug" | "saldo" | "classificacao">): ProcessedRow {
 	return { mes: "JAN/2026", conta: "115110101", descricao: "MERC", ...partial }
@@ -149,12 +157,24 @@ describe("computeDecisaoData", () => {
 		expect(result?.pareto.topTwentyUgs).toHaveLength(4)
 	})
 
-	it("sem cobrança, o percentual de Pareto sai NaN (comportamento herdado)", () => {
+	it("sem cobrança, o Pareto fica zerado (o port mostrava NaN%)", () => {
 		const result = computeDecisaoData([ROWS[4]], null)
 		expect(result).toEqual({
-			pareto: { totalUgs: 0, twentyPercentCount: 1, paretoPercent: Number.NaN, topTwentyUgs: [] },
+			pareto: { totalUgs: 0, twentyPercentCount: 0, paretoPercent: 0, topTwentyUgs: [] },
 			priorities: [],
 			criticalLevels: { ods: "-", superior: "-", ugCount: "-", ugValue: "-" },
 		})
+	})
+})
+
+describe("describeTopOdsShare", () => {
+	it("mostra o percentual do ODS do topo", () => {
+		expect(describeTopOdsShare(computeEstrategicoData(ROWS)?.topOds ?? [])).toBe("50.0% das inconsistências")
+	})
+
+	it("sem cobrança não há ODS no topo, e a legenda diz isso (o port mostrava undefined%)", () => {
+		const topOds = computeEstrategicoData([ROWS[4]])?.topOds ?? []
+		expect(topOds).toEqual([])
+		expect(describeTopOdsShare(topOds)).toBe("nenhuma inconsistência no recorte")
 	})
 })
