@@ -927,7 +927,9 @@ export async function forkTemplate(db: SisubDb, ctx: UserContext, input: ForkTem
 	assertGlobalEventSingleMeal(targetKitchenId, source.templateType, eventContent?.eventMeals)
 	const forkedSourceItems = eventContent?.items ?? sourceItems
 
-	await assertForkRefsFitTarget(db, targetKitchenId, sourceItems, sourceMeals, sourceEventMeals)
+	// Confere o que a cópia LEVA: com refeições escolhidas, os itens das que ficaram para trás
+	// não vão para o destino e não podem recusar a cópia.
+	await assertForkRefsFitTarget(db, targetKitchenId, forkedSourceItems, sourceMeals, sourceEventMeals)
 
 	const created = await db.transaction(async (tx) => {
 		const newTemplate = await insertForkedTemplate(tx, source, input, targetKitchenId, keepsAbsolutes)
@@ -1453,7 +1455,7 @@ async function fetchOccupiedCells(db: SisubDb, dates: string[], kitchenId: numbe
  * da cozinha: "Substituir" o dia não pode apagá-lo, ou a produção de um pedido aceito some
  * do quadro sem que o pedido saiba.
  */
-async function softDeletePlannedMenus(tx: TemplateTx, dates: string[], kitchenId: number): Promise<void> {
+export async function softDeletePlannedMenus(tx: TemplateTx, dates: string[], kitchenId: number): Promise<void> {
 	const notSystemMealTypeMenu = sql`not exists (select 1 from kitchen.meal_type mt where mt.id = ${dailyMenuInKitchen.mealTypeId} and mt.system_key is not null)`
 	const deletedAt = new Date().toISOString()
 	// Os ITENS caem junto, e não só o menu: a lixeira lista por `menu_items.deleted_at`,
@@ -1473,20 +1475,22 @@ async function softDeletePlannedMenus(tx: TemplateTx, dates: string[], kitchenId
 			)
 	)
 	const doomedIds = doomedMenus.map((m) => m.id)
-	if (doomedIds.length > 0) {
-		await runQuery("DELETE_FAILED", () =>
-			tx
-				.update(menuItemsInKitchen)
-				.set({ deletedAt })
-				.where(and(inArray(menuItemsInKitchen.dailyMenuId, doomedIds), isNull(menuItemsInKitchen.deletedAt)))
-				.then(() => undefined)
-		)
-	}
+	if (doomedIds.length === 0) return
+	await runQuery("DELETE_FAILED", () =>
+		tx
+			.update(menuItemsInKitchen)
+			.set({ deletedAt })
+			.where(and(inArray(menuItemsInKitchen.dailyMenuId, doomedIds), isNull(menuItemsInKitchen.deletedAt)))
+			.then(() => undefined)
+	)
+	// Só os cardápios ATIVOS que a leitura acima escolheu: pelo recorte de data e cozinha, o
+	// `update` regravava o `deleted_at` dos que já estavam na lixeira, e a lixeira (ordenada
+	// pela data da exclusão) passava a datar a exclusão antiga como de agora.
 	await runQuery("DELETE_FAILED", () =>
 		tx
 			.update(dailyMenuInKitchen)
 			.set({ deletedAt })
-			.where(and(inArray(dailyMenuInKitchen.serviceDate, dates), eq(dailyMenuInKitchen.kitchenId, kitchenId), notSystemMealTypeMenu))
+			.where(and(inArray(dailyMenuInKitchen.id, doomedIds), isNull(dailyMenuInKitchen.deletedAt)))
 			.then(() => undefined)
 	)
 }

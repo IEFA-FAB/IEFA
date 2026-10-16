@@ -12,7 +12,9 @@
  */
 
 import { describe, expect, test } from "bun:test"
-import { kitchenInKitchen, mealTypeInKitchen, recipesInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
+import { kitchenInKitchen, mealTypeInKitchen, recipesInKitchen, type SisubDb, sisubSchema } from "@iefa/database/drizzle/sisub"
+import type { SQL } from "drizzle-orm"
+import { drizzle } from "drizzle-orm/postgres-js"
 import { canReachKitchen, kitchenBelongsToUnit, requireKitchenOrItsUnit } from "../guards/kitchen-unit.ts"
 import { requireUnscopedPermission } from "../guards/require-permission.ts"
 import type { UserContext } from "../types/context.ts"
@@ -294,6 +296,83 @@ describe("forkTemplate", () => {
 		)
 		expect((error as DomainError | null)?.code).not.toBe("TEMPLATE_FORK_OUT_OF_SCOPE")
 		expect(error).not.toBeInstanceOf(PermissionDeniedError)
+	})
+})
+
+const mockDb = drizzle.mock({ schema: sisubSchema })
+
+// Evento com duas refeições: o café usa a preparação LOCAL de A; o coquetel, só a global.
+const CAFE_MEAL = "22222222-2222-4222-8222-222222222222"
+const COQUETEL_MEAL = "33333333-3333-4333-8333-333333333333"
+const GLOBAL_RECIPE = "recipe-global"
+
+/** Cozinha das preparações pelo id pedido (o stub lê os ids do SQL que o Drizzle monta). */
+function eventForkDb(): SisubDb {
+	const recipeOwner: Record<string, number | null> = { [LOCAL_RECIPE_OF_A]: KITCHEN, [GLOBAL_RECIPE]: null }
+	const source = {
+		id: SOURCE_TEMPLATE,
+		kitchenId: KITCHEN,
+		name: "Evento",
+		deletedAt: null,
+		templateType: "event",
+		expectedMonthlyOccurrences: null,
+		menuTemplateItemsInKitchens: [
+			{ dayOfWeek: 1, mealTypeId: "meal-global", recipeId: LOCAL_RECIPE_OF_A, headcountOverride: null, itemGroup: null, eventMealId: CAFE_MEAL },
+			{ dayOfWeek: 1, mealTypeId: "meal-global", recipeId: GLOBAL_RECIPE, headcountOverride: null, itemGroup: null, eventMealId: COQUETEL_MEAL },
+		],
+	}
+	const eventMeal = (id: string, name: string, sortOrder: number) => ({
+		id,
+		menuTemplateId: SOURCE_TEMPLATE,
+		name,
+		mealTypeId: "meal-global",
+		groups: [],
+		sortOrder,
+		baseHeadcount: null,
+		sourceTemplateId: null,
+	})
+	const select = () => ({
+		from: (table: unknown) => ({
+			where: (where: SQL) => {
+				if (table === mealTypeInKitchen) return Promise.resolve([{ id: "meal-global", kitchenId: null }])
+				if (table !== recipesInKitchen) return Promise.resolve([])
+				// `inArray(recipesInKitchen.id, ids)`: os ids pedidos são os parâmetros do SQL gerado.
+				const asked = mockDb.select().from(recipesInKitchen).where(where).toSQL().params
+				return Promise.resolve(Object.keys(recipeOwner).flatMap((id) => (asked.includes(id) ? [{ id, kitchenId: recipeOwner[id] }] : [])))
+			},
+		}),
+	})
+	return {
+		query: {
+			menuTemplateInKitchen: { findFirst: () => Promise.resolve(source) },
+			menuTemplateMealInKitchen: { findMany: () => Promise.resolve([]) },
+			menuTemplateEventMealInKitchen: { findMany: () => Promise.resolve([eventMeal(CAFE_MEAL, "Café", 0), eventMeal(COQUETEL_MEAL, "Coquetel", 1)]) },
+		},
+		select,
+	} as unknown as SisubDb
+}
+
+describe("forkTemplate — refeições escolhidas", () => {
+	const forker = ctx(perm("kitchen", 1, { kitchen_id: KITCHEN }), perm("kitchen", 2, { kitchen_id: OTHER_KITCHEN }))
+	const fork = (occasionMealIds?: string[]) =>
+		forkTemplate(eventForkDb(), forker, { sourceTemplateId: SOURCE_TEMPLATE, targetKitchenId: OTHER_KITCHEN, occasionMealIds }).then(
+			() => null,
+			(e: unknown) => e
+		)
+
+	test("o evento inteiro leva a preparação local do café: recusado", async () => {
+		expect(((await fork()) as DomainError).code).toBe("TEMPLATE_FORK_OUT_OF_SCOPE")
+	})
+
+	test("escolhido só o coquetel, a preparação local do café (que não vai) não recusa a cópia", async () => {
+		// Antes, a conferência olhava os itens de TODAS as refeições da origem.
+		const error = await fork([COQUETEL_MEAL])
+		expect((error as DomainError | null)?.code).not.toBe("TEMPLATE_FORK_OUT_OF_SCOPE")
+		expect(error).not.toBeInstanceOf(PermissionDeniedError)
+	})
+
+	test("escolhido o café, a preparação local vai junto: recusado", async () => {
+		expect(((await fork([CAFE_MEAL])) as DomainError).code).toBe("TEMPLATE_FORK_OUT_OF_SCOPE")
 	})
 })
 
