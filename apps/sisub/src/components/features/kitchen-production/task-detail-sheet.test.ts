@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest"
-import { describeTaskSheetFacts, toShownCount } from "./task-detail-sheet"
+import { describeTaskSheetFacts, scaleIngredientQty, toShownCount } from "./task-detail-sheet"
 
 describe("toShownCount", () => {
 	test("só número positivo aparece", () => {
@@ -41,5 +41,33 @@ describe("describeTaskSheetFacts", () => {
 
 	test("só o rendimento não abre a linha de descrição (como antes)", () => {
 		expect(describeTaskSheetFacts({ plannedPortions: null, preparationMinutes: null, portionYield: 10 }).hasDescription).toBe(false)
+	})
+})
+
+describe("scaleIngredientQty", () => {
+	test("escala só quando o rótulo diz que escalou (mesmo predicado)", () => {
+		const scaled = describeTaskSheetFacts({ plannedPortions: 120, preparationMinutes: null, portionYield: 10 })
+		expect(scaled.isScaled).toBe(true)
+		expect(scaleIngredientQty(0.5, scaled)).toBe("6")
+		expect(scaleIngredientQty(2, describeTaskSheetFacts({ plannedPortions: 3, preparationMinutes: null, portionYield: 4 }))).toBe("1.50")
+	})
+
+	test("porção ou rendimento sem valor positivo: quantidade da ficha, sem escala e sem rótulo", () => {
+		// Antes, a escala usava truthiness: rendimento -10 escalava a tabela (com sinal trocado)
+		// enquanto o rótulo "quantidades para N porções" não aparecia.
+		for (const input of [
+			{ plannedPortions: 120, portionYield: -10 },
+			{ plannedPortions: -5, portionYield: 10 },
+			{ plannedPortions: 0, portionYield: 10 },
+			{ plannedPortions: 120, portionYield: null },
+		]) {
+			const facts = describeTaskSheetFacts({ ...input, preparationMinutes: null })
+			expect(facts.isScaled).toBe(false)
+			expect(scaleIngredientQty(0.5, facts)).toBe("0.50")
+		}
+	})
+
+	test("sem quantidade líquida: travessão", () => {
+		expect(scaleIngredientQty(null, describeTaskSheetFacts({ plannedPortions: 1, preparationMinutes: null, portionYield: 1 }))).toBe("—")
 	})
 })

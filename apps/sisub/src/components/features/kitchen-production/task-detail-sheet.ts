@@ -36,3 +36,19 @@ export function describeTaskSheetFacts(input: {
 		isScaled: plannedPortions != null && portionYield != null,
 	}
 }
+
+function formatQty(value: number): string {
+	return value % 1 === 0 ? value.toFixed(0) : value.toFixed(2)
+}
+
+/**
+ * Quantidade líquida do ingrediente para as porções planejadas:
+ * net_quantity × (planned_portions / portion_yield). Escala pelo MESMO predicado do rótulo
+ * "quantidades para N porções" (`isScaled`): com truthiness à parte, um valor negativo escalava
+ * a tabela sem o rótulo dizer.
+ */
+export function scaleIngredientQty(netQty: number | null, facts: Pick<TaskSheetFacts, "isScaled" | "plannedPortions" | "portionYield">): string {
+	if (netQty == null) return "—"
+	if (!facts.isScaled || facts.plannedPortions == null || facts.portionYield == null) return formatQty(netQty)
+	return formatQty(netQty * (facts.plannedPortions / facts.portionYield))
+}
