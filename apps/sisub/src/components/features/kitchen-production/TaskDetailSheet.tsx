@@ -10,6 +10,7 @@ import { ProductionRecordSection } from "./ProductionRecordSection"
 import { RecipeStepsChecklist } from "./RecipeStepsChecklist"
 import { ShiftAdjustmentsSection } from "./ShiftAdjustmentsSection"
 import { SnackRequestTag } from "./SnackRequestTag"
+import { describeTaskSheetFacts } from "./task-detail-sheet"
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -127,6 +128,7 @@ function TaskSheetHeader({
 	portionYield: number | null
 }) {
 	const { task, menuItem, mealType } = item
+	const facts = describeTaskSheetFacts({ plannedPortions, preparationMinutes: recipe?.preparation_time_minutes, portionYield })
 	return (
 		<SheetHeader className="border-b border-border">
 			<div className="flex flex-wrap items-center gap-2 mb-1">
@@ -142,24 +144,24 @@ function TaskSheetHeader({
 				</div>
 			)}
 			<SheetTitle className="text-lg leading-snug">{recipe?.name ?? menuItem.recipe_origin?.name ?? "Preparação"}</SheetTitle>
-			{(plannedPortions || recipe?.preparation_time_minutes) && (
+			{facts.hasDescription && (
 				<SheetDescription className="flex flex-wrap items-center gap-3 mt-1">
-					{plannedPortions && (
+					{facts.plannedPortions != null && (
 						<span className="flex items-center gap-1">
 							<Utensils className="size-3.5" />
-							{plannedPortions} porções planejadas
+							{facts.plannedPortions} porções planejadas
 						</span>
 					)}
-					{recipe?.preparation_time_minutes && (
+					{facts.preparationMinutes != null && (
 						<span className="flex items-center gap-1">
 							<Timer className="size-3.5" />
-							{recipe.preparation_time_minutes} min
+							{facts.preparationMinutes} min
 						</span>
 					)}
-					{portionYield && (
+					{facts.portionYield != null && (
 						<span className="flex items-center gap-1 text-muted-foreground">
 							<ChefHat className="size-3.5" />
-							rendimento base: {portionYield} porções
+							rendimento base: {facts.portionYield} porções
 						</span>
 					)}
 				</SheetDescription>
@@ -205,12 +207,13 @@ function IngredientsSection({
 	if (!(recipe?.ingredients && recipe.ingredients.length > 0)) {
 		return <div className="p-4 text-sm text-muted-foreground italic">Nenhum ingrediente cadastrado para esta receita.</div>
 	}
+	const facts = describeTaskSheetFacts({ plannedPortions, preparationMinutes: null, portionYield })
 	return (
 		<div className="p-4 space-y-2">
 			<h3 className="text-subheading text-foreground flex items-center gap-2">
 				<Utensils className="size-4 text-muted-foreground" />
 				Ingredientes
-				{plannedPortions && portionYield && <span className="text-hint text-muted-foreground">(quantidades para {plannedPortions} porções)</span>}
+				{facts.isScaled && <span className="text-hint text-muted-foreground">(quantidades para {facts.plannedPortions} porções)</span>}
 			</h3>
 			<div className="rounded-md border border-border overflow-hidden">
 				<Table>

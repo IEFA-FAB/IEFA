@@ -111,3 +111,24 @@ export function formatMunicipalityLabel(municipio: string, estado: string | null
 export function formatCapacityLabel(capacity: number, unitName: string | null): string {
 	return `${NUM.format(capacity)} ${unitName ?? ""}`
 }
+
+/**
+ * Id estável de cada linha da pesquisa, para a seleção da tabela.
+ *
+ * O id era `compra-item-ÍNDICE`, com o índice da lista JÁ recortada pela janela de recência:
+ * mudar a janela deslocava os índices, e a seleção guardada passava a apontar para outras linhas
+ * (ou voltava fantasma ao reabrir a janela). Aqui o id vem do registro (`idCompra`-`idItemCompra`)
+ * e é calculado sobre a lista INTEIRA; o mesmo item de compra repetido (um por fornecedor, por
+ * exemplo) ganha `#2`, `#3` na ordem em que chegou, o que não muda com a janela.
+ */
+export function buildPriceRowIds(results: readonly ComprasMaterialPriceResult[]): Map<ComprasMaterialPriceResult, string> {
+	const ids = new Map<ComprasMaterialPriceResult, string>()
+	const seen = new Map<string, number>()
+	for (const result of results) {
+		const base = `${result.idCompra}-${result.idItemCompra}`
+		const occurrence = (seen.get(base) ?? 0) + 1
+		seen.set(base, occurrence)
+		ids.set(result, occurrence === 1 ? base : `${base}#${occurrence}`)
+	}
+	return ids
+}

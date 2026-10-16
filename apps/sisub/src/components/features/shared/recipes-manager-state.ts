@@ -12,7 +12,11 @@ export function pickEmptyRecipesHint(filters: { onlyNotReviewed: boolean; onlyWe
 export function describeSelectVisible(visibleRecipeCount: number): { ariaLabel: string; countSuffix: string } {
 	return {
 		ariaLabel:
-			visibleRecipeCount === 0 ? "Nenhuma preparação visível — expanda uma pasta para selecionar" : `Selecionar as ${visibleRecipeCount} preparações visíveis`,
+			visibleRecipeCount === 0
+				? "Nenhuma preparação visível — expanda uma pasta para selecionar"
+				: visibleRecipeCount === 1
+					? "Selecionar a preparação visível"
+					: `Selecionar as ${visibleRecipeCount} preparações visíveis`,
 		countSuffix: visibleRecipeCount > 0 ? ` (${visibleRecipeCount})` : "",
 	}
 }

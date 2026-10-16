@@ -3,6 +3,7 @@ import { describe, expect, test } from "vitest"
 import type { ComprasMaterialPriceResult } from "@/types/domain/price-research"
 import {
 	BRL,
+	buildPriceRowIds,
 	computeVirtualPadding,
 	formatCapacityLabel,
 	formatDate,
@@ -215,5 +216,31 @@ describe("formatCapacityLabel", () => {
 	})
 	test("`??` preserva string vazia", () => {
 		expect(formatCapacityLabel(0, "")).toBe("0,00 ")
+	})
+})
+
+describe("buildPriceRowIds", () => {
+	const row = (idCompra: string, idItemCompra: number, dataResultado: string | null) =>
+		({ idCompra, idItemCompra, dataResultado, dataCompra: null }) as ComprasMaterialPriceResult
+
+	test("id do registro, sem índice: recortar a lista (janela de recência) não muda o id de quem fica", () => {
+		const old = row("C1", 1, "2020-01-01")
+		const recent = row("C2", 3, "2026-09-01")
+		const all = [old, recent]
+		const ids = buildPriceRowIds(all)
+		expect(ids.get(recent)).toBe("C2-3")
+		// Antes o id era `compra-item-índice` sobre a lista recortada: "C2-3-1" com a janela
+		// aberta e "C2-3-0" com ela fechada, e a seleção apontava para outra linha.
+		const scoped = all.filter((r) => r.dataResultado?.startsWith("2026"))
+		expect(scoped.map((r) => ids.get(r))).toEqual(["C2-3"])
+	})
+
+	test("o mesmo item de compra repetido ganha sufixo pela ordem de chegada, sem colidir", () => {
+		const a = row("C1", 1, null)
+		const b = row("C1", 1, null)
+		const c = row("C1", 2, null)
+		const ids = buildPriceRowIds([a, b, c])
+		expect([ids.get(a), ids.get(b), ids.get(c)]).toEqual(["C1-1", "C1-1#2", "C1-2"])
+		expect(new Set(ids.values()).size).toBe(3)
 	})
 })
