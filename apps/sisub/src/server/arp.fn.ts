@@ -18,6 +18,7 @@ import { type LocalCommitment, resolveSaldoOficial } from "@/lib/arp-balance"
 import { loadLocalCommitments } from "@/lib/arp-commitments.server"
 import { type ArpSaldo, assertVigenciaWindow, formatNumeroAta, parseBrDate, pickArpHeader, resolveArpSaldos } from "@/lib/arp-compras"
 import {
+	type ArpExecution,
 	buildImportedArpItemRow,
 	buildImportedArpRow,
 	buildManualArpItemRow,
@@ -27,10 +28,12 @@ import {
 	describeKeptStaleItems,
 	formatNumeroAtaFromInput,
 	hasDuplicateItemNumbers,
+	hasItemProportion,
 	indexArpItemsByNumero,
 	indexQuantityEstimateItemsByCatmat,
 	listStaleArpItemIds,
 	planArpItemReconciliation,
+	readItemTotalsByEmpenho,
 	resolveArpLinks,
 	splitDeletableArpItems,
 } from "@/lib/arp-import"
@@ -46,6 +49,7 @@ import {
 	insertPreparedEmpenho,
 	prepareEmpenhoRegistration,
 } from "@/lib/empenho-registration.server"
+import { readAllPagesByKey } from "@/lib/read-all-pages"
 import { getFinanceClient, getProcurementClient } from "@/lib/supabase.server"
 import { requireUnitScope } from "@/lib/unit-auth.server"
 import { cancelEmpenhoSerialized, toEmpenhoEventError } from "@/server/empenho-events.server"
@@ -796,6 +800,7 @@ export const listUnitArpsFn = createServerFn({ method: "GET" })
 /**
  * Empenhos que cobrem um item da ARP — pelo item da NE (NE com vários itens aparece em cada um),
  * com a quantidade, o preço e o valor dos itens da NE que apontam para ESTE item da ARP.
+ * `execution_incomplete`: NE ativa cujos itens somam zero, sem proporção para repartir a execução.
  *
  * @throws {Error} on Supabase query failure.
  */
@@ -805,13 +810,18 @@ export const fetchEmpenhosFn = createServerFn({ method: "GET" })
 		await requireAuth()
 		await requireUnitScope(1, await resolveArpItemUnit(getProcurementClient(), data.arpItemId))
 		const fin = getFinanceClient()
-		const { data: items, error: itemsError } = await fin
-			.from("empenho_item")
-			.select("empenho_id, quantity, unit_price, value")
-			.eq("arp_item_id", data.arpItemId)
-		if (itemsError) throw new Error(`Erro ao buscar itens de empenho: ${publicDbMessage(itemsError)}`)
+		// Por keyset: o valor deste item da ARP em cada NE é soma de dinheiro (corte de 1000 linhas).
+		const items = await readAllPagesByKey(
+			"os itens de empenho",
+			(after: string | null, pageSize) => {
+				let query = fin.from("empenho_item").select("id, empenho_id, quantity, unit_price, value").eq("arp_item_id", data.arpItemId)
+				if (after !== null) query = query.gt("id", after)
+				return query.order("id").limit(pageSize)
+			},
+			(row) => row.id
+		)
 		const byEmpenho = new Map<string, EmpenhoItemAmounts[]>()
-		for (const item of items ?? []) byEmpenho.set(item.empenho_id, [...(byEmpenho.get(item.empenho_id) ?? []), item])
+		for (const item of items) byEmpenho.set(item.empenho_id, [...(byEmpenho.get(item.empenho_id) ?? []), item])
 		if (byEmpenho.size === 0) return []
 
 		const { data: empenhos, error } = await fin
@@ -821,10 +831,21 @@ export const fetchEmpenhosFn = createServerFn({ method: "GET" })
 			.order("data_empenho", { ascending: false })
 
 		if (error) throw new Error(`Erro ao buscar empenhos: ${publicDbMessage(error)}`)
+
+		// Todos os itens das NEs ativas (não só os deste item da ARP): é a soma deles que dá a
+		// proporção da execução. A mesma regra de `computeArpExecutionByItem`.
+		const activeIds = (empenhos ?? []).filter((empenho) => empenho.status === "ativo").map((empenho) => empenho.id)
+		const itemsTotalByEmpenho = await readItemTotalsByEmpenho(activeIds, (chunk, after, pageSize) => {
+			let query = fin.from("empenho_item").select("id, empenho_id, value").in("empenho_id", chunk)
+			if (after !== null) query = query.gt("id", after)
+			return query.order("id").limit(pageSize)
+		})
+
 		return (empenhos ?? []).map((empenho) => ({
 			...empenho,
 			valor_total: Number(empenho.valor_total),
 			...summarizeArpItemShare(byEmpenho.get(empenho.id) ?? [], Number(empenho.valor_total)),
+			execution_incomplete: empenho.status === "ativo" && !hasItemProportion(itemsTotalByEmpenho.get(empenho.id)),
 		}))
 	})
 
@@ -916,11 +937,12 @@ export const fetchArpLocalCommitmentsFn = createServerFn({ method: "GET" })
  * Execução orçamentária por item de ARP: vigente/liquidado/pago/a liquidar dos
  * empenhos locais, lidos da view única finance.v_empenho_saldo (a mesma que a
  * tela de Empenhos usa). Grandeza LOCAL — não se confunde com o snapshot
- * oficial da ARP.
+ * oficial da ARP. NE ativa cujos itens somam zero não se reparte: sai em `incompleteEmpenhoIds`,
+ * para a tela avisar que o dado daquele empenho está incompleto.
  */
 export const fetchArpExecutionFn = createServerFn({ method: "GET" })
 	.validator(z.object({ arpId: z.uuid() }))
-	.handler(async ({ data }): Promise<Record<string, { liquidado: number; pago: number; aLiquidar: number }>> => {
+	.handler(async ({ data }): Promise<ArpExecution> => {
 		await requireAuth()
 		const supabase = getProcurementClient()
 		await requireUnitScope(1, await resolveArpUnit(supabase, data.arpId))
@@ -928,7 +950,7 @@ export const fetchArpExecutionFn = createServerFn({ method: "GET" })
 		const { data: items, error: itemsError } = await supabase.from("arp_item").select("id").eq("arp_id", data.arpId)
 		if (itemsError) throw new Error(`Erro ao carregar os itens da ARP: ${publicDbMessage(itemsError)}`)
 		const itemIds = (items ?? []).map((item) => item.id)
-		if (itemIds.length === 0) return {}
+		if (itemIds.length === 0) return { byItem: {}, incompleteEmpenhoIds: [] }
 
 		// Pelos itens da NE. A liquidação é da NE inteira; numa NE com vários itens ela se reparte
 		// entre eles na proporção do valor de cada item — é leitura de acompanhamento, não lançamento.
@@ -936,7 +958,7 @@ export const fetchArpExecutionFn = createServerFn({ method: "GET" })
 		const { data: arpNeItems, error: arpNeError } = await financeClient.from("empenho_item").select("empenho_id, arp_item_id, value").in("arp_item_id", itemIds)
 		if (arpNeError) throw new Error(`Erro ao buscar itens de empenho: ${publicDbMessage(arpNeError)}`)
 		const empenhoIds = [...new Set((arpNeItems ?? []).map((row) => row.empenho_id))]
-		if (empenhoIds.length === 0) return {}
+		if (empenhoIds.length === 0) return { byItem: {}, incompleteEmpenhoIds: [] }
 
 		const [{ data: active, error: activeError }, { data: allItems, error: allItemsError }, { data: saldos, error: saldoError }] = await Promise.all([
 			financeClient.from("empenho").select("id").in("id", empenhoIds).eq("status", "ativo"),

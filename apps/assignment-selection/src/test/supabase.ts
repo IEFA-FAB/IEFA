@@ -1,4 +1,5 @@
 import type { Database } from "@iefa/database"
+import { createTimeoutFetch, SERVER_AUTH_OPTIONS } from "@iefa/supabase-kit"
 import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 import { describe } from "vitest"
 
@@ -12,21 +13,6 @@ const integrationRequired = process.env.ASSIGNMENT_SELECTION_INTEGRATION_REQUIRE
 export const describeIntegration = integrationEnabled ? describe : describe.skip
 
 const REQUEST_TIMEOUT_MS = 8_000
-
-function timeoutFetch(timeoutMs: number): typeof fetch {
-	return (async (input, init = {}) => {
-		const controller = new AbortController()
-		const timer = setTimeout(() => controller.abort(new Error(`Supabase test request timed out after ${timeoutMs}ms`)), timeoutMs)
-		// Preserva um AbortSignal do caller (ex.: cancelamento do supabase-js): o
-		// primeiro a abortar (timeout ou caller) vence, em vez de sobrescrever o dele.
-		const signal = init.signal ? AbortSignal.any([controller.signal, init.signal]) : controller.signal
-		try {
-			return await fetch(input, { ...init, signal })
-		} finally {
-			clearTimeout(timer)
-		}
-	}) as typeof fetch
-}
 
 export interface TestEnv {
 	url: string
@@ -63,8 +49,8 @@ type Client = SupabaseClient<Database, "assignment_selection">
 export function createServiceClient(env: TestEnv): Client {
 	return createClient<Database, "assignment_selection">(env.url, env.serviceRoleKey, {
 		db: { schema: "assignment_selection" },
-		auth: { persistSession: false },
-		global: { fetch: timeoutFetch(REQUEST_TIMEOUT_MS) },
+		auth: SERVER_AUTH_OPTIONS,
+		global: { fetch: createTimeoutFetch(REQUEST_TIMEOUT_MS) },
 	})
 }
 
@@ -72,7 +58,7 @@ export function createServiceClient(env: TestEnv): Client {
 export function createAnonClient(env: TestEnv): Client {
 	return createClient<Database, "assignment_selection">(env.url, env.anonKey, {
 		db: { schema: "assignment_selection" },
-		auth: { persistSession: false },
-		global: { fetch: timeoutFetch(REQUEST_TIMEOUT_MS) },
+		auth: SERVER_AUTH_OPTIONS,
+		global: { fetch: createTimeoutFetch(REQUEST_TIMEOUT_MS) },
 	})
 }

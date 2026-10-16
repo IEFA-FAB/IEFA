@@ -1,3 +1,4 @@
+import { roundToCents } from "@iefa/sisub-domain/money"
 import type { ProcurementNeed } from "@iefa/sisub-domain/types"
 import { AlertTriangle, MoreHorizontal, Package, Pencil, TrendingUp } from "lucide-react"
 import { useState } from "react"
@@ -199,7 +200,7 @@ export function QuantityEstimateItemsTable({ data, isLoading, onPesquisarPreco, 
 													{item.unit_price !== null ? BRL.format(item.unit_price) : <span className="text-muted-foreground">—</span>}
 												</TableCell>
 												<TableCell className="text-right tabular-nums text-subheading">
-													{item.unit_price !== null ? BRL.format(qty * item.unit_price) : <span className="text-muted-foreground">—</span>}
+													{item.unit_price !== null ? BRL.format(roundToCents(qty * item.unit_price)) : <span className="text-muted-foreground">—</span>}
 												</TableCell>
 												{onPesquisarPreco && (
 													<TableCell className="w-10 p-1">

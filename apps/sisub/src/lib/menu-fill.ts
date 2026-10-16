@@ -128,6 +128,24 @@ export function countHeadcountTargets(meals: readonly MealHeadcountDraft[], plan
 	return count
 }
 
+/**
+ * Quantitativo por faixa de dias (seg–qui, sexta, fim de semana): cada faixa leva o próprio
+ * número a cada refeição. As faixas não se sobrepõem — dia repetido valeria a última.
+ */
+export type HeadcountPlanByDays = readonly { days: readonly number[]; plan: HeadcountPlan }[]
+
+/** `applyHeadcountToMeals` faixa a faixa. */
+export function applyHeadcountByDays(meals: readonly MealHeadcountDraft[], plans: HeadcountPlanByDays, overwrite = false): MealHeadcountDraft[] {
+	let result: readonly MealHeadcountDraft[] = meals
+	for (const { days, plan } of plans) result = applyHeadcountToMeals(result, plan, { days, overwrite })
+	return [...result]
+}
+
+/** Soma de `countHeadcountTargets` das faixas — disjuntas, então nenhum (dia + refeição) conta duas vezes. */
+export function countHeadcountByDays(meals: readonly MealHeadcountDraft[], plans: HeadcountPlanByDays, overwrite = false): number {
+	return plans.reduce((total, { days, plan }) => total + countHeadcountTargets(meals, plan, { days, overwrite }), 0)
+}
+
 /** Define (ou limpa, com `null`) o pax dos itens selecionados. */
 export function setItemHeadcount<T extends MenuDraftItem>(items: readonly T[], keys: ReadonlySet<string>, headcount: number | null): T[] {
 	return items.map((item) => (keys.has(menuItemKey(item)) ? { ...item, headcount_override: headcount } : item))

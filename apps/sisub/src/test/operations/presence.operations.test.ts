@@ -5,7 +5,7 @@
  */
 
 import type { SisubDb } from "@iefa/database/drizzle/sisub"
-import { deletePresence, insertPresence, listArranchamentoMap, listPresences } from "@iefa/sisub-domain"
+import { deletePresence, findMealPresenceMessHall, insertPresence, listArranchamentoMap, listPresences } from "@iefa/sisub-domain"
 import { afterAll, afterEach, beforeAll, beforeEach, expect, test } from "vitest"
 import { type AnyClient, fullAccessCtx, makeSeeder, type Seeder, setupIntegration, uid } from "@/test/operations-fixtures"
 import { createSisubTestDb, describeSupabaseIntegration, getSisubDatabaseUrl } from "@/test/supabase"
@@ -96,5 +96,24 @@ describeSupabaseIntegration("presence operations (regressão)", () => {
 
 		const after = await listPresences(db, { date, meal, messHallId })
 		expect(after.map((r) => r.user_id)).not.toContain(userId)
+	})
+
+	test("a unicidade ignora o refeitório: duplicata em outro refeitório e findMealPresenceMessHall diz qual", async () => {
+		if (!reachable || !seeder || !db) return
+		const userId = await seeder.seedAuthUser()
+		const hallA = await seeder.seedMessHall()
+		const hallB = await seeder.seedMessHall()
+		const date = "2099-10-04"
+		const meal = "janta"
+		seeder.trackWhere("meal_presences", "user_id", userId)
+
+		await insertPresence(db, ctx, { user_id: userId, date, meal, messHallId: hallA.id })
+		await expect(insertPresence(db, ctx, { user_id: userId, date, meal, messHallId: hallB.id })).rejects.toMatchObject({ code: "23505" })
+
+		expect(await findMealPresenceMessHall(db, { userId, date, meal })).toEqual({
+			messHallId: hallA.id,
+			messHallName: expect.stringContaining("[TEST] Refeitório"),
+		})
+		expect(await findMealPresenceMessHall(db, { userId, date, meal: "ceia" })).toBeNull()
 	})
 })

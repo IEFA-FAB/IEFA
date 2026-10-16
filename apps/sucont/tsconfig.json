@@ -1,7 +1,6 @@
 {
   "extends": "@iefa/tsconfig/react-app.json",
   "include": ["**/*.ts", "**/*.tsx"],
-  "exclude": ["old"],
   "compilerOptions": {
     "paths": {
       "#/*": ["./src/*"],

@@ -15,7 +15,7 @@
  * exclusão que não aconteceu.
  */
 
-import { ALPHA_BASE_URL, alphaRequest } from "./client"
+import { alphaAuthHeader, alphaPath, alphaRequest, alphaUrl } from "./client"
 
 /** Resposta do α a uma pergunta — `buildResponse` do lado de lá. */
 export interface ChatAnswer {
@@ -28,6 +28,30 @@ export interface ChatAnswer {
 	termination_reason?: string
 	intent?: string
 	retrieval_iterations?: number
+}
+
+/**
+ * Id do α: sessão (`uuid()` em `POST /api/v1/sessions`) e chunk (`document_chunk.id`) são UUID.
+ *
+ * Os dois chegam por canal que não é nosso: o `session_id` do localStorage e o id de chunk de
+ * `cited_documents`, que é saída do modelo. Fora do formato, o valor é descartado onde entra,
+ * antes de virar chamada autenticada; o `alphaPath` fica como segunda barreira.
+ */
+const ALPHA_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+export function isAlphaId(value: unknown): value is string {
+	return typeof value === "string" && ALPHA_ID.test(value)
+}
+
+/** Os ids citados que têm formato de chunk; o resto (lixo, `..`, id adulterado) sai. */
+export function citedChunkIds(ids: unknown): string[] {
+	return Array.isArray(ids) ? ids.filter(isAlphaId) : []
+}
+
+/** Evento `complete` do stream, com os ids citados já filtrados. */
+export function parseCompleteEvent(data: string): ChatAnswer {
+	const answer = JSON.parse(data) as ChatAnswer
+	return { ...answer, cited_documents: citedChunkIds(answer.cited_documents) }
 }
 
 interface SessionCreated {
@@ -65,7 +89,7 @@ export interface ChunkDetail {
 }
 
 export async function fetchChunk(token: string, chunkId: string): Promise<ChunkDetail> {
-	return await alphaRequest<ChunkDetail>(`/api/v1/chunks/${chunkId}`, token)
+	return await alphaRequest<ChunkDetail>(alphaPath`/api/v1/chunks/${chunkId}`, token)
 }
 
 /** Quando não há nome de documento no dado. Declara a ausência em vez de supor a origem. */
@@ -141,15 +165,16 @@ export async function createChatSession(token: string): Promise<string> {
 }
 
 export async function fetchSessionMessages(token: string, sessionId: string): Promise<MessagesList["messages"]> {
-	const data = await alphaRequest<MessagesList>(`/api/v1/sessions/${sessionId}/messages`, token)
-	return data.messages
+	const data = await alphaRequest<MessagesList>(alphaPath`/api/v1/sessions/${sessionId}/messages`, token)
+	return data.messages.map((m) => ({ ...m, cited_documents: citedChunkIds(m.cited_documents) }))
 }
 
 export async function sendMessage(token: string, sessionId: string, message: string): Promise<ChatAnswer> {
-	return await alphaRequest<ChatAnswer>(`/api/v1/sessions/${sessionId}/messages`, token, {
+	const answer = await alphaRequest<ChatAnswer>(alphaPath`/api/v1/sessions/${sessionId}/messages`, token, {
 		method: "POST",
 		body: JSON.stringify({ message }),
 	})
+	return { ...answer, cited_documents: citedChunkIds(answer.cited_documents) }
 }
 
 /**
@@ -159,9 +184,9 @@ export async function sendMessage(token: string, sessionId: string, message: str
  * faz `.json()` e serviria só depois do fim, que é justamente o que o stream evita.
  */
 export async function openMessageStream(token: string, sessionId: string, message: string, signal?: AbortSignal): Promise<Response> {
-	const response = await fetch(`${ALPHA_BASE_URL}/api/v1/sessions/${sessionId}/messages/stream`, {
+	const response = await fetch(alphaUrl(alphaPath`/api/v1/sessions/${sessionId}/messages/stream`), {
 		method: "POST",
-		headers: { "Content-Type": "application/json", Accept: "text/event-stream", Authorization: `Bearer ${token}` },
+		headers: { "Content-Type": "application/json", Accept: "text/event-stream", ...alphaAuthHeader(token) },
 		body: JSON.stringify({ message }),
 		signal,
 	})

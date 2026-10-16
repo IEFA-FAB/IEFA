@@ -5,6 +5,7 @@ import type { CSSProperties } from "react"
 import type { FinancialRecord, TimeFilter } from "../types"
 import { AccountGroup, type RiskLevel } from "../types"
 import { toShortDate } from "./dataProcessor"
+import { computeNetDifference } from "./net-difference"
 
 export type HierarchyLevel = "ODS" | "ORGAO" | "UG"
 
@@ -14,7 +15,6 @@ export type AggregatedItem = {
 	siafi: number
 	siloms: number
 	diff: number
-	netDiff: number
 	orgaoSuperior: string
 	ods: string
 	riskLevel?: RiskLevel
@@ -38,7 +38,6 @@ function addRecordToItem(found: AggregatedItem, curr: FinancialRecord) {
 	found.siafi += curr.siafiValue || 0
 	found.siloms += curr.silomsValue || 0
 	found.diff += curr.difference || 0
-	found.netDiff += curr.silomsValue - curr.siafiValue
 
 	if (curr.group === AccountGroup.BMP) found.bmpDiff += curr.difference || 0
 	if (curr.group === AccountGroup.CONSUMO) found.consumoDiff += curr.difference || 0
@@ -52,7 +51,6 @@ function createAggregatedItem(key: string, curr: FinancialRecord): AggregatedIte
 		siafi: curr.siafiValue || 0,
 		siloms: curr.silomsValue || 0,
 		diff: curr.difference || 0,
-		netDiff: curr.silomsValue - curr.siafiValue || 0,
 		orgaoSuperior: curr.orgaoSuperior,
 		ods: curr.ods,
 		riskLevel: curr.riskLevel,
@@ -69,16 +67,16 @@ export function aggregateComparisonData(data: FinancialRecord[], hierarchyFilter
 	// Invariante por chamada: era recalculado a cada registro dentro do reduce.
 	const isSpecificUnitSelected = hierarchyFilter && hierarchyFilter.length === 1 && hierarchyFilter[0] !== "TODOS"
 
-	const agg = data
-		.reduce((acc, curr) => {
-			const key = resolveAggregationKey(curr, isSpecificUnitSelected, hierarchyLevel)
-
-			const found = acc.find((item) => item.name === key)
-			if (found) addRecordToItem(found, curr)
-			else acc.push(createAggregatedItem(key, curr))
-			return acc
-		}, [] as AggregatedItem[])
-		.filter((item) => item.diff > 0)
+	// Map por chave: o `acc.find` linear fazia O(registros × chaves) a cada troca de filtro.
+	// A ordem de inserção do Map é a mesma do array que ele substitui.
+	const byKey = new Map<string, AggregatedItem>()
+	for (const curr of data) {
+		const key = resolveAggregationKey(curr, isSpecificUnitSelected, hierarchyLevel)
+		const found = byKey.get(key)
+		if (found) addRecordToItem(found, curr)
+		else byKey.set(key, createAggregatedItem(key, curr))
+	}
+	const agg = [...byKey.values()].filter((item) => item.diff > 0)
 
 	agg.sort((a, b) => b.diff - a.diff)
 
@@ -95,6 +93,16 @@ export function aggregateComparisonData(data: FinancialRecord[], hierarchyFilter
 
 	return { aggregated: agg, paretoData: pareto, totalAbsDiff: total }
 }
+
+/**
+ * Diferença líquida do conjunto (SILOMS − SIAFI, ver `net-difference.ts`), derivada das
+ * colunas somadas em vez de acumulada em paralelo.
+ */
+export const computeTotalNetDifference = (items: Pick<AggregatedItem, "siafi" | "siloms">[]): number =>
+	computeNetDifference(
+		items.reduce((sum, item) => sum + item.siafi, 0),
+		items.reduce((sum, item) => sum + item.siloms, 0)
+	)
 
 export type EvolutionViewMode = "total" | "overlap" | "icc" | "comparison"
 
@@ -114,27 +122,32 @@ export type TimeSeriesItem = {
 	currentYearLabel?: string
 }
 
+/**
+ * Soma por competência. Saldo ausente conta 0 como em `aggregateComparisonData`; na
+ * produção `safeNum`/`normalizeData` já zeram antes, isto só mantém os agregadores coerentes.
+ */
 function groupTimeSeriesByDate(data: FinancialRecord[]) {
-	return data.reduce((acc, curr) => {
-		const found = acc.find((item) => item.date === curr.date)
+	const byDate = new Map<string, TimeSeriesItem>()
+	for (const curr of data) {
+		const found = byDate.get(curr.date)
 		if (found) {
-			found.totalDiff += curr.difference
-			found.totalSiafi += curr.siafiValue
-			found.totalSiloms += curr.silomsValue
+			found.totalDiff += curr.difference || 0
+			found.totalSiafi += curr.siafiValue || 0
+			found.totalSiloms += curr.silomsValue || 0
 		} else {
-			acc.push({
+			byDate.set(curr.date, {
 				date: curr.date,
 				year: curr.year,
 				monthIndex: curr.monthIndex,
-				totalDiff: curr.difference,
-				totalSiafi: curr.siafiValue,
-				totalSiloms: curr.silomsValue,
+				totalDiff: curr.difference || 0,
+				totalSiafi: curr.siafiValue || 0,
+				totalSiloms: curr.silomsValue || 0,
 				timestamp: curr.year * 100 + curr.monthIndex,
 				axisLabel: toShortDate(curr.date),
 			})
 		}
-		return acc
-	}, [] as TimeSeriesItem[])
+	}
+	return [...byDate.values()]
 }
 
 /** Mantém só as competências a um múltiplo do passo do escopo, contadas para trás da âncora. */

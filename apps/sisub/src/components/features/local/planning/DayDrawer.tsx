@@ -1,7 +1,8 @@
 import { format } from "date-fns"
 import { CalendarPlus, ClipboardPaste, Copy, Loader2, Plus, RefreshCcw, Users } from "lucide-react"
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { SnackDayPanel } from "@/components/features/local/planning/SnackDayPanel"
+import { RecipeLinkScope } from "@/components/features/shared/RecipeLink"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import {
 	AlertDialog,
@@ -363,7 +364,6 @@ export function DayDrawer({ date, kitchenId, onClose, open }: DayDrawerProps) {
 					kitchenId={kitchenId}
 					selectedRecipeIds={[]}
 					onSelect={async (recipeIds) => {
-						"use no memo"
 						const menu = recipeSelectorMenu
 						setRecipeSelectorMenu(null)
 						if (!menu || recipeIds.length === 0) return
@@ -435,6 +435,7 @@ function MealMenuItems({
 	onSubstitute,
 	onReplaceRecipe,
 	onDelete,
+	kitchenId,
 }: {
 	menuItems: DailyMenuWithItems["menu_items"] | null | undefined
 	groups: readonly MenuGroup[]
@@ -442,31 +443,36 @@ function MealMenuItems({
 	onSubstitute: (item: MenuItem) => void
 	onReplaceRecipe: (item: MenuItem) => void
 	onDelete: (itemId: string, recipeName: string) => void
+	/** Cozinha do dia: o nome da preparação abre a ficha pela tela da cozinha. */
+	kitchenId: number
 }) {
+	const linkScope = useMemo(() => ({ scope: "kitchen" as const, kitchenId }), [kitchenId])
 	if (!menuItems || menuItems.length === 0) {
 		return <div className="border border-dashed rounded-md p-4 text-center text-sm text-muted-foreground">Nenhuma preparação adicionada.</div>
 	}
 	return (
-		<div className="space-y-3">
-			{groupMenuItems(menuItems, groups).map((group) => (
-				<div key={group.key} className="space-y-2">
-					<p className="text-xs uppercase tracking-wide text-muted-foreground/80">{group.label}</p>
-					<div className="grid gap-2">
-						{group.items.map((item) => (
-							<MenuItemCard
-								key={item.id}
-								item={item}
-								onSubstitute={onSubstitute}
-								onReplaceRecipe={onReplaceRecipe}
-								onDelete={onDelete}
-								groups={groups}
-								outdated={item.recipe_origin_id ? outdatedById.get(item.recipe_origin_id) : undefined}
-							/>
-						))}
+		<RecipeLinkScope scope={linkScope}>
+			<div className="space-y-3">
+				{groupMenuItems(menuItems, groups).map((group) => (
+					<div key={group.key} className="space-y-2">
+						<p className="text-xs uppercase tracking-wide text-muted-foreground/80">{group.label}</p>
+						<div className="grid gap-2">
+							{group.items.map((item) => (
+								<MenuItemCard
+									key={item.id}
+									item={item}
+									onSubstitute={onSubstitute}
+									onReplaceRecipe={onReplaceRecipe}
+									onDelete={onDelete}
+									groups={groups}
+									outdated={item.recipe_origin_id ? outdatedById.get(item.recipe_origin_id) : undefined}
+								/>
+							))}
+						</div>
 					</div>
-				</div>
-			))}
-		</div>
+				))}
+			</div>
+		</RecipeLinkScope>
 	)
 }
 
@@ -617,6 +623,7 @@ function MealSection({
 								onSubstitute={onSubstitute}
 								onReplaceRecipe={onReplaceRecipe}
 								onDelete={onDelete}
+								kitchenId={kitchenId}
 							/>
 
 							<Button

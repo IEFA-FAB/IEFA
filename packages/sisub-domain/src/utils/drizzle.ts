@@ -95,6 +95,11 @@ export interface RunQueryOptions {
 	prefix?: string
 	/** Inclui o `.code` do erro Postgres entre colchetes (ex.: "[23505]") — útil em violações de constraint. */
 	includeCode?: boolean
+	/**
+	 * Tradução de um erro do banco num `DomainError` específico (ex.: o token de um `RAISE`).
+	 * Devolver `undefined` cai no tratamento padrão (`code` + `prefix`).
+	 */
+	mapError?: (e: unknown) => DomainError | undefined
 }
 
 /**
@@ -160,6 +165,8 @@ export async function runQuery<T>(code: string, op: () => Promise<T>, opts?: Run
 		return await op()
 	} catch (e) {
 		if (e instanceof DomainError) throw e
+		const mapped = opts?.mapError?.(e)
+		if (mapped) throw mapped
 		if (!opts?.prefix) throw new QueryFailedError(code, describeDriverError(e), GENERIC_DB_ERROR_MESSAGE, e)
 		// Com prefixo o código fica no lugar documentado — `"<prefix> [<pgcode>]: …"` —
 		// e só quando `includeCode` pede. Daí o `withCode: false`: quem escolhe é o opts.
@@ -168,6 +175,91 @@ export async function runQuery<T>(code: string, op: () => Promise<T>, opts?: Run
 		// O prefixo é texto de negócio escrito aqui no código — é o que o cliente lê. O resto
 		// (SQL, parâmetros, motivo do driver) fica no log.
 		throw new QueryFailedError(code, `${opts.prefix}${codeSeg}: ${describeDriverError(e, false)}`, `${opts.prefix}${codeSeg}`, e)
+	}
+}
+
+/**
+ * Códigos de falha de CONEXÃO: a query não chegou ao banco, ou a resposta não voltou.
+ *
+ * - postgres-js: `CONNECT_TIMEOUT` (o `connect_timeout` do `db.server.ts`, 5 s em produção) e
+ *   `CONNECTION_*` (socket fechado, pool encerrado pelo reset do `postgres-pool.ts`; o handle
+ *   estável já aponta para o pool novo).
+ * - Node: socket derrubado no caminho até o pooler.
+ * - SQLSTATE classe 08 (connection exception) e 57P01–57P03 (servidor reiniciando).
+ *
+ * Fora, de propósito: `QUERY_DEADLINE` (45 s; repetir estoura os 60 s do ALB), `57014`
+ * (`statement_timeout`: a query rodou e foi lenta, repetir dobra a carga) e qualquer erro de
+ * dado ou permissão. `CONNECTION_ENDED`/`CONNECTION_DESTROYED` também chegam à query que
+ * esperava atrás de uma conexão travada quando o reset por prazo derruba o pool; esse caso não
+ * repete pelo orçamento de tempo de {@link retryOnceOnTransientConnectionError}, não pelo código.
+ */
+const TRANSIENT_CONNECTION_CODES: ReadonlySet<string> = new Set([
+	"CONNECT_TIMEOUT",
+	"CONNECTION_CLOSED",
+	"CONNECTION_ENDED",
+	"CONNECTION_DESTROYED",
+	"ECONNRESET",
+	"ECONNREFUSED",
+	"EPIPE",
+	"ETIMEDOUT",
+	"57P01",
+	"57P02",
+	"57P03",
+])
+
+/** SQLSTATE da classe 08: exatamente 5 caracteres. Só o prefixo `08` aceitaria código de outra origem. */
+const CONNECTION_EXCEPTION_SQLSTATE = /^08[0-9A-Z]{3}$/
+
+/** A falha foi de conexão (ver {@link TRANSIENT_CONNECTION_CODES}), não do que a query pediu? */
+export function isTransientConnectionError(e: unknown): boolean {
+	const code = unwrapPgError(e).code
+	if (!code) return false
+	return TRANSIENT_CONNECTION_CODES.has(code) || CONNECTION_EXCEPTION_SQLSTATE.test(code)
+}
+
+/**
+ * Orçamento da 1ª tentativa para valer a 2ª. A 2ª tem teto próprio no `QUERY_DEADLINE` (45 s
+ * do `postgres-pool.ts`): 10 s + 45 s cabe nos 60 s do ALB. Uma 1ª tentativa mais longa que
+ * isso não foi "soluço": ou esperou atrás de uma conexão travada até o reset do pool (e caiu
+ * com `CONNECTION_ENDED`/`CONNECTION_DESTROYED`), ou o banco está lento, e repetir só leva o
+ * request ao 504 com a escrita ainda podendo ser aplicada depois.
+ */
+const TRANSIENT_RETRY_BUDGET_MS = 10_000
+
+interface TransientRetryOptions {
+	/** Nome da operação no log da falha descartada (ex.: "arranchamento.upsert"). Sem dado do usuário. */
+	label: string
+	/** Ver {@link TRANSIENT_RETRY_BUDGET_MS}. */
+	budgetMs?: number
+	/** Relógio injetável (teste). */
+	now?: () => number
+}
+
+/**
+ * Roda `op` e, se falhar por conexão ({@link isTransientConnectionError}) dentro do orçamento
+ * de tempo, repete UMA vez. A 1ª falha vai para o log antes da 2ª tentativa (só código e texto
+ * do driver, sem SQL nem parâmetros), para queda recorrente de conexão aparecer no
+ * monitoramento mesmo quando a 2ª dá certo, e para não sumir quando a 2ª falha por outro motivo.
+ *
+ * - Só para leitura ou escrita idempotente (upsert por chave única, delete por chave): o
+ *   statement pode ter sido aplicado antes de a conexão cair.
+ * - **Não use com handle de transação** (`tx` de `db.transaction`): depois da queda a
+ *   transação está perdida, e repetir na mesma `tx` só troca o erro original por um
+ *   `CONNECTION_*` ou `25P02`. Para repetir uma transação, envolva o `db.transaction` inteiro.
+ */
+export async function retryOnceOnTransientConnectionError<T>(op: () => Promise<T>, opts: TransientRetryOptions): Promise<T> {
+	const { label, budgetMs = TRANSIENT_RETRY_BUDGET_MS, now = Date.now } = opts
+	const startedAt = now()
+	try {
+		return await op()
+	} catch (e) {
+		if (!isTransientConnectionError(e)) throw e
+		const elapsedMs = now() - startedAt
+		if (elapsedMs >= budgetMs) throw e
+		const pg = unwrapPgError(e)
+		// biome-ignore lint/suspicious/noConsole: sinal operacional — é o único rastro da queda quando a 2ª tentativa dá certo
+		console.warn(`[db] ${label}: falha de conexão em ${elapsedMs} ms (${pg.code}: ${pg.message ?? ""}); repetindo uma vez`)
+		return await op()
 	}
 }
 

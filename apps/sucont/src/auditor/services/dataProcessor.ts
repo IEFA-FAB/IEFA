@@ -14,6 +14,41 @@ import {
 import { UG_MAPPING } from "../ugMapping"
 
 // --- RISK CLASSIFICATION ---
+/*
+ * Origem dos parâmetros do índice de risco: PARÂMETROS SEM FONTE, A CALIBRAR.
+ *
+ * - Peso 70/30 (impacto × probabilidade) e os cortes 25/50/75 do risco e 20/40/60/80 do
+ *   impacto: vêm do upstream, commit debf6d33 "feat: Add risk assessment
+ *   and classification to data" (2026-03-11), gerado no AI Studio
+ *   (https://github.com/lsantosnels/SIAFI-x-SILOMS-Auditor/commit/debf6d33166f2dfcebf2f1533e8916a8248482e2).
+ *   O commit não cita norma, matriz de risco institucional nem critério; README, issues
+ *   e o histórico de prompts do repositório (migrated_prompt_history, até 2025-12-12)
+ *   não falam do índice. O próprio comentário de lá diz "Score = Impact × Probability"
+ *   e o código soma ponderado: nem a fórmula tem intenção registrada.
+ * - Faixas da probabilidade (0.1/0.3/0.6/0.85 da janela): do port, PR #207 (e228bca3).
+ *   Upstream cortava em meses absolutos de 12 (≤1, ≤3, ≤6, ≤9); o port passou a fração
+ *   da janela carregada e arredondou os cortes para cima (1/12≈0.08, 3/12=0.25,
+ *   6/12=0.5, 9/12=0.75). O único critério registrado é empírico: no relatório real de
+ *   32 competências, o eixo voltou a separar os cinco níveis.
+ *
+ * Posição no recorte (`rankPosition`): ordena os valores das n chaves (UG, grupo) e usa
+ * `(índice da ÚLTIMA ocorrência do valor + 1) / n × 100`; o nível sai dos cortes acima
+ * (≤25, ≤50, ≤75, resto no risco; ≤20, ≤40, ≤60, ≤80, resto no impacto). É posição
+ * relativa, não limiar de materialidade: o mesmo valor muda de nível conforme as outras
+ * UGs do arquivo. Calibrar com a SUCONT-4 antes de usar o nível como critério de cobrança.
+ *
+ * Decisão do mantenedor no PR #639: até ali a posição era `índice da PRIMEIRA ocorrência
+ * / n`, que deixava a maior chave em (n−1)/n (sem CRÍTICO com n ≤ 4, sem CATASTRÓFICO com
+ * n ≤ 5) e jogava empates no nível mais baixo do grupo. Agora a maior chave chega a 100
+ * e empate fica no nível da última ocorrência.
+ *
+ * Conta sem competência divergente (dentro da tolerância de centavos) fica no piso,
+ * BAIXO e INSIGNIFICANTE. Sem isso, com a posição nova, as contas conciliadas empatadas
+ * em zero subiam juntas: num recorte de três contas com uma só divergente, as duas
+ * conciliadas iam a ALTO, o defeito 1 do README (conta zerada classificada pelo risco de
+ * outra) por outro caminho. Elas continuam no denominador n, como antes: com muitas
+ * contas conciliadas, as divergentes se concentram nos níveis de cima.
+ */
 /**
  * Chave da estatística de risco.
  *
@@ -63,16 +98,20 @@ export const applyRiskClassification = (data: FinancialRecord[]): FinancialRecor
 	const scores = Object.entries(stats).map(([key, s]) => {
 		const impactScore = (s.maxDiff / absoluteMaxDiff) * 100
 		const probabilityScore = (s.months.size / periodCount) * 100
+		// Parâmetro sem fonte, a calibrar (origem no bloco acima de `riskKey`).
 		const finalScore = impactScore * 0.7 + probabilityScore * 0.3
 		return { key, score: finalScore, maxDiff: s.maxDiff, months: s.months.size }
 	})
 
 	const sortedScores = [...scores].map((s) => s.score).sort((a, b) => a - b)
 
+	/** Posição (0–100] do valor na lista ordenada: última ocorrência, para empate não rebaixar. */
+	const rankPosition = (sorted: number[], value: number) => ((sorted.lastIndexOf(value) + 1) / sorted.length) * 100
+
 	const getRiskLevelFromScore = (score: number): RiskLevel => {
 		if (sortedScores.length === 0) return RiskLevel.BAIXO
-		const index = sortedScores.findIndex((s) => s >= score)
-		const percentile = (index / sortedScores.length) * 100
+		const percentile = rankPosition(sortedScores, score)
+		// Parâmetro sem fonte, a calibrar (origem no bloco acima de `riskKey`).
 		if (percentile <= 25) return RiskLevel.BAIXO
 		if (percentile <= 50) return RiskLevel.MEDIO
 		if (percentile <= 75) return RiskLevel.ALTO
@@ -81,8 +120,8 @@ export const applyRiskClassification = (data: FinancialRecord[]): FinancialRecor
 
 	const sortedMaxDiffs = [...allMaxDiffs].sort((a, b) => a - b)
 	const getImpactLevel = (val: number): ImpactLevel => {
-		const index = sortedMaxDiffs.findIndex((v) => v >= val)
-		const p = (index / sortedMaxDiffs.length) * 100
+		const p = rankPosition(sortedMaxDiffs, val)
+		// Parâmetro sem fonte, a calibrar (origem no bloco acima de `riskKey`).
 		if (p <= 20) return ImpactLevel.INSIGNIFICANTE
 		if (p <= 40) return ImpactLevel.MENOR
 		if (p <= 60) return ImpactLevel.MODERADO
@@ -93,6 +132,7 @@ export const applyRiskClassification = (data: FinancialRecord[]): FinancialRecor
 	/** Fração das competências carregadas em que a conta divergiu — não contagem absoluta. */
 	const getProbabilityLevel = (months: number): ProbabilityLevel => {
 		const ratio = months / periodCount
+		// Parâmetro sem fonte, a calibrar (origem no bloco acima de `riskKey`).
 		if (ratio <= 0.1) return ProbabilityLevel.RARO
 		if (ratio <= 0.3) return ProbabilityLevel.OCASIONAL
 		if (ratio <= 0.6) return ProbabilityLevel.RECORRENTE
@@ -102,7 +142,7 @@ export const applyRiskClassification = (data: FinancialRecord[]): FinancialRecor
 
 	const riskByKey: Record<string, RiskLevel> = {}
 	scores.forEach((s) => {
-		riskByKey[s.key] = getRiskLevelFromScore(s.score)
+		riskByKey[s.key] = s.months === 0 ? RiskLevel.BAIXO : getRiskLevelFromScore(s.score)
 	})
 
 	return data.map((record) => {
@@ -110,7 +150,7 @@ export const applyRiskClassification = (data: FinancialRecord[]): FinancialRecor
 		const s = stats[key]
 		return {
 			...record,
-			impactLevel: getImpactLevel(s.maxDiff),
+			impactLevel: s.months.size === 0 ? ImpactLevel.INSIGNIFICANTE : getImpactLevel(s.maxDiff),
 			probabilityLevel: getProbabilityLevel(s.months.size),
 			riskLevel: riskByKey[key],
 			monthsWithDivergence: s.months.size,

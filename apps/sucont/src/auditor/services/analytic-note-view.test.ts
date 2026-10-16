@@ -22,7 +22,7 @@ import {
 import { formatCurrency as brl } from "./dataProcessor"
 import type { ReportDataset } from "./report"
 
-const totals = { siafi: 1000, siloms: 800, absoluteDifference: 250, netDifference: 200 }
+const totals = { siafi: 1000, siloms: 800, absoluteDifference: 250, netDifference: -200 }
 
 const dataset = (overrides: Partial<ReportDataset> = {}): ReportDataset => ({
 	competence: "2025-07",
@@ -78,7 +78,7 @@ describe("buildPreviewRows", () => {
 			["Unidades Gestoras", "12"],
 			["Registros (UG × grupo)", "30"],
 			["Divergência total", brl(250)],
-			["Diferença líquida", brl(200)],
+			["Diferença líquida (SILOMS − SIAFI)", brl(-200)],
 			["Competência anterior", "JUN/25"],
 		])
 	})
@@ -94,7 +94,7 @@ describe("buildSummaryRows", () => {
 			["Saldo total SIAFI", brl(1000)],
 			["Saldo total SILOMS", brl(800)],
 			["Divergência total (soma dos módulos)", brl(250)],
-			["Diferença líquida (SIAFI − SILOMS)", brl(200)],
+			["Diferença líquida (SILOMS − SIAFI)", brl(-200)],
 			["Unidades Gestoras analisadas", "12"],
 			["Preponderância", "SIAFI maior em 5 · SILOMS maior em 4 · equilibrados 3"],
 			["Competência anterior (JUN/25)", brl(99)],

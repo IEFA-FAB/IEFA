@@ -16,6 +16,21 @@ import {
 } from "@/server/arp.fn"
 import type { ArpWithItems, ComprasArpPage, CreateEmpenhoPayload } from "@/types/domain/arp"
 
+// ─── Invalidação depois de mexer em NE ────────────────────────────────────────
+
+/**
+ * O painel da ARP lê das NEs o comprometimento local, a lista de empenhos por item e o aviso de
+ * execução incompleta. NE criada, anulada, com evento ou vinda do SIAFI em OUTRA tela muda esses
+ * dados: quem grava invalida os prefixos `["arp"]` e `["empenho"]`, e o painel relê ao abrir.
+ */
+export function useInvalidateArpEmpenhoViews() {
+	const queryClient = useQueryClient()
+	return () => {
+		queryClient.invalidateQueries({ queryKey: queryKeys.quantityEstimate.arpAll })
+		queryClient.invalidateQueries({ queryKey: queryKeys.quantityEstimate.empenhosAll })
+	}
+}
+
 // ─── Query: ARP vinculada ao anexo quantitativo ──────────────────────────────
 
 export function useArpForQuantityEstimate(quantityEstimateId: string | null) {

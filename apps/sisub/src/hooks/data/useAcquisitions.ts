@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "@/components/ui/toast"
 import { useAssuredMutation } from "@/hooks/auth/useAssuredMutation"
+import { useInvalidateArpEmpenhoViews } from "@/hooks/data/useArp"
 import { isElevationCancelled } from "@/lib/assurance/assurance-error"
 import { queryKeys } from "@/lib/query-keys"
 import {
@@ -147,10 +148,12 @@ export function useImportArpForAcquisition(unitId: number) {
 /** NE com itens. `"session"` no registro de garantia. */
 export function useCreateEmpenhoWithItems(unitId: number) {
 	const invalidate = useInvalidateAcquisitions(unitId)
+	const invalidateArpViews = useInvalidateArpEmpenhoViews()
 	return useAssuredMutation({
 		mutationFn: (data: CreateEmpenhoWithItemsInput) => createEmpenhoWithItemsFn({ data }),
 		onSuccess: (result) => {
 			invalidate()
+			invalidateArpViews()
 			toast.success(
 				`NE ${result.numeroEmpenho} registrada${result.relinked > 0 ? ` — ${result.relinked} documento(s) do SIAFI que esperavam por ela foram religados` : ""}`
 			)
@@ -168,10 +171,12 @@ export function useCreateEmpenhoWithItems(unitId: number) {
  */
 export function useQuickRegisterEmpenho(unitId: number | null) {
 	const queryClient = useQueryClient()
+	const invalidateArpViews = useInvalidateArpEmpenhoViews()
 	return useAssuredMutation({
 		mutationFn: (data: QuickEmpenhoInput) => quickRegisterEmpenhoFn({ data }),
 		onSuccess: () => {
 			if (unitId != null) queryClient.invalidateQueries({ queryKey: queryKeys.acquisitions.all(unitId) })
+			invalidateArpViews()
 		},
 		onError: (error) => {
 			if (!isElevationCancelled(error)) toast.error(error.message)

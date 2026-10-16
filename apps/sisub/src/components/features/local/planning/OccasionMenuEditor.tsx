@@ -46,6 +46,7 @@ import { RecipeSelector } from "@/components/features/local/planning/RecipeSelec
 import { RecipeVersionBadge } from "@/components/features/local/planning/RecipeVersionUpdateDialog"
 import { SnackStandardPanel } from "@/components/features/local/planning/SnackStandardPanel"
 import type { AutoSaveState } from "@/components/features/shared/AutoSaveStatus"
+import { RecipeLinkScope } from "@/components/features/shared/RecipeLink"
 import { UnsavedChangesGuard } from "@/components/features/shared/UnsavedChangesGuard"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { toast } from "@/components/ui/toast"
@@ -527,6 +528,7 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 				{
 					id: item.recipe_id,
 					title: recipe.name ?? item.recipe_id,
+					recipeId: item.recipe_id,
 					subtitle: recipe.rational_id ?? null,
 					badge: <RecipeVersionBadge outdated={outdatedById.get(item.recipe_id)} />,
 					anchorId: menuItemKey(item),
@@ -757,37 +759,39 @@ export function OccasionMenuEditor({ templateId, templateType, editContext, list
 
 				{/* Refeições do cardápio: cada uma com a própria composição */}
 				{eventMeals.length > 0 ? (
-					<div className="space-y-3">
-						{eventMeals.map((meal, index) => {
-							const boardItems = getEventMealBoardItems(meal.id)
-							const keyOf = (recipeId: string) => menuItemKey({ day_of_week: OCCASION_DAY, meal_type_id: meal.id, recipe_id: recipeId })
-							return (
-								<EventMealCard
-									key={meal.id}
-									meal={meal}
-									mealTypeName={slotName(meal.meal_type_id)}
-									originLabel={kitchenId !== null ? originLabel(meal.source_template_id) : null}
-									items={boardItems}
-									isFirst={index === 0}
-									isLast={index === eventMeals.length - 1}
-									onEdit={() => setMealDialog({ meal, isNew: false, open: true })}
-									onRemove={() => handleRemoveEventMeal(meal)}
-									onMove={(delta) => dispatch({ type: "SET_EVENT_CONTENT", meals: moveEventMeal(eventMeals, meal.id, delta), items })}
-									onAdd={(group) => handleOpenSelector(meal.id, group)}
-									onArrange={(arrangement) => handleEventArrange(meal.id, arrangement)}
-									onHeadcountChange={(recipeId, value) => handleItemHeadcountChange(meal.id, recipeId, value)}
-									onProportionChange={(recipeId, value) => handleItemProportionChange(meal.id, recipeId, value)}
-									onBaseHeadcountChange={(value) => dispatch({ type: "SET_EVENT_CONTENT", meals: setEventMealBase(eventMeals, meal.id, value), items })}
-									onRemoveItem={(recipeId) => handleRemoveRecipe(meal.id, recipeId)}
-									selectionMode={selectionMode}
-									selectedIds={new Set(boardItems.map((b) => b.id).filter((recipeId) => selectedKeys.has(keyOf(recipeId))))}
-									onSelectChange={(recipeId, checked) => toggleSelection(keyOf(recipeId), checked)}
-									proportionMode={proportionMode}
-									allowAbsolutes={allowMealAbsolutes}
-								/>
-							)
-						})}
-					</div>
+					<RecipeLinkScope scope={editContext}>
+						<div className="space-y-3">
+							{eventMeals.map((meal, index) => {
+								const boardItems = getEventMealBoardItems(meal.id)
+								const keyOf = (recipeId: string) => menuItemKey({ day_of_week: OCCASION_DAY, meal_type_id: meal.id, recipe_id: recipeId })
+								return (
+									<EventMealCard
+										key={meal.id}
+										meal={meal}
+										mealTypeName={slotName(meal.meal_type_id)}
+										originLabel={kitchenId !== null ? originLabel(meal.source_template_id) : null}
+										items={boardItems}
+										isFirst={index === 0}
+										isLast={index === eventMeals.length - 1}
+										onEdit={() => setMealDialog({ meal, isNew: false, open: true })}
+										onRemove={() => handleRemoveEventMeal(meal)}
+										onMove={(delta) => dispatch({ type: "SET_EVENT_CONTENT", meals: moveEventMeal(eventMeals, meal.id, delta), items })}
+										onAdd={(group) => handleOpenSelector(meal.id, group)}
+										onArrange={(arrangement) => handleEventArrange(meal.id, arrangement)}
+										onHeadcountChange={(recipeId, value) => handleItemHeadcountChange(meal.id, recipeId, value)}
+										onProportionChange={(recipeId, value) => handleItemProportionChange(meal.id, recipeId, value)}
+										onBaseHeadcountChange={(value) => dispatch({ type: "SET_EVENT_CONTENT", meals: setEventMealBase(eventMeals, meal.id, value), items })}
+										onRemoveItem={(recipeId) => handleRemoveRecipe(meal.id, recipeId)}
+										selectionMode={selectionMode}
+										selectedIds={new Set(boardItems.map((b) => b.id).filter((recipeId) => selectedKeys.has(keyOf(recipeId))))}
+										onSelectChange={(recipeId, checked) => toggleSelection(keyOf(recipeId), checked)}
+										proportionMode={proportionMode}
+										allowAbsolutes={allowMealAbsolutes}
+									/>
+								)
+							})}
+						</div>
+					</RecipeLinkScope>
 				) : (
 					<OccasionMealsEmpty copy={copy} isSupportMenu={isSupportMenu} onNewMeal={openNewMeal} />
 				)}

@@ -235,6 +235,7 @@ export const ListEquipmentIssuesSchema = z.object({
 	unitId: UuidSchema.nullish(),
 	/** Só as que ainda pesam (`open`/`in_repair`). false = histórico completo. */
 	onlyOpen: z.boolean().default(true),
+	/** Teto das ENCERRADAS. As abertas vêm todas: uma pane aberta não pode sumir da lista. */
 	limit: z.number().int().positive().max(500).default(100),
 })
 export type ListEquipmentIssues = z.infer<typeof ListEquipmentIssuesSchema>

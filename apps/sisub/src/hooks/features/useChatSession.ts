@@ -3,6 +3,7 @@ import { fetchServerSentEvents, useChat } from "@tanstack/ai-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useChatMessages, useCreateChatSession, useSaveChatMessage, useUpdateMessageChartType } from "@/hooks/data/useAnalyticsChatHistory"
 import { useLatest } from "@/hooks/ui/useLatest"
+import { persistAssistantReply } from "@/lib/chat-persistence"
 import type { ChartSpec, ChartType, ChatMessage } from "@/types/domain/analytics-chat"
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -105,26 +106,14 @@ export function useChatSession({ sessionId, onSessionCreated }: UseChatSessionOp
 
 			// Persist assistant message. Await the session promise in case it is still
 			// pending (first message of a new session creates the session concurrently).
-			void sessionPromiseRef.current
-				?.then(async (sid) => {
-					const doSave = async (attempt = 0): Promise<void> => {
-						try {
-							await saveMessageRef.current.mutateAsync({
-								sessionId: sid,
-								role: "assistant",
-								content,
-								chart,
-							})
-						} catch {
-							if (attempt < 3) {
-								await new Promise<void>((r) => setTimeout(r, 1000 * 2 ** attempt))
-								return doSave(attempt + 1)
-							}
-						}
-					}
-					await doSave()
+			persistAssistantReply(sessionPromiseRef.current, (sessionId) =>
+				saveMessageRef.current.mutateAsync({
+					sessionId,
+					role: "assistant",
+					content,
+					chart,
 				})
-				.catch((_err: unknown) => {})
+			)
 		},
 		[saveMessageRef]
 	)

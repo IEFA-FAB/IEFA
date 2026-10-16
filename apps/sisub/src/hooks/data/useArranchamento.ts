@@ -354,11 +354,6 @@ export const useArranchamento = (): ArranchamentoHook => {
 					setPendingChanges((prev) =>
 						prev.filter((c) => !okChanges.some((s) => s.date === c.date && s.meal === c.meal && s.value === c.value && s.messHallId === c.messHallId))
 					)
-					fail.forEach((r) => {
-						if (r.status === "fulfilled") {
-						} else {
-						}
-					})
 				} else {
 					const msg = fail
 						.map((r) => (r.status === "fulfilled" ? (r.value as { error?: string }).error : (r.reason?.message as string) || "Erro desconhecido"))

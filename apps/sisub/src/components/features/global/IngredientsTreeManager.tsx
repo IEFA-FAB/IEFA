@@ -92,13 +92,14 @@ const DEFAULT_QUICK_FILTERS: string[] = [...QUICK_CATEGORY_KEYS]
 const KNOWN_QUICK_FILTERS = new Set(QUICK_FILTER_CHIPS.map((c) => c.key))
 
 export function IngredientsTreeManager({ ref, catalog = "exclude" }: { ref?: Ref<IngredientsTreeManagerHandle>; catalog?: IngredientsTreeScope }) {
+	// Fora do compiler: useVirtualizer devolve objeto mutável de identidade estável (a lista memoizada congelaria no scroll) e navigateRef é gravado no render.
+	"use no memo"
 	// global:1 navega o catálogo inteiro; edição, exclusão e ações em massa somem.
 	const canWrite = useGlobalWrite()
 	const ui = SCOPE_UI[catalog]
 	const persistKey = ui.persistKey
 	const scrollKey = `${persistKey}:scroll`
 	const quickFilterChips = catalog === "only" ? AUXILIARY_QUICK_FILTER_CHIPS : QUICK_FILTER_CHIPS
-	;("use no memo")
 	const navigate = useNavigate()
 	const navigateRef = useRef(navigate)
 	navigateRef.current = navigate

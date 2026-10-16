@@ -251,13 +251,35 @@ export function toolErr(error: string): ToolHandlerResult {
 	return { success: false, error }
 }
 
+/** Erro de transporte lançado (deadline do kit, abort, rede): a resposta do banco não chegou. */
+const TRANSPORT_FAILURE_PATTERN = /timed out|AbortError|TimeoutError|fetch failed|ECONNRESET|ECONNREFUSED|socket hang up/i
+
+/**
+ * A resposta do PostgREST não chegou, então não se sabe se a escrita aconteceu. Toda resposta do
+ * PostgREST traz `code` (PGRST…/SQLSTATE); o supabase-js devolve `code: ""` quando o fetch falha
+ * (deadline de 10 s do `@iefa/supabase-kit`, rede) e nenhum `code` quando o corpo não é JSON
+ * (502/504 do gateway). Nos dois casos o banco pode ter comitado.
+ */
+export function isUncertainDbOutcome(error: { message?: string; code?: string } | Error): boolean {
+	if (error instanceof Error) return TRANSPORT_FAILURE_PATTERN.test(`${error.name}: ${error.message}`)
+	return !error.code
+}
+
 /**
  * Sanitize DB errors to avoid exposing internal details to the LLM.
+ *
+ * Sem resposta do banco, a mensagem NÃO manda tentar de novo: numa escrita não idempotente
+ * (`add_menu_item`, `create_recipe`), o insert pode ter comitado depois do deadline, e repetir
+ * duplicaria o item. O modelo é instruído a reler antes; a repetição ainda passaria por outro
+ * cartão de aprovação, mas quem aprova não teria como saber que a primeira gravou.
  */
 export function sanitizeDbError(error: { message?: string; code?: string } | Error, context: string): string {
 	const msg = error instanceof Error ? error.message : (error.message ?? "Erro desconhecido")
 	// biome-ignore lint/suspicious/noConsole: server-side error logging
 	console.error(`[module-chat:${context}]`, msg)
+	if (isUncertainDbOutcome(error)) {
+		return `O banco não respondeu a tempo em ${context}. Se era uma gravação, ela PODE ter sido concluída: consulte o estado atual e informe o usuário antes de repetir.`
+	}
 	return `Erro ao executar ${context}. Tente novamente.`
 }
 

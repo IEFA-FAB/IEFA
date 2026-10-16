@@ -9,7 +9,7 @@
 
 import { toBrasiliaCivilDate } from "../utils/civil-date.ts"
 import { empenhoEventSign } from "./empenho-events.ts"
-import { roundToCents } from "./liquidacao-math.ts"
+import { roundToCents } from "./money.ts"
 
 export interface BudgetCreditSnapshot {
 	/** Crédito recebido pela UG na classificação (NC de provisão/destaque); a UG executora não tem dotação. */

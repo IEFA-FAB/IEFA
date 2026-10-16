@@ -173,6 +173,16 @@ describe("somatório da dispensa (art. 75, § 1º)", () => {
 		expect(dispensaValue({ estimatedValue: null, committedValue: 0 })).toBeNull()
 	})
 
+	test("somatório e saldo fecham o meio-centavo para longe do zero", () => {
+		// 10.000,005 × 100 = 1.000.000,4999… em binário: o arredondamento antigo devolvia 10.000,00
+		const sum = computeDispensaSum({ candidate: entry("c", { estimatedValue: 10_000.005 }), others: [], limit })
+		expect(sum?.total).toBe(10_000.01)
+		const over = computeDispensaSum({ candidate: entry("c", { estimatedValue: 65_492.115 }), others: [], limit })
+		// o limite (65.492,11) menos 65.492,12: o saldo negativo também é simétrico
+		expect(over?.total).toBe(65_492.12)
+		expect(over?.remaining).toBe(-0.01)
+	})
+
 	test("ramo de serviço compara a descrição sem caixa nem espaço", () => {
 		expect(normalizeActivityLine("  Manutenção de   Câmara Fria ")).toBe("manutenção de câmara fria")
 		const sum = computeDispensaSum({
