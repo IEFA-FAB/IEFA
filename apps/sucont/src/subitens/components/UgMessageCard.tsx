@@ -5,6 +5,7 @@ import { EditableMessage } from "#/components/editable-message"
 import { Badge } from "#/components/ui/badge"
 import type { MessageDraft } from "#/hooks/use-editable-message"
 import { CopyMessageButton } from "#/subitens/components/CopyMessageButton"
+import { GenericKindCounts } from "#/subitens/components/GenericKindCounts"
 import { MessageCardControls } from "#/subitens/components/MessageCardControls"
 import type { MessageConfig, UgGroup } from "#/subitens/types"
 import { formatUgName, getConferente } from "#/subitens/ug"
@@ -48,8 +49,9 @@ export function UgMessageCard({ group, idx, ugConfig, draft, isCopied, onCopy, o
 							<span className="text-muted-foreground">Ocorrências</span>
 							<span className="font-mono font-bold text-foreground">{group.occurrences.length}</span>
 						</div>
+						<GenericKindCounts occurrences={group.occurrences} />
 						<div className="flex justify-between items-center text-body">
-							<span className="text-muted-foreground">Total em 99/999</span>
+							<span className="text-muted-foreground">Saldo total</span>
 							<span className="font-mono font-bold text-action">
 								{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(group.totalSaldo)}
 							</span>

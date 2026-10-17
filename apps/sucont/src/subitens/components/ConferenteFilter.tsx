@@ -12,7 +12,7 @@ interface ConferenteFilterProps {
 
 export function ConferenteFilter({ allConferentes, selectedConferente, onSelectedConferenteChange }: ConferenteFilterProps) {
 	return (
-		<div className="mb-8 flex flex-col gap-2">
+		<div className="flex flex-col gap-2">
 			<Label htmlFor="conferente-filter">Filtrar por conferente</Label>
 			<div className="flex items-center gap-2">
 				<Select items={{ all: "Todos os conferentes" }} value={selectedConferente} onValueChange={(v) => onSelectedConferenteChange(v ?? "all")}>

@@ -21,6 +21,13 @@ export function AIAssistant({ dataContext }: AIAssistantProps) {
 			JSON.stringify({
 				totalInconsistencias: dataContext.totalInconsistencias,
 				totalVolume: dataContext.totalVolume,
+				// Subitem 99 × favorecido 999 (c/c 002), que não é subitem. As chaves seguem as
+				// vizinhas, em português: são dado para o modelo, não identificador de código.
+				tiposDeCodigo: {
+					filtroAtivo: dataContext.genericCodeFilter,
+					contagemPorTipoAntesDoFiltro: dataContext.conferenteKindSummary,
+					nota: "Contagem e saldo por tipo são do recorte do conferente, antes do filtro de tipo. Ocorrência com os dois códigos conta nos dois tipos: a soma dos tipos pode passar do total, e os demais números deste contexto já estão no filtro ativo.",
+				},
 				odsList: dataContext.odsList,
 				orgaoSuperiorList: dataContext.orgaoSuperiorList,
 				// biome-ignore lint/suspicious/noExplicitAny: dynamic data shape from parent
