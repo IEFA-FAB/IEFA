@@ -32,7 +32,7 @@ export function AssuranceElevationProvider({ children }: { children: ReactNode }
 	const prompt = useSyncExternalStore(controller.subscribe, controller.getPrompt, () => null)
 
 	// Sem `useMemo`: o compilador do React cuida da estabilidade deste objeto, e memoização à
-	// mão em código compilado é ruído (o app roda `babel-plugin-react-compiler`).
+	// mão em código compilado é ruído (o app roda o React Compiler).
 	const value: AssuranceElevationContextValue = { requestElevation: (next) => controller.request(next) }
 
 	return (

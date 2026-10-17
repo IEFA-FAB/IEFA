@@ -88,7 +88,6 @@
     "@grafana/faro-rollup-plugin": "^0.12.0",
     "@iefa/tsconfig": "workspace:*",
     "@playwright/test": "^1.64.0",
-    "@rolldown/plugin-babel": "^0.2.4",
     "@tanstack/devtools-vite": "^0.8.5",
     "@tanstack/react-devtools": "^0.10.13",
     "@tanstack/react-query-devtools": "^5.104.1",
@@ -97,7 +96,7 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
-    "babel-plugin-react-compiler": "^1.0.0",
+    "oxc-transform-react": "^0.152.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.4",
     "vitest": "^5.0.3"

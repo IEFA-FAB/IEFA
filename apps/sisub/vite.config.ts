@@ -1,13 +1,12 @@
 import faroUploader from "@grafana/faro-rollup-plugin"
-import babel from "@rolldown/plugin-babel"
 import tailwindcss from "@tailwindcss/vite"
 import { devtools } from "@tanstack/devtools-vite"
 import { tanstackStart } from "@tanstack/react-start/plugin/vite"
-import react, { reactCompilerPreset } from "@vitejs/plugin-react"
+import react from "@vitejs/plugin-react"
 import { nitro } from "nitro/vite"
 import { defineConfig, loadEnv } from "vite"
 
-export default defineConfig(async ({ mode, isSsrBuild }) => {
+export default defineConfig(({ mode, isSsrBuild }) => {
 	// Source map upload do Faro — habilitado só quando FARO_SOURCEMAP_API_KEY existe
 	// (vem do shell/CI ou do .env). Sem a key: não gera nem envia maps; o build não
 	// quebra e as stacks no Grafana ficam ofuscadas (mesmo princípio opcional do resto).
@@ -80,8 +79,7 @@ export default defineConfig(async ({ mode, isSsrBuild }) => {
 				},
 			}),
 
-			react(),
-			(await babel({ presets: [reactCompilerPreset()] })) as unknown as import("vite").Plugin,
+			react({ compiler: true }),
 			// Gera bundleId + faz upload das sourcemaps do browser para o Faro (stacks
 			// desofuscadas no Grafana). keepSourcemaps:false → maps apagados após upload,
 			// nunca servidos ao cliente. Só ativo quando há API key (e fora do build SSR).

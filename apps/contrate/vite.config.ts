@@ -1,8 +1,7 @@
-import babel from "@rolldown/plugin-babel"
 import tailwindcss from "@tailwindcss/vite"
 import { devtools } from "@tanstack/devtools-vite"
 import { tanstackStart } from "@tanstack/react-start/plugin/vite"
-import react, { reactCompilerPreset } from "@vitejs/plugin-react"
+import react from "@vitejs/plugin-react"
 import { nitro } from "nitro/vite"
 import { defineConfig } from "vite"
 
@@ -55,8 +54,7 @@ export default defineConfig(() => ({
 				"/fonts/**": { headers: { "cache-control": "public, max-age=31536000, immutable" } },
 			},
 		}),
-		react(),
-		babel({ presets: [reactCompilerPreset()] }),
+		react({ compiler: true }),
 		// Rolldown names the combined CSS bundle entry after the entry point (e.g. "index.css"),
 		// not "style.css" as TanStack Start's manifest plugin expects. Rename it before the
 		// enforce:"post" generateBundle hook from @tanstack/start-plugin-core runs.
