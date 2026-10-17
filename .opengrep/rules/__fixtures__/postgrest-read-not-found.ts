@@ -65,3 +65,54 @@ export async function viaHelper(id: string) {
 		notFound: "Não encontrado",
 	})
 }
+
+declare function fail(message: string, status: number): never
+
+export async function capitalized(id: string) {
+	const { data: row, error } = await inv.from("t").select("id").eq("id", id).maybeSingle()
+	// ruleid: postgrest-read-error-as-not-found
+	if (error || !row) throw new Error("Não encontrado")
+	return row
+}
+
+export async function reversed(id: string) {
+	const { data: row, error: readErr } = await inv.from("t").select("id").eq("id", id).maybeSingle()
+	// ruleid: postgrest-read-error-as-not-found
+	if (!row || readErr) fail("Usuário não encontrado.", 404)
+	return row
+}
+
+export async function ternarySeparates(id: string) {
+	const { data: row, error } = await inv.from("t").select("id").eq("id", id).maybeSingle()
+	// ok: postgrest-read-error-as-not-found
+	if (error || !row) throw new Error(error ? publicDbMessage(error) : "Receita não encontrada")
+	return row
+}
+
+export function guardWithoutDatabase(kitchenId: string | null, menu: Row | null) {
+	// ok: postgrest-read-error-as-not-found
+	if (!kitchenId || !menu) throw new Error("Cardápio não encontrado")
+	return menu
+}
+
+export async function honestMessage(id: string) {
+	const { data: row, error } = await inv.from("t").select("id").eq("id", id).maybeSingle()
+	// ok: postgrest-read-error-as-not-found
+	if (error || !row) throw new Error("Receita não encontrada ou erro ao carregar")
+	return row
+}
+
+export async function commentInside(id: string) {
+	const { data: doc, error } = await inv.from("t").select("id").eq("id", id).single()
+	if (error || !doc) {
+		// ok: postgrest-read-error-as-not-found
+		// antes dizia "não encontrado"; agora traz o motivo do banco
+		throw new Error(`Erro ao criar: ${publicDbMessage(error)}`)
+	}
+	return doc
+}
+
+export async function optionalChaining(id: string) {
+	// ruleid: postgrest-read-data-without-error
+	return (await inv.from("gs1").select("gpc_brick_code").eq("gtin", id).maybeSingle())?.data
+}
