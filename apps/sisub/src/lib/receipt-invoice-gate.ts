@@ -29,11 +29,25 @@ export function isInvoiceCancelled(invoice: Pick<InvoiceSituation, "status" | "s
 }
 
 /**
+ * NF-e recusada no sistema (`refused`). A recusa do recebimento inteiro marca a nota ANTES do
+ * recebimento (`receipt-refusal.ts`): se a segunda escrita falha, o recebimento fica aberto com a
+ * nota já recusada. Efetivar daí poria no estoque a entrega cuja nota a própria unidade recusou.
+ * É recusa por coerência documental, não trava por falta de dado: o caminho é concluir a recusa.
+ */
+export function isInvoiceRefused(invoice: Pick<InvoiceSituation, "status">): boolean {
+	return invoice.status === "refused"
+}
+
+export const REFUSED_INVOICE_MESSAGE = "A NF-e deste recebimento foi recusada. Conclua a recusa do recebimento ou peça a reabertura da NF-e"
+
+/**
  * @param invoice situação da NF-e do recebimento; `null` = recebimento sem nota (guia, avulso)
  * @param deferral motivo informado por quem efetiva com a SEFAZ indisponível
  */
 export function decideReceiptInvoice(invoice: InvoiceSituation | null, deferral: { reason: string } | null, now: number = Date.now()): ReceiptInvoiceDecision {
 	if (!invoice) return { kind: "ok" }
+	// Antes da consulta da SEFAZ e sem adiamento possível: a recusa é da própria unidade.
+	if (isInvoiceRefused(invoice)) return { kind: "refuse", message: REFUSED_INVOICE_MESSAGE }
 	const problem = invoiceSituationProblem(invoice, now)
 	if (!problem) return { kind: "ok" }
 	if (isInvoiceCancelled(invoice)) return { kind: "refuse", message: problem }

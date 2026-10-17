@@ -4,6 +4,7 @@
  * linhas da planilha do Tesouro Gerencial → relatório de divergências por UG.
  */
 
+import { parseBrazilianAmountOrZero } from "#/lib/analysis/saldo"
 import { agregarSaldos, compararPares, type LinhaSaldo, PARES, type ParDivergente } from "#/lib/compatibilidade/pares"
 import { getUg } from "#/lib/ug/registry"
 import { formatCurrency, normalizeKey } from "./format"
@@ -85,17 +86,13 @@ function isBlankCell(value: SheetRow[number]) {
 	return value === undefined || value === null || value === ""
 }
 
-function parseSaldo(saldoRaw: SheetRow[number]) {
-	let saldo = 0
-	if (typeof saldoRaw === "number") {
-		saldo = saldoRaw
-	} else if (typeof saldoRaw === "string") {
-		const cleaned = saldoRaw.replace(/\./g, "").replace(",", ".")
-		saldo = parseFloat(cleaned)
-	}
-
-	if (Number.isNaN(saldo)) saldo = 0
-	return saldo
+/**
+ * Saldo da célula pela regra compartilhada (`parseBrazilianAmount`). O que não é número
+ * conta 0, como antes: a linha entra no par e a divergência é que aponta o problema. A
+ * cópia antiga tirava todo ponto ("1500.25" virava 150025) e não lia parênteses.
+ */
+export function parseSaldo(saldoRaw: SheetRow[number]): number {
+	return parseBrazilianAmountOrZero(saldoRaw)
 }
 
 /** Linhas de dados abaixo do cabeçalho; pula as que não têm UG ou conta. */

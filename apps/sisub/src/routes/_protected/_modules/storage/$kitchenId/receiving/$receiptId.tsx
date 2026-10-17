@@ -94,7 +94,7 @@ function ReceiptDetailPage() {
 
 	async function toDefinitive() {
 		if (invoiceBlocked) {
-			if (context.invoice?.cancelled) {
+			if (context.invoice?.cancelled || context.invoice?.refused) {
 				toast.error(context.invoice.problem ?? "NF-e cancelada")
 				return
 			}
@@ -145,6 +145,7 @@ function ReceiptDetailPage() {
 						status={receipt.status}
 						awaitingDefinitive={awaitingDefinitive}
 						canRefuse={editable && canDecide}
+						isInvoiceRefused={context.invoice?.refused === true}
 						busy={busy}
 						onProvisional={toProvisional}
 						onDefinitive={toDefinitive}
@@ -163,7 +164,8 @@ function ReceiptDetailPage() {
 				/>
 			)}
 
-			{awaitingDefinitive && <InvoiceProblemAlert invoice={context.invoice} />}
+			{/* NF-e recusada com o recebimento aberto aparece já no rascunho: o próximo passo é concluir a recusa */}
+			{(awaitingDefinitive || (editable && context.invoice?.refused)) && <InvoiceProblemAlert invoice={context.invoice} canRefuse={editable && canDecide} />}
 
 			{receipt.status === "rejected" && receipt.notes && <RejectedReceiptAlert receipt={receipt} />}
 
@@ -185,7 +187,7 @@ function ReceiptDetailPage() {
 			)}
 
 			<RefuseReceiptDialog receiptId={receipt.id} open={refusing} onOpenChange={setRefusing} onDone={() => router.invalidate()} />
-			{context.invoice?.problem && !context.invoice.cancelled && (
+			{context.invoice?.problem && !context.invoice.cancelled && !context.invoice.refused && (
 				<FinalizeWithPendingCheckDialog
 					receiptId={receipt.id}
 					problem={context.invoice.problem}

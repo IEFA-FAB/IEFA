@@ -1,9 +1,9 @@
 import { COMPRAS_BASE_URL, type ComprasQuery } from "@iefa/compras-api"
+import { collectSourcePages, PRICE_RESEARCH_PAGE_SIZE, type PriceResearchSourceConsultation } from "@iefa/sisub-domain"
 import type { ComprasMaterialPrecoItem, ComprasMaterialPrecoPage } from "./types.ts"
 
 const BASE_URL = COMPRAS_BASE_URL
 const ENDPOINT = "/modulo-pesquisa-preco/1_consultarMaterial" as const
-const PAGE_SIZE = 500
 const TIMEOUT_MS = 30_000
 /**
  * Tentativas por página: 3 chamadas, com esperas de 1 s e 3 s entre elas.
@@ -28,36 +28,39 @@ const MAX_ATTEMPTS = 3
  */
 export const QUERY_BUDGET_MS = 50_000
 const MIN_ATTEMPT_MS = 1_000
-/**
- * Cap de páginas buscadas por item CATMAT.
- * 20 páginas × 500 = 10.000 registros — suficiente para qualquer análise
- * estatística e evita hammering na API pública.
- */
-const MAX_PAGES = 20
 
 export interface ConsultaPrecoParams {
+	/** Janela em meses: a coleta para quando a fonte passa do início dela. Ausente = todo o histórico. */
+	months?: number
 	estado?: string
 	codigoUasg?: string
 	codigoMunicipio?: number
 }
 
-// ─── Fetch de uma página com retry exponencial ───────────────────────────────
-
-async function fetchPaginaMaterial(catmatCode: number, params: ConsultaPrecoParams, page: number, deadline: number): Promise<ComprasMaterialPrecoPage> {
+/**
+ * Parâmetros da consulta, sem `pagina`: é o que a pesquisa grava em `source_query` para o relatório
+ * montar a URL de repetição.
+ */
+function buildQuery(catmatCode: number, params: ConsultaPrecoParams): URLSearchParams {
 	// Conferido contra o swagger: `tipo` e `codigo` são obrigatórios, e o antigo
 	// `codigoItemCatalogo=<n>` responde 404 (Resource not found).
-	const query: ComprasQuery<typeof ENDPOINT> = {
+	const query: Omit<ComprasQuery<typeof ENDPOINT>, "pagina"> = {
 		tipo: "codigoItemCatalogo",
 		codigo: String(catmatCode),
-		pagina: page,
-		tamanhoPagina: PAGE_SIZE,
+		tamanhoPagina: PRICE_RESEARCH_PAGE_SIZE,
 		dataResultado: true, // apenas compras com resultado homologado
 		...(params.estado ? { estado: params.estado } : {}),
 		...(params.codigoUasg ? { codigoUasg: params.codigoUasg } : {}),
 		...(params.codigoMunicipio ? { codigoMunicipio: params.codigoMunicipio } : {}),
 	}
+	return new URLSearchParams(Object.entries(query).map(([k, v]): [string, string] => [k, String(v)]))
+}
 
-	const qs = new URLSearchParams(Object.entries(query).map(([k, v]): [string, string] => [k, String(v)]))
+// ─── Fetch de uma página com retry exponencial ───────────────────────────────
+
+async function fetchPaginaMaterial(catmatCode: number, params: ConsultaPrecoParams, page: number, deadline: number): Promise<ComprasMaterialPrecoPage> {
+	const qs = buildQuery(catmatCode, params)
+	qs.set("pagina", String(page))
 	const url = `${BASE_URL}${ENDPOINT}?${qs}`
 
 	let lastErr: unknown = new Error(`Prazo de ${QUERY_BUDGET_MS / 1000} s da consulta à API Compras esgotado`)
@@ -86,41 +89,33 @@ async function fetchPaginaMaterial(catmatCode: number, params: ConsultaPrecoPara
 	throw lastErr
 }
 
-// ─── Fetch de todas as páginas com concorrência controlada ───────────────────
+// ─── Coleta das páginas ───────────────────────────────────────────────────────
+
+export interface MaterialPriceQueryResult {
+	items: ComprasMaterialPrecoItem[]
+	/** Hora (deste servidor, ao receber a página 1), parâmetros, totais da fonte, páginas lidas e cobertura. */
+	source: PriceResearchSourceConsultation
+}
 
 /**
- * Consulta o módulo de pesquisa de preço da API Compras.gov.br para
- * um item CATMAT e retorna TODOS os registros disponíveis (até MAX_PAGES).
- *
- * Busca as páginas restantes com concorrência de 4 workers e um intervalo
- * de cortesia de 250ms entre lotes para não sobrecarregar a API pública.
+ * Consulta o módulo de pesquisa de preço da API Compras.gov.br para um item CATMAT pela mesma
+ * regra do sisub (`collectSourcePages`): com janela, para quando a fonte (ordenada por data do
+ * resultado, decrescente) passa do início dela, conferida a última página; sem janela, lê tudo até
+ * o teto. Lotes de 4 páginas, com 250 ms de cortesia entre eles. O corte no teto volta como
+ * `coverage: "truncated"`, e quem chama não usa a amostra.
  */
 export async function consultarMaterialPrecos(
 	catmatCode: number,
 	params: ConsultaPrecoParams = {},
 	budgetMs: number = QUERY_BUDGET_MS
-): Promise<ComprasMaterialPrecoItem[]> {
+): Promise<MaterialPriceQueryResult> {
 	const deadline = Date.now() + budgetMs
-	const firstPage = await fetchPaginaMaterial(catmatCode, params, 1, deadline)
-	const items: ComprasMaterialPrecoItem[] = [...firstPage.resultado]
-
-	const totalPages = Math.min(firstPage.totalPaginas, MAX_PAGES)
-	if (totalPages <= 1) return items
-
-	// Buscar páginas restantes em lotes de 4 (cortesia à API pública)
-	const CONCURRENCY = 4
-	for (let batchStart = 2; batchStart <= totalPages; batchStart += CONCURRENCY) {
-		const batchEnd = Math.min(batchStart + CONCURRENCY - 1, totalPages)
-		const pageNums = Array.from({ length: batchEnd - batchStart + 1 }, (_, i) => batchStart + i)
-
-		const pages = await Promise.all(pageNums.map((p) => fetchPaginaMaterial(catmatCode, params, p, deadline)))
-		for (const page of pages) items.push(...page.resultado)
-
-		// Intervalo de cortesia entre lotes
-		if (batchEnd < totalPages) {
-			await new Promise((r) => setTimeout(r, 250))
-		}
-	}
-
-	return items
+	const { results, consultation } = await collectSourcePages<ComprasMaterialPrecoItem>({
+		fetchPage: async (pagina) => ({ ...(await fetchPaginaMaterial(catmatCode, params, pagina, deadline)), fetchedAt: new Date().toISOString() }),
+		query: buildQuery(catmatCode, params).toString(),
+		periodMonths: params.months ?? null,
+		concurrency: 4,
+		pauseMs: 250,
+	})
+	return { items: results, source: consultation }
 }

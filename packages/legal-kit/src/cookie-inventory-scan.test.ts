@@ -154,10 +154,40 @@ describe("formas de export e import no package", () => {
 				["apps/c/src/z.ts", 'import { other } from "@iefa/kit"'],
 				["apps/d/src/w.ts", 'import { LoadType } from "@iefa/kit"'],
 			])
-			// `other` entra por caracterização: a última declaração do módulo vai até o fim
-			// do arquivo, então engloba a lista `export { load, other }` e "cita" `load`.
-			// Erra para o lado de atribuir demais, que o inventário tolera.
-		).toEqual(["apps/a/src/x.ts", "apps/b/src/y.ts", "apps/c/src/z.ts"])
+		).toEqual(["apps/a/src/x.ts", "apps/b/src/y.ts"])
+	})
+
+	test("a lista `export { … }` não entra no trecho da declaração anterior", () => {
+		// A última declaração do módulo ia até o fim do arquivo e "citava" `load` na lista de
+		// exports; com uma declaração depois da lista, a lista ficava no trecho de `other`.
+		const files: Array<[string, string]> = [
+			[
+				"packages/kit/src/index.ts",
+				[
+					'const STORAGE_KEY = "kit_limit"',
+					"function load() {",
+					"\treturn localStorage.getItem(STORAGE_KEY)",
+					"}",
+					"export function other() {",
+					"\treturn 1",
+					"}",
+					"export { load }",
+					"export function last() {",
+					"\treturn 2",
+					"}",
+					'export * from "./redirect.ts"',
+				].join("\n"),
+			],
+			["packages/kit/src/redirect.ts", "export function safeRedirect(to: string) {\n\treturn to\n}"],
+		]
+		expect(
+			writersWith(files, [
+				["apps/a/src/x.ts", 'import { load } from "@iefa/kit"'],
+				["apps/b/src/y.ts", 'import { other } from "@iefa/kit"'],
+				["apps/c/src/z.ts", 'import { last } from "@iefa/kit"'],
+				["apps/d/src/w.ts", 'import { safeRedirect } from "@iefa/kit"'],
+			])
+		).toEqual(["apps/a/src/x.ts"])
 	})
 
 	test("import default de módulo do package propaga quando `default` chega à chave", () => {
@@ -175,9 +205,8 @@ describe("formas de export e import no package", () => {
 		).toEqual(["apps/a/src/x.ts", "apps/b/src/y.ts", "apps/c/src/z.ts"])
 	})
 
-	test("export default function entra com o nome da função, não como `default` (comportamento atual)", () => {
-		// Caracterização: o import default do app não é atribuído nesse caso. Fica registrado
-		// para a forma não mudar sem alguém ver.
+	test("export default function entra como `default`, não com o nome da função", () => {
+		// O nome da função é só local: `import { useRun }` não existe nesse módulo.
 		const files: Array<[string, string]> = [
 			LIMITER,
 			["packages/kit/src/index.ts", 'import { remaining } from "./limiter.ts"\nexport default function useRun() {\n\treturn remaining()\n}'],
@@ -187,7 +216,20 @@ describe("formas de export e import no package", () => {
 				["apps/a/src/x.ts", 'import kit from "@iefa/kit"'],
 				["apps/b/src/y.ts", 'import { useRun } from "@iefa/kit"'],
 			])
-		).toEqual(["apps/b/src/y.ts"])
+		).toEqual(["apps/a/src/x.ts"])
+	})
+
+	test("export default de um local já declarado entra como `default`", () => {
+		const files: Array<[string, string]> = [
+			LIMITER,
+			["packages/kit/src/index.ts", 'import { remaining } from "./limiter.ts"\nfunction useRun() {\n\treturn remaining()\n}\nexport default useRun'],
+		]
+		expect(
+			writersWith(files, [
+				["apps/a/src/x.ts", 'import kit from "@iefa/kit"'],
+				["apps/b/src/y.ts", 'import { useRun } from "@iefa/kit"'],
+			])
+		).toEqual(["apps/a/src/x.ts"])
 	})
 
 	test("import default de módulo sem `default` contaminado não propaga", () => {
@@ -241,6 +283,102 @@ describe("formas de export e import no package", () => {
 })
 
 describe("propagação dentro do módulo", () => {
+	test("chave solta depois de `export { … }` contamina também os exports da lista", () => {
+		// O fallback "sem unidade → todos os exports" só olhava `export function/const`: `load`,
+		// exportado por lista, ficava de fora.
+		const files: Array<[string, string]> = [
+			[
+				"packages/kit/src/index.ts",
+				["function load() {", "\treturn 1", "}", "function hidden() {", "\treturn 2", "}", "export { load }", 'localStorage.setItem("kit_loose", "1")'].join(
+					"\n"
+				),
+			],
+		]
+		expect(
+			writersWith(
+				files,
+				[
+					["apps/a/src/x.ts", 'import { load } from "@iefa/kit"'],
+					["apps/b/src/y.ts", 'import { hidden } from "@iefa/kit"'],
+				],
+				"kit_loose"
+			)
+		).toEqual(["apps/a/src/x.ts"])
+	})
+
+	test("chave solta contamina o default, seja ele declaração ou expressão", () => {
+		for (const exportDefault of ["export default function () {\n\treturn 1\n}", "export default memo(View)", "const view = 1\nexport default view"]) {
+			const files: Array<[string, string]> = [["packages/kit/src/index.ts", `${exportDefault}\nsessionStorage.removeItem("kit_loose")`]]
+			expect(writersWith(files, [["apps/a/src/x.ts", 'import kit from "@iefa/kit"']], "kit_loose")).toEqual(["apps/a/src/x.ts"])
+		}
+	})
+
+	test("export default de expressão marca `default` quando a chave está nele ou o alcança", () => {
+		const defaults = [
+			"export default memo(load)",
+			"export default () => load()",
+			"export default function () {\n\treturn load()\n}",
+			"export default load satisfies () => string | null",
+			"export default load // comentário",
+		]
+		for (const exportDefault of defaults) {
+			const files: Array<[string, string]> = [
+				[
+					"packages/kit/src/index.ts",
+					['const STORAGE_KEY = "kit_limit"', "function load() {", "\treturn localStorage.getItem(STORAGE_KEY)", "}", exportDefault].join("\n"),
+				],
+			]
+			expect(writersWith(files, [["apps/a/src/x.ts", 'import kit from "@iefa/kit"']])).toEqual(["apps/a/src/x.ts"])
+		}
+		const inline: Array<[string, string]> = [["packages/kit/src/index.ts", 'export default () => localStorage.getItem("kit_inline_default")']]
+		expect(writersWith(inline, [["apps/a/src/x.ts", 'import kit from "@iefa/kit"']], "kit_inline_default")).toEqual(["apps/a/src/x.ts"])
+	})
+
+	test("interface, type, enum, classe abstrata e chamada solta fecham o trecho da unidade anterior", () => {
+		const files: Array<[string, string]> = [
+			[
+				"packages/kit/src/index.ts",
+				[
+					'const STORAGE_KEY = "kit_limit"',
+					"function load() {",
+					"\treturn localStorage.getItem(STORAGE_KEY)",
+					"}",
+					"export function a() {",
+					"\treturn 1",
+					"}",
+					"interface Uses {",
+					"\tf: typeof load",
+					"}",
+					"export function b() {",
+					"\treturn 2",
+					"}",
+					"type AlsoUses = ReturnType<typeof load>",
+					"export function c() {",
+					"\treturn 3",
+					"}",
+					"register(load)",
+					"export enum Mode {",
+					"\tA = 1,",
+					"}",
+					"export abstract class Store {",
+					"\tread() {",
+					"\t\treturn load()",
+					"\t}",
+					"}",
+				].join("\n"),
+			],
+		]
+		expect(
+			writersWith(files, [
+				["apps/a/src/x.ts", 'import { a } from "@iefa/kit"'],
+				["apps/b/src/y.ts", 'import { b } from "@iefa/kit"'],
+				["apps/c/src/z.ts", 'import { c } from "@iefa/kit"'],
+				["apps/d/src/w.ts", 'import { Mode } from "@iefa/kit"'],
+				["apps/e/src/v.ts", 'import { Store } from "@iefa/kit"'],
+			])
+		).toEqual(["apps/e/src/v.ts"])
+	})
+
 	test("chave em código solto no topo do módulo contamina todos os exports", () => {
 		const files: Array<[string, string]> = [
 			[

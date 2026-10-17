@@ -19,11 +19,30 @@ infra/
                     GitHub OIDC deploy role. Apply before any service.
   modules/service/  Reusable module: ECR + secret + task def + ECS service +
                     target group + host listener rule + task-SG ingress.
-  <service>/        One thin stack per service — portal, sisub, api, rumaer,
-                    forms, 5s, alpha, sisub-mcp, pdf. main.tf/variables.tf are
-                    identical; the service definition is in terraform.tfvars.
+  <service>/        One thin stack per ECS service — portal, sisub, api, rumaer,
+                    forms, 5s, alpha, sisub-mcp, pdf, sucont, contrate,
+                    assignment-selection. Same body everywhere; the service
+                    definition is in terraform.tfvars. Where stacks diverge: see
+                    "Onde os stacks divergem" below.
+  docs-static/      S3 + CloudFront for the docs app (not an ECS service).
   scripts/          put-secret.sh, deploy-service.sh
 ```
+
+### Onde os stacks divergem
+
+Fonte única desta lista (os `main.tf` só apontam para cá). Um knob do módulo só chega ao
+serviço se o stack o declara no `variables.tf` e o repassa no `main.tf`; os demais ficam no
+default do módulo.
+
+| Stack | O que tem a mais |
+|---|---|
+| `alpha` | `autoscaling_max_count`, `deregistration_delay` |
+| `sisub` | `autoscaling_max_count`, `health_check_timeout_seconds`, `health_check_unhealthy_threshold`, `deregistration_delay` |
+| `portal` | `deregistration_delay`; `ai.tf`, que soma a config de IA versionada ao `environment_variables` |
+| `sisub-mcp`, `sucont` | `deregistration_delay` |
+
+Knob novo do módulo que um stack passe a usar entra no `variables.tf` e no `main.tf` dele, e
+nesta tabela.
 
 Why not a folder with its own ALB/VPC per service? A load balancer, VPC and ECS
 cluster are shared infrastructure — duplicating them per service would multiply
@@ -227,6 +246,49 @@ certificate (`certificate_arn`) + optionally `route53_zone_id`. With no cert/hos
 the ALB serves HTTP and returns 404 for everything (fine for a bring-up smoke test
 of a single service via its target group, but not multi-service routing).
 
+### Remover ou recriar o ALB
+
+O ALB tem `enable_deletion_protection = true` (`foundation/alb.tf`): ele é de todos os
+serviços, e os CNAMEs dos hosts (`*.iefa.com.br`, `app.previsaosisub.com.br`) apontam para o
+DNS dele à mão, no Registro.br. Um ALB novo tem outro DNS, e todo app fica fora do ar até o
+CNAME dele ser trocado. Com a proteção, `destroy` ou mudança que force replace (`name`,
+`internal`) falha no apply. Se for preciso de propósito:
+
+1. Liste os hosts de cada stack (`hosts` no `TF_TFVARS_JSON`) e anote
+   `terraform output alb_dns_name` da foundation. Combine a janela: todos os apps caem.
+2. PR só com `enable_deletion_protection = false`. O apply da foundation muda o atributo no
+   lugar, sem recriar nada.
+3. PR com a mudança que recria o ALB. **Não destrua os stacks de serviço**: o apply da
+   foundation recria ALB e listeners, as listener rules dos serviços somem junto com o
+   listener antigo, e target groups, ECR e secrets ficam. Depois,
+   `gh workflow run terraform-apply.yml -f stacks=all` para cada stack recriar a rule no
+   listener novo (ele lê o `listener_arn` novo do remote state).
+4. Troque no Registro.br o CNAME de cada host para o `alb_dns_name` novo e confira
+   `curl -sI https://<host>/health` de cada um (200).
+5. PR devolvendo `enable_deletion_protection = true`.
+
+Se for preciso destruir também os stacks de serviço (remover a plataforma inteira), dois
+recursos de cada stack não voltam com um apply simples:
+
+- **ECR** (`aws_ecr_repository` sem `force_delete`): o destroy falha com imagens dentro. Para
+  manter as imagens, tire o repositório do state antes do destroy e importe de volta antes
+  do apply seguinte:
+  ```bash
+  terraform state rm module.service.aws_ecr_repository.this module.service.aws_ecr_lifecycle_policy.this
+  # ... destroy / recriação ...
+  terraform import module.service.aws_ecr_repository.this <project>/<environment>/<service>
+  terraform import module.service.aws_ecr_lifecycle_policy.this <project>/<environment>/<service>
+  ```
+- **Secret** (`recovery_window_in_days = 7`): o destroy só agenda a exclusão, e o apply
+  seguinte falha em `aws_secretsmanager_secret` ("already scheduled for deletion"). Faça o
+  mesmo `state rm` de `module.service.aws_secretsmanager_secret.this` antes do destroy; se ele
+  já foi destruído, restaure e importe:
+  ```bash
+  aws secretsmanager restore-secret --secret-id /<project>/<environment>/<service>
+  terraform import module.service.aws_secretsmanager_secret.this \
+    "$(aws secretsmanager describe-secret --secret-id /<project>/<environment>/<service> --query ARN --output text)"
+  ```
+
 ## Cost / reliability knobs
 
 - **One task per service by default** (`desired_count = 1`). Deploys stay
@@ -257,6 +319,25 @@ CPU, memória, número de tasks e teto do autoscaling ficam em
 arquivo sobrepõe o `terraform.tfvars` que o CI monta do segredo `TF_TFVARS_JSON`, então
 mudança de tamanho passa por PR e aparece no `terraform-plan`. Hoje: `sisub` (2 × 0,25 vCPU /
 1 GB, até 6 tasks) e `alpha` (1 × 0,5 vCPU / 1 GB, até 3).
+
+**Drenagem.** O mesmo arquivo guarda o `deregistration_delay` dos serviços com SSE longo:
+quanto o ALB espera as requisições em andamento de uma task que sai de rotação antes de
+cortá-las. O default do módulo é 30 s. Com prazo na rota, o valor é o prazo mais uma folga
+(a rota emite o próprio erro antes de o ALB cortar): `alpha` 200 s (turno de 180 s), `sucont`
+330 s (SAC-DGC de 300 s). Sem prazo, 90 s para o turno típico: `sisub`, `portal`,
+`sisub-mcp`. O custo é o deploy desses serviços esperar até esse tempo pela task antiga; o
+job `deploy` do `_release.yml` dá até 20 min para o serviço estabilizar.
+
+Vale para deploy e scale-in, em que o ECS só manda SIGTERM depois da drenagem. **Não vale
+para troca de Spot**: lá o SIGTERM chega no início do aviso de 2 min, e nenhum app trata
+SIGTERM (o Bun sai na hora), então o stream cai junto com o processo. Cobrir esse caso pede
+handler de SIGTERM que pare de aceitar conexão e espere os streams, mais `stopTimeout` até
+120 s na task definition.
+
+Duas lacunas que a drenagem não resolve: os chats SSE do `sisub` e do `portal` não mandam
+heartbeat, então mais de 60 s sem byte cai no `idle_timeout` do ALB (ver
+`foundation/alb.tf`); e a sessão do `sisub-mcp` vive na memória da task, então o cliente
+refaz o `initialize` na task nova.
 
 Todo serviço tem um scalable target do Application Auto Scaling, e é ele que diz quantas
 tasks rodam: o Terraform ignora o `desired_count` do serviço depois da criação. Sem

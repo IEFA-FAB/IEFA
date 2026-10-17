@@ -9,8 +9,21 @@ import { Button } from "@/components/ui/button"
  * (`RecipeTechnicalSheetPrint`): a cópia de impressão vai num portal direto no `<body>`, porque a
  * da tela vive dentro do app-shell (`overflow-hidden`), que recorta tudo além da primeira dobra.
  * `window.print()` oferece "Salvar como PDF"; nenhuma dependência de geração de PDF.
+ *
+ * `screen` troca só a cópia da tela (a leitura em abas do relatório, por exemplo); a impressão
+ * sai sempre de `children`, o documento corrido.
  */
-export function PrintSheet({ back, toolbar, children }: { back: { unitId: string; quantityEstimateId: string }; toolbar?: ReactNode; children: ReactNode }) {
+export function PrintSheet({
+	back,
+	toolbar,
+	screen,
+	children,
+}: {
+	back: { unitId: string; quantityEstimateId: string }
+	toolbar?: ReactNode
+	screen?: ReactNode
+	children: ReactNode
+}) {
 	// A cópia de impressão só existe no cliente — createPortal exige `document`.
 	const mounted = useHydrated()
 
@@ -37,7 +50,7 @@ export function PrintSheet({ back, toolbar, children }: { back: { unitId: string
 					</Button>
 				</div>
 			</div>
-			<div data-proc-doc>{children}</div>
+			{screen ?? <div data-proc-doc>{children}</div>}
 			{mounted &&
 				createPortal(
 					<div data-proc-portal data-proc-doc>

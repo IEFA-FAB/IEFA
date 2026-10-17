@@ -1,5 +1,12 @@
 import { describe, expect, it } from "bun:test"
-import { analyzeData, CONTA_EXECUCAO_RESPONSABILIDADE, CONTA_RESPONSABILIDADE, type RawRecord, UG_AUTORIZADA_EXECUCAO_RESPONSABILIDADE } from "./analyzer"
+import {
+	analyzeData,
+	CONTA_EXECUCAO_RESPONSABILIDADE,
+	CONTA_RESPONSABILIDADE,
+	parseSaldoCell,
+	type RawRecord,
+	UG_AUTORIZADA_EXECUCAO_RESPONSABILIDADE,
+} from "./analyzer"
 
 const rec = (UG: string, ContaContabil: string, ContaCorrente: string, Saldo: number): RawRecord => ({ UG, ContaContabil, ContaCorrente, Saldo })
 
@@ -118,5 +125,19 @@ describe("cruzamento 897210300 × 897110300 (Q22)", () => {
 		expect(ranking[0].ug).toBe("120075")
 		expect(stats.ugsCriticas).toBe(3)
 		expect(stats.synthesis).toContain("120075")
+	})
+})
+
+describe("parseSaldoCell", () => {
+	it("lê o texto formatado pelo SheetJS (raw: false) e o brasileiro", () => {
+		expect(parseSaldoCell("1,234.56")).toBe(1234.56)
+		expect(parseSaldoCell("1.234,56")).toBe(1234.56)
+		// Separador único no padrão de milhar: a cópia antiga lia "1,234" como 1,234.
+		expect(parseSaldoCell("1,234")).toBe(1234)
+		// Parênteses: a cópia antiga devolvia 0.
+		expect(parseSaldoCell("(1,234.56)")).toBe(-1234.56)
+		expect(parseSaldoCell(42)).toBe(42)
+		expect(parseSaldoCell("")).toBe(0)
+		expect(parseSaldoCell("abc")).toBe(0)
 	})
 })

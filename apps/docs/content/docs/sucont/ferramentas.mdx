@@ -88,20 +88,24 @@ Corrigido em 2026-08: sete códigos da `"Questão 8"` estavam com um dígito a m
 
 **Entrada.** XLSX lido a partir da **linha 12** (`range: 11`): o export do Tesouro Gerencial traz onze linhas de cabeçalho. Colunas identificadas por nome, com correspondência exata e depois por substring.
 
-**Regra.** Uma expressão regular sobre a **conta corrente**:
+**Regra.** Duas expressões regulares sobre a **conta corrente** (`src/subitens/generic-code.ts`), uma por tipo de código genérico:
 
 ```js
-const GENERIC_SUBITEM_REGEX = /(^|\D)(99|999)($|\D)/
+const SUBITEM_99_REGEX = /(^|\D)99($|\D)/      // subitem 99 ("Outros…"): "P 99", "P99", "12/99"
+const PAYEE_999_REGEX = /(^|\D)999($|\D)/ // favorecido genérico do c/c 002, não é subitem: "999", "P999"
 ```
 
-Linhas que casam viram ocorrência; ocorrências com mesma conta contábil e mesma conta corrente têm os saldos somados dentro da UG.
+Linhas que casam com alguma viram ocorrência, com a marca do tipo (`subitem-99` ou `favorecido-999`); conta corrente com os dois códigos (ex.: `999 / 99`) recebe as duas marcas. Ocorrências com mesma conta contábil e mesma conta corrente têm os saldos somados dentro da UG. CPF e CNPJ com pontuação completa são descartados antes, para o DV `-99` não ser lido como subitem.
 
-**Saída.** Mensagem individual por UG ou consolidada por questão, em três modos — com prazo, sem prazo e alerta (alerta dispensa resposta pelo SAU) —, numeradas `nº XXX/SUCONT-3/DDMMMAAAA`. Dashboard operacional/tático/estratégico e filtro por conferente.
+Até 2026-10 uma regex única, `/(^|\D)(99|999)($|\D)/`, marcava os dois juntos. A união das duas de hoje reconhece exatamente o mesmo conjunto (o teste trava isso): a separação mudou a classificação, não o que entra no relatório.
+
+**Saída.** Mensagem individual por UG ou consolidada por questão, em três modos — com prazo, sem prazo e alerta (alerta dispensa resposta pelo SAU) —, numeradas `nº XXX/SUCONT-3/DDMMMAAAA`; cada linha da mensagem diz o tipo do código. Na tela, cada ocorrência leva a marca "Subitem genérico (99)" ou "Favorecido genérico (999)", e há filtro e contagem por tipo ao lado do filtro por conferente (ocorrência com os dois códigos conta nos dois tipos). O filtro de tipo recorta tabela e painel e escolhe quais UGs aparecem nas mensagens, mas a mensagem de cada UG traz sempre todas as ocorrências dela: o texto não muda com o filtro. Dashboard operacional/tático/estratégico.
 
 **Limites.**
 
-- A regex exige que o `99` esteja delimitado por não-dígito ou pela borda da string: `339039.99` casa, `33903999` não. Se o formato da conta corrente mudar, a detecção muda junto.
-- Qualquer outro `99` delimitado dentro da conta corrente (vinculação, gestão, ano) também casa.
+- **Pendente:** validar o formato da conta corrente (subitem e favorecido) contra uma planilha real do relatório SUCONT-3.1. Até lá, o que é reconhecido não muda.
+- As duas regexes exigem o código delimitado por não-dígito ou pela borda da string: `339039.99` casa como subitem, `33903999` não casa; `P999` casa como favorecido, `1999` não. Se o formato da conta corrente mudar, a detecção muda junto.
+- Qualquer outro `99` delimitado dentro da conta corrente (vinculação, gestão, ano) também vira "Subitem genérico", e qualquer `999` delimitado vira "Favorecido genérico", mesmo que não seja o favorecido.
 - Não há cálculo de proporção — nenhuma comparação com o total do elemento de despesa. Ver [Conformidade](/docs/sucont/conformidade), onde isso é o principal desencontro com a regra federal.
 
 ## Contas Genéricas — `/conta-generica` (Q35)
@@ -110,11 +114,13 @@ Linhas que casam viram ocorrência; ocorrências com mesma conta contábil e mes
 
 **Regra.**
 
+Só entra conta genérica (`isGenericAccount`, em `lib/conta-generica/process-data.ts`): no código de 9 dígitos do PCASP, subitem `99` (`218810199`) ou item `99` sem desdobramento (`XXXXX9900`). Item `99` com subitem próprio não conta (`123119905` é "Bens móveis em trânsito"). Código fora de 9 dígitos cai na regra literal, termina em `99`. Linha com saldo em conta não genérica fica fora e é contada; a tela diz quantas. A UG 170999 (STN) fica fora, como nas ferramentas de saldo.
+
 <Callout type="warn">
-**Não há teste de genericidade.** Toda linha com conta preenchida e saldo diferente de zero vira ocorrência — o código é literalmente `if (conta.length > 0) hasGeneric = true`. O recorte "conta genérica" vem inteiro do relatório do Tesouro Gerencial. E `getRacInfo` devolve a Questão 35 para qualquer primeiro dígito de 1 a 9, ou seja, a classificação por questão é constante.
+Até 2026-10 não havia teste de genericidade: toda linha com conta preenchida e saldo diferente de zero virava ocorrência, e o recorte vinha inteiro do relatório do Tesouro Gerencial. `getRacInfo` continua devolvendo a mesma questão para qualquer primeiro dígito de 1 a 9, ou seja, a classificação por questão é constante.
 </Callout>
 
-**Saída.** Além das mensagens (individual ou única, com prazo/sem prazo/alerta): análise de Pareto (quantos % das UGs concentram quantos % das ocorrências), lista de prioridade com score, mapa de risco por ODS, impacto financeiro total e o chat do Oráculo com os dados no contexto.
+**Saída.** Além das mensagens (individual ou única, com prazo/sem prazo/alerta): análise de Pareto (o grupo são as UGs, da maior contagem para a menor, até somar 80% das ocorrências; as duas porcentagens são desse mesmo grupo), lista de prioridade com score, mapa de risco por ODS, impacto financeiro total e o chat do Oráculo com os dados no contexto.
 
 ## Compatibilidade de Saldos — `/analista-compatibilidade` (Q40–Q42)
 

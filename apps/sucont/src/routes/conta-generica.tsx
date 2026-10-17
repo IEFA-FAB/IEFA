@@ -8,7 +8,7 @@ import type { MessageControlsProps } from "#/components/conta-generica/message-c
 import { OdsRiskMapCard } from "#/components/conta-generica/ods-risk-map"
 import { ConferenteFilterControl, OperationalHeader, SingleMessagePanel, UgMessageCard } from "#/components/conta-generica/operational-view"
 import { type ChatMessage, OracleChat } from "#/components/conta-generica/oracle-chat"
-import { NoInconsistencyAlert, PanelViewControl, RiskStatTiles, SummaryTiles } from "#/components/conta-generica/overview"
+import { NoInconsistencyAlert, PanelViewControl, RiskStatTiles, SkippedAccountsNote, SummaryTiles } from "#/components/conta-generica/overview"
 import { StrategicView } from "#/components/conta-generica/strategic-view"
 import { TacticalView } from "#/components/conta-generica/tactical-view"
 import { HubLayout } from "#/components/hub-layout"
@@ -17,10 +17,11 @@ import { TesouroGerencialPath } from "#/components/tesouro-gerencial-path"
 import { Button } from "#/components/ui/button"
 import { EXCEL_ACCEPT, FileDropzone } from "#/components/ui/file-dropzone"
 import { SectionHeader } from "#/components/ui/section-header"
+import { useCopyFeedback } from "#/hooks/use-copy-feedback"
 import { CONSOLIDATED_DRAFT_KEY, useMessageDrafts } from "#/hooks/use-editable-message"
 import { type CriticalSummary, type OdsRisk, type ParetoData, type PriorityItem, performAdvancedAnalysis } from "#/lib/conta-generica/advanced-analysis"
 import { computeDerivedStats } from "#/lib/conta-generica/derived-stats"
-import { type GroupedData, getConferente } from "#/lib/conta-generica/helpers"
+import { type GroupedData, getConferente, listConferenteFilterValues } from "#/lib/conta-generica/helpers"
 import { buildOracleContext, generateMessage, generateSingleMessage, type MessageSettings } from "#/lib/conta-generica/messages"
 import { processData, readWorkbookRows } from "#/lib/conta-generica/process-data"
 import { oracleContaGenericaFn } from "#/server/conta-generica.fn"
@@ -63,7 +64,8 @@ function ContaGenerica() {
 	const [isProcessing, setIsProcessing] = useState(false)
 	const [result, setResult] = useState<GroupedData | null>(null)
 	const [foundAny, setFoundAny] = useState(false)
-	const [copiedUg, setCopiedUg] = useState<string | null>(null)
+	const [skippedNonGeneric, setSkippedNonGeneric] = useState(0)
+	const { copiedKey: copiedUg, copy: copyToClipboard } = useCopyFeedback()
 	const drafts = useMessageDrafts()
 	const [messageMode, setMessageMode] = useState<"individual" | "unica">("individual")
 	const [deadline, setDeadline] = useState("")
@@ -95,6 +97,7 @@ function ContaGenerica() {
 	const resetApp = () => {
 		setResult(null)
 		setFoundAny(false)
+		setSkippedNonGeneric(0)
 		setError(null)
 		setConferenteFilter(null)
 		setParetoData(null)
@@ -146,6 +149,7 @@ function ContaGenerica() {
 
 		setResult(parsed.grouped)
 		setFoundAny(parsed.hasGeneric)
+		setSkippedNonGeneric(parsed.skippedNonGeneric)
 		if (parsed.hasGeneric) applyAdvancedAnalysis(parsed.grouped)
 		setIsProcessing(false)
 	}
@@ -197,12 +201,6 @@ function ContaGenerica() {
 	// A mensagem única concatena todas as UGs do resultado; só é montada no modo em
 	// que ela aparece, senão sai refeita a cada tecla digitada nas mensagens por UG.
 	const singleMessage = messageMode === "unica" ? drafts.of(CONSOLIDATED_DRAFT_KEY, generateSingleMessage(result, conferenteFilter, messageSettings)) : null
-
-	const copyToClipboard = (text: string, key: string) => {
-		navigator.clipboard.writeText(text)
-		setCopiedUg(key)
-		setTimeout(() => setCopiedUg(null), 2000)
-	}
 
 	// ── Derived stats ────────────────────────────────────────────────────────────
 
@@ -285,6 +283,7 @@ function ContaGenerica() {
 					<PanelViewControl activeView={activeView} onActiveViewChange={setActiveView} />
 
 					<SummaryTiles totalUGs={totalUGs} totalContas={totalContas} totalSaldoGeral={totalSaldoGeral} />
+					<SkippedAccountsNote count={skippedNonGeneric} />
 
 					{/* RISK PANEL (estratégica + tática) */}
 					{foundAny && (activeView === "estrategica" || activeView === "tatica") && (
@@ -340,7 +339,11 @@ function ContaGenerica() {
 							<div className="space-y-10">
 								<OperationalHeader messageMode={messageMode} onMessageModeChange={setMessageMode} />
 
-								<ConferenteFilterControl conferenteFilter={conferenteFilter} onConferenteFilterChange={setConferenteFilter} />
+								<ConferenteFilterControl
+									conferentes={listConferenteFilterValues(Object.keys(result))}
+									conferenteFilter={conferenteFilter}
+									onConferenteFilterChange={setConferenteFilter}
+								/>
 
 								{/* Única message */}
 								{messageMode === "unica" && singleMessage ? (

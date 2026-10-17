@@ -135,6 +135,14 @@ describe("complianceFactsOf", () => {
 			validCount: 3,
 			validSamples: [sample(1, "2026-06-01"), sample(2, null), { idCompra: "c", idItemCompra: 3, dataCompra: "2026-05-01" }],
 			outlierSamples: [sample(4, null)],
+			source: {
+				consultedAt: "2026-10-16T14:58:30.000Z",
+				query: "tipo=codigoItemCatalogo&codigo=1&tamanhoPagina=500",
+				totalRecords: 3,
+				totalPages: 1,
+				pagesFetched: 1,
+				coverage: "complete",
+			},
 		}
 		expect(complianceFactsOf(input).undatedCount).toBe(1)
 		expect(researchNonComplianceReasons(complianceFactsOf(input))).toEqual([
@@ -172,6 +180,14 @@ describe("deriveManualSelection", () => {
 		validCount: 4,
 		validSamples: [kg(1, 10), kg(2, 11), kg(3, 12), kg(4, 13)],
 		outlierSamples: [kg(5, 100)],
+		source: {
+			consultedAt: "2026-10-16T14:58:30.000Z",
+			query: "tipo=codigoItemCatalogo&codigo=1&tamanhoPagina=500",
+			totalRecords: 3,
+			totalPages: 1,
+			pagesFetched: 1,
+			coverage: "complete",
+		},
 		measureUnit: "KG",
 		manualSelection: false,
 		...over,

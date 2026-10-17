@@ -1,6 +1,8 @@
 import { describe, expect, it } from "bun:test"
 import * as XLSX from "xlsx"
-import { GENERIC_SUBITEM_REGEX, isGenericSubitem, parseWorkbook } from "#/subitens/parser"
+import { classifyGenericCode, PAYEE_999_REGEX, SUBITEM_99_REGEX } from "#/subitens/generic-code"
+import { parseSaldo, parseWorkbook } from "#/subitens/parser"
+import type { GenericCodeKind } from "#/subitens/types"
 
 /** Relatório do Tesouro Gerencial: onze linhas de título antes do cabeçalho (linha 12). */
 function buildWorkbook(header: unknown[], rows: unknown[][], preamble = 11): ArrayBuffer {
@@ -15,7 +17,7 @@ function buildWorkbook(header: unknown[], rows: unknown[][], preamble = 11): Arr
 const HEADER = ["UG Executora", "Conta Contábil", "Conta Corrente", "Saldo - R$"]
 
 describe("parseWorkbook", () => {
-	it("filtra subitens genéricos, soma repetidos e agrupa por UG em ordem", () => {
+	it("filtra códigos genéricos, marca o tipo, soma repetidos e agrupa por UG em ordem", () => {
 		const buffer = buildWorkbook(HEADER, [
 			["120004 BABR ", " 332110100 ", " 99 ", 100],
 			["120004 BABR", "332110100", "99", 50],
@@ -30,17 +32,17 @@ describe("parseWorkbook", () => {
 			{
 				ug: "120001 GABAER",
 				occurrences: [
-					{ ug: "120001 GABAER", contaContabil: "332110100", contaCorrente: "12/99", saldo: 0, racId: "RAC 28" },
-					{ ug: "120001 GABAER", contaContabil: "332110100", contaCorrente: "999", saldo: 0, racId: "RAC 28" },
-					{ ug: "120001 GABAER", contaContabil: "113110200", contaCorrente: "99A", saldo: -2.5, racId: "RAC 28" },
+					{ ug: "120001 GABAER", contaContabil: "332110100", contaCorrente: "12/99", genericKinds: ["subitem-99"], saldo: 0, racId: "RAC 28" },
+					{ ug: "120001 GABAER", contaContabil: "332110100", contaCorrente: "999", genericKinds: ["favorecido-999"], saldo: 0, racId: "RAC 28" },
+					{ ug: "120001 GABAER", contaContabil: "113110200", contaCorrente: "99A", genericKinds: ["subitem-99"], saldo: -2.5, racId: "RAC 28" },
 				],
 				totalSaldo: -2.5,
 			},
 			{
 				ug: "120004 BABR",
 				occurrences: [
-					{ ug: "120004 BABR", contaContabil: "332110100", contaCorrente: "99", saldo: 150, racId: "RAC 28" },
-					{ ug: "120004 BABR", contaContabil: "113110200", contaCorrente: "P99", saldo: 1234.56, racId: "RAC 28" },
+					{ ug: "120004 BABR", contaContabil: "332110100", contaCorrente: "99", genericKinds: ["subitem-99"], saldo: 150, racId: "RAC 28" },
+					{ ug: "120004 BABR", contaContabil: "113110200", contaCorrente: "P99", genericKinds: ["subitem-99"], saldo: 1234.56, racId: "RAC 28" },
 				],
 				totalSaldo: 1384.56,
 			},
@@ -52,7 +54,7 @@ describe("parseWorkbook", () => {
 		expect(parseWorkbook(buffer)).toEqual([
 			{
 				ug: "120001",
-				occurrences: [{ ug: "120001", contaContabil: "332110100", contaCorrente: "99", saldo: 1000, racId: "RAC 28" }],
+				occurrences: [{ ug: "120001", contaContabil: "332110100", contaCorrente: "99", genericKinds: ["subitem-99"], saldo: 1000, racId: "RAC 28" }],
 				totalSaldo: 1000,
 			},
 		])
@@ -68,7 +70,7 @@ describe("parseWorkbook", () => {
 		expect(result.map((g) => g.ug)).toEqual(["120004"])
 	})
 
-	it("sem subitem genérico devolve lista vazia", () => {
+	it("sem código genérico devolve lista vazia", () => {
 		expect(parseWorkbook(buildWorkbook(HEADER, [["120001", "1", "1234", 10]]))).toEqual([])
 	})
 
@@ -100,56 +102,121 @@ describe("parseWorkbook", () => {
 	})
 })
 
-describe("GENERIC_SUBITEM_REGEX", () => {
-	it.each([
-		["99", true],
-		["999", true],
-		["P99", true],
-		["12/99", true],
-		["99A", true],
-		["A999B", true],
-		["3399", false],
-		["1999", false],
-		["9999", false],
-		["9", false],
-		["", false],
+/** A regex única de antes, que marcava 99 e 999 juntos: o que é reconhecido não pode mudar. */
+const LEGACY_GENERIC_REGEX = /(^|\D)(99|999)($|\D)/
+
+describe("classifyGenericCode", () => {
+	it.each<[string, GenericCodeKind[]]>([
+		["99", ["subitem-99"]],
+		["999", ["favorecido-999"]],
+		["P99", ["subitem-99"]],
+		["12/99", ["subitem-99"]],
+		["99A", ["subitem-99"]],
+		["A999B", ["favorecido-999"]],
+		["3399", []],
+		["1999", []],
+		["9999", []],
+		["9", []],
+		["", []],
 	])("%p → %p", (value, expected) => {
-		expect(GENERIC_SUBITEM_REGEX.test(value)).toBe(expected)
+		expect(classifyGenericCode(value)).toEqual(expected)
 	})
 
-	// Formatos documentados (fontes no comentário da regex). Os dois últimos travam limites
-	// conhecidos, não acertos: mudar exige saber quais contas o relatório traz.
-	it.each([
-		["P 99", true, "estoque: ISF + subitem, como o SIAFI exibe"],
-		["P99", true, "estoque: ISF + subitem sem espaço"],
-		["P 04", false, "estoque: subitem específico"],
-		["P 96", false, "pagamento antecipado é transitório, não genérico"],
-		["P999", true, "favorecido genérico do tipo 002 (02.03.18), marcado junto"],
-		["33903099", false, "limite: subitem 99 colado à natureza de despesa não é visto"],
+	// Formatos documentados (fontes no comentário de `generic-code.ts`). O último trava um
+	// limite conhecido, não um acerto: mudar exige saber quais contas o relatório traz.
+	it.each<[string, GenericCodeKind[], string]>([
+		["P 99", ["subitem-99"], "estoque: ISF + subitem, como o SIAFI exibe"],
+		["P99", ["subitem-99"], "estoque: ISF + subitem sem espaço"],
+		["P 04", [], "estoque: subitem específico"],
+		["P 96", [], "pagamento antecipado é transitório, não genérico"],
+		["P999", ["favorecido-999"], "favorecido genérico do tipo 002 (02.03.18), com marca própria"],
+		["33903099", [], "limite: subitem 99 colado à natureza de despesa não é visto"],
 	])("%p → %p (%s)", (value, expected) => {
-		expect(GENERIC_SUBITEM_REGEX.test(value)).toBe(expected)
+		expect(classifyGenericCode(value)).toEqual(expected)
 	})
-})
 
-describe("isGenericSubitem", () => {
-	it.each([
-		["P 99", true, "subitem 99 continua marcado"],
-		["999", true, "c/c 999 continua marcado"],
-		["12.345.678/0001-99", false, "CNPJ formatado com DV 99"],
-		["123.456.789-99", false, "CPF formatado com DV 99"],
-		["P 123.456.789-99", false, "ISF + CPF formatado"],
-		["123.456.789-99 / 99", true, "CPF formatado ao lado de um subitem 99"],
-		["12345678000199", false, "CNPJ só com dígitos, como o SIAFI grava"],
-		["12345678/0001-99", true, "limite: CNPJ com pontuação parcial ainda é marcado"],
+	it.each<[string, GenericCodeKind[], string]>([
+		["P 99", ["subitem-99"], "subitem 99 continua marcado"],
+		["999", ["favorecido-999"], "c/c 999 continua marcado, como favorecido"],
+		["12.345.678/0001-99", [], "CNPJ formatado com DV 99"],
+		["123.456.789-99", [], "CPF formatado com DV 99"],
+		["P 123.456.789-99", [], "ISF + CPF formatado"],
+		["123.456.789-99 / 99", ["subitem-99"], "CPF formatado ao lado de um subitem 99"],
+		["123.456.789-99 / 999", ["favorecido-999"], "CPF formatado ao lado de um 999"],
+		["12345678000199", [], "CNPJ só com dígitos, como o SIAFI grava"],
+		["12345678/0001-99", ["subitem-99"], "limite: CNPJ com pontuação parcial ainda é marcado"],
 	])("%p → %p (%s)", (value, expected) => {
-		expect(isGenericSubitem(value)).toBe(expected)
+		expect(classifyGenericCode(value)).toEqual(expected)
 	})
 
-	it("parseWorkbook usa o mesmo critério", () => {
+	it.each([
+		["999 / 99", "favorecido e subitem separados"],
+		["99 999", "na ordem inversa, separados por espaço"],
+		["P99/999", "colados por barra"],
+	])("%p recebe as duas marcas, na ordem fixa (%s)", (value) => {
+		expect(classifyGenericCode(value)).toEqual(["subitem-99", "favorecido-999"])
+	})
+
+	it("cada regex só vê o seu código", () => {
+		expect(["99", "P 99", "12/99"].map((v) => [SUBITEM_99_REGEX.test(v), PAYEE_999_REGEX.test(v)])).toEqual([
+			[true, false],
+			[true, false],
+			[true, false],
+		])
+		expect(["999", "P999", "A999B"].map((v) => [SUBITEM_99_REGEX.test(v), PAYEE_999_REGEX.test(v)])).toEqual([
+			[false, true],
+			[false, true],
+			[false, true],
+		])
+	})
+
+	// Sem planilha real do SUCONT-3.1 para validar o formato, a separação não pode mudar o
+	// conjunto reconhecido: a união das duas marcas é exatamente o que a regex única marcava.
+	it.each([
+		"99",
+		"999",
+		"P99",
+		"P 99",
+		"P999",
+		"12/99",
+		"99A",
+		"A999B",
+		"999 / 99",
+		"3399",
+		"1999",
+		"9999",
+		"99999",
+		"9",
+		"",
+		"P 04",
+		"P 96",
+		"33903099",
+		"12345678000199",
+		"12345678/0001-99",
+		"999-99",
+		"x99x999x",
+	])("%p: reconhecido ⇔ a regex única reconhecia", (value) => {
+		expect(classifyGenericCode(value).length > 0).toBe(LEGACY_GENERIC_REGEX.test(value))
+	})
+
+	it("parseWorkbook usa o mesmo critério e guarda as duas marcas", () => {
 		const buffer = buildWorkbook(HEADER, [
 			["120001", "1", "12.345.678/0001-99", 10],
 			["120001", "1", "P 99", 5],
+			["120001", "1", "999 / 99", 7],
+			["120001", "1", "P999", 3],
 		])
-		expect(parseWorkbook(buffer)[0].occurrences.map((o) => o.contaCorrente)).toEqual(["P 99"])
+		expect(parseWorkbook(buffer)[0].occurrences.map((o) => [o.contaCorrente, o.genericKinds])).toEqual([
+			["P 99", ["subitem-99"]],
+			["999 / 99", ["subitem-99", "favorecido-999"]],
+			["P999", ["favorecido-999"]],
+		])
+	})
+})
+
+describe("parseSaldo", () => {
+	it("segue a regra compartilhada e conta 0 o que não for número", () => {
+		// A cópia antiga tirava todo ponto ("1500.25" → 150025) e não lia parênteses.
+		expect([10, "R$ 1.234,56", "1500.25", "(1.234,56)", "abc", undefined].map(parseSaldo)).toEqual([10, 1234.56, 1500.25, -1234.56, 0, 0])
 	})
 })

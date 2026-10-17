@@ -1,9 +1,9 @@
 /**
  * Caracterização do `parseExcelFile` (port do SIAFI-x-SILOMS-Auditor).
  *
- * Trava o comportamento atual do mapeamento de colunas — detecção do cabeçalho,
+ * Trava o comportamento do mapeamento de colunas — detecção do cabeçalho,
  * deslocamento de coluna, data herdada, defaults e conversão numérica — inclusive
- * as esquisitices de origem, que estão marcadas como tal. Mudar um destes testes é
+ * as esquisitices de origem que seguem, marcadas como tal. Mudar um destes testes é
  * mudar o parser, não refatorá-lo.
  */
 
@@ -186,11 +186,24 @@ describe("parseExcelFile — detecção do cabeçalho", () => {
 			expect(rows[0].cod).toBe("120001")
 			expect(rows[0].ug).toBe("ALFA")
 			expect(values(rows[0])).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9])
-			// Esquisitice de origem: sem coluna de data, a coluna 0 (o COD) passa no
-			// teste de "parece data" (6 caracteres) e vira a competência da linha.
-			expect(rows[0].data).toBe("120001")
+			// Sem coluna de data, a coluna 0 é o COD e não vira competência (o port a
+			// lia, e o COD de 6 caracteres passava no teste de "parece data").
+			expect(rows[0].data).toBe("DATA_DESCONHECIDA")
 		})
 	}
+
+	it("sem coluna de data, a competência é a da varredura inicial, não o COD", async () => {
+		const rows = await parseAoa([
+			["RELATÓRIO", "Posição em 31/12/2024"],
+			["COD", "UG", "CONSUMO", "SIAFI", "SILOMS", "DIF"],
+			[120001, "ALFA", "CONSUMO", 1, 2, 3],
+			["120002", "BRAVO", "CONSUMO", 4, 5, 6],
+		])
+		expect(rows.map((r) => [r.data, r.cod])).toEqual([
+			["Posição em 31/12/2024", "120001"],
+			["Posição em 31/12/2024", "120002"],
+		])
+	})
 
 	it("sem cabeçalho, linha cuja coluna 0 tem '/' e dígito é a primeira de dado", async () => {
 		const rows = await parseAoa([dataRow("JAN/2024", 120001, "ALFA"), dataRow("FEV/2024", 120002, "BRAVO")])
@@ -300,23 +313,42 @@ describe("parseExcelFile — competência inicial (varredura das 100 primeiras l
 		expect(await firstRowData(["DEZ 2024", null])).toBe("DEZ 2024")
 	})
 
-	for (const label of ["JAN2024", "fev2025", "MAR2023", "ABR2024", "SET2025"]) {
-		it(`'202' com mês abreviado colado: ${label}`, async () => {
+	for (const label of [
+		"JAN2024",
+		"fev2025",
+		"MAR2023",
+		"ABR2024",
+		"MAI2024",
+		"JUN2024",
+		"JUL2024",
+		"AGO2024",
+		"SET2025",
+		"OUT2024",
+		"NOV2024",
+		"DEZ2024",
+		"MARÇO2024",
+	]) {
+		it(`mês colado ao ano: ${label}`, async () => {
 			expect(await firstRowData([label, null])).toBe(label)
 		})
 	}
 
-	it("esquisitice de origem: MAI/JUN/JUL/AGO/OUT/NOV/DEZ colados ao ano não contam", async () => {
-		expect(await firstRowData(["MAI2024", null])).toBe("DATA_DESCONHECIDA")
-		expect(await firstRowData(["DEZ2024", null])).toBe("DATA_DESCONHECIDA")
+	it("palavra com as letras de um mês mas sem o ano colado não conta", async () => {
+		// O port só aceitava JAN/FEV/MAR/ABR/SET, e em qualquer lugar do texto.
+		expect(await firstRowData(["SETOR2O24", null])).toBe("DATA_DESCONHECIDA")
+		expect(await firstRowData(["CONSOLIDADO", null])).toBe("DATA_DESCONHECIDA")
 	})
 
 	it("texto sem dígito e número sem separador não contam", async () => {
 		expect(await firstRowData(["RELATÓRIO / SIAFI", 2024])).toBe("DATA_DESCONHECIDA")
 	})
 
-	it("esquisitice de origem: número negativo conta como data ('-' e dígito)", async () => {
-		expect(await firstRowData(["TÍTULO", -100])).toBe("-100")
+	it("número negativo, em célula numérica ou em texto, não é competência", async () => {
+		// O port achava o traço do sinal e tomava -100 como competência inicial.
+		expect(await firstRowData(["TÍTULO", -100])).toBe("DATA_DESCONHECIDA")
+		expect(await firstRowData(["TÍTULO", "-100"])).toBe("DATA_DESCONHECIDA")
+		expect(await firstRowData(["TÍTULO", "R$ -50,5"])).toBe("DATA_DESCONHECIDA")
+		expect(await firstRowData(["-1.234,56", "2024-12"])).toBe("2024-12")
 	})
 
 	it("célula de data conta pela forma textual do Date", async () => {
@@ -373,9 +405,10 @@ describe("parseExcelFile — conversão numérica", () => {
 		expect(values(row)).toEqual([1234.56, -50.5, 100, 0, 0, 12.3, 0, 0, 0])
 	})
 
-	it("esquisitice de origem: texto em formato americano perde a escala", async () => {
-		const [row] = await parseAoa([HEADER, dataRow("JAN/2024", 1, "U", ["1,234.56", 0, 0, 0, 0, 0, 0, 0, 0])])
-		expect(row.g1_siafi).toBe(1.23456)
+	it("texto com ponto decimal, formato americano e parênteses segue a regra compartilhada", async () => {
+		// O port tirava todo ponto: "1500.25" virava 150025 e "1,234.56" virava 1,23456.
+		const [row] = await parseAoa([HEADER, dataRow("JAN/2024", 1, "U", ["1,234.56", "1500.25", "(1.234,56)", "1.234", "0.500", 0, 0, 0, 0])])
+		expect(values(row).slice(0, 5)).toEqual([1234.56, 1500.25, -1234.56, 1234, 0.5])
 	})
 
 	it("booleano e data viram 0", async () => {

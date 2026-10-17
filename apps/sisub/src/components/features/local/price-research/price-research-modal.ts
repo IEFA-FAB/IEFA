@@ -75,6 +75,17 @@ export function getIncomparableSuffix(count: number): string {
 	return count !== 1 ? "is" : "l"
 }
 
+/**
+ * O que fazer com uma coleta parcial, pela causa: sem janela, voltar a ela (que para na janela);
+ * com janela, ou a fonte veio fora de ordem (tentar mais tarde) ou a própria janela passa do teto.
+ */
+export function getPartialCollectionHint(periodMonths: number | null, orderBroken: boolean): string {
+	if (!periodMonths) return "Volte à janela de 12 meses: com ela a coleta para quando a fonte passa do início da janela."
+	if (orderBroken)
+		return "A fonte não veio ordenada por data do resultado, e a fonte inteira passa do teto de páginas: não há como garantir a janela inteira. Registre o caso: o item precisa de outra fonte de preço."
+	return "A própria janela tem mais registros do que o teto de páginas. Registre o caso: o item precisa de outra fonte de preço."
+}
+
 /** Texto do botão "Usar" de um método enquanto a memória de cálculo é gravada. */
 export function getUsePriceLabel(savingMethod: PriceResearchMethod | null, method: PriceResearchMethod): string {
 	return savingMethod === method ? "Salvando…" : "Usar"
@@ -110,4 +121,32 @@ export function formatMunicipalityLabel(municipio: string, estado: string | null
 /** Capacidade da embalagem com o nome da unidade de fornecimento (vazio quando falta). */
 export function formatCapacityLabel(capacity: number, unitName: string | null): string {
 	return `${NUM.format(capacity)} ${unitName ?? ""}`
+}
+
+/**
+ * Id estável de cada linha da pesquisa, para a seleção da tabela.
+ *
+ * O id era `compra-item-ÍNDICE`, com o índice da lista JÁ recortada pela janela de recência:
+ * mudar a janela (ou a lista mudar num refetch) deslocava os índices, e a seleção guardada
+ * passava a apontar para outras linhas. Aqui o id vem do registro (`idCompra`-`idItemCompra`) e é
+ * atribuído sobre a lista INTEIRA; o mesmo item de compra repetido (um por fornecedor, por
+ * exemplo) ganha `#2`, `#3` na ordem em que chegou. A seleção sobrevive à troca da janela: a
+ * linha fora dela sai da tabela e do cálculo, e volta marcada quando a janela a inclui de novo.
+ *
+ * Registro que não estava na lista (não acontece: a tabela mostra um recorte dela) ganha o
+ * próximo sufixo do mesmo contador, nunca um id que outra linha já tenha.
+ */
+export function createPriceRowIdResolver(results: readonly ComprasMaterialPriceResult[]): (row: ComprasMaterialPriceResult) => string {
+	const ids = new Map<ComprasMaterialPriceResult, string>()
+	const seen = new Map<string, number>()
+	const assign = (row: ComprasMaterialPriceResult): string => {
+		const base = `${row.idCompra}-${row.idItemCompra}`
+		const occurrence = (seen.get(base) ?? 0) + 1
+		seen.set(base, occurrence)
+		const id = occurrence === 1 ? base : `${base}#${occurrence}`
+		ids.set(row, id)
+		return id
+	}
+	for (const row of results) assign(row)
+	return (row) => ids.get(row) ?? assign(row)
 }

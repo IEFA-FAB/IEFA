@@ -1,4 +1,4 @@
-import { researchNonComplianceReasons } from "@iefa/sisub-domain"
+import { consultationWindowStart, researchNonComplianceReasons } from "@iefa/sisub-domain"
 import type { ComprasMaterialPrecoItem, LegalCompliance, PriceAnalysis, PriceSample, PriceStatistics } from "./types.ts"
 
 // ─── Normalização de texto para comparação ───────────────────────────────────
@@ -246,22 +246,22 @@ export function analyzePrices(
 	catmatCodigo: number,
 	catmatDescricao: string | null,
 	rawItems: ComprasMaterialPrecoItem[],
-	options: PriceResearchOptions = {}
+	options: PriceResearchOptions = {},
+	/** Hora da consulta à fonte: a janela conta do dia dela, a mesma conta da coleta e do relatório. */
+	consultedAt: string = new Date().toISOString()
 ): PriceAnalysis {
 	const months = options.months ?? 12
 	const threshold = options.similarityThreshold ?? 0.4
-	const cutoffDate = new Date()
-	cutoffDate.setMonth(cutoffDate.getMonth() - months)
-	const consultedAt = new Date().toISOString()
+	const cutoff = consultationWindowStart(consultedAt, months)
 
 	// ── Passo 1: Filtrar por data e validade básica ───────────────────────────
 	// Sem data não há como mostrar que o preço é de até 1 ano (IN SEGES/ME 65/2021, art. 5º, II):
 	// a amostra fica fora do cálculo, como no sisub (`filterByPeriod`).
 	const afterDateFilter = rawItems.filter((item) => {
 		if (!item.precoUnitario || item.precoUnitario <= 0) return false
-		const d = extrairReferenceDate(item)
-		if (!d) return false
-		return d >= cutoffDate
+		const date = (item.dataResultado ?? item.dataCompra)?.slice(0, 10)
+		if (!date || !extrairReferenceDate(item)) return false
+		return date >= cutoff
 	})
 
 	// ── Passo 2: Filtrar poluição e construir amostras ────────────────────────

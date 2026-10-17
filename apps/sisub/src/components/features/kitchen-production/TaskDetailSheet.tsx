@@ -10,6 +10,7 @@ import { ProductionRecordSection } from "./ProductionRecordSection"
 import { RecipeStepsChecklist } from "./RecipeStepsChecklist"
 import { ShiftAdjustmentsSection } from "./ShiftAdjustmentsSection"
 import { SnackRequestTag } from "./SnackRequestTag"
+import { describeTaskSheetFacts, scaleIngredientQty, type TaskSheetFacts } from "./task-detail-sheet"
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -25,23 +26,6 @@ function statusVariant(status: ProductionTaskStatus): "outline" | "warning" | "s
 	if (status === "PENDING") return "outline"
 	if (status === "IN_PROGRESS") return "warning"
 	return "success"
-}
-
-/**
- * Escala a quantidade líquida de um ingrediente para as porções planejadas.
- * Fórmula: net_quantity × (planned_portions / portion_yield)
- */
-function scaleIngredientQty(netQty: number | null, plannedPortions: number | null | undefined, portionYield: number | null | undefined): string {
-	if (netQty == null) return "—"
-	if (!plannedPortions || !portionYield || portionYield === 0) {
-		return formatQty(netQty)
-	}
-	const scaled = netQty * (plannedPortions / portionYield)
-	return formatQty(scaled)
-}
-
-function formatQty(value: number): string {
-	return value % 1 === 0 ? value.toFixed(0) : value.toFixed(2)
 }
 
 // ---------------------------------------------------------------------------
@@ -65,17 +49,19 @@ export function TaskDetailSheet({ item, open, onOpenChange, onUpdateStatus, kitc
 	const recipe = menuItem.recipe_with_ingredients
 	const portionYield = recipe?.portion_yield ?? null
 	const plannedPortions = menuItem.planned_portion_quantity ?? null
+	// Os mesmos números (só positivos) no cabeçalho, no rótulo "quantidades para N" e na escala.
+	const facts = describeTaskSheetFacts({ plannedPortions, preparationMinutes: recipe?.preparation_time_minutes, portionYield })
 	const substitutionEntries = Object.entries((menuItem.substitutions as Record<string, SubstitutionEntry> | null) ?? {})
 
 	return (
 		<Sheet open={open} onOpenChange={onOpenChange}>
 			<SheetContent side="right" className="sm:max-w-lg w-full flex flex-col overflow-y-auto gap-0">
-				<TaskSheetHeader item={item} recipe={recipe} plannedPortions={plannedPortions} portionYield={portionYield} />
+				<TaskSheetHeader item={item} recipe={recipe} facts={facts} />
 
 				{/* Ingredientes */}
 				<div className="flex-1 overflow-y-auto">
 					<ExecutionNotices menuItem={menuItem} />
-					<IngredientsSection recipe={recipe} plannedPortions={plannedPortions} portionYield={portionYield} />
+					<IngredientsSection recipe={recipe} facts={facts} />
 
 					{/* Substituições registradas */}
 					{substitutionEntries.length > 0 && <SubstitutionsSection substitutionEntries={substitutionEntries} recipe={recipe} />}
@@ -113,19 +99,8 @@ export function TaskDetailSheet({ item, open, onOpenChange, onUpdateStatus, kitc
 type ProductionMenuItem = ProductionItem["menuItem"]
 type ProductionRecipe = ProductionMenuItem["recipe_with_ingredients"]
 type ProductionTask = ProductionItem["task"]
-type PlannedPortions = ProductionMenuItem["planned_portion_quantity"]
 
-function TaskSheetHeader({
-	item,
-	recipe,
-	plannedPortions,
-	portionYield,
-}: {
-	item: ProductionItem
-	recipe: ProductionRecipe
-	plannedPortions: PlannedPortions
-	portionYield: number | null
-}) {
+function TaskSheetHeader({ item, recipe, facts }: { item: ProductionItem; recipe: ProductionRecipe; facts: TaskSheetFacts }) {
 	const { task, menuItem, mealType } = item
 	return (
 		<SheetHeader className="border-b border-border">
@@ -142,24 +117,24 @@ function TaskSheetHeader({
 				</div>
 			)}
 			<SheetTitle className="text-lg leading-snug">{recipe?.name ?? menuItem.recipe_origin?.name ?? "Preparação"}</SheetTitle>
-			{(plannedPortions || recipe?.preparation_time_minutes) && (
+			{facts.hasDescription && (
 				<SheetDescription className="flex flex-wrap items-center gap-3 mt-1">
-					{plannedPortions && (
+					{facts.plannedPortions != null && (
 						<span className="flex items-center gap-1">
 							<Utensils className="size-3.5" />
-							{plannedPortions} porções planejadas
+							{facts.plannedPortions} porções planejadas
 						</span>
 					)}
-					{recipe?.preparation_time_minutes && (
+					{facts.preparationMinutes != null && (
 						<span className="flex items-center gap-1">
 							<Timer className="size-3.5" />
-							{recipe.preparation_time_minutes} min
+							{facts.preparationMinutes} min
 						</span>
 					)}
-					{portionYield && (
+					{facts.portionYield != null && (
 						<span className="flex items-center gap-1 text-muted-foreground">
 							<ChefHat className="size-3.5" />
-							rendimento base: {portionYield} porções
+							rendimento base: {facts.portionYield} porções
 						</span>
 					)}
 				</SheetDescription>
@@ -193,15 +168,7 @@ function ExecutionNotices({ menuItem }: { menuItem: ProductionMenuItem }) {
 	)
 }
 
-function IngredientsSection({
-	recipe,
-	plannedPortions,
-	portionYield,
-}: {
-	recipe: ProductionRecipe
-	plannedPortions: PlannedPortions
-	portionYield: number | null
-}) {
+function IngredientsSection({ recipe, facts }: { recipe: ProductionRecipe; facts: TaskSheetFacts }) {
 	if (!(recipe?.ingredients && recipe.ingredients.length > 0)) {
 		return <div className="p-4 text-sm text-muted-foreground italic">Nenhum ingrediente cadastrado para esta receita.</div>
 	}
@@ -210,7 +177,7 @@ function IngredientsSection({
 			<h3 className="text-subheading text-foreground flex items-center gap-2">
 				<Utensils className="size-4 text-muted-foreground" />
 				Ingredientes
-				{plannedPortions && portionYield && <span className="text-hint text-muted-foreground">(quantidades para {plannedPortions} porções)</span>}
+				{facts.isScaled && <span className="text-hint text-muted-foreground">(quantidades para {facts.plannedPortions} porções)</span>}
 			</h3>
 			<div className="rounded-md border border-border overflow-hidden">
 				<Table>
@@ -230,7 +197,7 @@ function IngredientsSection({
 										{ingredient.ingredient?.description ?? "—"}
 										{ingredient.is_optional && <span className="ml-1.5 text-xs text-muted-foreground">(opcional)</span>}
 									</TableCell>
-									<TableCell className="text-right tabular-nums">{scaleIngredientQty(ingredient.net_quantity, plannedPortions, portionYield)}</TableCell>
+									<TableCell className="text-right tabular-nums">{scaleIngredientQty(ingredient.net_quantity, facts)}</TableCell>
 									<TableCell className="text-muted-foreground text-xs">{ingredient.ingredient?.measure_unit ?? "—"}</TableCell>
 								</TableRow>
 							))}

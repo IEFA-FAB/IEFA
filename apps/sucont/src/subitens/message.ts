@@ -3,6 +3,7 @@
 // entram nele.
 import { addDays, todayInBrasilia } from "#/lib/brasilia"
 import { blocoFundamentacao, FUNDAMENTO_CONTA_GENERICA } from "#/lib/normas"
+import { GENERIC_CODE_LABELS } from "#/subitens/generic-code"
 import type { MessageConfig, ProcessedData } from "#/subitens/types"
 import { formatUgFull } from "#/subitens/ug"
 
@@ -22,6 +23,14 @@ export const RAC_QUESTIONS: Record<string, { title: string; description: string 
 	},
 }
 
+/**
+ * Aviso de relatório sem nenhum código genérico na conta corrente. O relatório traz o subitem
+ * 99 e também o 999, que NÃO é subitem: é o favorecido genérico do c/c 002 (ver
+ * `classifyGenericCode`). O texto antigo, "Nenhum subitem genérico (99/999)", chamava os
+ * dois de subitem.
+ */
+export const NO_GENERIC_CODE_MESSAGE = "Nenhum código genérico identificado na conta corrente: nem subitem 99 (“Outros…”) nem favorecido genérico 999."
+
 /** Data da mensagem no formato do número (`05OUT2026`). Sem data, o marcador `XXXMÊSANO`. */
 export const formatMsgDate = (dateStr: string) => {
 	if (!dateStr) return "XXXMÊSANO"
@@ -31,6 +40,28 @@ export const formatMsgDate = (dateStr: string) => {
 	const month = months[date.getMonth()]
 	const year = date.getFullYear()
 	return `${day}${month}${year}`
+}
+
+/**
+ * Chave de uma mensagem na tela: identifica o rascunho e o "Copiado". As duas listas
+ * (por UG e consolidada por questão) usam prefixos diferentes; antes o "Copiado" era
+ * guardado pelo índice, e a primeira mensagem de uma lista marcava a primeira da outra.
+ */
+export const buildUgMessageKey = (ug: string) => `ug:${ug}`
+export const buildRacMessageKey = (racId: string) => `rac:${racId}`
+
+/**
+ * Data do relatório em `DD/MM/AAAA`, a partir do valor do `<input type="date">`.
+ *
+ * O campo vazio (a conferente apagou a data) devolve "". A tela formatava com
+ * `Intl.DateTimeFormat` sobre `new Date("T12:00:00")`, que é data inválida e lançava
+ * `RangeError` no meio da renderização, derrubando a tela de resultados.
+ */
+export const formatReportDate = (dateStr: string): string => {
+	const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr)
+	if (!match) return ""
+	const [, year, month, day] = match
+	return `${day}/${month}/${year}`
 }
 
 /**
@@ -45,11 +76,15 @@ export const formatDeadlineText = (config: MessageConfig | undefined, fallbackDe
 }
 
 // ── Message Templates ────────────────────────────────────────
+/** Tipo do código na linha da mensagem: a UG precisa saber se corrige o subitem ou o favorecido. */
+const formatGenericKinds = (occ: ProcessedData) =>
+	occ.genericKinds.map((kind, index) => (index === 0 ? GENERIC_CODE_LABELS[kind] : GENERIC_CODE_LABELS[kind].toLowerCase())).join(" e ")
+
 const formatOccurrenceLines = (occurrences: ProcessedData[]) =>
 	occurrences
 		.map(
 			(occ) =>
-				`   • Conta Contábil ${occ.contaContabil} — Conta Corrente ${occ.contaCorrente} — Saldo: ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(occ.saldo)}`
+				`   • Conta Contábil ${occ.contaContabil} — Conta Corrente ${occ.contaCorrente} — ${formatGenericKinds(occ)} — Saldo: ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(occ.saldo)}`
 		)
 		.join("\n")
 

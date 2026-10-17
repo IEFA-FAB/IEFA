@@ -156,6 +156,40 @@ lote e pelo worker da API. Texto conferido na IN consolidada em gov.br/compras.
   estão não conformes (o usuário só descobre reabrindo a pesquisa de cada um). Menor caminho:
   selo "não conforme" por item na `AtaItemsTable`, lido do último `price_research_item`.
 
+### GU-PRC-09 — "O CATMAT tem mais registros do que o teto"
+- **Realidade:** gênero muito comprado (o 463770 tinha 8.402 registros em 2026-10-16); com um
+  teto de páginas, o corte caía justamente no que a janela precisava, sem ninguém notar.
+- **O sistema precisa:** a fonte ordena por data do resultado, decrescente, e a janela conta por
+  ela (do dia da consulta): a coleta para na primeira linha que passa do início da janela, confere
+  que a última página continua a ordem e lê a janela inteira, qualquer que seja o volume. Linha
+  sem data do resultado ou fora de ordem (nenhuma nos CATMATs conferidos em 2026-10-17) faz ler a
+  fonte inteira. Com janela, o teto é o largo (200 páginas), porque a janela precisa vir inteira;
+  sem janela, o curto (40). A regra é uma só (`collectSourcePages`, em
+  `sisub-domain/operations/price-research-source.ts`), usada pelo modal, pelo lote e pela rota
+  admin da API, que gravam a consulta exata (`source_query`). Coleta parcial não grava: o modal
+  desabilita "Usar" e diz a causa, o lote a conta à parte ("com coleta parcial"), a rota da API
+  marca o item com erro e o servidor recusa (`PARTIAL_COLLECTION`). Pesquisa anterior ao registro
+  da consulta sai no relatório com o aviso "anterior ao registro da consulta à fonte".
+  **LACUNA:** janela acima de 200 páginas (100 mil registros num ano), ou fonte fora de ordem com
+  mais de 200 páginas, não tem caminho na tela: o item fica sem preço pelo sisub. Não aconteceu em
+  nenhum CATMAT conferido até 2026-10-17 (o maior tinha 8.402 registros no histórico todo).
+- **UX:** a barra do modal diz o total na fonte, a hora da consulta e a cobertura ("janela
+  completa (4 de 17 páginas)").
+- **Cobertura:** `price-research-utils.test.ts › fetchAllPagesForCatmat`;
+  `apps/api/.../client.test.ts › coleta pela janela`; `price-research-source.test.ts › coleta
+  parcial não grava`; `price-research-report.test.ts › pesquisa sem a consulta registrada é aviso`.
+
+### GU-PRC-10 — "O auditor quer refazer a consulta"
+- **Realidade:** o TCU ou o controle interno pede para reproduzir a pesquisa meses depois.
+- **O sistema precisa:** a série em CSV (formato 2) traz a nota com a fonte, os filtros e a regra
+  de parada, e por item a URL da consulta, a hora (a API não informa a dela: vale a do servidor do
+  sisub na página 1), o total na fonte, as páginas lidas e a cobertura; cada amostra traz a URL
+  que a devolve da fonte pelo `idCompra`. Emissões anteriores continuam no formato 1, para o hash
+  delas continuar conferindo; os bytes da série 2 são congelados (texto, rótulo e URL em literal).
+- **Cobertura:** `price-research-report.test.ts › série no formato 2`, `› série 2 tem bytes
+  congelados`; integração
+  `procurement-documents.operations.test.ts`.
+
 
 ## Execução da despesa (contratação de origem, NE, SIAFI)
 

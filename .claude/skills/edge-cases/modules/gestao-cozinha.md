@@ -68,7 +68,9 @@ Arquivos de teste citados:
 - **O sistema precisa:** o planejado do dia vai para a lixeira e a contingência entra, numa transação
   (nunca um dia vazio no meio); produção de pedido de lanche aceito fica.
 - **UX:** no dia → "Trocar o dia" → escolhe o apoio de contingência → alerta do que acontece → confirma.
-- **Cobertura:** `INT › faltou luz ou água…` · `E2E › …e depois faltou luz no dia`
+- **Cobertura:** `INT › faltou luz ou água…` · `E2E › …e depois faltou luz no dia` ·
+  `packages/sisub-domain/src/operations/templates.replace.test.ts` (o que já estava na lixeira
+  mantém a data da exclusão)
 
 ## Eventos
 
