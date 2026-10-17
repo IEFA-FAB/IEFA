@@ -130,9 +130,14 @@ lote e pelo worker da API. Texto conferido na IN consolidada em gov.br/compras.
 - **O sistema precisa:** não conformidade "amostras escolhidas à mão" (art. 6º, § 3º, e art. 3º,
   VI) até o critério ser descrito. O servidor não confia no flag do cliente: deriva a seleção
   manual quando somem amostras entre a janela e a classificação, ou quando a classificação não é a
-  do IQR automático, e grava o fato em `manual_selection`, que o relatório lê.
+  do IQR automático, e grava o fato em `manual_selection`, que o relatório lê. A seleção fica nas
+  linhas que o pregoeiro marcou: trocar a janela ou um refetch que devolva as propostas do mesmo
+  item de compra em outra ordem, ou com uma proposta a mais, não a desloca para outra linha (o id
+  é `idCompra`-`idItemCompra` mais o hash dos outros campos do registro; sufixo só para
+  duplicatas idênticas em tudo, que são a mesma amostra).
 - **Cobertura:** `price-research-compliance.test.ts › seleção manual pede o critério…`,
-  `› deriveManualSelection`; `price-research-report.test.ts › seleção manual sai do fato gravado…`.
+  `› deriveManualSelection`; `price-research-report.test.ts › seleção manual sai do fato gravado…`;
+  `price-research-modal.test.ts › createPriceRowIdResolver` (janela, duplicatas, refetch reordenado ou com proposta nova).
 
 ### GU-PRC-06 — "Quero usar o menor preço"
 - **O sistema precisa:** o menor valor é método do art. 6º, caput: "Usar" no Mínimo grava

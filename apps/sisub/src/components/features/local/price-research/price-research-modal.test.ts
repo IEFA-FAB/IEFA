@@ -228,28 +228,73 @@ describe("createPriceRowIdResolver", () => {
 		const recent = row("C2", 3, "2026-09-01")
 		const all = [old, recent]
 		const idOf = createPriceRowIdResolver(all)
-		expect(idOf(recent)).toBe("C2-3")
+		expect(idOf(recent)).toMatch(/^C2-3~[0-9a-z]+$/)
 		// Antes o id era `compra-item-índice` sobre a lista recortada: "C2-3-1" com a janela
 		// aberta e "C2-3-0" com ela fechada, e a seleção apontava para outra linha.
 		const scoped = all.filter((r) => r.dataResultado?.startsWith("2026"))
-		expect(scoped.map(idOf)).toEqual(["C2-3"])
+		expect(scoped.map(idOf)).toEqual([idOf(recent)])
+		// a lista recortada, relida (cópias novas), dá o mesmo id
+		const recentAgain = { ...recent }
+		expect(createPriceRowIdResolver([recentAgain])(recentAgain)).toBe(idOf(recent))
 	})
 
-	test("o mesmo item de compra repetido ganha sufixo pela ordem de chegada, sem colidir", () => {
-		const a = row("C1", 1, null)
-		const b = row("C1", 1, null)
+	test("o mesmo item de compra de fornecedores diferentes: ids distintos, sem sufixo posicional", () => {
+		const a = { ...row("C1", 1, null), niFornecedor: "111" }
+		const b = { ...row("C1", 1, null), niFornecedor: "222" }
 		const c = row("C1", 2, null)
 		const idOf = createPriceRowIdResolver([a, b, c])
-		expect([idOf(a), idOf(b), idOf(c)]).toEqual(["C1-1", "C1-1#2", "C1-2"])
+		const ids = [idOf(a), idOf(b), idOf(c)]
+		expect(new Set(ids).size).toBe(3)
+		for (const id of ids) expect(id).not.toContain("#")
+	})
+
+	test("refetch que acrescenta uma duplicata ANTES das outras não desloca a seleção", () => {
+		// Com sufixo por posição (ou por ordenação), a proposta nova que entra antes empurrava as
+		// outras para #2 e #3, e a seleção passava para a vizinha.
+		const cheap = { ...row("C1", 1, "2026-09-01"), niFornecedor: "111", precoUnitario: 10 }
+		const pricey = { ...row("C1", 1, "2026-09-01"), niFornecedor: "222", precoUnitario: 12 }
+		const first = createPriceRowIdResolver([cheap, pricey])
+		const newcomer = { ...row("C1", 1, "2026-09-01"), niFornecedor: "000", precoUnitario: 9 }
+		// o refetch traz cópias novas dos registros, com a proposta nova na frente
+		const cheapAgain = { ...cheap }
+		const priceyAgain = { ...pricey }
+		const second = createPriceRowIdResolver([newcomer, cheapAgain, priceyAgain])
+		expect(second(cheapAgain)).toBe(first(cheap))
+		expect(second(priceyAgain)).toBe(first(pricey))
+		expect([first(cheap), first(pricey)]).not.toContain(second(newcomer))
+	})
+
+	test("duplicatas idênticas em todos os campos levam sufixo: são a mesma amostra", () => {
+		const a = { ...row("C1", 1, "2026-09-01"), niFornecedor: "111", precoUnitario: 10 }
+		const b = { ...a }
+		const idOf = createPriceRowIdResolver([a, b])
+		expect(idOf(b)).toBe(`${idOf(a)}#2`)
+	})
+
+	test("refetch que reordena as duplicatas não troca o id delas (nem a seleção)", () => {
+		// Duas propostas do mesmo item de compra, de fornecedores e preços diferentes. Pela ordem de
+		// chegada, a lista reordenada dava a cada uma o id da outra.
+		const cheap = { ...row("C1", 1, "2026-09-01"), niFornecedor: "111", precoUnitario: 10 }
+		const pricey = { ...row("C1", 1, "2026-09-01"), niFornecedor: "222", precoUnitario: 12 }
+		const other = row("C2", 3, "2026-09-02")
+		const first = createPriceRowIdResolver([cheap, other, pricey])
+		// o refetch traz cópias novas dos registros, em outra ordem
+		const cheapAgain = { ...cheap }
+		const priceyAgain = { ...pricey }
+		const otherAgain = { ...other }
+		const second = createPriceRowIdResolver([priceyAgain, otherAgain, cheapAgain])
+		expect(second(cheapAgain)).toBe(first(cheap))
+		expect(second(priceyAgain)).toBe(first(pricey))
+		expect(second(otherAgain)).toBe(first(other))
+		expect(new Set([first(cheap), first(pricey), first(other)]).size).toBe(3)
 	})
 
 	test("registro fora da lista ganha o próximo sufixo, nunca o id de outra linha", () => {
 		const a = row("C1", 1, null)
 		const idOf = createPriceRowIdResolver([a])
 		const stray = row("C1", 1, null)
-		expect(idOf(stray)).toBe("C1-1#2")
+		expect(idOf(stray)).toBe(`${idOf(a)}#2`)
 		// e o mesmo registro mantém o id que recebeu
-		expect(idOf(stray)).toBe("C1-1#2")
-		expect(idOf(a)).toBe("C1-1")
+		expect(idOf(stray)).toBe(`${idOf(a)}#2`)
 	})
 })

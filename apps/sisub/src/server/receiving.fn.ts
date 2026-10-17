@@ -23,6 +23,7 @@ import {
 	DEFINITIVE_RECEIPT_ROLES,
 	designationMissingMessage,
 	divergesFromInvoice,
+	EDITABLE_RECEIPT_STATUSES,
 	isReceiptEditable,
 	matchScanToLine,
 	normalizeSupplierDocument,
@@ -86,7 +87,16 @@ import {
 	findInvoiceLotSource,
 	hasLotInfo,
 } from "@/lib/receipt-lot"
-import { formatReceiptRefusalNotRecordedMessage, planReceiptRefusal } from "@/lib/receipt-refusal"
+import {
+	formatInvoiceRecheckFailedMessage,
+	formatInvoiceRevertOutcome,
+	formatReceiptRefusalNotRecordedMessage,
+	INVOICE_TAKEN_BY_OTHER_RECEIPT_MESSAGE,
+	type InvoiceRevertOutcome,
+	isInvoiceRefusalCompletable,
+	planReceiptRefusal,
+	resolveRefusalLostRace,
+} from "@/lib/receipt-refusal"
 import { collectCatalogGtinsBySku, collectHierarchyGtinsBySku, indexInvoiceItems, type ScanInvoiceItem, toScanLine } from "@/lib/receipt-scan-lines"
 import {
 	buildReceiptItemDetails,
@@ -1133,9 +1143,12 @@ export const refuseReceiptLineFn = createServerFn({ method: "POST" })
 		return { refused: true }
 	})
 
-/** Recusa do recebimento inteiro: nada entra, e a nota fica recusada. */
+/**
+ * Recusa do recebimento inteiro: nada entra, e a nota fica recusada. Com o recebimento já
+ * recusado e a nota dele ainda aceita (ordem antiga das escritas), só completa a marca da nota.
+ */
 export const refuseReceiptFn = createServerFn({ method: "POST" })
-	.validator(z.object({ receiptId: z.uuid(), reason: z.string().min(5).max(500) }))
+	.validator(z.object({ receiptId: z.uuid(), reason: z.string().max(500).optional() }))
 	.handler(async ({ data }) => {
 		const inv = inventory()
 		const { data: receipt, error: receiptError } = await inv
@@ -1147,26 +1160,94 @@ export const refuseReceiptFn = createServerFn({ method: "POST" })
 		if (!receipt) throw new Error("Recebimento não encontrado")
 		const ctx = await requireStorageForKitchen(3, Number(receipt.kitchen_id))
 		const { userId } = ctx
-		const { invoiceToRefuse } = planReceiptRefusal(receipt)
+		const invoiceId = receipt.source === "nfe" ? receipt.nfe_document_id : null
+		const invoice = await readInvoiceSituation(invoiceId)
+		const isInvoiceInOtherReceipt = receipt.status === "rejected" && invoiceId ? await hasOtherActiveReceipt(invoiceId, data.receiptId) : false
+		const plan = planReceiptRefusal(receipt, invoice, { reason: data.reason, isInvoiceInOtherReceipt })
 		// Recusar o todo é decisão de quem recebe definitivamente (art. 140, II, b; § 1º).
 		await requireDesignation(data.receiptId, ctx, "definitive")
 
 		// A nota ANTES do recebimento (`receipt-refusal.ts`): se a segunda escrita falhar, o
-		// recebimento continua aberto e a tela oferece "Recusar" de novo, que conclui.
-		if (invoiceToRefuse) {
-			const { error: invoiceError } = await inv.from("nfe_document").update({ status: "refused" }).eq("id", invoiceToRefuse)
+		// recebimento continua aberto e a tela oferece "Concluir a recusa", que conclui. A partir da
+		// situação lida: nota cancelada na SEFAZ no meio do caminho não vira recusada.
+		if (plan.invoiceToRefuse) {
+			const { data: marked, error: invoiceError } = await inv
+				.from("nfe_document")
+				.update({ status: "refused" })
+				.eq("id", plan.invoiceToRefuse.id)
+				.eq("status", plan.invoiceToRefuse.previousStatus)
+				.select("id")
 			if (invoiceError) throw new Error(`Erro ao marcar a NF-e como recusada: ${publicDbMessage(invoiceError)}`)
+			if ((marked ?? []).length === 0) throw new Error("A NF-e mudou de situação enquanto a recusa era gravada: recarregue e confira")
+		}
+		if (!plan.rejectReceipt) {
+			if (!plan.invoiceToRefuse) return { refused: true, invoiceOnly: true }
+			// Só completar a marca: a conferência de "outra entrega usa esta nota" foi feita antes da
+			// escrita, e uma entrega criada no meio ficaria com a nota recusada. Confere de novo depois
+			// e desfaz. Resta a janela de uma entrega criada DEPOIS desta conferência: a criação pela
+			// nota não olha a situação dela, e só a efetivação a recusa ("NF-e recusada"); fechar
+			// pede a marca e a conferência numa transação (função SQL).
+			const recheck = await countOtherActiveReceipts(plan.invoiceToRefuse.id, data.receiptId)
+			if (recheck.error) throw new Error(formatInvoiceRecheckFailedMessage(recheck.error))
+			if ((recheck.count ?? 0) > 0) {
+				throw new Error(formatInvoiceRevertOutcome(INVOICE_TAKEN_BY_OTHER_RECEIPT_MESSAGE, await revertInvoiceMark(plan.invoiceToRefuse)))
+			}
+			return { refused: true, invoiceOnly: true }
 		}
 
-		const { error } = await inv
+		const { data: rejected, error } = await inv
 			.from("goods_receipt")
 			// A recusa tem colunas próprias: `definitive_at` é "entrega atestada" para todo leitor (e o
 			// banco recusa recusado com ele preenchido — goods_receipt_rejected_not_attested).
-			.update({ status: "rejected", notes: data.reason.trim(), rejected_by: userId, rejected_at: new Date().toISOString() })
+			.update({ status: "rejected", notes: data.reason?.trim(), rejected_by: userId, rejected_at: new Date().toISOString() })
 			.eq("id", data.receiptId)
-		if (error) throw new Error(formatReceiptRefusalNotRecordedMessage(error, invoiceToRefuse != null))
-		return { refused: true }
+			// Só aberto: a efetivação que terminou depois da leitura acima não vira recusa.
+			.in("status", [...EDITABLE_RECEIPT_STATUSES])
+			.select("id")
+		if (error) throw new Error(formatReceiptRefusalNotRecordedMessage(error, plan.isInvoiceRefused))
+		if ((rejected ?? []).length > 0) return { refused: true, invoiceOnly: false }
+
+		// Zero linhas: o recebimento saiu do aberto no meio. A releitura decide o que fazer com a nota.
+		const { data: current, error: currentError } = await inv.from("goods_receipt").select("status").eq("id", data.receiptId).maybeSingle()
+		// Sem saber o estado, a nota fica como está: desfazer a marca de um recebimento recusado por
+		// outra decisão seria pior que deixá-la recusada.
+		if (currentError) throw new Error(`O recebimento mudou de estado e não pode mais ser recusado (${publicDbMessage(currentError)}). Recarregue e confira.`)
+		const race = resolveRefusalLostRace(current?.status ?? null, plan.invoiceToRefuse != null)
+		const revert: InvoiceRevertOutcome = race.revertInvoice && plan.invoiceToRefuse ? await revertInvoiceMark(plan.invoiceToRefuse) : { kind: "none" }
+		throw new Error(formatInvoiceRevertOutcome(race.message, revert))
 	})
+
+/**
+ * Desfaz a marca `refused` que a recusa acabou de gravar, só se a nota ainda estiver recusada, e
+ * confere as linhas: zero linhas é a nota que outra mudança já tirou do `refused`.
+ */
+async function revertInvoiceMark(invoice: { id: string; previousStatus: string }): Promise<InvoiceRevertOutcome> {
+	const { data: reverted, error } = await inventory()
+		.from("nfe_document")
+		.update({ status: invoice.previousStatus })
+		.eq("id", invoice.id)
+		.eq("status", "refused")
+		.select("id")
+	if (error) return { kind: "failed", error }
+	return (reverted ?? []).length > 0 ? { kind: "reverted" } : { kind: "already_changed" }
+}
+
+/** Recebimentos não recusados que usam a nota, além deste (entrega nova com a mesma nota). */
+function countOtherActiveReceipts(invoiceId: string, receiptId: string) {
+	return inventory()
+		.from("goods_receipt")
+		.select("id", { count: "exact", head: true })
+		.eq("nfe_document_id", invoiceId)
+		.neq("id", receiptId)
+		.neq("status", "rejected")
+}
+
+/** A nota sustenta outro recebimento não recusado. */
+async function hasOtherActiveReceipt(invoiceId: string, receiptId: string): Promise<boolean> {
+	const { count, error } = await countOtherActiveReceipts(invoiceId, receiptId)
+	if (error) throw new Error(`Erro ao conferir os recebimentos da NF-e: ${publicDbMessage(error)}`)
+	return (count ?? 0) > 0
+}
 
 /** Resolve a pendência fiscal do recebimento a menor. */
 export const resolveFiscalPendingFn = createServerFn({ method: "POST" })
@@ -1641,7 +1722,7 @@ export const fetchReceiptContextFn = createServerFn({ method: "GET" })
 		// Recebimento e cozinha lidos UMA vez; designação e nota recebem o que já está em mãos.
 		const { data: receipt, error } = await inv
 			.from("goods_receipt")
-			.select("kitchen_id, empenho_id, supply_order_id, nfe_document_id, source")
+			.select("kitchen_id, status, empenho_id, supply_order_id, nfe_document_id, source")
 			.eq("id", data.receiptId)
 			.maybeSingle()
 		if (error) throw new Error(`Erro ao carregar o recebimento: ${publicDbMessage(error)}`)
@@ -1652,7 +1733,10 @@ export const fetchReceiptContextFn = createServerFn({ method: "GET" })
 			empenhoId: receipt.empenho_id ?? null,
 		}
 
-		const [provisional, definitive, note, order, empenho, liquidacoes] = await Promise.all([
+		// Recusado com a nota ainda aceita (ordem antiga das escritas): "Concluir a recusa da NF-e",
+		// salvo se a nota já sustenta outra entrega.
+		const isRefusalCompletionCandidate = receipt.status === "rejected" && receipt.source === "nfe" && receipt.nfe_document_id != null
+		const [provisional, definitive, note, order, empenho, liquidacoes, otherReceipts] = await Promise.all([
 			findDesignation(scope, ctx.userId, "provisional"),
 			findDesignation(scope, ctx.userId, "definitive"),
 			receipt.nfe_document_id
@@ -1669,18 +1753,28 @@ export const fetchReceiptContextFn = createServerFn({ method: "GET" })
 				? finance().from("empenho").select("numero_empenho, favorecido_nome").eq("id", receipt.empenho_id).maybeSingle()
 				: Promise.resolve({ data: null, error: null }),
 			finance().from("liquidacao").select("id", { count: "exact", head: true }).eq("goods_receipt_id", data.receiptId),
+			isRefusalCompletionCandidate && receipt.nfe_document_id
+				? countOtherActiveReceipts(receipt.nfe_document_id, data.receiptId)
+				: Promise.resolve({ count: 0, error: null }),
 		])
-		for (const result of [note, order, empenho, liquidacoes]) {
+		for (const result of [note, order, empenho, liquidacoes, otherReceipts]) {
 			if (result.error) throw new Error(`Erro ao carregar os documentos do recebimento: ${publicDbMessage(result.error)}`)
 		}
 		if (receipt.nfe_document_id && !note.data) throw new Error("A NF-e deste recebimento não foi encontrada")
+		const invoice = buildReceiptContextInvoice(note.data)
 
 		return {
 			unitId: scope.unitId,
 			source: String(receipt.source) as ReceiptSource,
 			canDesignate: canDesignateInUnit(ctx.permissions, scope.unitId),
 			designation: { provisional, definitive },
-			invoice: buildReceiptContextInvoice(note.data),
+			invoice,
+			isInvoiceRefusalCompletable: isInvoiceRefusalCompletable({
+				receiptStatus: String(receipt.status),
+				source: receipt.source,
+				invoice,
+				isInvoiceInOtherReceipt: (otherReceipts.count ?? 0) > 0,
+			}),
 			supplyOrder: buildReceiptContextSupplyOrder(order.data, receipt.supply_order_id),
 			empenho: buildReceiptContextEmpenho(empenho.data),
 			liquidated: (liquidacoes.count ?? 0) > 0,

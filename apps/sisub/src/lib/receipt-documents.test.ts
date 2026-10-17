@@ -188,7 +188,7 @@ describe("contexto do recebimento", () => {
 		vi.setSystemTime(new Date("2026-10-13T12:00:00Z"))
 		// Consultada e autorizada na SEFAZ, mas recusada pela unidade: a recusa vale mais.
 		expect(buildReceiptContextInvoice({ ...note, status: "refused" })).toEqual({
-			problem: "A NF-e deste recebimento foi recusada. Conclua a recusa do recebimento ou peça a reabertura da NF-e",
+			problem: "A NF-e deste recebimento foi recusada: conclua a recusa do recebimento",
 			cancelled: false,
 			refused: true,
 			label: "NF-e 000012345 · Padaria Boa",

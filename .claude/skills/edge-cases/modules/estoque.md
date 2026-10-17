@@ -114,23 +114,43 @@ Hipóteses a verificar; a suíte `inventory-cycle.e2e.operations.test.ts` e as d
 ### EST-REC-11 — "A entrega inteira veio estragada"
 - **O sistema precisa:** recusar o recebimento todo, com motivo; nada entra no estoque e ele
   não sustenta liquidação. A decisão tem colunas próprias (`rejected_at`/`rejected_by`,
-  20260926205000), nunca `definitive_at`.
+  20260926205000), nunca `definitive_at`. A NF-e recusada não volta a aceita por ato de rotina:
+  o "Rodar matching" (nível 2) não roda em nota `refused`, `cancelled`, `received` ou `divergent`
+  e só reescreve a situação a partir de `available`/`imported`/`matched` (antes ele devolvia a nota
+  recusada a `matched`, a trava da efetivação sumia e a entrega recusada entrava no estoque).
 - **UX:** "Recusar entrega" no recebimento aberto (nível 3, com designação de gestor ou
   comissão); o cabeçalho e o termo mostram "Recusado em" e o motivo. A NF-e do recebimento é
-  marcada como recusada ANTES do recebimento: se a segunda escrita falhar, a tela diz que a nota
-  ficou recusada e o recebimento continua aberto, relê o estado e "Recusar" de novo conclui.
+  marcada como recusada ANTES do recebimento, a partir da situação lida (nota cancelada na SEFAZ
+  fica cancelada): se a segunda escrita falhar, a tela diz que a nota ficou recusada e o
+  recebimento continua aberto, relê o estado e "Concluir a recusa" conclui.
   No estado parcial (nota recusada, recebimento aberto), a efetivação é recusada no servidor
-  ("A NF-e deste recebimento foi recusada. Conclua a recusa do recebimento ou peça a reabertura
-  da NF-e"), sem adiamento possível; a tela mostra o aviso, desabilita "Efetivar definitivo" e
-  oferece "Concluir a recusa". É coerência documental, não trava por falta de dado.
+  ("A NF-e deste recebimento foi recusada: conclua a recusa do recebimento"), sem adiamento
+  possível; a tela mostra o aviso, desabilita "Efetivar definitivo" e oferece "Concluir a
+  recusa". É coerência documental, não trava por falta de dado. A recusa do recebimento só pega
+  recebimento aberto: se a efetivação terminou no meio, a resposta diz que ele foi efetivado e
+  não pode mais ser recusado, e a marca da nota feita agora é desfeita (entrega no estoque com nota
+  recusada não teria caminho de volta); recebimento apagado ou em outro estado também desfaz a
+  marca, dizendo qual; se outra decisão o recusou antes, a nota fica recusada. O desfazer confere
+  as linhas: se a nota já não estava recusada, a resposta diz que ela não voltou, em vez de
+  afirmar que voltou. Recebimento recusado na ordem antiga (recebimento primeiro) com a nota
+  ainda aceita mostra "Concluir a recusa da NF-e", que só completa a marca da nota (não se a nota
+  já sustenta outro recebimento; a conferência se repete depois da marca, e uma entrega criada no
+  meio desfaz a marca). Na página da NF-e recusada, cancelada ou recebida, "Rodar matching" não aparece.
 - **Cobertura:** `invoice-gate.test.ts` (recusado não sustenta liquidação);
-  `apps/sisub/src/lib/receipt-refusal.test.ts` (plano e mensagem do estado parcial);
+  `apps/sisub/src/lib/receipt-refusal.test.ts` (plano, recusa na ordem antiga, corrida com a
+  efetivação, mensagens); `nfe-match-candidates.test.ts › o matching não rebaixa nota recusada…`;
   `receipt-invoice-gate.test.ts › NF-e recusada pela unidade não efetiva…`;
   `receipt-documents.test.ts › nota recusada (recusa do recebimento pela metade)…`.
   **LACUNA:** teste de integração da recusa pela tela; nota e recebimento ainda são duas
   escritas sem transação (a atômica pede função SQL), e a conferência da nota recusada roda
   antes de `finalize_goods_receipt`, fora da trava do recebimento (fechar a corrida também pede
-  a checagem dentro da função SQL).
+  a checagem dentro da função SQL). Se desfazer a marca da nota falhar depois da corrida com a
+  efetivação, a nota fica recusada com o estoque lançado e não há reabertura de NF-e na tela (a
+  mensagem pede para avisar a gestão do estoque). Entrega criada pela nota DEPOIS da segunda
+  conferência da "Concluir a recusa da NF-e" fica com a nota recusada: a criação não olha a
+  situação da nota, e só a efetivação a recusa (fechar pede a marca e a conferência numa
+  transação, função SQL). Não existe "reabrir a NF-e recusada": recusa
+  por engano não tem caminho de volta pela tela.
 
 ### EST-REC-12 — "Vinculei a NF-e errada à entrega"
 - **O sistema precisa:** trocar a nota enquanto não houver liquidação; depois dela, a NF-e e o
@@ -201,17 +221,35 @@ Hipóteses a verificar; a suíte `inventory-cycle.e2e.operations.test.ts` e as d
 
 ### EST-CNT-05 — "Lancei a contagem, a rede caiu e lancei de novo"
 - **Realidade:** dentro da câmara o sinal some; o operador vê erro (ou acha que o clique não pegou)
-  e lança o mesmo número outra vez. Os 15 fardos não podem virar 30.
-- **O sistema precisa:** o reenvio da mesma linha leva a mesma chave (`client_event_id`) até o
-  sucesso. Com o mesmo valor, o servidor não grava nada; com o valor corrigido antes da confirmação
-  (o operador viu o erro e recontou: 16), o lançamento daquela chave, se tiver entrado, passa a 16
-  em vez de somar 15 + 16. Chave de outro autor é recusada.
-- **UX:** na falha, o número digitado (e o alvo lido pelo scanner) fica no campo para reenviar; no
-  sucesso o campo limpa.
+  e lança o mesmo número outra vez. Os 15 fardos não podem virar 30. E o contrário: o 15 entrou,
+  a folha relida mostra a linha com 15, e o operador lança 10 de outra prateleira: tem de dar 25.
+- **O sistema precisa:** o reenvio da mesma linha leva a mesma chave (`client_event_id`) até a
+  confirmação. Com o mesmo valor (comparado nas 4 casas de `numeric(14,4)`), o servidor não grava
+  nada nem mexe em `counted_at`; com o valor corrigido antes da confirmação (o operador viu o erro
+  e recontou: 16), o lançamento daquela chave, se tiver entrado, passa a 16 em vez de somar
+  15 + 16. Confirmação é o sucesso OU a folha relida já trazer o lançamento da chave (a folha leva
+  as chaves dos lançamentos do próprio usuário, sem quantidade, então a contagem cega não muda):
+  aí a chave se libera e o próximo envio é lançamento novo. Na corrida (a tentativa original ainda
+  gravando quando o reenvio chega), o `upsert` que ignora o conflito devolve só as inseridas; a
+  descartada é relida e vira correção (mesmo autor) ou recusa (outro autor), e a correção confere
+  que pegou a linha. Chave de outro autor é recusada.
+- **UX:** na falha, o número digitado (e o alvo lido pelo scanner) fica no campo para reenviar, e
+  a folha é relida. Se ela mostra que a tentativa entrou, o aviso diz "O lançamento de 15 já estava
+  gravado (a resposta tinha se perdido)… Um novo lançamento da linha soma" e o campo que ainda
+  mostra 15 limpa. Se as tentativas levaram valores diferentes (15, depois 16 que não chegou), a
+  folha cega não diz qual entrou: o aviso sai sem número ("O lançamento anterior desta linha já
+  estava gravado… Confira a linha na folha antes de lançar de novo") e o valor digitado fica no
+  campo para o operador decidir. Se o reenvio corrigiu uma tentativa gravada, o aviso diz "O envio anterior desta
+  linha tinha sido gravado; o lançamento foi corrigido para 16", em vez de "registrado". No sucesso
+  o campo limpa. Campo vazio não lança (antes ia como zero).
 - **Cobertura:** `apps/sisub/src/components/features/storage/counts/counts-page.test.ts ›
-  claimEntryKey / releaseEntryKey`; `apps/sisub/src/lib/count-entry-writes.test.ts` (reenvio,
-  correção, chave de outro autor). **LACUNA:** teste de integração do `postCountEntriesFn`; a chave vive na memória da tela; recarregar a
-  página entre a falha e o reenvio gera chave nova (a fila offline é que vai persistir).
+  claimEntryKey / releaseEntryKey`, `› settleRecordedEntryKeys` (inclui o scanner: Cancelar e nova
+  leitura), `› clearSettledQuantities`; `apps/sisub/src/lib/count-entry-writes.test.ts` (reenvio,
+  correção, chave de outro autor, 4 casas, `listIgnoredInserts`). **LACUNA:** teste de integração
+  do `postCountEntriesFn`; a chave vive na memória da tela; recarregar a página entre a falha e o
+  reenvio gera chave nova (a fila offline é que vai persistir). Tentativa antiga que chega ao
+  servidor DEPOIS do reenvio corrigido (rede que segura a requisição) acha a chave do reenvio e a
+  corrige de volta para o valor antigo: ordenar as tentativas pede versão por chave (coluna nova).
 
 `ENB` = `apps/sisub/src/test/operations/execution-never-blocks.operations.test.ts` (banco real) ·
 `EXU` = `packages/sisub-domain/src/operations/execution.test.ts` (unitário).

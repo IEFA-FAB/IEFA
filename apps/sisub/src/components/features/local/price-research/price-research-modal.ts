@@ -123,15 +123,62 @@ export function formatCapacityLabel(capacity: number, unitName: string | null): 
 	return `${NUM.format(capacity)} ${unitName ?? ""}`
 }
 
+/** Os campos do registro além do `idCompra`-`idItemCompra`, em ordem fixa: a impressão digital do id. */
+function getPriceRowFingerprint(row: ComprasMaterialPriceResult): string {
+	return JSON.stringify([
+		row.niFornecedor,
+		row.precoUnitario,
+		row.quantidade,
+		row.dataResultado,
+		row.dataCompra,
+		row.codigoUasg,
+		row.numeroItemCompra,
+		row.marca,
+		row.nomeFornecedor,
+		row.descricaoItem,
+		row.codigoItemCatalogo,
+		row.siglaUnidadeFornecimento,
+		row.nomeUnidadeFornecimento,
+		row.capacidadeUnidadeFornecimento,
+		row.siglaUnidadeMedida,
+		row.nomeUnidadeMedida,
+		row.percentualMaiorDesconto,
+		row.forma,
+		row.modalidade,
+		row.criterioJulgamento,
+		row.nomeUasg,
+		row.codigoMunicipio,
+		row.municipio,
+		row.estado,
+		row.codigoOrgao,
+		row.nomeOrgao,
+	])
+}
+
+/** FNV-1a de 32 bits, em base 36: curto, determinístico e igual em qualquer navegador. */
+function hashPriceRowFingerprint(fingerprint: string): string {
+	let hash = 0x811c9dc5
+	for (let index = 0; index < fingerprint.length; index++) {
+		hash ^= fingerprint.charCodeAt(index)
+		hash = Math.imul(hash, 0x01000193) >>> 0
+	}
+	return hash.toString(36)
+}
+
 /**
  * Id estável de cada linha da pesquisa, para a seleção da tabela.
  *
  * O id era `compra-item-ÍNDICE`, com o índice da lista JÁ recortada pela janela de recência:
  * mudar a janela (ou a lista mudar num refetch) deslocava os índices, e a seleção guardada
- * passava a apontar para outras linhas. Aqui o id vem do registro (`idCompra`-`idItemCompra`) e é
- * atribuído sobre a lista INTEIRA; o mesmo item de compra repetido (um por fornecedor, por
- * exemplo) ganha `#2`, `#3` na ordem em que chegou. A seleção sobrevive à troca da janela: a
- * linha fora dela sai da tabela e do cálculo, e volta marcada quando a janela a inclui de novo.
+ * passava a apontar para outras linhas. Depois, o mesmo item de compra repetido (um por
+ * fornecedor, por exemplo) ganhava `#2`, `#3` por posição: um refetch que reordenasse as
+ * duplicatas, ou que acrescentasse uma, deslocava a seleção para a vizinha.
+ *
+ * Aqui o id é o registro: `idCompra`-`idItemCompra` mais o hash dos outros campos (fornecedor,
+ * preço, datas, UASG…). Ele não depende da posição nem de quais outras linhas vieram. O sufixo
+ * `#2` só sobra para duplicatas idênticas em TODOS os campos, que são a mesma amostra para o
+ * cálculo: trocar uma pela outra não muda o preço. A seleção sobrevive à troca da janela: a linha
+ * fora dela sai da tabela e do cálculo, e volta marcada quando a janela a inclui de novo.
  *
  * Registro que não estava na lista (não acontece: a tabela mostra um recorte dela) ganha o
  * próximo sufixo do mesmo contador, nunca um id que outra linha já tenha.
@@ -140,7 +187,7 @@ export function createPriceRowIdResolver(results: readonly ComprasMaterialPriceR
 	const ids = new Map<ComprasMaterialPriceResult, string>()
 	const seen = new Map<string, number>()
 	const assign = (row: ComprasMaterialPriceResult): string => {
-		const base = `${row.idCompra}-${row.idItemCompra}`
+		const base = `${row.idCompra}-${row.idItemCompra}~${hashPriceRowFingerprint(getPriceRowFingerprint(row))}`
 		const occurrence = (seen.get(base) ?? 0) + 1
 		seen.set(base, occurrence)
 		const id = occurrence === 1 ? base : `${base}#${occurrence}`

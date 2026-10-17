@@ -1,6 +1,6 @@
 import type { InventoryCountType } from "@iefa/sisub-domain"
 import { createFileRoute, useRouter } from "@tanstack/react-router"
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { requirePermission } from "@/auth/pbac"
 import {
 	CountActions,
@@ -14,10 +14,16 @@ import {
 import {
 	buildScopeParams,
 	claimEntryKey,
+	clearSettledQuantities,
 	deriveCountState,
+	describePostedEntry,
+	describeSettledEntries,
 	type EntryIntentKeys,
+	getScanLineKey,
+	parseCountQuantity,
 	releaseEntryKey,
 	type ScannedTarget,
+	settleRecordedEntryKeys,
 } from "@/components/features/storage/counts/counts-page"
 import { ScanInput, scannerPropsFrom } from "@/components/features/storage/scan/ScanInput"
 import { PageHeader } from "@/components/layout/PageHeader"
@@ -85,11 +91,23 @@ function CountsPage() {
 	// O que a última leitura apontou. A folha só lista lote que já foi contado, e
 	// o lote na mão do operador pode ainda não ter linha: a leitura abre o alvo
 	// aqui, com o campo de quantidade, em vez de procurar uma linha que não existe.
+	// A quantidade do alvo lido fica em `quantities`, na chave da linha do scanner.
 	const [scanned, setScanned] = useState<ScannedTarget | null>(null)
-	const [scannedQty, setScannedQty] = useState("")
+	const scanLineKey = scanned ? getScanLineKey(scanned) : null
 
 	// Chave de idempotência por linha, viva enquanto o lançamento não for confirmado.
 	const entryKeys = useRef<EntryIntentKeys>(new Map())
+
+	// A folha relida já mostra o lançamento de uma chave pendente (a resposta se perdeu e ele
+	// entrou): a chave se libera e o próximo envio da linha é lançamento novo, não correção.
+	const ownEntryKeys = sheet?.ownEntryKeys
+	useEffect(() => {
+		if (!ownEntryKeys) return
+		const settled = settleRecordedEntryKeys(entryKeys.current, ownEntryKeys)
+		if (settled.length === 0) return
+		setQuantities((current) => clearSettledQuantities(current, settled))
+		toast.info(describeSettledEntries(settled))
+	}, [ownEntryKeys])
 
 	/** Roda a ação com aviso; devolve se a AÇÃO deu certo (a releitura da tela não conta). */
 	async function run(action: () => Promise<unknown>, success: string): Promise<boolean> {
@@ -114,39 +132,49 @@ function CountsPage() {
 	 * O identificador é um por intenção (o lançamento da linha ainda não
 	 * confirmado), não por tentativa: dois cliques seguidos, ou o reenvio depois
 	 * de uma falha de rede, levam a mesma chave; o mesmo valor não soma de novo e
-	 * o valor corrigido substitui o da tentativa anterior, se ela tiver entrado.
-	 * A chave só se renova depois do sucesso. É a mesma proteção que a fila
-	 * offline vai usar quando existir. Na falha, o valor digitado fica no campo.
+	 * o valor corrigido substitui o da tentativa anterior, se ela tiver entrado
+	 * (a resposta diz que corrigiu). A chave se renova depois do sucesso, ou
+	 * quando a folha relida já mostra o lançamento dela. É a mesma proteção que a
+	 * fila offline vai usar quando existir. Na falha, o valor digitado fica no
+	 * campo, e a folha é relida para mostrar se a tentativa entrou.
 	 */
 	async function postLine(
 		line: { key: string; lotId: string | null; ingredientId: string | null; frozenPreparationId: string | null },
 		quantity: number
 	): Promise<boolean> {
 		if (!sheet) return false
-		const clientEventId = claimEntryKey(entryKeys.current, line.key)
-		const posted = await run(
-			() =>
-				postCountEntriesFn({
-					data: {
-						countId: sheet.count.id,
-						entries: [
-							{
-								clientEventId,
-								lotId: line.lotId ?? undefined,
-								ingredientId: line.lotId ? undefined : (line.ingredientId ?? undefined),
-								frozenPreparationId: line.lotId ? undefined : (line.frozenPreparationId ?? undefined),
-								quantity,
-								overwrite: false,
-							},
-						],
-					},
-				}),
-			"Lançamento registrado"
-		)
-		if (!posted) return false
-		releaseEntryKey(entryKeys.current, line.key, clientEventId)
-		setQuantities((current) => ({ ...current, [line.key]: "" }))
-		return true
+		const clientEventId = claimEntryKey(entryKeys.current, line.key, quantity)
+		setBusy(true)
+		try {
+			const result = await postCountEntriesFn({
+				data: {
+					countId: sheet.count.id,
+					entries: [
+						{
+							clientEventId,
+							lotId: line.lotId ?? undefined,
+							ingredientId: line.lotId ? undefined : (line.ingredientId ?? undefined),
+							frozenPreparationId: line.lotId ? undefined : (line.frozenPreparationId ?? undefined),
+							quantity,
+							overwrite: false,
+						},
+					],
+				},
+			})
+			releaseEntryKey(entryKeys.current, line.key, clientEventId)
+			setQuantities((current) => ({ ...current, [line.key]: "" }))
+			if (result.corrected > 0) toast.warning(describePostedEntry(result, quantity))
+			else toast.success(describePostedEntry(result, quantity))
+			return true
+		} catch (error) {
+			toast.error(error instanceof Error ? error.message : "Erro na contagem")
+			return false
+		} finally {
+			setBusy(false)
+			// A releitura não muda o resultado do envio: a falha dela vira um aviso discreto, sem passar
+			// por cima do `return` (o scanner fecha o painel pelo resultado) nem virar rejeição solta.
+			await router.invalidate().catch(() => toast.warning("A folha não foi relida. Recarregue a página para conferir os lançamentos."))
+		}
 	}
 
 	const { open, scannedInScope, inReview, divergent } = deriveCountState(sheet, scanned)
@@ -199,8 +227,9 @@ function CountsPage() {
 											toast.error("Código não está no catálogo desta cozinha")
 											return
 										}
-										setScanned({ ingredientId: found.ingredientId, lotId: found.lotId, description: found.description ?? "insumo" })
-										setScannedQty("")
+										const target = { ingredientId: found.ingredientId, lotId: found.lotId, description: found.description ?? "insumo" }
+										setScanned(target)
+										setQuantities((current) => ({ ...current, [getScanLineKey(target)]: "" }))
 										requestAnimationFrame(() => document.querySelector<HTMLInputElement>("[data-count-qty=scanned]")?.focus())
 									} catch (error) {
 										toast.error(error instanceof Error ? error.message : "Erro ao resolver o código lido")
@@ -213,18 +242,20 @@ function CountsPage() {
 							<ScannedTargetPanel
 								scanned={scanned}
 								scannedInScope={scannedInScope}
-								scannedQty={scannedQty}
-								onQtyChange={setScannedQty}
+								scannedQty={(scanLineKey && quantities[scanLineKey]) || ""}
+								onQtyChange={(value) => {
+									if (scanLineKey) setQuantities((current) => ({ ...current, [scanLineKey]: value }))
+								}}
 								busy={busy}
 								onPost={async () => {
-									const quantity = Number(scannedQty.replace(",", "."))
-									if (!Number.isFinite(quantity) || quantity < 0) {
+									const quantity = parseCountQuantity((scanLineKey && quantities[scanLineKey]) || "")
+									if (quantity == null) {
 										toast.error("Informe a quantidade")
 										return
 									}
 									const posted = await postLine(
 										{
-											key: `scan:${scanned.ingredientId}:${scanned.lotId ?? "item"}`,
+											key: getScanLineKey(scanned),
 											lotId: scanned.lotId,
 											ingredientId: scanned.ingredientId,
 											frozenPreparationId: null,
@@ -248,8 +279,8 @@ function CountsPage() {
 							quantities={quantities}
 							onQuantityChange={(key, value) => setQuantities((current) => ({ ...current, [key]: value }))}
 							onPost={(line) => {
-								const quantity = Number((quantities[line.key] ?? "").replace(",", "."))
-								if (!Number.isFinite(quantity) || quantity < 0) {
+								const quantity = parseCountQuantity(quantities[line.key] ?? "")
+								if (quantity == null) {
 									toast.error("Informe a quantidade")
 									return
 								}

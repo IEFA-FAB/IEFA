@@ -12,7 +12,20 @@
  *   dois (15 e 16 virariam 31), e o `upsert` que ignora o conflito descartaria a correção.
  *
  * Chave já usada por outra pessoa é recusada: corrigir mudaria o lançamento de outro autor.
+ *
+ * A quantidade é `numeric(14,4)`: o valor recebido se normaliza a 4 casas antes de comparar e de
+ * gravar. Sem isso, o reenvio de 1.23456 não batia com o 1.2346 gravado e virava correção, que
+ * mexia em `counted_at` sem nada ter mudado.
  */
+
+/** Casas decimais de `inventory_count_entry.quantity` (`numeric(14,4)`). */
+export const COUNT_QUANTITY_SCALE = 4
+
+/** A quantidade como o banco a guarda: arredondada a 4 casas. */
+export function normalizeCountQuantity(quantity: number | string): number {
+	const factor = 10 ** COUNT_QUANTITY_SCALE
+	return Math.round(Number(quantity) * factor) / factor
+}
 
 export type ExistingCountEntry = { client_event_id: string; counted_by: string | null; quantity: number | string }
 
@@ -38,7 +51,18 @@ export function planCountEntryWrites<E extends { clientEventId: string; quantity
 		}
 		if (current.counted_by !== userId) throw new Error("Este lançamento já foi registrado por outra pessoa: recarregue a folha e lance de novo")
 		// mesmo valor: é o reenvio, e o que está gravado vale
-		if (Number(current.quantity) !== entry.quantity) plan.corrections.push(entry)
+		if (normalizeCountQuantity(current.quantity) !== normalizeCountQuantity(entry.quantity)) plan.corrections.push(entry)
 	}
 	return plan
+}
+
+/**
+ * Inserções que o `upsert` com o conflito ignorado descartou: a chave apareceu entre a leitura e a
+ * escrita (a tentativa anterior ainda gravava). O `.select()` devolve só as inseridas; as outras
+ * são relidas e planejadas de novo (reenvio, correção ou chave de outro autor), em vez de virar
+ * sucesso com o valor novo descartado.
+ */
+export function listIgnoredInserts<E extends { clientEventId: string }>(inserts: readonly E[], inserted: ReadonlyArray<{ client_event_id: string }>): E[] {
+	const insertedKeys = new Set(inserted.map((row) => row.client_event_id))
+	return inserts.filter((entry) => !insertedKeys.has(entry.clientEventId))
 }

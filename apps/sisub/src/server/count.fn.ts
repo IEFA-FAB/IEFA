@@ -26,7 +26,7 @@ import { hasPermission } from "@iefa/pbac"
 import { evaluateCountLine, INVENTORY_COUNT_TYPES } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
-import { planCountEntryWrites } from "@/lib/count-entry-writes"
+import { listIgnoredInserts, normalizeCountQuantity, planCountEntryWrites } from "@/lib/count-entry-writes"
 import { PENDING_PRODUCTION_SQLSTATE, parsePendingProductionDays } from "@/lib/count-waiver"
 import { publicDbMessage } from "@/lib/db-error-message"
 import { itemDescription } from "@/lib/item-description"
@@ -177,24 +177,38 @@ export const fetchCountSheetFn = createServerFn({ method: "GET" })
 		}
 		const reveal = !count.blind || finished || isManager
 
-		const rows = await readAllPages<CountLineRow>("as linhas da contagem", (from, to) =>
-			inv
-				.rpc("count_lines", { p_count_id: data.countId })
-				.order("ingredient_id", { ascending: true, nullsFirst: false })
-				.order("frozen_preparation_id", { ascending: true, nullsFirst: false })
-				.order("lot_id", { ascending: true, nullsFirst: true })
-				.order("owner_count_id", { ascending: true })
-				.range(from, to)
-		)
-
-		const scope = await readAllPages("o escopo da contagem", (from, to) =>
-			inv
-				.from("count_scope_item")
-				.select("id, ingredient_id, frozen_preparation_id, found, not_counted_accepted")
-				.eq("count_id", data.countId)
-				.order("id")
-				.range(from, to)
-		)
+		const [rows, scope, ownEntries] = await Promise.all([
+			readAllPages<CountLineRow>("as linhas da contagem", (from, to) =>
+				inv
+					.rpc("count_lines", { p_count_id: data.countId })
+					.order("ingredient_id", { ascending: true, nullsFirst: false })
+					.order("frozen_preparation_id", { ascending: true, nullsFirst: false })
+					.order("lot_id", { ascending: true, nullsFirst: true })
+					.order("owner_count_id", { ascending: true })
+					.range(from, to)
+			),
+			readAllPages("o escopo da contagem", (from, to) =>
+				inv
+					.from("count_scope_item")
+					.select("id, ingredient_id, frozen_preparation_id, found, not_counted_accepted")
+					.eq("count_id", data.countId)
+					.order("id")
+					.range(from, to)
+			),
+			// Chaves dos lançamentos DESTE usuário nesta rodada: a tela libera a chave pendente da linha
+			// quando a folha já mostra o lançamento dela (o próximo envio é lançamento novo, não
+			// correção). Só a chave, sem quantidade: a contagem cega não muda. Lidas todas, e não só as
+			// pendentes, porque as pendentes vivem na memória da tela e o loader da rota não as recebe.
+			readAllPages("os seus lançamentos", (from, to) =>
+				inv
+					.from("inventory_count_entry")
+					.select("client_event_id")
+					.eq("count_id", data.countId)
+					.eq("counted_by", ctx.userId)
+					.order("client_event_id")
+					.range(from, to)
+			),
+		])
 		const scopeByItem = new Map(scope.map((item) => [item.ingredient_id ?? item.frozen_preparation_id ?? "", item]))
 
 		const lotIds = rows.map((row) => row.lot_id).filter((id) => id != null)
@@ -277,6 +291,7 @@ export const fetchCountSheetFn = createServerFn({ method: "GET" })
 			reveal,
 			lines,
 			scopeItems: scope.length,
+			ownEntryKeys: ownEntries.map((entry) => entry.client_event_id),
 			notCounted: lines.filter((line) => line.ownRound && line.entries === 0 && !line.notCountedAccepted).length,
 		}
 	})
@@ -367,11 +382,10 @@ export const postCountEntriesFn = createServerFn({ method: "POST" })
 			return new Date(Math.min(receivedAt.getTime(), Math.max(floor.getTime(), at.getTime())))
 		}
 
-		// Chave que já existe: reenvio (fica como está) ou correção do valor (`count-entry-writes.ts`).
-		const existing = await readAllPagesIn(
-			"os lançamentos já gravados",
-			data.entries.map((entry) => entry.clientEventId),
-			(chunk, from, to) =>
+		// Quantidade como o banco a guarda (4 casas): comparar e gravar o mesmo número.
+		const entries = data.entries.map((entry) => ({ ...entry, quantity: normalizeCountQuantity(entry.quantity) }))
+		const readExisting = (keys: string[]) =>
+			readAllPagesIn("os lançamentos já gravados", keys, (chunk, from, to) =>
 				inv
 					.from("inventory_count_entry")
 					.select("client_event_id, counted_by, quantity")
@@ -379,9 +393,11 @@ export const postCountEntriesFn = createServerFn({ method: "POST" })
 					.in("client_event_id", chunk)
 					.order("client_event_id")
 					.range(from, to)
-		)
-		const { inserts, corrections } = planCountEntryWrites(data.entries, existing, userId)
-		const timing = (entry: (typeof data.entries)[number]) => {
+			)
+
+		// Chave que já existe: reenvio (fica como está) ou correção do valor (`count-entry-writes.ts`).
+		const { inserts, corrections } = planCountEntryWrites(entries, await readExisting(entries.map((entry) => entry.clientEventId)), userId)
+		const timing = (entry: (typeof entries)[number]) => {
 			const countedAt = clamp(entry.deviceAt)
 			return {
 				counted_at: countedAt.toISOString(),
@@ -389,37 +405,55 @@ export const postCountEntriesFn = createServerFn({ method: "POST" })
 				clock_skew_ms: entry.deviceAt ? countedAt.getTime() - new Date(entry.deviceAt).getTime() || 0 : null,
 			}
 		}
-
-		for (const entry of corrections) {
+		const correct = async (entry: (typeof entries)[number]) => {
 			// O valor corrigido vale a partir de agora (é uma nova contagem da mesma intenção).
-			const { error } = await inv
+			const { data: updated, error } = await inv
 				.from("inventory_count_entry")
 				.update({ quantity: entry.quantity, overwrite: entry.overwrite, note: entry.note?.trim() || null, ...timing(entry) })
 				.eq("count_id", data.countId)
 				.eq("client_event_id", entry.clientEventId)
 				.eq("counted_by", userId)
+				.select("client_event_id")
 			if (error) throw new Error(`Erro ao corrigir o lançamento: ${publicDbMessage(error)}`)
+			if ((updated ?? []).length === 0) throw new Error("O lançamento a corrigir não foi encontrado: recarregue a folha e confira antes de lançar de novo")
 		}
 
+		for (const entry of corrections) await correct(entry)
+		let corrected = corrections.length
+
 		if (inserts.length > 0) {
-			const { error } = await inv.from("inventory_count_entry").upsert(
-				inserts.map((entry) => ({
-					count_id: data.countId,
-					lot_id: entry.lotId ?? null,
-					ingredient_id: entry.ingredientId ?? null,
-					frozen_preparation_id: entry.frozenPreparationId ?? null,
-					quantity: entry.quantity,
-					client_event_id: entry.clientEventId,
-					overwrite: entry.overwrite,
-					counted_by: userId,
-					note: entry.note?.trim() || null,
-					...timing(entry),
-				})),
-				{ onConflict: "count_id,client_event_id", ignoreDuplicates: true }
-			)
+			const { data: inserted, error } = await inv
+				.from("inventory_count_entry")
+				.upsert(
+					inserts.map((entry) => ({
+						count_id: data.countId,
+						lot_id: entry.lotId ?? null,
+						ingredient_id: entry.ingredientId ?? null,
+						frozen_preparation_id: entry.frozenPreparationId ?? null,
+						quantity: entry.quantity,
+						client_event_id: entry.clientEventId,
+						overwrite: entry.overwrite,
+						counted_by: userId,
+						note: entry.note?.trim() || null,
+						...timing(entry),
+					})),
+					{ onConflict: "count_id,client_event_id", ignoreDuplicates: true }
+				)
+				.select("client_event_id")
 			if (error) throw new Error(`Erro ao gravar os lançamentos: ${publicDbMessage(error)}`)
+			// Descartadas pelo conflito: a tentativa anterior gravou entre a leitura e aqui. Relidas, são
+			// reenvio (nada a fazer), correção (mesmo autor) ou recusa (outro autor).
+			const ignored = listIgnoredInserts(inserts, inserted ?? [])
+			if (ignored.length > 0) {
+				const retry = planCountEntryWrites(ignored, await readExisting(ignored.map((entry) => entry.clientEventId)), userId)
+				if (retry.inserts.length > 0) throw new Error("Parte dos lançamentos não foi gravada: recarregue a folha e confira antes de lançar de novo")
+				for (const entry of retry.corrections) await correct(entry)
+				corrected += retry.corrections.length
+			}
 		}
-		return { received: data.entries.length, receivedAt: receivedAt.toISOString() }
+		// `corrected`: lançamentos gravados por uma tentativa anterior cuja resposta se perdeu e que
+		// passaram ao valor novo. A tela diz isso, em vez de corrigir em silêncio.
+		return { received: data.entries.length, corrected, receivedAt: receivedAt.toISOString() }
 	})
 
 /**

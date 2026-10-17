@@ -38,7 +38,7 @@ export function isInvoiceRefused(invoice: Pick<InvoiceSituation, "status">): boo
 	return invoice.status === "refused"
 }
 
-export const REFUSED_INVOICE_MESSAGE = "A NF-e deste recebimento foi recusada. Conclua a recusa do recebimento ou peça a reabertura da NF-e"
+export const REFUSED_INVOICE_MESSAGE = "A NF-e deste recebimento foi recusada: conclua a recusa do recebimento"
 
 /**
  * @param invoice situação da NF-e do recebimento; `null` = recebimento sem nota (guia, avulso)

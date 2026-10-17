@@ -27,9 +27,11 @@ import {
 	collectSupplierMapItemIds,
 	computeManualMatchedQty,
 	countMatchStatuses,
+	describeNfeMatchingLock,
 	type GtinEntity,
 	type IngredientItemLinkRow,
 	listUnseenGtins,
+	NFE_STATUSES_SET_BY_MATCHING,
 	pickSingleDefaultIngredient,
 	resolveManualLinkFields,
 	resolveNfeDocumentStatus,
@@ -177,10 +179,12 @@ async function suggestPurchaseItemIds(inv: ReturnType<typeof inventory>, query: 
 async function runMatchingForDocument(nfeDocumentId: string): Promise<{ matched: number; review: number; noMatch: number }> {
 	const inv = inventory()
 
-	const doc = requireReadRow(await inv.from("nfe_document").select("id, supplier_cnpj").eq("id", nfeDocumentId).maybeSingle(), {
+	const doc = requireReadRow(await inv.from("nfe_document").select("id, supplier_cnpj, status").eq("id", nfeDocumentId).maybeSingle(), {
 		readFailure: "Erro ao carregar a NF-e",
 		notFound: "NF-e não encontrada",
 	})
+	const lock = describeNfeMatchingLock(String(doc.status))
+	if (lock) throw new Error(lock)
 
 	const { data: items, error: itemsError } = await inv.from("nfe_item").select("*").eq("nfe_document_id", nfeDocumentId)
 	if (itemsError) throw new Error(`Erro ao carregar itens: ${publicDbMessage(itemsError)}`)
@@ -212,7 +216,13 @@ async function runMatchingForDocument(nfeDocumentId: string): Promise<{ matched:
 	if (upsertError) throw new Error(`Erro ao gravar resultado do matching: ${publicDbMessage(upsertError)}`)
 
 	const newStatus = resolveNfeDocumentStatus(matched, nfeItems.length)
-	const { error: statusError } = await inv.from("nfe_document").update({ status: newStatus }).eq("id", nfeDocumentId)
+	// Só a partir das situações do próprio matching: a nota pode ter sido recusada ou cancelada
+	// entre a leitura acima e aqui, e essa decisão não se desfaz por um matching.
+	const { error: statusError } = await inv
+		.from("nfe_document")
+		.update({ status: newStatus })
+		.eq("id", nfeDocumentId)
+		.in("status", [...NFE_STATUSES_SET_BY_MATCHING])
 	if (statusError) throw new Error(`Erro ao atualizar a situação da NF-e: ${publicDbMessage(statusError)}`)
 
 	return { matched, review, noMatch }
