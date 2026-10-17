@@ -49,7 +49,9 @@ function collectRoutePaths(dir: string, prefix = ""): string[] {
 
 function materialize(routePath: string): string {
 	const segments = routePath.split("/").filter(Boolean)
-	return `/${segments.map((seg, i) => (seg.startsWith("$") ? (i === 1 ? String(SCOPE.id) : FAKE_UUID) : seg)).join("/")}`
+	// `$date` é data civil (dia do agendamento), não id: o crumb vira "28/10/2026"
+	const sample = (seg: string, i: number) => (i === 1 ? String(SCOPE.id) : seg === "$date" ? "2026-10-28" : FAKE_UUID)
+	return `/${segments.map((seg, i) => (seg.startsWith("$") ? sample(seg, i) : seg)).join("/")}`
 }
 
 const ROUTE_PATHS = [...new Set(collectRoutePaths(MODULES_DIR))].filter(Boolean).map(materialize).sort()
