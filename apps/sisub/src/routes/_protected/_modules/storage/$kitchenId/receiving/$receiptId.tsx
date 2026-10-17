@@ -123,10 +123,10 @@ function ReceiptDetailPage() {
 			toast.success("NF-e marcada como recusada: a recusa da entrega está completa")
 		} catch (err) {
 			toast.error(err instanceof Error ? err.message : "Falha ao concluir a recusa da NF-e")
-		} finally {
-			setBusy(false)
-			await router.invalidate()
 		}
+		// Fora de `finally` (o React Compiler não compila try com finalizer): o catch engole tudo.
+		setBusy(false)
+		await router.invalidate()
 	}
 
 	async function resolveFiscalPending(resolution: FiscalResolution, reference: string) {

@@ -145,6 +145,7 @@ function CountsPage() {
 		if (!sheet) return false
 		const clientEventId = claimEntryKey(entryKeys.current, line.key, quantity)
 		setBusy(true)
+		let posted = false
 		try {
 			const result = await postCountEntriesFn({
 				data: {
@@ -165,16 +166,16 @@ function CountsPage() {
 			setQuantities((current) => ({ ...current, [line.key]: "" }))
 			if (result.corrected > 0) toast.warning(describePostedEntry(result, quantity))
 			else toast.success(describePostedEntry(result, quantity))
-			return true
+			posted = true
 		} catch (error) {
 			toast.error(error instanceof Error ? error.message : "Erro na contagem")
-			return false
-		} finally {
-			setBusy(false)
-			// A releitura não muda o resultado do envio: a falha dela vira um aviso discreto, sem passar
-			// por cima do `return` (o scanner fecha o painel pelo resultado) nem virar rejeição solta.
-			await router.invalidate().catch(() => toast.warning("A folha não foi relida. Recarregue a página para conferir os lançamentos."))
 		}
+		// Sem `finally` (o React Compiler não compila try com finalizer): o catch não relança, então
+		// isto roda em todo caminho. A releitura não muda o resultado do envio: a falha dela vira um
+		// aviso discreto, sem mudar o retorno (o scanner fecha o painel por ele) nem virar rejeição solta.
+		setBusy(false)
+		await router.invalidate().catch(() => toast.warning("A folha não foi relida. Recarregue a página para conferir os lançamentos."))
+		return posted
 	}
 
 	const { open, scannedInScope, inReview, divergent } = deriveCountState(sheet, scanned)
