@@ -3,8 +3,7 @@
   "include": ["**/*.ts", "**/*.tsx"],
   "compilerOptions": {
     "paths": {
-      "@/*": ["./src/*"],
-      "@rolldown/plugin-babel": ["./node_modules/@rolldown/plugin-babel/dist/index.d.mts"]
+      "@/*": ["./src/*"]
     }
   }
 }

@@ -1,7 +1,6 @@
-import babel from "@rolldown/plugin-babel"
 import tailwindcss from "@tailwindcss/vite"
 import { tanstackStart } from "@tanstack/react-start/plugin/vite"
-import react, { reactCompilerPreset } from "@vitejs/plugin-react"
+import react from "@vitejs/plugin-react"
 import { nitro } from "nitro/vite"
 import { defineConfig } from "vite"
 
@@ -54,8 +53,7 @@ export default defineConfig(() => ({
 				"/dom/**": { headers: { "cache-control": "public, max-age=86400" } },
 			},
 		}),
-		react(),
-		babel({ presets: [reactCompilerPreset()] }),
+		react({ compiler: true }),
 		// Rolldown nomeia o bundle de CSS pela entry (ex.: "index.css"), não "style.css"
 		// como o plugin de manifest do TanStack Start espera. Renomeia antes do hook.
 		{
