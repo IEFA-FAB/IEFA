@@ -786,6 +786,39 @@ export const comprasMaterialCaracteristicaInComprasGovIntegration = comprasGovIn
 	unique("compras_material_caracteristica_item_caracteristica_valor_key").on(table.codigoItem, table.codigoCaracteristica, table.codigoValorCaracteristica),
 ]);
 
+export const kitchenStockSettingsInInventory = inventory.table("kitchen_stock_settings", {
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	kitchenId: bigint("kitchen_id", { mode: "number" }).primaryKey().notNull(),
+	segregation: text().default('dual').notNull(),
+	adjustmentApprovalValue: numeric("adjustment_approval_value", { mode: "number", precision: 14, scale: 2 }).default(500).notNull(),
+	issueTolerancePct: numeric("issue_tolerance_pct", { mode: "number", precision: 5, scale: 2 }).default(10).notNull(),
+	issueToleranceFloorValue: numeric("issue_tolerance_floor_value", { mode: "number", precision: 14, scale: 2 }).default(20).notNull(),
+	countTolerancePct: numeric("count_tolerance_pct", { mode: "number", precision: 5, scale: 2 }).default(5).notNull(),
+	countToleranceValue: numeric("count_tolerance_value", { mode: "number", precision: 14, scale: 2 }).default(50).notNull(),
+	updatedBy: uuid("updated_by"),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	defaultLeadTimeDays: integer("default_lead_time_days"),
+}, (table) => [
+	index("kitchen_stock_settings_updated_by_fk_idx").using("btree", table.updatedBy.asc().nullsLast()),
+	foreignKey({
+			columns: [table.kitchenId],
+			foreignColumns: [kitchenInKitchen.id],
+			name: "kitchen_stock_settings_kitchen_id_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.updatedBy],
+			foreignColumns: [usersInAuth.id],
+			name: "kitchen_stock_settings_updated_by_fkey"
+		}),
+	check("kitchen_stock_settings_adjustment_approval_value_check", sql`adjustment_approval_value >= (0)::numeric`),
+	check("kitchen_stock_settings_count_tolerance_pct_check", sql`(count_tolerance_pct >= (0)::numeric) AND (count_tolerance_pct <= (100)::numeric)`),
+	check("kitchen_stock_settings_count_tolerance_value_check", sql`count_tolerance_value >= (0)::numeric`),
+	check("kitchen_stock_settings_default_lead_time_days_check", sql`(default_lead_time_days IS NULL) OR (default_lead_time_days > 0)`),
+	check("kitchen_stock_settings_issue_tolerance_floor_value_check", sql`issue_tolerance_floor_value >= (0)::numeric`),
+	check("kitchen_stock_settings_issue_tolerance_pct_check", sql`(issue_tolerance_pct >= (0)::numeric) AND (issue_tolerance_pct <= (100)::numeric)`),
+	check("kitchen_stock_settings_segregation_check", sql`segregation = ANY (ARRAY['strict'::text, 'dual'::text])`),
+]);
+
 export const personInCore = core.table("person", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	displayName: text("display_name").notNull(),
@@ -5164,37 +5197,6 @@ export const stockCostInInventory = inventory.table("stock_cost", {
 			name: "stock_cost_kitchen_id_fkey"
 		}),
 	check("stock_cost_item_xor", sql`num_nonnulls(ingredient_id, frozen_preparation_id) = 1`),
-]);
-
-export const kitchenStockSettingsInInventory = inventory.table("kitchen_stock_settings", {
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	kitchenId: bigint("kitchen_id", { mode: "number" }).primaryKey().notNull(),
-	segregation: text().default('dual').notNull(),
-	adjustmentApprovalValue: numeric("adjustment_approval_value", { mode: "number", precision: 14, scale: 2 }).default(500).notNull(),
-	issueTolerancePct: numeric("issue_tolerance_pct", { mode: "number", precision: 5, scale: 2 }).default(10).notNull(),
-	issueToleranceFloorValue: numeric("issue_tolerance_floor_value", { mode: "number", precision: 14, scale: 2 }).default(20).notNull(),
-	countTolerancePct: numeric("count_tolerance_pct", { mode: "number", precision: 5, scale: 2 }).default(5).notNull(),
-	countToleranceValue: numeric("count_tolerance_value", { mode: "number", precision: 14, scale: 2 }).default(50).notNull(),
-	updatedBy: uuid("updated_by"),
-	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-}, (table) => [
-	index("kitchen_stock_settings_updated_by_fk_idx").using("btree", table.updatedBy.asc().nullsLast()),
-	foreignKey({
-			columns: [table.kitchenId],
-			foreignColumns: [kitchenInKitchen.id],
-			name: "kitchen_stock_settings_kitchen_id_fkey"
-		}).onDelete("cascade"),
-	foreignKey({
-			columns: [table.updatedBy],
-			foreignColumns: [usersInAuth.id],
-			name: "kitchen_stock_settings_updated_by_fkey"
-		}),
-	check("kitchen_stock_settings_adjustment_approval_value_check", sql`adjustment_approval_value >= (0)::numeric`),
-	check("kitchen_stock_settings_count_tolerance_pct_check", sql`(count_tolerance_pct >= (0)::numeric) AND (count_tolerance_pct <= (100)::numeric)`),
-	check("kitchen_stock_settings_count_tolerance_value_check", sql`count_tolerance_value >= (0)::numeric`),
-	check("kitchen_stock_settings_issue_tolerance_floor_value_check", sql`issue_tolerance_floor_value >= (0)::numeric`),
-	check("kitchen_stock_settings_issue_tolerance_pct_check", sql`(issue_tolerance_pct >= (0)::numeric) AND (issue_tolerance_pct <= (100)::numeric)`),
-	check("kitchen_stock_settings_segregation_check", sql`segregation = ANY (ARRAY['strict'::text, 'dual'::text])`),
 ]);
 
 export const menuGroupSetInKitchen = kitchen.table("menu_group_set", {
