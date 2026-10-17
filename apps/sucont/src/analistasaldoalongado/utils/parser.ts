@@ -1,6 +1,7 @@
 import Papa from "papaparse"
 import * as XLSX from "xlsx"
 import { parseBrazilianAmountOrZero } from "#/lib/analysis/saldo"
+import { decodeSpreadsheet } from "#/lib/spreadsheet"
 import { isUgAcompanhada } from "#/lib/ug/registry"
 
 export interface ParsedRow {
@@ -94,6 +95,24 @@ export function parseSaldoCell(value: unknown): number {
 	return parseBrazilianAmountOrZero(value.replace(/[^\d.,()+\-\u2212]/g, ""))
 }
 
+/**
+ * Linhas do arquivo como objetos por cabeçalho. CSV vai pelo Papa depois de
+ * `decodeSpreadsheet` (UTF-8 com ou sem BOM, ou windows-1252: lido sempre como UTF-8, o
+ * CSV salvo pelo Excel trocava "Contábil" por "Cont�bil" e a coluna não era achada).
+ */
+export function readRawRows(fileName: string, data: ArrayBuffer | Uint8Array): Record<string, unknown>[] {
+	if (fileName.endsWith(".csv")) {
+		const parsed = Papa.parse(decodeSpreadsheet(data), { header: true, skipEmptyLines: true })
+		return parsed.data as Record<string, unknown>[]
+	}
+	if (fileName.endsWith(".xlsx") || fileName.endsWith(".xls")) {
+		const workbook = XLSX.read(data, { type: "array", raw: true })
+		const worksheet = workbook.Sheets[workbook.SheetNames[0]]
+		return XLSX.utils.sheet_to_json(worksheet, { defval: "", raw: true }) as Record<string, unknown>[]
+	}
+	throw new Error("Formato de arquivo não suportado. Use CSV ou Excel.")
+}
+
 export const parseFile = async (file: File): Promise<ParsedRow[]> => {
 	return new Promise((resolve, reject) => {
 		const reader = new FileReader()
@@ -103,20 +122,7 @@ export const parseFile = async (file: File): Promise<ParsedRow[]> => {
 				const data = e.target?.result
 				if (!data) throw new Error("Failed to read file")
 
-				let rawData: Record<string, unknown>[] = []
-
-				if (file.name.endsWith(".csv")) {
-					const text = new TextDecoder("utf-8").decode(data as ArrayBuffer)
-					const parsed = Papa.parse(text, { header: true, skipEmptyLines: true })
-					rawData = parsed.data as Record<string, unknown>[]
-				} else if (file.name.endsWith(".xlsx") || file.name.endsWith(".xls")) {
-					const workbook = XLSX.read(data, { type: "array", raw: true })
-					const firstSheetName = workbook.SheetNames[0]
-					const worksheet = workbook.Sheets[firstSheetName]
-					rawData = XLSX.utils.sheet_to_json(worksheet, { defval: "", raw: true }) as Record<string, unknown>[]
-				} else {
-					throw new Error("Formato de arquivo não suportado. Use CSV ou Excel.")
-				}
+				const rawData = readRawRows(file.name, data as ArrayBuffer)
 
 				if (rawData.length === 0) {
 					resolve([])

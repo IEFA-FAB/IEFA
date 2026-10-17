@@ -7,6 +7,7 @@
 import * as XLSX from "xlsx"
 import { parseBrazilianAmountOrZero } from "#/lib/analysis/saldo"
 import { agregarSaldos, compararPares, type LinhaSaldo, PARES, type ParDivergente } from "#/lib/compatibilidade/pares"
+import { readWorkbook } from "#/lib/spreadsheet"
 import { getUg } from "#/lib/ug/registry"
 import { formatCurrency, normalizeKey } from "./format"
 
@@ -45,11 +46,10 @@ export type SheetRow = (string | number | boolean | null | undefined)[]
 
 /**
  * Linhas da primeira aba do arquivo (xlsx, xls ou CSV). Célula numérica chega como número
- * (`sheet_to_json` cru) e texto como foi digitado. O `raw: true` do `XLSX.read` vale só
- * para CSV: sem ele, o SheetJS adivinha número em inglês e "1.234,56" vira 1,23456.
+ * (`sheet_to_json` cru) e texto como foi digitado; o CSV passa por `readWorkbook`.
  */
 export function readSheetRows(data: ArrayBuffer | Uint8Array): SheetRow[] {
-	const workbook = XLSX.read(data, { type: "array", raw: true })
+	const workbook = readWorkbook(data)
 	const worksheet = workbook.Sheets[workbook.SheetNames[0]]
 	return XLSX.utils.sheet_to_json<SheetRow>(worksheet, { header: 1 })
 }

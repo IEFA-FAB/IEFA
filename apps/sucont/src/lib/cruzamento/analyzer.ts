@@ -2,6 +2,7 @@ import * as XLSX from "xlsx"
 import { parseBrazilianAmountOrZero } from "#/lib/analysis/saldo"
 import { arredondarCentavos, saldosDivergem, saldoZerado } from "#/lib/analysis/tolerancia"
 import { UG_DATA } from "#/lib/cruzamento/ugData"
+import { readWorkbook } from "#/lib/spreadsheet"
 import { getConferente, isUgAcompanhada } from "#/lib/ug/registry"
 
 /**
@@ -98,11 +99,10 @@ function getColumnValue(row: Record<string, unknown>, searchKeys: string[]): unk
  *   123456. Cru, ela chega como o número 123.456, e só a célula de texto ("1.234,56",
  *   digitado ou exportado como texto) passa pelo parser brasileiro.
  *
- * `XLSX.read` com `raw: true` vale só para formato de texto (CSV): sem ele, o SheetJS
- * adivinha número no CSV em inglês e "1.234,56" vira 1,23456. No xlsx não muda nada.
+ * CSV passa por `readWorkbook`: encoding decidido pelos bytes e célula como texto digitado.
  */
 export function readRecords(data: ArrayBuffer | Uint8Array): RawRecord[] {
-	const workbook = XLSX.read(data, { type: "array", raw: true })
+	const workbook = readWorkbook(data)
 	const firstSheetName = workbook.SheetNames[0]
 	const worksheet = workbook.Sheets[firstSheetName]
 	const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as unknown[][]

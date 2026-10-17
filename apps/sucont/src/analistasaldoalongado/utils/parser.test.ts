@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test"
-import { parseSaldoCell } from "#/analistasaldoalongado/utils/parser"
+import { parseSaldoCell, readRawRows } from "#/analistasaldoalongado/utils/parser"
+import { CSV_ENCODINGS } from "#/lib/__fixtures__/csv-encodings"
 
 describe("parseSaldoCell", () => {
 	it("número do Excel (raw: true) passa direto", () => {
@@ -38,5 +39,17 @@ describe("parseSaldoCell", () => {
 		expect(parseSaldoCell("")).toBe(0)
 		expect(parseSaldoCell("abc")).toBe(0)
 		expect(parseSaldoCell(undefined)).toBe(0)
+	})
+})
+
+describe("readRawRows", () => {
+	it.each(CSV_ENCODINGS)('CSV %s: acha "Conta Contábil" com o acento', (_label, encode) => {
+		const csv = "UG;Conta Contábil;Conta Corrente;Saldo\n120062;897110300;CC1;1.234,56\n"
+		const [row] = readRawRows("saldo.csv", encode(csv))
+		expect(row).toEqual({ UG: "120062", "Conta Contábil": "897110300", "Conta Corrente": "CC1", Saldo: "1.234,56" })
+	})
+
+	it("recusa formato que não é CSV nem Excel", () => {
+		expect(() => readRawRows("saldo.txt", new Uint8Array())).toThrow("Formato de arquivo não suportado")
 	})
 })

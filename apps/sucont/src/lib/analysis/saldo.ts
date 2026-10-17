@@ -5,7 +5,7 @@
  *
  * O texto que chega aqui é sempre o DIGITADO, na convenção brasileira: as ferramentas leem
  * o xlsx com `raw: true` (célula numérica chega como número e passa direto) e o CSV sem
- * deixar o SheetJS adivinhar número (`XLSX.read` com `raw: true`, ou o Papa). Texto que o
+ * deixar o SheetJS adivinhar número (`readWorkbook` de `lib/spreadsheet`, ou o Papa). Texto que o
  * SheetJS FORMATA (`raw: false`) sai em inglês ("123.456" é cento e vinte e três), e não
  * deve chegar a este parser: lido como brasileiro, viraria um valor mil vezes maior.
  */

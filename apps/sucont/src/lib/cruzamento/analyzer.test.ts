@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import * as XLSX from "xlsx"
+import { CSV_ENCODINGS } from "#/lib/__fixtures__/csv-encodings"
 import {
 	analyzeData,
 	CONTA_EXECUCAO_RESPONSABILIDADE,
@@ -197,10 +198,13 @@ describe("readRecords (xlsx real)", () => {
 		])
 	})
 
-	it("CSV brasileiro não passa pela adivinhação de número do SheetJS", () => {
-		// Sem acento no cabeçalho: CSV em UTF-8 sem BOM o SheetJS decodifica como Latin-1.
-		const csv = "UG;Conta Contabil;Conta Corrente;Saldo\n120052;897210300;CC1;1.234,56\n120052;897210300;CC2;1.234\n120052;897210300;CC3;12,345\n"
-		const records = readRecords(new TextEncoder().encode(csv))
-		expect(records.map((r) => r.Saldo)).toEqual([1234.56, 1234, 12.345])
+	it.each(CSV_ENCODINGS)('CSV %s: acha "Conta Contábil" e lê o saldo brasileiro', (_label, encode) => {
+		const csv = "UG;Conta Contábil;Conta Corrente;Saldo\n120052;897210300;CC1;1.234,56\n120052;897210300;CC2;1.234\n120052;897210300;CC3;12,345\n"
+		const records = readRecords(encode(csv))
+		expect(records.map((r) => [r.ContaContabil, r.Saldo])).toEqual([
+			["897210300", 1234.56],
+			["897210300", 1234],
+			["897210300", 12.345],
+		])
 	})
 })

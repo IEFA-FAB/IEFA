@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import * as XLSX from "xlsx"
+import { CSV_ENCODINGS } from "#/lib/__fixtures__/csv-encodings"
 import { PARES } from "./pares"
 import { PAIR_COLORS, parseSaldo, processData, readSheetRows, type SheetRow } from "./parser"
 
@@ -206,9 +207,10 @@ describe("parseSaldo", () => {
 })
 
 describe("readSheetRows", () => {
-	it("CSV brasileiro chega como texto, sem a adivinhação de número do SheetJS", () => {
-		const csv = "UG;Conta;Saldo\n120062;113110101;1.234,56\n120062;113110101;1.234\n120062;113110101;12,345\n"
-		const rows = readSheetRows(new TextEncoder().encode(csv))
+	it.each(CSV_ENCODINGS)("CSV %s: cabeçalho com acento e saldo brasileiro como texto", (_label, encode) => {
+		const csv = "UG;Conta Contábil;Saldo\n120062;113110101;1.234,56\n120062;113110101;1.234\n120062;113110101;12,345\n"
+		const rows = readSheetRows(encode(csv))
+		expect(rows[0]).toEqual(["UG", "Conta Contábil", "Saldo"])
 		expect(rows.slice(1).map((row) => parseSaldo(row[2]))).toEqual([1234.56, 1234, 12.345])
 	})
 })

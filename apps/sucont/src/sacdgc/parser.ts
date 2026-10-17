@@ -27,27 +27,6 @@ const MAX_PEER_CHARS = 1_500
 /** Teto do bloco inteiro de contexto de grupo. */
 export const MAX_GROUP_CONTEXT_CHARS = 12_000
 
-// ── Encoding ─────────────────────────────────────────────────
-
-const UTF8_STRICT = new TextDecoder("utf-8", { fatal: true })
-const UTF8_LOOSE = new TextDecoder("utf-8")
-const LATIN1 = new TextDecoder("windows-1252")
-
-/**
- * Decodifica bytes de planilha texto. UTF-8 estrito primeiro; qualquer byte
- * inválido significa export do Tesouro Gerencial, que é windows-1252.
- */
-export function decodeSpreadsheet(bytes: ArrayBuffer | Uint8Array): string {
-	const view = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)
-	// BOM UTF-8: decisão já tomada pelo arquivo.
-	if (view[0] === 0xef && view[1] === 0xbb && view[2] === 0xbf) return UTF8_LOOSE.decode(view).replace(/^﻿/, "")
-	try {
-		return UTF8_STRICT.decode(view)
-	} catch {
-		return LATIN1.decode(view)
-	}
-}
-
 // ── CSV ──────────────────────────────────────────────────────
 
 /** Separador do arquivo: o candidato mais frequente FORA de aspas na primeira linha. */
