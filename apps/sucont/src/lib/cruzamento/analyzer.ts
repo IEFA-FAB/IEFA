@@ -73,14 +73,66 @@ export interface ReportData {
 
 /**
  * Saldo da célula pela regra compartilhada (`parseBrazilianAmount`); o que não for número
- * vira 0, como antes.
- *
- * A leitura usa `raw: false`, então o valor chega como o SheetJS o FORMATA, em inglês
- * ("1,234.56"). A cópia antiga já tratava os dois separadores; o que ela errava era o
- * separador único: "1,234" (milhar formatado) virava 1,234. E parênteses viravam 0.
+ * vira 0, como antes. Recebe o valor CRU da célula (`raw: true`): número passa direto e
+ * texto é o que foi digitado, na convenção brasileira.
  */
 export function parseSaldoCell(value: unknown): number {
 	return parseBrazilianAmountOrZero(value)
+}
+
+/** Valor da coluna cujo cabeçalho contém um dos nomes (sem espaço, sem caixa). */
+function getColumnValue(row: Record<string, unknown>, searchKeys: string[]): unknown {
+	const normalize = (text: string) => text.toLowerCase().replace(/\s+/g, "")
+	const key = Object.keys(row).find((k) => searchKeys.some((searchKey) => normalize(k).includes(normalize(searchKey))))
+	return key ? row[key] : ""
+}
+
+/**
+ * Linhas do relatório a partir do conteúdo do arquivo (xlsx, xls ou CSV).
+ *
+ * A planilha é lida duas vezes, com as linhas alinhadas (`blankrows: true`):
+ * - os identificadores (UG, conta, conta corrente) como TEXTO formatado (`raw: false`),
+ *   para não perder o zero à esquerda de um conta corrente com formato "00000";
+ * - o saldo como valor CRU (`raw: true`). O texto formatado do SheetJS sai em inglês:
+ *   a célula Geral com 123,456 chega como "123.456", que pela regra brasileira viraria
+ *   123456. Cru, ela chega como o número 123.456, e só a célula de texto ("1.234,56",
+ *   digitado ou exportado como texto) passa pelo parser brasileiro.
+ *
+ * `XLSX.read` com `raw: true` vale só para formato de texto (CSV): sem ele, o SheetJS
+ * adivinha número no CSV em inglês e "1.234,56" vira 1,23456. No xlsx não muda nada.
+ */
+export function readRecords(data: ArrayBuffer | Uint8Array): RawRecord[] {
+	const workbook = XLSX.read(data, { type: "array", raw: true })
+	const firstSheetName = workbook.SheetNames[0]
+	const worksheet = workbook.Sheets[firstSheetName]
+	const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as unknown[][]
+
+	let headerRowIndex = -1
+	for (let i = 0; i < rows.length; i++) {
+		const row = rows[i]
+		if (!row) continue
+		const rowStr = (row as unknown[]).join(" ").toLowerCase()
+		if (rowStr.includes("ug") && rowStr.includes("conta") && rowStr.includes("corrente")) {
+			headerRowIndex = i
+			break
+		}
+	}
+
+	if (headerRowIndex === -1) {
+		throw new Error("Cabeçalho da tabela não encontrado. A planilha deve conter as colunas UG, Conta Contábil, Conta Corrente e Saldo.")
+	}
+
+	const textRows = XLSX.utils.sheet_to_json(worksheet, { range: headerRowIndex, raw: false, blankrows: true }) as Record<string, unknown>[]
+	const rawRows = XLSX.utils.sheet_to_json(worksheet, { range: headerRowIndex, raw: true, blankrows: true }) as Record<string, unknown>[]
+
+	return textRows
+		.map((row, index) => ({
+			UG: String(getColumnValue(row, ["UG", "UnidadeGestora"])).trim(),
+			ContaContabil: String(getColumnValue(row, ["ContaContábil", "ContaContabil"])).trim(),
+			ContaCorrente: String(getColumnValue(row, ["ContaCorrente"])).trim(),
+			Saldo: parseSaldoCell(getColumnValue(rawRows[index] ?? {}, ["Saldo", "Valor"])),
+		}))
+		.filter((r) => r.UG && r.ContaContabil && r.ContaCorrente)
 }
 
 export function parseFile(file: File): Promise<RawRecord[]> {
@@ -88,58 +140,7 @@ export function parseFile(file: File): Promise<RawRecord[]> {
 		const reader = new FileReader()
 		reader.onload = (e) => {
 			try {
-				const data = new Uint8Array(e.target?.result as ArrayBuffer)
-				const workbook = XLSX.read(data, { type: "array" })
-				const firstSheetName = workbook.SheetNames[0]
-				const worksheet = workbook.Sheets[firstSheetName]
-				const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as unknown[][]
-
-				let headerRowIndex = -1
-				for (let i = 0; i < rows.length; i++) {
-					const row = rows[i]
-					if (!row) continue
-					const rowStr = (row as unknown[]).join(" ").toLowerCase()
-					if (rowStr.includes("ug") && rowStr.includes("conta") && rowStr.includes("corrente")) {
-						headerRowIndex = i
-						break
-					}
-				}
-
-				if (headerRowIndex === -1) {
-					throw new Error("Cabeçalho da tabela não encontrado. A planilha deve conter as colunas UG, Conta Contábil, Conta Corrente e Saldo.")
-				}
-
-				const json = XLSX.utils.sheet_to_json(worksheet, {
-					range: headerRowIndex,
-					raw: false,
-				}) as Record<string, unknown>[]
-
-				const records: RawRecord[] = json
-					.map((row) => {
-						const getVal = (searchKeys: string[]) => {
-							const key = Object.keys(row).find((k) =>
-								searchKeys.some((searchKey) => k.toLowerCase().replace(/\s+/g, "").includes(searchKey.toLowerCase().replace(/\s+/g, "")))
-							)
-							return key ? row[key] : ""
-						}
-
-						const ug = getVal(["UG", "UnidadeGestora"])
-						const contaContabil = getVal(["ContaContábil", "ContaContabil"])
-						const contaCorrente = getVal(["ContaCorrente"])
-						const saldoStr = getVal(["Saldo", "Valor"])
-
-						const saldo = parseSaldoCell(saldoStr)
-
-						return {
-							UG: String(ug).trim(),
-							ContaContabil: String(contaContabil).trim(),
-							ContaCorrente: String(contaCorrente).trim(),
-							Saldo: saldo,
-						}
-					})
-					.filter((r) => r.UG && r.ContaContabil && r.ContaCorrente)
-
-				resolve(records)
+				resolve(readRecords(new Uint8Array(e.target?.result as ArrayBuffer)))
 			} catch (err) {
 				reject(err)
 			}

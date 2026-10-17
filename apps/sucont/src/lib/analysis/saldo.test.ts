@@ -23,13 +23,27 @@ describe("parseBrazilianAmount", () => {
 		["(1.234,56)", -1234.56],
 		["R$ (500)", -500],
 		["(1.234)", -1234],
-		// Os dois separadores: o último é o decimal (o SheetJS formata em inglês com raw: false).
+		["1.234.567", 1234567],
+		// Vírgula sozinha é SEMPRE decimal em pt-BR, mesmo seguida de três dígitos.
+		["1,234", 1.234],
+		["12,345", 12.345],
+		["1,5", 1.5],
+		["0,500", 0.5],
+		["1.234,", 1234],
+		// Vírgula antes do ponto só tem a leitura inglesa.
 		["1,234.56", 1234.56],
 		["-1,234,567.8", -1234567.8],
-		// Vírgula só no padrão de milhar: milhar.
-		["1,234", 1234],
-		["0,500", 0.5],
-		["12,3,4", 12.3],
+		// Sinal: na frente, no fim (relatório contábil) e em parênteses; as marcas não se cancelam.
+		["+1.234", 1234],
+		["+1.234,56", 1234.56],
+		["1.234-", -1234],
+		["1.234,56-", -1234.56],
+		["R$ 1.234,56-", -1234.56],
+		["-(1.234,56)", -1234.56],
+		["(-1.234,56)", -1234.56],
+		["−1.234,56", -1234.56],
+		["(0,00)", 0],
+		["$ 10,00", 10],
 	])("%p → %p", (raw, expected) => {
 		expect(parseBrazilianAmount(raw)).toBe(expected)
 	})
@@ -39,6 +53,14 @@ describe("parseBrazilianAmount", () => {
 		expect(parseBrazilianAmount("")).toBeNaN()
 		expect(parseBrazilianAmount(true)).toBeNaN()
 		expect(parseBrazilianAmount(null)).toBeNaN()
+	})
+
+	it.each(["12,3,4", "1,234,567", "1.23.4", "12abc", "1.234,56D", "-1.234-", "--1", "(1.234", ",", "."])("formato ambíguo ou com lixo sai NaN: %p", (raw) => {
+		expect(parseBrazilianAmount(raw)).toBeNaN()
+	})
+
+	it("zero negativo não existe", () => {
+		expect(Object.is(parseBrazilianAmount("-0,00"), 0)).toBe(true)
 	})
 })
 

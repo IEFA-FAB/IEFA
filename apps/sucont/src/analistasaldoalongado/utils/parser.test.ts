@@ -20,6 +20,19 @@ describe("parseSaldoCell", () => {
 		expect(parseSaldoCell("R$ (500,00)")).toBe(-500)
 	})
 
+	it("lê o sinal na frente, no fim e junto dos parênteses", () => {
+		expect(parseSaldoCell("+1.234")).toBe(1234)
+		expect(parseSaldoCell("1.234-")).toBe(-1234)
+		expect(parseSaldoCell("1.234,56- D")).toBe(-1234.56)
+		// Antes virava 0: o "-" antes do parêntese quebrava a leitura.
+		expect(parseSaldoCell("-(1.234,56)")).toBe(-1234.56)
+		expect(parseSaldoCell("−1.234,56")).toBe(-1234.56)
+	})
+
+	it("vírgula sozinha é decimal", () => {
+		expect(parseSaldoCell("12,345")).toBe(12.345)
+	})
+
 	it("mantém a tolerância a letras no texto, como a cópia antiga", () => {
 		expect(parseSaldoCell("1.234,56 C")).toBe(1234.56)
 		expect(parseSaldoCell("")).toBe(0)

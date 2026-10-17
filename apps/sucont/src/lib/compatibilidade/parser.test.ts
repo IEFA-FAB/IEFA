@@ -1,19 +1,17 @@
 import { describe, expect, it } from "bun:test"
 import * as XLSX from "xlsx"
 import { PARES } from "./pares"
-import { PAIR_COLORS, parseSaldo, processData, type SheetRow } from "./parser"
+import { PAIR_COLORS, parseSaldo, processData, readSheetRows, type SheetRow } from "./parser"
 
 const [PAR_CAUCAO, PAR_CONSUMO, PAR_BMP] = PARES
 
 const HEADER = ["UG", "Conta Contábil", "Saldo - R$"]
 
-/** Mesmo caminho da tela: workbook → ArrayBuffer → `XLSX.read` → `sheet_to_json({ header: 1 })`. */
-function rowsFromWorkbook(aoa: unknown[][]): SheetRow[] {
+/** Mesmo caminho da tela: workbook → ArrayBuffer → `readSheetRows`. */
+function rowsFromWorkbook(aoa: unknown[][]) {
 	const wb = XLSX.utils.book_new()
 	XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), "Planilha1")
-	const ab = XLSX.write(wb, { type: "array", bookType: "xlsx" })
-	const read = XLSX.read(ab, { type: "array" })
-	return XLSX.utils.sheet_to_json(read.Sheets[read.SheetNames[0]], { header: 1 }) as SheetRow[]
+	return readSheetRows(XLSX.write(wb, { type: "array", bookType: "xlsx" }))
 }
 
 function parseSheet(aoa: unknown[][]) {
@@ -204,5 +202,13 @@ describe("parseSaldo", () => {
 		expect([1234.5, "1.234,56", "1500.25", "(1.234,56)", "1.234", "abc", null, true].map(parseSaldo)).toEqual([
 			1234.5, 1234.56, 1500.25, -1234.56, 1234, 0, 0, 0,
 		])
+	})
+})
+
+describe("readSheetRows", () => {
+	it("CSV brasileiro chega como texto, sem a adivinhação de número do SheetJS", () => {
+		const csv = "UG;Conta;Saldo\n120062;113110101;1.234,56\n120062;113110101;1.234\n120062;113110101;12,345\n"
+		const rows = readSheetRows(new TextEncoder().encode(csv))
+		expect(rows.slice(1).map((row) => parseSaldo(row[2]))).toEqual([1234.56, 1234, 12.345])
 	})
 })

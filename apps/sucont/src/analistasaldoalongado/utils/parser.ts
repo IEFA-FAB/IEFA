@@ -85,12 +85,13 @@ const findSaldoKey = (keys: string[]): string | undefined => {
  * Diferença mantida de propósito: o texto (CSV do Papa, ou célula de texto no Excel)
  * perde antes tudo que não seja dígito, separador, sinal ou parêntese. A cópia antiga já
  * tolerava assim um sufixo como "C"/"D" ou uma moeda escrita; só que tirava também os
- * parênteses, e "(1.234,56)" virava positivo. Número do Excel (`raw: true`) passa direto:
+ * parênteses, e "(1.234,56)" virava positivo. O sinal sobrevive à limpeza em qualquer
+ * posição: "+1.234", "1.234-" e "-(1.234,56)" (que antes virava 0). Número do Excel (`raw: true`) passa direto:
  * antes ia por `String()`, e o separador único ("1.234") era lido como decimal.
  */
 export function parseSaldoCell(value: unknown): number {
 	if (typeof value !== "string") return parseBrazilianAmountOrZero(value)
-	return parseBrazilianAmountOrZero(value.replace(/[^\d.,()-]/g, ""))
+	return parseBrazilianAmountOrZero(value.replace(/[^\d.,()+\-\u2212]/g, ""))
 }
 
 export const parseFile = async (file: File): Promise<ParsedRow[]> => {

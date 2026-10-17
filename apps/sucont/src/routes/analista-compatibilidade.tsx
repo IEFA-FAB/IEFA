@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { BookOpen, Check, Copy, FileText, LayoutDashboard, MessageSquare, RefreshCw, Search } from "lucide-react"
 import { useCallback, useMemo, useState } from "react"
-import * as XLSX from "xlsx"
 import { requireToolAccess } from "#/auth/pbac"
 import { AnalysisGuide } from "#/components/analysis-guide"
 import { AnalysisStart } from "#/components/analysis-start"
@@ -23,7 +22,7 @@ import { describeReportFilter } from "#/lib/compatibilidade/filters"
 import { formatCurrency } from "#/lib/compatibilidade/format"
 import { buildManagerialData } from "#/lib/compatibilidade/managerial"
 import { generateMessageText as buildMessageText, type MessageType } from "#/lib/compatibilidade/message"
-import { PAIRS, processData, type SheetRow, type UGReport } from "#/lib/compatibilidade/parser"
+import { PAIRS, processData, readSheetRows, type UGReport } from "#/lib/compatibilidade/parser"
 
 /**
  * O que a ferramenta faz com a planilha. Último bloco da tela inicial: é a
@@ -109,12 +108,7 @@ function AnalistaCompatibilidade() {
 		const reader = new FileReader()
 		reader.onload = (evt) => {
 			try {
-				const ab = evt.target?.result
-				const wb = XLSX.read(ab, { type: "array" })
-				const wsname = wb.SheetNames[0]
-				const ws = wb.Sheets[wsname]
-				const data = XLSX.utils.sheet_to_json(ws, { header: 1 })
-				const newReports = processData(data as SheetRow[])
+				const newReports = processData(readSheetRows(evt.target?.result as ArrayBuffer))
 				setReports(newReports)
 				if (newReports.length === 0) {
 					setError("Nenhuma divergência encontrada na planilha processada.")

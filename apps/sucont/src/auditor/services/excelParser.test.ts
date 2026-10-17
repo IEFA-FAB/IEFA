@@ -401,8 +401,8 @@ describe("parseExcelFile — conversão numérica", () => {
 
 	it("texto em formato brasileiro vira número", async () => {
 		const [row] = await parseAoa([HEADER, dataRow("JAN/2024", 1, "U", ["1.234,56", "R$ -50,5", "100", "abc", "-", "12,3,4", 0, 0, 0])])
-		// "12,3,4" → "12.3,4": só a primeira vírgula vira ponto.
-		expect(values(row)).toEqual([1234.56, -50.5, 100, 0, 0, 12.3, 0, 0, 0])
+		// "12,3,4" não é número em formato nenhum: conta 0, como o resto do que não é número.
+		expect(values(row)).toEqual([1234.56, -50.5, 100, 0, 0, 0, 0, 0, 0])
 	})
 
 	it("texto com ponto decimal, formato americano e parênteses segue a regra compartilhada", async () => {
