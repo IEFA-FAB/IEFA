@@ -123,6 +123,7 @@ describeSupabaseIntegration("documentos do anexo quantitativo", () => {
 				validSamples: samples,
 				outlierSamples: [],
 				measureUnit: "KG",
+				source: { consultedAt: new Date().toISOString(), totalRecords: 3, totalPages: 1, pagesFetched: 1, coverage: "complete" },
 				quantityEstimateId: quantityEstimateId,
 				quantityEstimateItemId: item.id,
 			})
@@ -150,6 +151,9 @@ describeSupabaseIntegration("documentos do anexo quantitativo", () => {
 		expect(report?.seriesFormat).toBe(2)
 		expect(report?.csv.split("\n").filter((line) => line.startsWith("1,447599,"))).toHaveLength(4)
 		expect(report?.csv).toContain(priceResearchQueryUrl(447599))
+		// A consulta à fonte gravada na pesquisa volta congelada na emissão e sai na série.
+		expect(report?.items[0].research?.source).toMatchObject({ totalRecords: 3, totalPages: 1, pagesFetched: 1, coverage: "complete" })
+		expect(report?.csv).toContain(",todas_as_paginas,")
 
 		// Editar o anexo depois da emissão não a invalida: ela congelou o que usou.
 		await updateQuantityEstimateItemDescription(db, ctx, { quantityEstimateItemId: item.id, description: "descrição editada depois" })

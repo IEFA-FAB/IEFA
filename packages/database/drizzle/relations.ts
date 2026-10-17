@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm/relations";
-import { comprasServicoDivisaoInComprasGovIntegration, comprasServicoGrupoInComprasGovIntegration, comprasServicoClasseInComprasGovIntegration, menuTemplateInKitchen, quantityEstimateSelectionInProcurement, quantityEstimateKitchenInProcurement, comprasMaterialClasseInComprasGovIntegration, comprasMaterialPdmInComprasGovIntegration, quantityEstimateInProcurement, quantityEstimateSnapshotSelectionInProcurement, comprasServicoSecaoInComprasGovIntegration, integrationSyncLogInComprasGovIntegration, integrationSyncStepInComprasGovIntegration, usersInAuth, nfeDocumentInInventory, kitchenInKitchen, unitsInCore, measureUnitInCore, gtinInGs1Integration, ingredientItemInKitchen, supplierProductMapInGs1Integration, purchaseItemInProcurement, sourceInNutritionReference, sourceReleaseInNutritionReference, foodItemRevisionInNutritionReference, foodItemInNutritionReference, quantityEstimateSnapshotComponentInProcurement, nutrientComponentInNutritionReference, nutrientComponentMappingInNutritionReference, nutrientInKitchen, foodNutrientValueInNutritionReference, supplyOrderInProcurement, empenhoInFinance, arpItemInProcurement, supplyOrderItemInProcurement, ingredientInKitchen, nfeItemInInventory, priceSampleInProcurement, priceResearchSampleInProcurement, priceResearchItemInProcurement, mcpApiKeysInAccessControl, mealTypeInKitchen, menuTemplateEventMealInKitchen, personInCore, recipesInKitchen, recipeReviewInKitchen, segmentInProcurement, itemInCore, purchaseItemIngredientInProcurement, receiptScanEventInInventory, goodsReceiptInInventory, goodsReceiptItemInInventory, acquisitionInProcurement, folderInKitchen, segmentRuleInProcurement, preparationGroupInKitchen, ceafaInKitchen, comprasMaterialItemInComprasGovIntegration, equipmentModelInKitchen, equipmentModelRoleInKitchen, equipmentRoleInKitchen, signupAllowlistInAccessControl, equipmentUnitRoleInKitchen, equipmentUnitInKitchen, arpInProcurement, gtinAliasInGs1Integration, recipeEquipmentRequirementInKitchen, recipeStepInKitchen, analyticsChatSessionInKitchen, analyticsChatMessageInKitchen, productionTaskInKitchen, menuItemsInKitchen, messHallWorkforceInKitchen, messHallsInKitchen, workforceSurveyInKitchen, workforceSubmissionInKitchen, stockIssueRequestItemInInventory, stockIssueRequestInInventory, workforceCategoryInKitchen, workforceHeadcountInKitchen, mealPresencesInKitchen, workforceNoteInKitchen, ingredientNutritionReferenceInKitchen, menuTemplateMealInKitchen, otherPresencesInKitchen, stepTemplateInKitchen, stepTemplateUtensilInKitchen, utensilInKitchen, frozenPreparationInKitchen, recipeIngredientAlternativesInKitchen, recipeIngredientsInKitchen, ingredientNutrientInKitchen, ingredientVersionInKitchen, moduleChatSessionInKitchen, moduleChatMessageInKitchen, dailyMenuInKitchen, inventoryCountInInventory, inventoryCountItemInInventory, stockLotInInventory, menuGroupSetInKitchen, recipeStepOutputInKitchen, ingredientSubstitutionInKitchen, sensitiveOperationLogInAccessControl, recipeStepInputInKitchen, recipeStepUtensilInKitchen, mfaRecoveryCodeInAccessControl, opinionsInKitchen, ingredientReviewInKitchen, menuTemplateFolderInKitchen, snackRequestInKitchen, snackRequestLineInKitchen, snackRequestEventInKitchen, monthlyClosingInInventory, snackRequestMaterialInKitchen, stockPolicyInInventory, menuTemplateItemsInKitchen, contractDesignationInProcurement, liquidacaoInFinance, priceResearchEmissionInProcurement, expiryAlertPolicyInInventory, importBatchInSiafiIntegration, empenhoItemInFinance, stockAdjustmentInInventory, gpcAttributeInGs1Integration, gpcAttributeValueInGs1Integration, gtinSpecificationCheckInGs1Integration, purchaseItemGpcRequirementInProcurement, equipmentMaintenancePlanInKitchen, equipmentIssueInKitchen, equipmentMaintenanceLogInKitchen, creditNoteInFinance, budgetCreditInFinance, policyInAccessControl, userPolicyAttachmentInAccessControl, policyStatementInAccessControl, empenhoRpInscriptionInFinance, quantityEstimateItemInProcurement, priceResearchInProcurement, importRowInSiafiIntegration, liquidacaoDeductionInFinance, empenhoEventInFinance, pagamentoInFinance, folderReviewInKitchen, reconciliationDecisionInFinance, recipeFolderInKitchen, arranchamentoInKitchen, stockMovementInInventory, userDataInCore, saramLinkRequestInCore, saramVerificationAttemptInCore, userPermissionsInAccessControl, mfaResetLogInAccessControl, openingBalanceInInventory, openingBalanceItemInInventory, comprasMaterialGrupoInComprasGovIntegration, kitchenDemandForecastInProcurement, kitchenDemandForecastSelectionInProcurement, stockCostInInventory, kitchenStockSettingsInInventory, menuGroupInKitchen, countScopeItemInInventory, goodsReceiptItemLotInInventory, inventoryCountEntryInInventory, stockAdjustmentItemInInventory, stockAdjustmentAttachmentInInventory, gpcBrickAttributeInGs1Integration, kitchenDemandForecastImportInProcurement, gtinGpcAttributeInGs1Integration, scannerProfileInInventory } from "./schema";
+import { comprasServicoDivisaoInComprasGovIntegration, comprasServicoGrupoInComprasGovIntegration, comprasServicoClasseInComprasGovIntegration, menuTemplateInKitchen, quantityEstimateSelectionInProcurement, quantityEstimateKitchenInProcurement, comprasMaterialClasseInComprasGovIntegration, comprasMaterialPdmInComprasGovIntegration, quantityEstimateInProcurement, quantityEstimateSnapshotSelectionInProcurement, comprasServicoSecaoInComprasGovIntegration, integrationSyncLogInComprasGovIntegration, integrationSyncStepInComprasGovIntegration, usersInAuth, nfeDocumentInInventory, kitchenInKitchen, unitsInCore, measureUnitInCore, gtinInGs1Integration, ingredientItemInKitchen, supplierProductMapInGs1Integration, purchaseItemInProcurement, sourceInNutritionReference, sourceReleaseInNutritionReference, foodItemRevisionInNutritionReference, foodItemInNutritionReference, quantityEstimateSnapshotComponentInProcurement, nutrientComponentInNutritionReference, nutrientComponentMappingInNutritionReference, nutrientInKitchen, foodNutrientValueInNutritionReference, supplyOrderInProcurement, empenhoInFinance, arpItemInProcurement, supplyOrderItemInProcurement, ingredientInKitchen, nfeItemInInventory, priceSampleInProcurement, priceResearchSampleInProcurement, priceResearchItemInProcurement, mcpApiKeysInAccessControl, mealTypeInKitchen, menuTemplateEventMealInKitchen, personInCore, recipesInKitchen, recipeReviewInKitchen, segmentInProcurement, itemInCore, purchaseItemIngredientInProcurement, receiptScanEventInInventory, goodsReceiptInInventory, goodsReceiptItemInInventory, acquisitionInProcurement, folderInKitchen, segmentRuleInProcurement, preparationGroupInKitchen, ceafaInKitchen, comprasMaterialItemInComprasGovIntegration, equipmentModelInKitchen, equipmentModelRoleInKitchen, equipmentRoleInKitchen, signupAllowlistInAccessControl, equipmentUnitRoleInKitchen, equipmentUnitInKitchen, arpInProcurement, gtinAliasInGs1Integration, recipeEquipmentRequirementInKitchen, recipeStepInKitchen, analyticsChatSessionInKitchen, analyticsChatMessageInKitchen, productionTaskInKitchen, menuItemsInKitchen, messHallWorkforceInKitchen, messHallsInKitchen, workforceSurveyInKitchen, workforceSubmissionInKitchen, stockIssueRequestItemInInventory, stockIssueRequestInInventory, workforceCategoryInKitchen, workforceHeadcountInKitchen, mealPresencesInKitchen, workforceNoteInKitchen, ingredientNutritionReferenceInKitchen, menuTemplateMealInKitchen, otherPresencesInKitchen, stepTemplateInKitchen, stepTemplateUtensilInKitchen, utensilInKitchen, frozenPreparationInKitchen, recipeIngredientAlternativesInKitchen, recipeIngredientsInKitchen, ingredientNutrientInKitchen, ingredientVersionInKitchen, moduleChatSessionInKitchen, moduleChatMessageInKitchen, dailyMenuInKitchen, inventoryCountInInventory, inventoryCountItemInInventory, stockLotInInventory, menuGroupSetInKitchen, recipeStepOutputInKitchen, ingredientSubstitutionInKitchen, sensitiveOperationLogInAccessControl, recipeStepInputInKitchen, recipeStepUtensilInKitchen, mfaRecoveryCodeInAccessControl, opinionsInKitchen, ingredientReviewInKitchen, menuTemplateFolderInKitchen, snackRequestInKitchen, snackRequestLineInKitchen, snackRequestEventInKitchen, monthlyClosingInInventory, snackRequestMaterialInKitchen, stockPolicyInInventory, menuTemplateItemsInKitchen, contractDesignationInProcurement, liquidacaoInFinance, priceResearchEmissionInProcurement, expiryAlertPolicyInInventory, importBatchInSiafiIntegration, empenhoItemInFinance, stockAdjustmentInInventory, gpcAttributeInGs1Integration, gpcAttributeValueInGs1Integration, gtinSpecificationCheckInGs1Integration, purchaseItemGpcRequirementInProcurement, equipmentMaintenancePlanInKitchen, equipmentIssueInKitchen, equipmentMaintenanceLogInKitchen, creditNoteInFinance, budgetCreditInFinance, policyInAccessControl, userPolicyAttachmentInAccessControl, policyStatementInAccessControl, empenhoRpInscriptionInFinance, importRowInSiafiIntegration, liquidacaoDeductionInFinance, empenhoEventInFinance, pagamentoInFinance, folderReviewInKitchen, reconciliationDecisionInFinance, recipeFolderInKitchen, arranchamentoInKitchen, stockMovementInInventory, userDataInCore, saramLinkRequestInCore, saramVerificationAttemptInCore, userPermissionsInAccessControl, mfaResetLogInAccessControl, openingBalanceInInventory, openingBalanceItemInInventory, comprasMaterialGrupoInComprasGovIntegration, kitchenDemandForecastInProcurement, kitchenDemandForecastSelectionInProcurement, priceResearchInProcurement, quantityEstimateItemInProcurement, stockCostInInventory, kitchenStockSettingsInInventory, menuGroupInKitchen, countScopeItemInInventory, goodsReceiptItemLotInInventory, inventoryCountEntryInInventory, stockAdjustmentItemInInventory, stockAdjustmentAttachmentInInventory, gpcBrickAttributeInGs1Integration, kitchenDemandForecastImportInProcurement, gtinGpcAttributeInGs1Integration, scannerProfileInInventory } from "./schema";
 
 export const comprasServicoGrupoInComprasGovIntegrationRelations = relations(comprasServicoGrupoInComprasGovIntegration, ({one, many}) => ({
 	comprasServicoDivisaoInComprasGovIntegration: one(comprasServicoDivisaoInComprasGovIntegration, {
@@ -2247,39 +2247,6 @@ export const empenhoRpInscriptionInFinanceRelations = relations(empenhoRpInscrip
 	}),
 }));
 
-export const quantityEstimateItemInProcurementRelations = relations(quantityEstimateItemInProcurement, ({one, many}) => ({
-	priceResearchItemInProcurements: many(priceResearchItemInProcurement),
-	arpItemInProcurements: many(arpItemInProcurement),
-	folderInKitchen: one(folderInKitchen, {
-		fields: [quantityEstimateItemInProcurement.folderId],
-		references: [folderInKitchen.id]
-	}),
-	ingredientInKitchen: one(ingredientInKitchen, {
-		fields: [quantityEstimateItemInProcurement.ingredientId],
-		references: [ingredientInKitchen.id]
-	}),
-	purchaseItemInProcurement: one(purchaseItemInProcurement, {
-		fields: [quantityEstimateItemInProcurement.purchaseItemId],
-		references: [purchaseItemInProcurement.id]
-	}),
-	quantityEstimateInProcurement: one(quantityEstimateInProcurement, {
-		fields: [quantityEstimateItemInProcurement.quantityEstimateId],
-		references: [quantityEstimateInProcurement.id]
-	}),
-}));
-
-export const priceResearchInProcurementRelations = relations(priceResearchInProcurement, ({one, many}) => ({
-	priceResearchItemInProcurements: many(priceResearchItemInProcurement),
-	usersInAuth: one(usersInAuth, {
-		fields: [priceResearchInProcurement.createdBy],
-		references: [usersInAuth.id]
-	}),
-	quantityEstimateInProcurement: one(quantityEstimateInProcurement, {
-		fields: [priceResearchInProcurement.quantityEstimateId],
-		references: [quantityEstimateInProcurement.id]
-	}),
-}));
-
 export const importRowInSiafiIntegrationRelations = relations(importRowInSiafiIntegration, ({one}) => ({
 	importBatchInSiafiIntegration: one(importBatchInSiafiIntegration, {
 		fields: [importRowInSiafiIntegration.batchId],
@@ -2542,6 +2509,39 @@ export const kitchenDemandForecastSelectionInProcurementRelations = relations(ki
 	menuTemplateInKitchen: one(menuTemplateInKitchen, {
 		fields: [kitchenDemandForecastSelectionInProcurement.templateId],
 		references: [menuTemplateInKitchen.id]
+	}),
+}));
+
+export const priceResearchInProcurementRelations = relations(priceResearchInProcurement, ({one, many}) => ({
+	usersInAuth: one(usersInAuth, {
+		fields: [priceResearchInProcurement.createdBy],
+		references: [usersInAuth.id]
+	}),
+	quantityEstimateInProcurement: one(quantityEstimateInProcurement, {
+		fields: [priceResearchInProcurement.quantityEstimateId],
+		references: [quantityEstimateInProcurement.id]
+	}),
+	priceResearchItemInProcurements: many(priceResearchItemInProcurement),
+}));
+
+export const quantityEstimateItemInProcurementRelations = relations(quantityEstimateItemInProcurement, ({one, many}) => ({
+	arpItemInProcurements: many(arpItemInProcurement),
+	priceResearchItemInProcurements: many(priceResearchItemInProcurement),
+	folderInKitchen: one(folderInKitchen, {
+		fields: [quantityEstimateItemInProcurement.folderId],
+		references: [folderInKitchen.id]
+	}),
+	ingredientInKitchen: one(ingredientInKitchen, {
+		fields: [quantityEstimateItemInProcurement.ingredientId],
+		references: [ingredientInKitchen.id]
+	}),
+	purchaseItemInProcurement: one(purchaseItemInProcurement, {
+		fields: [quantityEstimateItemInProcurement.purchaseItemId],
+		references: [purchaseItemInProcurement.id]
+	}),
+	quantityEstimateInProcurement: one(quantityEstimateInProcurement, {
+		fields: [quantityEstimateItemInProcurement.quantityEstimateId],
+		references: [quantityEstimateInProcurement.id]
 	}),
 }));
 
