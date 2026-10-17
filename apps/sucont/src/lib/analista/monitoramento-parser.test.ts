@@ -3,6 +3,7 @@
 // o `FileReader.readAsArrayBuffer` da tela entrega ao parser.
 import { describe, expect, it } from "bun:test"
 import * as XLSX from "xlsx"
+import { encodeWindows1252 } from "#/lib/__fixtures__/csv-encodings"
 import { parseWorkbook } from "./monitoramento-parser"
 import type { ProcessedRow } from "./types"
 
@@ -38,6 +39,16 @@ describe("parseWorkbook: leitura", () => {
 	it("lança sem conteúdo nenhum", () => {
 		expect(() => parseWorkbook(undefined)).toThrow()
 		expect(() => parseWorkbook(null)).toThrow()
+	})
+
+	it("CSV windows-1252 (ou texto renomeado para .xls) é lido sem adivinhar número", () => {
+		const csv = "Unidade Gestora;Mês;Conta Contábil;Saldo - R$\n120062;JAN;115110101;1.234,56\n120062;FEV;115110101;12,345\n"
+		const result = parseWorkbook(encodeWindows1252(csv).buffer)
+		expect(result.isHeaderFound).toBe(true)
+		expect(result.processed.map((row) => [row.mes, row.saldo])).toEqual([
+			["JAN", 1234.56],
+			["FEV", 12.345],
+		])
 	})
 
 	it("planilha vazia não tem cabeçalho", () => {
@@ -192,6 +203,14 @@ describe("parseWorkbook: fallback heurístico", () => {
 			])
 		)
 		expect(result.processed).toEqual([cobranca("120062", "FEV/2026", 5), cobranca("120062", "Março/2026", 8)])
+	})
+
+	it("aceita mês abreviado em inglês, além do português", () => {
+		const months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]
+		const result = parseWorkbook(toWorkbook([["UG", "Mês", "Conta", "Saldo"], ...months.map((mes, i) => [null, "120062", mes, "115110101", i + 1])]))
+		expect(result.processed).toEqual(months.map((mes, i) => cobranca("120062", mes, i + 1)))
+		const withYear = parseWorkbook(toWorkbook([["120062", "OCT/2026", "115110101", 5]]))
+		expect(withYear.processed).toEqual([cobranca("120062", "OCT/2026", 5)])
 	})
 
 	it("um segundo código de 6 dígitos vira saldo se o saldo ainda não apareceu", () => {

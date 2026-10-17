@@ -1,19 +1,18 @@
 import { describe, expect, it } from "bun:test"
 import * as XLSX from "xlsx"
+import { CSV_ENCODINGS } from "#/lib/__fixtures__/csv-encodings"
 import { PARES } from "./pares"
-import { PAIR_COLORS, parseSaldo, processData, type SheetRow } from "./parser"
+import { PAIR_COLORS, parseSaldo, processData, readSheetRows, type SheetRow } from "./parser"
 
 const [PAR_CAUCAO, PAR_CONSUMO, PAR_BMP] = PARES
 
 const HEADER = ["UG", "Conta Contábil", "Saldo - R$"]
 
-/** Mesmo caminho da tela: workbook → ArrayBuffer → `XLSX.read` → `sheet_to_json({ header: 1 })`. */
-function rowsFromWorkbook(aoa: unknown[][]): SheetRow[] {
+/** Mesmo caminho da tela: workbook → ArrayBuffer → `readSheetRows`. */
+function rowsFromWorkbook(aoa: unknown[][]) {
 	const wb = XLSX.utils.book_new()
 	XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), "Planilha1")
-	const ab = XLSX.write(wb, { type: "array", bookType: "xlsx" })
-	const read = XLSX.read(ab, { type: "array" })
-	return XLSX.utils.sheet_to_json(read.Sheets[read.SheetNames[0]], { header: 1 }) as SheetRow[]
+	return readSheetRows(XLSX.write(wb, { type: "array", bookType: "xlsx" }))
 }
 
 function parseSheet(aoa: unknown[][]) {
@@ -186,6 +185,14 @@ describe("processData: relatório", () => {
 		])
 	})
 
+	it("código de UG com ponto é a UG; sete dígitos não é UG nenhuma", () => {
+		const reports = parseSheet([HEADER, ["120.062", PAR_BMP.a, 10], ["1200621", PAR_BMP.a, 20]])
+		expect(reports.map((r) => [r.ug, r.ugCode, r.ugName])).toEqual([
+			["1200621", "1200621", "1200621"],
+			["120.062", "120062", "BASP"],
+		])
+	})
+
 	it("UG do cadastro com nome no texto usa a sigla do cadastro", () => {
 		const [report] = parseSheet([HEADER, ["120001 - OUTRO NOME", PAR_BMP.a, 10]])
 		expect(report.ugCode).toBe("120001")
@@ -204,5 +211,14 @@ describe("parseSaldo", () => {
 		expect([1234.5, "1.234,56", "1500.25", "(1.234,56)", "1.234", "abc", null, true].map(parseSaldo)).toEqual([
 			1234.5, 1234.56, 1500.25, -1234.56, 1234, 0, 0, 0,
 		])
+	})
+})
+
+describe("readSheetRows", () => {
+	it.each(CSV_ENCODINGS)("CSV %s: cabeçalho com acento e saldo brasileiro como texto", (_label, encode) => {
+		const csv = "UG;Conta Contábil;Saldo\n120062;113110101;1.234,56\n120062;113110101;1.234\n120062;113110101;12,345\n"
+		const rows = readSheetRows(encode(csv))
+		expect(rows[0]).toEqual(["UG", "Conta Contábil", "Saldo"])
+		expect(rows.slice(1).map((row) => parseSaldo(row[2]))).toEqual([1234.56, 1234, 12.345])
 	})
 })

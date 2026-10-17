@@ -9,6 +9,7 @@
 
 import { afterAll, beforeAll, describe, expect, it } from "bun:test"
 import { utils, write } from "xlsx"
+import { encodeWindows1252 } from "#/lib/__fixtures__/csv-encodings"
 import type { RawInputRow } from "../types"
 import { parseExcelFile } from "./excelParser"
 
@@ -399,10 +400,18 @@ describe("parseExcelFile — conversão numérica", () => {
 		expect(values(row)).toEqual([1.5, -2, 0, 0, 0, 3, 4, 5, 6])
 	})
 
+	it("CSV windows-1252 (ou texto renomeado para .xls) chega como texto e segue a regra brasileira", async () => {
+		readerMode = "load"
+		const lines = [HEADER, dataRow("JAN/2024", 120001, "ALFA", ["1.234,56", "1.234", "12,345", 0, 0, 0, 0, 0, 0])]
+		const csv = lines.map((line) => line.map((cell) => cell ?? "").join(";")).join("\n")
+		const [row] = await parseExcelFile(new File([encodeWindows1252(csv)], "x.xls"))
+		expect(values(row)).toEqual([1234.56, 1234, 12.345, 0, 0, 0, 0, 0, 0])
+	})
+
 	it("texto em formato brasileiro vira número", async () => {
 		const [row] = await parseAoa([HEADER, dataRow("JAN/2024", 1, "U", ["1.234,56", "R$ -50,5", "100", "abc", "-", "12,3,4", 0, 0, 0])])
-		// "12,3,4" → "12.3,4": só a primeira vírgula vira ponto.
-		expect(values(row)).toEqual([1234.56, -50.5, 100, 0, 0, 12.3, 0, 0, 0])
+		// "12,3,4" não é número em formato nenhum: conta 0, como o resto do que não é número.
+		expect(values(row)).toEqual([1234.56, -50.5, 100, 0, 0, 0, 0, 0, 0])
 	})
 
 	it("texto com ponto decimal, formato americano e parênteses segue a regra compartilhada", async () => {

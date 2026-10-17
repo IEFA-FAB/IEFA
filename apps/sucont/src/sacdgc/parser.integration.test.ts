@@ -12,7 +12,8 @@
 import { describe, expect, it } from "bun:test"
 import { existsSync, readdirSync, readFileSync } from "node:fs"
 import { join, resolve } from "node:path"
-import { buildGroupContext, decodeSpreadsheet, MAX_GROUP_CONTEXT_CHARS, parseDgcBase } from "#/sacdgc/parser"
+import { decodeSpreadsheet } from "#/lib/spreadsheet"
+import { buildGroupContext, MAX_GROUP_CONTEXT_CHARS, parseDgcBase } from "#/sacdgc/parser"
 
 const DATA_DIR = resolve(import.meta.dir, "../../data_test")
 const csvFiles = existsSync(DATA_DIR) ? readdirSync(DATA_DIR).filter((name) => name.toLowerCase().endsWith(".csv")) : []

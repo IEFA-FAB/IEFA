@@ -8,7 +8,8 @@
  *  1. **Encoding.** O Tesouro Gerencial exporta em windows-1252. Lido como UTF-8,
  *     "Diárias" vira "Di�rias" e "Mês" vira "M�s" — o modelo então não
  *     casa o texto com os fatores de custo do Módulo 19 e passa a inventar rótulo.
- *     `decodeSpreadsheet` decide o encoding pelos bytes, não pela extensão.
+ *     `decodeSpreadsheet` (em `lib/spreadsheet`, compartilhado com as outras
+ *     ferramentas) decide o encoding pelos bytes, não pela extensão.
  *  2. **Índice da coluna de UG.** Era fixo (0 nos painéis 1-3, 3 no painel 4). Uma
  *     coluna a mais no export desloca tudo e a base inteira vai para a UG errada,
  *     em silêncio. Aqui o índice vem do cabeçalho.
@@ -26,27 +27,6 @@ export const MAX_UG_CHARS = 120_000
 const MAX_PEER_CHARS = 1_500
 /** Teto do bloco inteiro de contexto de grupo. */
 export const MAX_GROUP_CONTEXT_CHARS = 12_000
-
-// ── Encoding ─────────────────────────────────────────────────
-
-const UTF8_STRICT = new TextDecoder("utf-8", { fatal: true })
-const UTF8_LOOSE = new TextDecoder("utf-8")
-const LATIN1 = new TextDecoder("windows-1252")
-
-/**
- * Decodifica bytes de planilha texto. UTF-8 estrito primeiro; qualquer byte
- * inválido significa export do Tesouro Gerencial, que é windows-1252.
- */
-export function decodeSpreadsheet(bytes: ArrayBuffer | Uint8Array): string {
-	const view = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)
-	// BOM UTF-8: decisão já tomada pelo arquivo.
-	if (view[0] === 0xef && view[1] === 0xbb && view[2] === 0xbf) return UTF8_LOOSE.decode(view).replace(/^﻿/, "")
-	try {
-		return UTF8_STRICT.decode(view)
-	} catch {
-		return LATIN1.decode(view)
-	}
-}
 
 // ── CSV ──────────────────────────────────────────────────────
 

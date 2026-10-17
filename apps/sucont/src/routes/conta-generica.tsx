@@ -39,7 +39,7 @@ const ANALYSIS_NOTES = [
 	{
 		icon: Search,
 		title: "O que é analisado",
-		text: 'Uso indevido de contas contábeis genéricas (terminadas em "99") pelas Unidades Gestoras do COMAER.',
+		text: 'Uso indevido de contas contábeis genéricas (as residuais "Outros", de subitem 99 ou de item 99 sem subitem) pelas Unidades Gestoras do COMAER.',
 	},
 	{
 		icon: MessageSquare,
@@ -225,7 +225,7 @@ function ContaGenerica() {
 			reference={
 				<RacReference
 					statement="As Unidades Gestoras utilizam contas contábeis genéricas no registro de suas transações?"
-					objective='Identificar o uso indevido de contas contábeis genéricas (terminadas em "99") pelas Unidades Gestoras do COMAER.'
+					objective='Identificar o uso indevido de contas contábeis genéricas (as residuais "Outros", de subitem 99 ou de item 99 sem subitem) pelas Unidades Gestoras do COMAER.'
 					risk="A conta genérica esconde a natureza real do registro, impede a conciliação por natureza de despesa e distorce a leitura das demonstrações."
 					importance="A reclassificação preserva a fidedignidade dos registros e sustenta a atuação da Setorial Contábil junto à UG."
 				/>
@@ -263,7 +263,7 @@ function ContaGenerica() {
 						<FileDropzone
 							accept={EXCEL_ACCEPT}
 							onFiles={handleFiles}
-							hint='Excel do Tesouro Gerencial — contas com final "99" são identificadas automaticamente'
+							hint="Excel do Tesouro Gerencial — contas genéricas (subitem 99, ou item 99 sem subitem) são identificadas automaticamente"
 							columns={["UG", "Conta Contábil", "Mês", "Saldo - R$"]}
 							isLoading={isProcessing}
 						/>

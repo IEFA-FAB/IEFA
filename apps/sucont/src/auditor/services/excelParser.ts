@@ -1,5 +1,6 @@
-import { read, utils } from "xlsx"
+import { utils } from "xlsx"
 import { parseBrazilianAmountOrZero } from "#/lib/analysis/saldo"
+import { readWorkbook } from "#/lib/spreadsheet"
 import type { RawInputRow } from "../types"
 
 // biome-ignore lint/suspicious/noExplicitAny: xlsx types
@@ -177,7 +178,7 @@ export const parseSheetRows = (jsonData: SheetRow[]): RawInputRow[] => {
 export const parseWorkbook = (data: string | ArrayBuffer | null | undefined): RawInputRow[] => {
 	if (!data) throw new Error("File content is empty")
 
-	const workbook = read(data, { type: "array", cellDates: true })
+	const workbook = readWorkbook(data, { cellDates: true })
 
 	const firstSheetName = workbook.SheetNames[0]
 	if (!firstSheetName) throw new Error("No sheets found in workbook")

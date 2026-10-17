@@ -2,6 +2,7 @@
 import * as XLSX from "xlsx"
 import { classifyAccount, type ProcessedRow } from "#/lib/analista/types"
 import { parseBrazilianAmount } from "#/lib/analysis/saldo"
+import { readWorkbook } from "#/lib/spreadsheet"
 import { isUgAcompanhada } from "#/lib/ug/registry"
 
 export interface ParsedWorkbook {
@@ -123,9 +124,11 @@ function parseRowsWithHeader(rows: unknown[][], colIndices: ColumnIndices, dataS
 
 const MONTH_NAMES = "janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro"
 const MONTH_ABBREVIATIONS = "jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez"
+/** As abreviações inglesas que diferem das portuguesas (JAN, MAR, JUN, JUL e NOV coincidem). */
+const ENGLISH_MONTH_ABBREVIATIONS = "feb|apr|may|aug|sep|oct|dec"
 
-/** Mês por extenso ou abreviado, com ano opcional ("JAN", "jan/2026", "Março/26", "JAN2026"). */
-const NAMED_MONTH = new RegExp(`^(${MONTH_NAMES}|${MONTH_ABBREVIATIONS})(\\/?(\\d{2}|\\d{4}))?$`)
+/** Mês por extenso ou abreviado, com ano opcional ("JAN", "jan/2026", "Março/26", "JAN2026", "OCT/2026"). */
+const NAMED_MONTH = new RegExp(`^(${MONTH_NAMES}|${MONTH_ABBREVIATIONS}|${ENGLISH_MONTH_ABBREVIATIONS})(\\/?(\\d{2}|\\d{4}))?$`)
 
 /** "01/2026": mês de 01 a 12. */
 const NUMERIC_MONTH = /^(0[1-9]|1[0-2])\/\d{4}$/
@@ -214,7 +217,7 @@ function parseRowsHeuristically(rows: unknown[][]): ProcessedRow[] {
 }
 
 export function parseWorkbook(rawData: string | ArrayBuffer | null | undefined): ParsedWorkbook {
-	const workbook = XLSX.read(rawData, { type: "array" })
+	const workbook = readWorkbook(rawData)
 	const firstSheetName = workbook.SheetNames[0]
 	const worksheet = workbook.Sheets[firstSheetName]
 	const rows = XLSX.utils.sheet_to_json<unknown[]>(worksheet, {
