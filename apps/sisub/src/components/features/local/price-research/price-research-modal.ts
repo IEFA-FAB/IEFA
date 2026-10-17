@@ -123,15 +123,50 @@ export function formatCapacityLabel(capacity: number, unitName: string | null): 
 	return `${NUM.format(capacity)} ${unitName ?? ""}`
 }
 
+/** Os campos do registro, em ordem fixa: o critério que desempata duplicatas sem olhar a ordem. */
+function getPriceRowFingerprint(row: ComprasMaterialPriceResult): string {
+	return JSON.stringify([
+		row.niFornecedor,
+		row.precoUnitario,
+		row.quantidade,
+		row.dataResultado,
+		row.dataCompra,
+		row.codigoUasg,
+		row.numeroItemCompra,
+		row.marca,
+		row.nomeFornecedor,
+		row.descricaoItem,
+		row.codigoItemCatalogo,
+		row.siglaUnidadeFornecimento,
+		row.nomeUnidadeFornecimento,
+		row.capacidadeUnidadeFornecimento,
+		row.siglaUnidadeMedida,
+		row.nomeUnidadeMedida,
+		row.percentualMaiorDesconto,
+		row.forma,
+		row.modalidade,
+		row.criterioJulgamento,
+		row.nomeUasg,
+		row.codigoMunicipio,
+		row.municipio,
+		row.estado,
+		row.codigoOrgao,
+		row.nomeOrgao,
+	])
+}
+
 /**
  * Id estável de cada linha da pesquisa, para a seleção da tabela.
  *
  * O id era `compra-item-ÍNDICE`, com o índice da lista JÁ recortada pela janela de recência:
  * mudar a janela (ou a lista mudar num refetch) deslocava os índices, e a seleção guardada
  * passava a apontar para outras linhas. Aqui o id vem do registro (`idCompra`-`idItemCompra`) e é
- * atribuído sobre a lista INTEIRA; o mesmo item de compra repetido (um por fornecedor, por
- * exemplo) ganha `#2`, `#3` na ordem em que chegou. A seleção sobrevive à troca da janela: a
- * linha fora dela sai da tabela e do cálculo, e volta marcada quando a janela a inclui de novo.
+ * atribuído sobre a lista INTEIRA. O mesmo item de compra repetido (um por fornecedor, por
+ * exemplo) ganha `#2`, `#3` pela ordem dos OUTROS campos do registro (fornecedor, preço, datas…),
+ * não pela ordem de chegada: um refetch que devolva as duplicatas em outra ordem dava a cada uma o
+ * id da outra, e a seleção trocava de linha. Duplicatas idênticas em tudo são a mesma amostra para
+ * o cálculo, e trocar uma pela outra não muda nada. A seleção sobrevive à troca da janela: a linha
+ * fora dela sai da tabela e do cálculo, e volta marcada quando a janela a inclui de novo.
  *
  * Registro que não estava na lista (não acontece: a tabela mostra um recorte dela) ganha o
  * próximo sufixo do mesmo contador, nunca um id que outra linha já tenha.
@@ -147,6 +182,10 @@ export function createPriceRowIdResolver(results: readonly ComprasMaterialPriceR
 		ids.set(row, id)
 		return id
 	}
-	for (const row of results) assign(row)
+	const ordered = results
+		.map((row) => ({ row, base: `${row.idCompra}-${row.idItemCompra}`, fingerprint: getPriceRowFingerprint(row) }))
+		// comparação por código, não por localidade: a ordem não pode depender do navegador
+		.sort((a, b) => (a.base < b.base ? -1 : a.base > b.base ? 1 : a.fingerprint < b.fingerprint ? -1 : a.fingerprint > b.fingerprint ? 1 : 0))
+	for (const { row } of ordered) assign(row)
 	return (row) => ids.get(row) ?? assign(row)
 }

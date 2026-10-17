@@ -235,12 +235,30 @@ describe("createPriceRowIdResolver", () => {
 		expect(scoped.map(idOf)).toEqual(["C2-3"])
 	})
 
-	test("o mesmo item de compra repetido ganha sufixo pela ordem de chegada, sem colidir", () => {
-		const a = row("C1", 1, null)
-		const b = row("C1", 1, null)
+	test("o mesmo item de compra repetido ganha sufixo, sem colidir", () => {
+		const a = { ...row("C1", 1, null), niFornecedor: "111" }
+		const b = { ...row("C1", 1, null), niFornecedor: "222" }
 		const c = row("C1", 2, null)
 		const idOf = createPriceRowIdResolver([a, b, c])
 		expect([idOf(a), idOf(b), idOf(c)]).toEqual(["C1-1", "C1-1#2", "C1-2"])
+	})
+
+	test("refetch que reordena as duplicatas não troca o id delas (nem a seleção)", () => {
+		// Duas propostas do mesmo item de compra, de fornecedores e preços diferentes. Pela ordem de
+		// chegada, a lista reordenada dava a cada uma o id da outra.
+		const cheap = { ...row("C1", 1, "2026-09-01"), niFornecedor: "111", precoUnitario: 10 }
+		const pricey = { ...row("C1", 1, "2026-09-01"), niFornecedor: "222", precoUnitario: 12 }
+		const other = row("C2", 3, "2026-09-02")
+		const first = createPriceRowIdResolver([cheap, other, pricey])
+		// o refetch traz cópias novas dos registros, em outra ordem
+		const cheapAgain = { ...cheap }
+		const priceyAgain = { ...pricey }
+		const otherAgain = { ...other }
+		const second = createPriceRowIdResolver([priceyAgain, otherAgain, cheapAgain])
+		expect(second(cheapAgain)).toBe(first(cheap))
+		expect(second(priceyAgain)).toBe(first(pricey))
+		expect(second(otherAgain)).toBe(first(other))
+		expect(new Set([first(cheap), first(pricey), first(other)]).size).toBe(3)
 	})
 
 	test("registro fora da lista ganha o próximo sufixo, nunca o id de outra linha", () => {
