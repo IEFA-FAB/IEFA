@@ -121,6 +121,10 @@ if (import.meta.main) {
 	const exitCodes = new Map<string, number>()
 	if (tasks.length) {
 		const started = Date.now()
+		// `--concurrency=4`: uma tarefa por vCPU do runner do `verify` (blacksmith-4vcpu), o mesmo
+		// critério do pr-check; o número veio do #609 sem motivo registrado. Não é o `2` do AGENTS.md,
+		// que protege a RAM da máquina de dev. Subir não dá CPU a mais; descer alonga o job, e o
+		// `verify` é um job só que segura o release de todos os apps (timeout de 25 min).
 		const run = Bun.spawnSync(["bunx", "turbo", "run", ...tasks, "--continue", "--concurrency=4", "--summarize"], {
 			cwd: ROOT,
 			stdio: ["inherit", "inherit", "inherit"],

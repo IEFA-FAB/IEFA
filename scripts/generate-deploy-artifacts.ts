@@ -120,6 +120,24 @@ if (buildBunVersion === undefined || buildBunVersion !== parseBunVersion(manifes
 	throw new Error("bunImage e bunRuntimeImage têm de estar na mesma versão do Bun: o bundle sai de uma e roda na outra")
 }
 
+/**
+ * `packageManager` do package.json raiz é a fonte da versão do Bun: os workflows a leem por
+ * `bun-version-file: package.json` no `setup-bun`, e as imagens do manifesto têm de estar na
+ * mesma versão, senão o CI testa num Bun e a imagem roda noutro. Devolve um erro por imagem
+ * divergente; vazio quando tudo bate.
+ */
+export function bunImageMismatches(packageManager: string | undefined, images: Record<string, string>): string[] {
+	const expected = /^bun@(\d+\.\d+\.\d+)$/.exec(packageManager ?? "")?.[1]
+	if (!expected) return [`packageManager do package.json raiz não é \`bun@<x.y.z>\`: ${packageManager ?? "(ausente)"}`]
+	return Object.entries(images)
+		.filter(([, image]) => parseBunVersion(image) !== expected)
+		.map(([field, image]) => `${field} (${image}) não está no Bun ${expected} do packageManager do package.json`)
+}
+
+function rootPackageManager(): string | undefined {
+	return JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")).packageManager
+}
+
 for (const app of manifest.apps) {
 	if (!app.aliasOf && app.kind !== "nitro" && app.kind !== "bun-bundle" && app.kind !== "dockerfile") {
 		throw new Error(`${app.key}: kind obrigatório (nitro, bun-bundle ou dockerfile)`)
@@ -297,7 +315,10 @@ function dockerStage(app: App) {
 function renderDockerfile() {
 	const workspaceDirs = [...workspaces.values()].map((w) => w.dir).sort()
 	const parts = [
-		header("BASE - Alpine com Bun", `${GENERATED_BANNER}\nDigest centralizado: bump de versão do Bun altera só o manifesto.`),
+		header(
+			"BASE - Alpine com Bun",
+			`${GENERATED_BANNER}\nDigest centralizado no manifesto. Bump do Bun: packageManager do package.json + bunImage/bunRuntimeImage (o check:deploy confere).`
+		),
 		`ARG BUN_IMAGE=${manifest.bunImage}`,
 		`ARG BUN_RUNTIME_IMAGE=${manifest.bunRuntimeImage}`,
 		// biome-ignore lint/suspicious/noTemplateCurlyInString: `${BUN_IMAGE}` é interpolação de ARG do Dockerfile gerado, não template literal de JS
@@ -477,6 +498,14 @@ export function renderArtifacts(): Array<[string, string]> {
 if (import.meta.main) {
 	const check = process.argv.includes("--check")
 	let drift = false
+
+	// Não há o que regenerar aqui: a imagem (tag + digest) se escolhe à mão. Falha nos dois modos.
+	const bunMismatches = bunImageMismatches(rootPackageManager(), {
+		bunImage: manifest.bunImage,
+		bunRuntimeImage: manifest.bunRuntimeImage,
+	})
+	for (const message of bunMismatches) console.error(`❌ apps.manifest.json: ${message}`)
+	if (bunMismatches.length) process.exit(1)
 
 	for (const [file, content] of renderArtifacts()) {
 		const path = join(ROOT, file)

@@ -15,9 +15,13 @@
  * Override que joga o pacote FORA da faixa do consumidor é outra coisa: é forçar correção de
  * segurança por cima de um pin velho, é intencional, e mora em FORCED com motivo e condição
  * de saída. O gate cobra que esteja listado — não que não exista.
+ *
+ * E todo override, forçando ou não, tem o motivo registrado em `scripts/lock-registry.ts`
+ * (FORCED, MIRRORS ou FLOORS): piso de CVE cujo porquê morava só no commit vira número solto no
+ * package.json, que ninguém sabe quando pode sair.
  */
 
-import { FORCED, MIRRORS, parseLock } from "./lock-registry"
+import { FORCED, MIRRORS, overrideRegistryProblems, parseLock } from "./lock-registry"
 
 const ROOT = new URL("..", import.meta.url).pathname
 
@@ -102,6 +106,7 @@ const overrides: Record<string, string> = pkg.overrides ?? {}
 
 const caps: string[] = []
 const undocumented: string[] = []
+const unregistered = overrideRegistryProblems(overrides)
 const brokenMirrors: string[] = []
 /** Espelho que realmente existe nesta árvore. O resto é entrada morta, igual FORCED. */
 const liveMirrors = new Set<string>()
@@ -188,6 +193,11 @@ if (undocumented.length > 0) {
 	console.error(undocumented.join("\n\n"))
 }
 
+if (unregistered.length > 0) {
+	console.error("\n❌ override sem registro único em scripts/lock-registry.ts:\n")
+	console.error(unregistered.join("\n"))
+}
+
 if (caps.length > 0) {
 	console.error("\n❌ override capando a faixa que o consumidor declara:\n")
 	console.error(caps.join("\n\n"))
@@ -214,12 +224,12 @@ if (stale.length > 0) {
 	}
 }
 
-if (caps.length > 0 || undocumented.length > 0 || stale.length > 0 || brokenMirrors.length > 0 || staleMirrors.length > 0) {
+if (caps.length > 0 || undocumented.length > 0 || unregistered.length > 0 || stale.length > 0 || brokenMirrors.length > 0 || staleMirrors.length > 0) {
 	console.error("")
 	process.exit(1)
 }
 
 console.log(
 	`✅ ${Object.keys(overrides).length} overrides — nenhum capa a faixa do consumidor ` +
-		`(${stillForcing.size} forçados em FORCED, ${liveMirrors.size} espelhado${liveMirrors.size === 1 ? "" : "s"} em sincronia)`
+		`(${stillForcing.size} forçados em FORCED, ${liveMirrors.size} espelhado${liveMirrors.size === 1 ? "" : "s"} em sincronia), todos com motivo registrado`
 )

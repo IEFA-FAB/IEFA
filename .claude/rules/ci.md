@@ -16,6 +16,16 @@ Em `.github/workflows/README.md`: o que roda em cada evento, em que runner e com
 É a fonte única; mudou runner ou workflow, atualize lá. Label novo da Blacksmith entra no
 `.github/actionlint.yaml`.
 
+## Versão do Bun
+
+Fonte única: `packageManager` do `package.json` raiz. Os workflows a leem com
+`bun-version-file: package.json` no `oven-sh/setup-bun` (v2.2.0 lê `packageManager` e, sem ele,
+`engines.bun`); nunca `bun-version:` literal. O arquivo é resolvido a partir de
+`$GITHUB_WORKSPACE`, então o `setup-bun` vem depois do `actions/checkout` na raiz: sem o arquivo a
+action só avisa e instala a `latest`. As imagens `bunImage`/`bunRuntimeImage` do
+`apps.manifest.json` andam junto (o `check:deploy` falha se a tag divergir do `packageManager`).
+Bump do Bun = `packageManager` + as duas imagens (tag e digest) + `bun run generate:deploy`.
+
 ## Armadilhas conhecidas
 
 - **Nome de job é contrato do ruleset da `main`.** Os checks obrigatórios são casados pelo nome
@@ -51,6 +61,11 @@ Em `.github/workflows/README.md`: o que roda em cada evento, em que runner e com
   o Dockerfile, o bake e o paths-filter. O `deploy.yml` não muda: o `plan` e o `verify` leem o
   manifesto (`scripts/release-plan.ts`, `scripts/release-verify.ts`), e o
   `release-verify.test.ts` falha se o manifesto pedir tarefa que o workspace não tem.
+- **Build args do bundle saem do manifesto**, no deploy (`release-build-env.ts`) e no build do
+  `pr-check` (`release-build-env.ts --all`). O `pr-check` declara só as GitHub Variables de
+  origem no passo "Resolve build args"; variável que o manifesto usa e o passo não declara falha
+  o job. rumaer, sucont e assignment-selection usam o Supabase do sisub de propósito (o porquê
+  está no `$comment` do `apps.manifest.json`).
 - **`transit` no `turbo.json` não tem script e não sai.** Existe para levar o hash das
   dependências (`^transit`) a `typecheck`, `test` e `test:unit`: sem ele, mudar um pacote não
   mudava o hash do app que o importa e o turbo reaproveitava o resultado velho do cache (#556).

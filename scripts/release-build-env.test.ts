@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { manifest } from "./generate-deploy-artifacts"
-import { buildEnvOf } from "./release-build-env"
+import { allBuildEnvOf, buildArgSourcesOf, buildEnvOf } from "./release-build-env"
 
 const app = (key: string) => {
 	const found = manifest.apps.find((a) => a.key === key)
@@ -38,6 +38,59 @@ describe("buildEnvOf", () => {
 			[...Object.keys(a.buildArgFrom ?? {}), ...(a.optionalBuildArgs ?? [])].filter((arg) => !a.buildArgs.includes(arg)).map((arg) => `${a.key}: ${arg}`)
 		)
 		expect(problems).toEqual([])
+	})
+})
+
+describe("allBuildEnvOf (pr-check)", () => {
+	const sourceVars = [...new Set([...buildArgSourcesOf(manifest.apps).values()].map((s) => s.from))]
+
+	test("os apps que usam o Supabase do sisub recebem as variáveis do sisub", () => {
+		const vars = Object.fromEntries(sourceVars.map((from) => [from, `v:${from}`]))
+		const { env, undeclared, missing } = allBuildEnvOf(manifest.apps, vars)
+		expect(undeclared).toEqual([])
+		expect(missing).toEqual([])
+		for (const prefix of ["RUMAER", "SUCONT", "ASSIGNMENT_SELECTION"]) {
+			expect(env[`VITE_${prefix}_SUPABASE_URL`]).toBe("v:VITE_SISUB_SUPABASE_URL")
+			expect(env[`VITE_${prefix}_SUPABASE_PUBLISHABLE_KEY`]).toBe("v:VITE_SISUB_SUPABASE_PUBLISHABLE_KEY")
+		}
+	})
+
+	test("variável não declarada no passo é falta, distinta da declarada e vazia", () => {
+		const { undeclared, missing } = allBuildEnvOf(manifest.apps, { VITE_SISUB_SUPABASE_URL: "" })
+		expect(undeclared).toContain("VITE_SISUB_SUPABASE_PUBLISHABLE_KEY")
+		expect(undeclared).not.toContain("VITE_SISUB_SUPABASE_URL")
+		expect(missing).toEqual(["VITE_SISUB_SUPABASE_URL"])
+	})
+
+	test("vazia só é falta se for obrigatória para algum app: o Faro (opcional no sisub) não é", () => {
+		const vars = Object.fromEntries(sourceVars.map((from) => [from, from.startsWith("VITE_FARO_") ? "" : "v"]))
+		expect(allBuildEnvOf(manifest.apps, vars).missing).toEqual([])
+		const sisub = app("sisub")
+		const strict = { ...sisub, key: "y", optionalBuildArgs: [] }
+		expect(allBuildEnvOf([sisub, strict], vars).missing).toEqual(["VITE_FARO_APP_NAME", "VITE_FARO_COLLECTOR_URL", "VITE_FARO_ENVIRONMENT"])
+	})
+
+	test("valor com quebra de linha não entra no $GITHUB_ENV", () => {
+		const vars = Object.fromEntries(sourceVars.map((from) => [from, "v"]))
+		expect(() => allBuildEnvOf(manifest.apps, { ...vars, VITE_IEFA_SUPABASE_URL: "u\nX=1" })).toThrow(/quebra de linha/)
+	})
+
+	test("mesmo build arg lido de variáveis diferentes é erro", () => {
+		const portal = app("portal")
+		const conflicting = { ...portal, key: "x", buildArgFrom: { VITE_IEFA_SUPABASE_URL: "OUTRA" } }
+		expect(() => buildArgSourcesOf([portal, conflicting])).toThrow(/OUTRA/)
+	})
+
+	test('o env: do passo "Resolve build args" do pr-check.yml declara toda variável de origem do manifesto', () => {
+		type Step = { name?: string; env?: Record<string, string> }
+		const workflow = Bun.YAML.parse(readFileSync(join(import.meta.dir, "../.github/workflows/pr-check.yml"), "utf8")) as {
+			jobs: Record<string, { steps: Step[] }>
+		}
+		const steps = Object.values(workflow.jobs).flatMap((job) => job.steps)
+		const resolve = steps.filter((step) => step.name === "Resolve build args")
+		expect(resolve).toHaveLength(1)
+		const env = resolve[0]?.env ?? {}
+		for (const from of sourceVars) expect(env[from], from).toBe(`\${{ vars.${from} }}`)
 	})
 })
 

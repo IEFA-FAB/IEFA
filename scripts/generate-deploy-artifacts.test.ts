@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { buildSourceOf, filterKeyOf, manifest, renderArtifacts } from "./generate-deploy-artifacts"
+import { buildSourceOf, bunImageMismatches, filterKeyOf, manifest, renderArtifacts } from "./generate-deploy-artifacts"
 
 const pathsFilter = renderArtifacts().find(([file]) => file === ".github/paths-filter.yml")?.[1] ?? ""
 
@@ -34,5 +34,30 @@ describe("deploy.yml", () => {
 		for (const app of manifest.apps.filter((a) => a.release !== "static-site"))
 			expect(workflow, app.key).not.toMatch(new RegExp(`\\b(check|build|deploy)-${filterKeyOf(app)}:`))
 		expect(workflow).not.toContain("# >>> gerado:")
+	})
+})
+
+describe("versão do Bun", () => {
+	const alpine = "oven/bun:1.4.3-alpine@sha256:abc"
+	const distroless = "oven/bun:1.4.3-distroless@sha256:def"
+
+	test("imagens na versão do packageManager passam", () => {
+		expect(bunImageMismatches("bun@1.4.3", { bunImage: alpine, bunRuntimeImage: distroless })).toEqual([])
+	})
+
+	test("imagem noutra versão falha apontando o campo", () => {
+		const errors = bunImageMismatches("bun@1.4.4", { bunImage: alpine, bunRuntimeImage: distroless })
+		expect(errors).toHaveLength(2)
+		expect(errors[0]).toContain("bunImage")
+	})
+
+	test("packageManager fora do formato bun@x.y.z falha", () => {
+		expect(bunImageMismatches(undefined, { bunImage: alpine })).toHaveLength(1)
+		expect(bunImageMismatches("pnpm@9.0.0", { bunImage: alpine })).toHaveLength(1)
+	})
+
+	test("o manifesto atual bate com o package.json", () => {
+		const { packageManager } = JSON.parse(readFileSync(join(import.meta.dir, "../package.json"), "utf8"))
+		expect(bunImageMismatches(packageManager, { bunImage: manifest.bunImage, bunRuntimeImage: manifest.bunRuntimeImage })).toEqual([])
 	})
 })

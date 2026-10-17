@@ -18,16 +18,17 @@
 #   3. OCR em português e inglês, também local, pelo mesmo motivo.
 # =============================================================================
 
+# Imagens base no FROM, por extenso (tag + digest), e não num ARG: o Dependabot (ecosystem
+# `docker` em .github/dependabot.yml) só lê FROM literal, e é ele que anda o digest.
 # Node 24 (LTS) nos estágios de build: o upstream usa 20, que saiu de suporte em
-# 2026-04. Só roda no build (npm ci + vite); a imagem final é nginx.
-ARG NODE_IMAGE=public.ecr.aws/docker/library/node:24-alpine@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1
+# 2026-04. Só roda no build (npm ci + vite); a imagem final é nginx. Os três FROM de node
+# andam juntos (o Dependabot troca todas as ocorrências da imagem no arquivo).
 # As duas imagens vêm do ECR Public, que continua servindo um digest depois que a tag anda.
 # O quay.io responde 404 para manifesto sem tag, e a `alpine-slim` é reconstruída a cada
 # poucos dias: o pin antigo (quay.io, 123fb728…) sumiu em 2026-09-28 e derrubou o build.
-ARG NGINX_IMAGE=public.ecr.aws/nginx/nginx-unprivileged:alpine-slim@sha256:c81a27f28bc2d9c2da8998444e653c7b85b9bbbaa92e44ef18d8920784e06507
 
 # ---- Código-fonte do upstream, na versão fixada ------------------------------
-FROM ${NODE_IMAGE} AS source
+FROM public.ecr.aws/docker/library/node:24-alpine@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1 AS source
 ARG BENTOPDF_VERSION=v2.8.8
 ARG BENTOPDF_COMMIT=f96cd4e5166f3d51393dfe9f3c440b5bb77802f1
 RUN apk add --no-cache git
@@ -44,7 +45,7 @@ RUN git clone --depth 1 --branch "${BENTOPDF_VERSION}" https://github.com/alam00
 # package-lock.json), então acompanham o bump de BENTOPDF_VERSION sozinhas. O
 # CoherentPDF é lido do default do wasm-provider de propósito: o prepare-airgap.sh
 # do upstream faz `npm pack coherentpdf` sem versão, o que traria a mais recente.
-FROM ${NODE_IMAGE} AS wasm
+FROM public.ecr.aws/docker/library/node:24-alpine@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1 AS wasm
 RUN apk add --no-cache curl
 WORKDIR /src
 COPY --from=source /src/src/js/const/cdn-version.ts /src/src/js/utils/wasm-provider.ts /src/package-lock.json ./
@@ -75,7 +76,7 @@ RUN set -eu; \
     rm -rf /tmp/pkg
 
 # ---- Build do app ------------------------------------------------------------
-FROM ${NODE_IMAGE} AS build
+FROM public.ecr.aws/docker/library/node:24-alpine@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1 AS build
 WORKDIR /app
 ENV HUSKY=0
 COPY --from=source /src/package.json /src/package-lock.json ./
@@ -118,7 +119,7 @@ RUN if grep -q 'cdn.jsdelivr.net' security-headers.conf; then \
     fi
 
 # ---- Runtime: nginx sem root, com a config do próprio upstream ----------------
-FROM ${NGINX_IMAGE}
+FROM public.ecr.aws/nginx/nginx-unprivileged:alpine-slim@sha256:c81a27f28bc2d9c2da8998444e653c7b85b9bbbaa92e44ef18d8920784e06507
 LABEL org.opencontainers.image.source="https://github.com/IEFA-FAB/IEFA" \
       org.opencontainers.image.licenses="AGPL-3.0-only" \
       org.opencontainers.image.description="BentoPDF (github.com/alam00000/bentopdf), sem modificações"

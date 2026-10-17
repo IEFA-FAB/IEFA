@@ -1,20 +1,12 @@
 {
   "$comment": "Repos de origem das ferramentas portadas para apps/sucont. `checkpoint` é o último commit upstream JÁ conferido contra o app — atualize-o (com a data e o veredito) só depois de conferir de verdade. `targets` são os caminhos do monorepo que implementam aquela ferramenta.",
-  "owners": [
-    "sucont32sau-debug",
-    "lsantosnels"
-  ],
+  "owners": ["sucont32sau-debug", "lsantosnels"],
   "repos": [
     {
       "repo": "sucont32sau-debug/sacdgccomaer",
       "tool": "SAC-DGC — análise crítica do DGC",
       "route": "/sac-dgc",
-      "targets": [
-        "apps/sucont/src/sacdgc/",
-        "apps/sucont/src/routes/sac-dgc.tsx",
-        "apps/sucont/src/routes/api/sacdgc/",
-        "apps/sucont/src/server/sacdgc.fn.ts"
-      ],
+      "targets": ["apps/sucont/src/sacdgc/", "apps/sucont/src/routes/sac-dgc.tsx", "apps/sucont/src/routes/api/sacdgc/", "apps/sucont/src/server/sacdgc.fn.ts"],
       "portedIn": "PR #216",
       "checkpoint": "ec102320",
       "checkpointDate": "2026-09-09",
@@ -43,11 +35,7 @@
       "repo": "sucont32sau-debug/Analistasaldoalongado",
       "tool": "Analista de saldo alongado",
       "route": "/analistasaldoalongado",
-      "targets": [
-        "apps/sucont/src/analistasaldoalongado/",
-        "apps/sucont/src/routes/analistasaldoalongado.tsx",
-        "apps/sucont/src/lib/analysis/saldo.ts"
-      ],
+      "targets": ["apps/sucont/src/analistasaldoalongado/", "apps/sucont/src/routes/analistasaldoalongado.tsx", "apps/sucont/src/lib/analysis/saldo.ts"],
       "checkpoint": null,
       "checkpointDate": null,
       "lastReviewed": "2026-09-09 (parcial: só assunto dos commits, sem diff)",
@@ -116,11 +104,7 @@
       "repo": "sucont32sau-debug/sucontsubitem",
       "tool": "Subitens genéricos",
       "route": "/subitens-genericos",
-      "targets": [
-        "apps/sucont/src/subitens/",
-        "apps/sucont/src/routes/subitens-genericos.tsx",
-        "apps/sucont/src/lib/analysis/saldo.ts"
-      ],
+      "targets": ["apps/sucont/src/subitens/", "apps/sucont/src/routes/subitens-genericos.tsx", "apps/sucont/src/lib/analysis/saldo.ts"],
       "checkpoint": null,
       "checkpointDate": null,
       "lastReviewed": null
@@ -129,9 +113,7 @@
       "repo": "sucont32sau-debug/analistacriticodgc",
       "tool": "Analista crítico do DGC (público)",
       "route": null,
-      "targets": [
-        "apps/sucont/src/sacdgc/"
-      ],
+      "targets": ["apps/sucont/src/sacdgc/"],
       "checkpoint": null,
       "checkpointDate": null,
       "lastReviewed": null,
@@ -141,9 +123,7 @@
       "repo": "sucont32sau-debug/sacdgccomaer3",
       "tool": "SAC-DGC (variante 3, pública)",
       "route": null,
-      "targets": [
-        "apps/sucont/src/sacdgc/"
-      ],
+      "targets": ["apps/sucont/src/sacdgc/"],
       "checkpoint": null,
       "checkpointDate": null,
       "lastReviewed": null,
@@ -153,11 +133,7 @@
       "repo": "lsantosnels/VMOBILE-AUDITOR-SUCONT-4",
       "tool": "Auditor SIAFI × SILOMS — republicação mobile (v6)",
       "route": "/auditor",
-      "targets": [
-        "apps/sucont/src/auditor/",
-        "apps/sucont/src/routes/auditor.tsx",
-        "apps/sucont/src/server/auditor.fn.ts"
-      ],
+      "targets": ["apps/sucont/src/auditor/", "apps/sucont/src/routes/auditor.tsx", "apps/sucont/src/server/auditor.fn.ts"],
       "portedIn": "PR #207 (a base; esta republicação não trouxe regra nova)",
       "checkpoint": "54028002",
       "checkpointDate": "2026-09-10",
@@ -186,10 +162,7 @@
       "repo": "lsantosnels/Plataforma-de-Documenta-o",
       "tool": "Plataforma de documentação",
       "route": "/documentacao",
-      "targets": [
-        "apps/sucont/src/components/plataforma-doc/",
-        "apps/sucont/src/routes/documentacao.tsx"
-      ],
+      "targets": ["apps/sucont/src/components/plataforma-doc/", "apps/sucont/src/routes/documentacao.tsx"],
       "checkpoint": null,
       "checkpointDate": null,
       "lastReviewed": null
@@ -198,11 +171,7 @@
       "repo": "lsantosnels/HUBSUCONT-4",
       "tool": "Hub SUCONT-4 (catálogo)",
       "route": "/",
-      "targets": [
-        "apps/sucont/src/routes/index.tsx",
-        "apps/sucont/src/lib/data.ts",
-        "apps/sucont/src/lib/types.ts"
-      ],
+      "targets": ["apps/sucont/src/routes/index.tsx", "apps/sucont/src/lib/data.ts", "apps/sucont/src/lib/types.ts"],
       "checkpoint": null,
       "checkpointDate": null,
       "lastReviewed": null
