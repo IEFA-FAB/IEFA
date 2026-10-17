@@ -301,8 +301,9 @@ const addMenuItem: ModuleToolDefinition<AddMenuItemArgs> = {
 	requiredLevel: 2,
 	parseArgs: parseAddMenuItemArgs,
 	async handler({ dailyMenuId: menuId, recipeId }, ctx) {
-		const { data: menu, error: menuError } = await ctx.supabase.from("daily_menu").select("kitchen_id").eq("id", menuId).single()
-		if (menuError || !menu) return toolErr("Menu diário não encontrado")
+		const { data: menu, error: menuError } = await ctx.supabase.from("daily_menu").select("kitchen_id").eq("id", menuId).maybeSingle()
+		if (menuError) return toolErr(sanitizeDbError(menuError, "add_menu_item"))
+		if (!menu) return toolErr("Menu diário não encontrado")
 		if (menu.kitchen_id == null) return toolErr("Menu sem cozinha associada")
 
 		requireKitchenPermission(ctx, 2, { type: "kitchen", id: menu.kitchen_id })
@@ -315,9 +316,10 @@ const addMenuItem: ModuleToolDefinition<AddMenuItemArgs> = {
 			.select(`*, ingredients:recipe_ingredients(*, ingredient:ingredient_id(*))`)
 			.eq("id", recipeId)
 			.is("deleted_at", null)
-			.single()
+			.maybeSingle()
 
-		if (recipeError || !recipe) return toolErr("Receita não encontrada")
+		if (recipeError) return toolErr(sanitizeDbError(recipeError, "add_menu_item"))
+		if (!recipe) return toolErr("Receita não encontrada")
 		if (recipe.kitchen_id !== null && recipe.kitchen_id !== menu.kitchen_id) {
 			return toolErr("Esta receita não está disponível para esta cozinha")
 		}
@@ -345,8 +347,13 @@ const removeMenuItem: ModuleToolDefinition<RemoveMenuItemArgs> = {
 	requiredLevel: 2,
 	parseArgs: parseRemoveMenuItemArgs,
 	async handler({ itemId }, ctx) {
-		const { data: item, error: fetchError } = await ctx.supabase.from("menu_items").select(`id, daily_menu:daily_menu_id(kitchen_id)`).eq("id", itemId).single()
-		if (fetchError || !item) return toolErr("Item não encontrado")
+		const { data: item, error: fetchError } = await ctx.supabase
+			.from("menu_items")
+			.select(`id, daily_menu:daily_menu_id(kitchen_id)`)
+			.eq("id", itemId)
+			.maybeSingle()
+		if (fetchError) return toolErr(sanitizeDbError(fetchError, "remove_menu_item"))
+		if (!item) return toolErr("Item não encontrado")
 
 		const kitchenId = item.daily_menu?.kitchen_id
 		if (kitchenId == null) return toolErr("Não foi possível determinar a cozinha")
@@ -375,8 +382,9 @@ const updateMenuHeadcount: ModuleToolDefinition<UpdateMenuHeadcountArgs> = {
 	requiredLevel: 2,
 	parseArgs: parseUpdateMenuHeadcountArgs,
 	async handler({ menuId, forecastedHeadcount: headcount }, ctx) {
-		const { data: menu, error: fetchError } = await ctx.supabase.from("daily_menu").select("kitchen_id").eq("id", menuId).single()
-		if (fetchError || !menu) return toolErr("Menu não encontrado")
+		const { data: menu, error: fetchError } = await ctx.supabase.from("daily_menu").select("kitchen_id").eq("id", menuId).maybeSingle()
+		if (fetchError) return toolErr(sanitizeDbError(fetchError, "update_menu_headcount"))
+		if (!menu) return toolErr("Menu não encontrado")
 		if (menu.kitchen_id == null) return toolErr("Menu sem cozinha associada")
 
 		requireKitchenPermission(ctx, 2, { type: "kitchen", id: menu.kitchen_id })

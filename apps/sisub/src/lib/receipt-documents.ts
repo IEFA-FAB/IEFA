@@ -9,7 +9,7 @@
 
 import { matchReceiptLinesToInvoice, receiptLinkWarnings } from "@iefa/sisub-domain/operations"
 import { invoiceSituationProblem } from "@/lib/invoice-gate"
-import { isInvoiceCancelled } from "@/lib/receipt-invoice-gate"
+import { isInvoiceCancelled, isInvoiceRefused, REFUSED_INVOICE_MESSAGE } from "@/lib/receipt-invoice-gate"
 
 // ── Vínculo posterior (`linkReceiptDocumentsFn`) ───────────────────────────
 
@@ -129,13 +129,18 @@ export interface ContextInvoiceRow {
 	situation_checked_at: string | null
 }
 
-/** A nota do recebimento como a tela a mostra: o problema para efetivar, se está cancelada e o rótulo. */
+/**
+ * A nota do recebimento como a tela a mostra: o problema para efetivar, se está cancelada, se
+ * foi recusada (o próximo passo é concluir a recusa do recebimento) e o rótulo.
+ */
 export function buildReceiptContextInvoice(note: ContextInvoiceRow | null) {
 	if (!note) return null
 	const invoice = { status: String(note.status), situationResult: note.situation_result ?? null, situationCheckedAt: note.situation_checked_at ?? null }
+	const refused = isInvoiceRefused(invoice)
 	return {
-		problem: invoiceSituationProblem(invoice),
+		problem: refused ? REFUSED_INVOICE_MESSAGE : invoiceSituationProblem(invoice),
 		cancelled: isInvoiceCancelled(invoice),
+		refused,
 		label: `NF-e ${String(note.access_key).slice(25, 34)}${note.supplier_name ? ` · ${note.supplier_name}` : ""}`,
 	}
 }

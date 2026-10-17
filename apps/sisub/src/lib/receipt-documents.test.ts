@@ -171,14 +171,27 @@ describe("contexto do recebimento", () => {
 	test("nota autorizada e consultada há pouco: sem problema", () => {
 		vi.useFakeTimers()
 		vi.setSystemTime(new Date("2026-10-13T12:00:00Z"))
-		expect(buildReceiptContextInvoice(note)).toEqual({ problem: null, cancelled: false, label: "NF-e 000012345 · Padaria Boa" })
+		expect(buildReceiptContextInvoice(note)).toEqual({ problem: null, cancelled: false, refused: false, label: "NF-e 000012345 · Padaria Boa" })
 	})
 
 	test("nota cancelada, sem emitente no rótulo", () => {
 		expect(buildReceiptContextInvoice({ ...note, supplier_name: null, situation_result: "cancelled" })).toEqual({
 			problem: "NF-e cancelada pelo emitente — não sustenta efetivação nem pagamento",
 			cancelled: true,
+			refused: false,
 			label: "NF-e 000012345",
+		})
+	})
+
+	test("nota recusada (recusa do recebimento pela metade): o problema é concluir a recusa", () => {
+		vi.useFakeTimers()
+		vi.setSystemTime(new Date("2026-10-13T12:00:00Z"))
+		// Consultada e autorizada na SEFAZ, mas recusada pela unidade: a recusa vale mais.
+		expect(buildReceiptContextInvoice({ ...note, status: "refused" })).toEqual({
+			problem: "A NF-e deste recebimento foi recusada. Conclua a recusa do recebimento ou peça a reabertura da NF-e",
+			cancelled: false,
+			refused: true,
+			label: "NF-e 000012345 · Padaria Boa",
 		})
 	})
 

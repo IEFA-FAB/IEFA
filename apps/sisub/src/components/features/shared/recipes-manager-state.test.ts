@@ -27,7 +27,7 @@ describe("describeSelectVisible", () => {
 	it("com visíveis: conta no nome acessível e no texto", () => {
 		expect(describeSelectVisible(3)).toEqual({ ariaLabel: "Selecionar as 3 preparações visíveis", countSuffix: " (3)" })
 	})
-	it("uma visível usa o mesmo plural do original", () => {
-		expect(describeSelectVisible(1)).toEqual({ ariaLabel: "Selecionar as 1 preparações visíveis", countSuffix: " (1)" })
+	it("uma visível fica no singular", () => {
+		expect(describeSelectVisible(1)).toEqual({ ariaLabel: "Selecionar a preparação visível", countSuffix: " (1)" })
 	})
 })

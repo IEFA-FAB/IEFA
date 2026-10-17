@@ -17,7 +17,7 @@ import { matchNfeItem, type NfeMatchStatus, parseNfeAccessKey } from "@iefa/sisu
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAuthWithPermission } from "@/lib/auth.server"
-import { publicDbMessage } from "@/lib/db-error-message"
+import { publicDbMessage, requireReadRow } from "@/lib/db-error-message"
 import { purchaseUnitIdOfKitchen } from "@/lib/kitchen-purchase-unit.server"
 import {
 	buildMatchCandidates,
@@ -177,8 +177,10 @@ async function suggestPurchaseItemIds(inv: ReturnType<typeof inventory>, query: 
 async function runMatchingForDocument(nfeDocumentId: string): Promise<{ matched: number; review: number; noMatch: number }> {
 	const inv = inventory()
 
-	const { data: doc, error: docError } = await inv.from("nfe_document").select("id, supplier_cnpj").eq("id", nfeDocumentId).single()
-	if (docError || !doc) throw new Error("NF-e não encontrada")
+	const doc = requireReadRow(await inv.from("nfe_document").select("id, supplier_cnpj").eq("id", nfeDocumentId).maybeSingle(), {
+		readFailure: "Erro ao carregar a NF-e",
+		notFound: "NF-e não encontrada",
+	})
 
 	const { data: items, error: itemsError } = await inv.from("nfe_item").select("*").eq("nfe_document_id", nfeDocumentId)
 	if (itemsError) throw new Error(`Erro ao carregar itens: ${publicDbMessage(itemsError)}`)
@@ -518,12 +520,22 @@ export const fetchNfeItemSuggestionsFn = createServerFn({ method: "GET" })
 		await requireAuthWithPermission("storage", 1)
 		const inv = inventory()
 
-		const { data: item, error } = await inv.from("nfe_item").select("description, gtin, nfe_document_id").eq("id", data.nfeItemId).single()
-		if (error || !item?.description) return []
+		const item = requireReadRow(await inv.from("nfe_item").select("description, gtin, nfe_document_id").eq("id", data.nfeItemId).maybeSingle(), {
+			readFailure: "Erro ao carregar o item da NF-e",
+			notFound: "Item de NF-e não encontrado",
+		})
 		await requireStorageForDocument(1, item.nfe_document_id)
+		// Sem descrição não há texto para sugerir: lista vazia, que é resposta, não falha.
+		if (!item.description) return []
 
-		const brick =
-			item.gtin != null ? ((await gs1().from("gtin").select("gpc_brick_code").eq("gtin", item.gtin).maybeSingle()).data?.gpc_brick_code ?? null) : null
+		// Falha na leitura do GTIN sobe: descartada, a sugestão saía sem o reforço do brick, e uma
+		// lista vazia ou pior lida como "nenhum candidato". GTIN que não está no catálogo é só sem brick.
+		let brick: string | null = null
+		if (item.gtin != null) {
+			const { data: gtinRow, error: gtinError } = await gs1().from("gtin").select("gpc_brick_code").eq("gtin", item.gtin).maybeSingle()
+			if (gtinError) throw new Error(`Erro ao ler o GTIN do item: ${publicDbMessage(gtinError)}`)
+			brick = gtinRow?.gpc_brick_code ?? null
+		}
 		const { data: suggestions, error: suggestionsError } = await inv.rpc("suggest_purchase_items", {
 			p_description: item.description,
 			p_gpc_brick: brick ?? undefined,
@@ -554,8 +566,10 @@ export const resolveNfeItemFn = createServerFn({ method: "POST" })
 		await requireAuthWithPermission("storage", 2)
 		const inv = inventory()
 
-		const { data: item, error: itemError } = await inv.from("nfe_item").select("*, nfe_document_id").eq("id", data.nfeItemId).single()
-		if (itemError || !item) throw new Error("Item de NF-e não encontrado")
+		const item = requireReadRow(await inv.from("nfe_item").select("*, nfe_document_id").eq("id", data.nfeItemId).maybeSingle(), {
+			readFailure: "Erro ao carregar o item da NF-e",
+			notFound: "Item de NF-e não encontrado",
+		})
 		await requireStorageForDocument(2, item.nfe_document_id)
 
 		const link = await loadResolutionLink(data)

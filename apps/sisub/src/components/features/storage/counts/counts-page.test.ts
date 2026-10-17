@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest"
-import { buildScopeParams, deriveCountState, getScopeValueLabel, hasScopeValue } from "./counts-page"
+import { buildScopeParams, claimEntryKey, deriveCountState, type EntryIntentKeys, getScopeValueLabel, hasScopeValue, releaseEntryKey } from "./counts-page"
 
 type Line = { ingredientId: string | null; ownRound: boolean; needsRecount: boolean | null }
 const line = (patch: Partial<Line>): Line => ({ ingredientId: "a", ownRound: true, needsRecount: false, ...patch })
@@ -57,5 +57,57 @@ describe("escopo", () => {
 		expect(buildScopeParams("menu_cycle", "abc")).toEqual({ days: 7 })
 		expect(buildScopeParams("location", "Câmara 1")).toEqual({ location: "Câmara 1" })
 		expect(buildScopeParams("conservation_class", "congelado")).toEqual({ conservation_class: "congelado" })
+	})
+})
+
+describe("claimEntryKey / releaseEntryKey", () => {
+	const sequence = () => {
+		let n = 0
+		return () => `event-${++n}`
+	}
+
+	test("dois envios da mesma linha levam a MESMA chave (o índice único deduplica)", () => {
+		const keys: EntryIntentKeys = new Map()
+		const next = sequence()
+		expect(claimEntryKey(keys, "lot-1", next)).toBe(claimEntryKey(keys, "lot-1", next))
+	})
+
+	test("valor corrigido antes da confirmação reaproveita a chave pendente (o servidor corrige, não soma)", () => {
+		// A tentativa com 15 pode ter sido gravada com a resposta perdida: chave nova para o 16
+		// deixaria os dois lançamentos.
+		const keys: EntryIntentKeys = new Map()
+		const next = sequence()
+		const sent = claimEntryKey(keys, "lot-1", next)
+		expect(claimEntryKey(keys, "lot-1", next)).toBe(sent)
+	})
+
+	test("depois do sucesso, o próximo lançamento da linha ganha chave nova", () => {
+		const keys: EntryIntentKeys = new Map()
+		const next = sequence()
+		const first = claimEntryKey(keys, "lot-1", next)
+		releaseEntryKey(keys, "lot-1", first)
+		expect(claimEntryKey(keys, "lot-1", next)).not.toBe(first)
+	})
+
+	test("linhas diferentes não dividem chave", () => {
+		const keys: EntryIntentKeys = new Map()
+		const next = sequence()
+		expect(claimEntryKey(keys, "lot-1", next)).not.toBe(claimEntryKey(keys, "lot-2", next))
+	})
+
+	test("liberar uma chave antiga não apaga a intenção renovada", () => {
+		const keys: EntryIntentKeys = new Map()
+		const next = sequence()
+		const old = claimEntryKey(keys, "lot-1", next)
+		releaseEntryKey(keys, "lot-1", old)
+		const renewed = claimEntryKey(keys, "lot-1", next)
+		releaseEntryKey(keys, "lot-1", old)
+		expect(claimEntryKey(keys, "lot-1", next)).toBe(renewed)
+	})
+
+	test("a chave padrão cabe no validador do servidor (8 a 64 caracteres)", () => {
+		const key = claimEntryKey(new Map(), "lot-1")
+		expect(key.length).toBeGreaterThanOrEqual(8)
+		expect(key.length).toBeLessThanOrEqual(64)
 	})
 })

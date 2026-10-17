@@ -69,6 +69,7 @@ import type { ComprasMaterialPriceResult } from "@/types/domain/price-research"
 import {
 	BRL,
 	computeVirtualPadding,
+	createPriceRowIdResolver,
 	formatCapacityLabel,
 	formatDate,
 	formatMunicipalityLabel,
@@ -715,6 +716,7 @@ export function PriceResearchModal({
 		staleTime: 5 * 60 * 1000,
 	})
 	const allResults = data?.results ?? EMPTY_RESULTS
+	const resolveRowId = useMemo(() => createPriceRowIdResolver(allResults), [allResults])
 
 	// A tabela mostra a janela e as amostras sem data (visíveis, marcadas); o cálculo só leva as
 	// sem data quando o usuário as inclui ou seleciona.
@@ -895,7 +897,8 @@ export function PriceResearchModal({
 		// Sem data só se seleciona depois de incluída: "Selecionar todos" não a põe no cálculo.
 		enableRowSelection: (row) => isSampleSelectable(row.original, includeUndated),
 		enableSortingRemoval: true,
-		getRowId: (row, index) => `${row.idCompra}-${row.idItemCompra}-${index}`,
+		// Id do registro, atribuído sobre a lista inteira: a janela de recência não o desloca.
+		getRowId: (row) => resolveRowId(row),
 	})
 
 	// ── Virtualizer ───────────────────────────────────────────────────────────

@@ -102,3 +102,18 @@ export function publicDbMessage(error: DbErrorLike | null | undefined): string {
 	if (error.code === "") return TRANSPORT_FAILURE_TEXT
 	return (error.code && NATIVE_FAILURE_TEXT[error.code]) || DB_FAILURE_TEXT
 }
+
+/**
+ * A linha de uma leitura de UMA linha (`.maybeSingle()`), separando os dois desfechos que o
+ * `error || !row` juntava: falha de leitura lança como falha (`readFailure: <motivo>`, com o
+ * diagnóstico no log e "o banco não respondeu; tente de novo" na queda de transporte), e só a
+ * ausência vira `notFound`. Juntos, uma queda do banco aparecia como "não encontrado" e o
+ * usuário desistia de um registro que existe.
+ *
+ * Use com `.maybeSingle()`: o `.single()` devolve a ausência como erro (PGRST116).
+ */
+export function requireReadRow<T>(result: { data: T; error: DbErrorLike | null }, messages: { readFailure: string; notFound: string }): NonNullable<T> {
+	if (result.error) throw new Error(`${messages.readFailure}: ${publicDbMessage(result.error)}`)
+	if (result.data == null) throw new Error(messages.notFound)
+	return result.data
+}
