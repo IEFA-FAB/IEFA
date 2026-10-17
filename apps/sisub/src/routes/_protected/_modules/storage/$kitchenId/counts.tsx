@@ -171,7 +171,9 @@ function CountsPage() {
 			return false
 		} finally {
 			setBusy(false)
-			await router.invalidate()
+			// A releitura não muda o resultado do envio: a falha dela fica no log, sem passar por cima
+			// do `return` (o scanner fecha o painel pelo resultado) nem virar rejeição solta.
+			await router.invalidate().catch((error: unknown) => console.error("Falha ao reler a folha da contagem", error))
 		}
 	}
 

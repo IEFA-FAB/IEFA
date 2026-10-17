@@ -82,16 +82,25 @@ export function buildScopeParams(scope: string, scopeValue: string): Record<stri
 /** Quantidade nas mensagens: as 4 casas que o banco guarda. */
 const QTY = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 4 })
 
-export type PendingEntry = { clientEventId: string; quantity: number }
+/**
+ * `quantity`: o valor que TODAS as tentativas da intenção levaram, ou nulo quando elas
+ * divergiram (15 e depois 16). A folha cega não traz a quantidade gravada, então só se sabe qual
+ * número entrou quando todas levaram o mesmo.
+ */
+export type PendingEntry = { clientEventId: string; quantity: number | null }
 export type EntryIntentKeys = Map<string, PendingEntry>
 
 /** Chave do lançamento da linha: a da intenção ainda não confirmada, ou uma nova. */
 export function claimEntryKey(keys: EntryIntentKeys, lineKey: string, quantity: number, generateId: () => string = () => crypto.randomUUID()): string {
 	const pending = keys.get(lineKey)
-	const clientEventId = pending?.clientEventId ?? generateId()
-	// a quantidade é a do último envio: é ela que a folha relida pode mostrar gravada
-	keys.set(lineKey, { clientEventId, quantity })
-	return clientEventId
+	if (!pending) {
+		const clientEventId = generateId()
+		keys.set(lineKey, { clientEventId, quantity })
+		return clientEventId
+	}
+	// tentativa com outro valor: não se sabe mais qual delas o banco guardou
+	if (pending.quantity !== quantity) keys.set(lineKey, { clientEventId: pending.clientEventId, quantity: null })
+	return pending.clientEventId
 }
 
 /** Depois do sucesso, a linha volta a aceitar um lançamento novo (com outra chave). */
@@ -100,7 +109,8 @@ export function releaseEntryKey(keys: EntryIntentKeys, lineKey: string, clientEv
 	if (keys.get(lineKey)?.clientEventId === clientEventId) keys.delete(lineKey)
 }
 
-export type SettledEntry = { lineKey: string; quantity: number }
+/** `quantity` nula: as tentativas divergiram e não se sabe qual valor entrou. */
+export type SettledEntry = { lineKey: string; quantity: number | null }
 
 /**
  * Libera as intenções que a folha relida já mostra gravadas (a resposta se perdeu, o lançamento
@@ -125,13 +135,14 @@ export function parseCountQuantity(text: string): number | null {
 
 /**
  * Campos das linhas liberadas: limpa o que ainda mostra o valor gravado (lançar de novo somaria
- * o mesmo número). O que o operador já trocou fica.
+ * o mesmo número). O que o operador já trocou fica, e também o campo da intenção cujas tentativas
+ * divergiram: não se sabe qual valor entrou, e quem decide é o operador.
  */
 export function clearSettledQuantities(quantities: Record<string, string>, settled: readonly SettledEntry[]): Record<string, string> {
 	let next = quantities
 	for (const { lineKey, quantity } of settled) {
 		const typed = quantities[lineKey]
-		if (typed == null || parseCountQuantity(typed) !== quantity) continue
+		if (quantity == null || typed == null || parseCountQuantity(typed) !== quantity) continue
 		if (next === quantities) next = { ...quantities }
 		next[lineKey] = ""
 	}
@@ -143,12 +154,19 @@ export function getScanLineKey(scanned: Pick<ScannedTarget, "ingredientId" | "lo
 	return `scan:${scanned.ingredientId}:${scanned.lotId ?? "item"}`
 }
 
-/** Aviso das intenções que a folha mostrou gravadas. */
+/**
+ * Aviso das intenções que a folha mostrou gravadas. O número só aparece quando todas as
+ * tentativas levaram o mesmo: anunciar o da última, com o banco guardando o de uma anterior,
+ * seria afirmar o que não se conferiu.
+ */
 export function describeSettledEntries(settled: readonly SettledEntry[]): string {
-	if (settled.length === 1) {
+	if (settled.length === 1 && settled[0].quantity != null) {
 		return `O lançamento de ${QTY.format(settled[0].quantity)} já estava gravado (a resposta tinha se perdido) e aparece na folha. Um novo lançamento da linha soma.`
 	}
-	return `${settled.length} lançamentos já estavam gravados (a resposta tinha se perdido) e aparecem na folha. Um novo lançamento da linha soma.`
+	if (settled.length === 1) {
+		return "O lançamento anterior desta linha já estava gravado (a resposta tinha se perdido). Confira a linha na folha antes de lançar de novo: um novo lançamento soma."
+	}
+	return `${settled.length} lançamentos anteriores já estavam gravados (a resposta tinha se perdido). Confira as linhas na folha antes de lançar de novo: um novo lançamento soma.`
 }
 
 /** Mensagem de sucesso do envio, dizendo quando um envio anterior foi corrigido. */

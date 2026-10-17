@@ -177,24 +177,38 @@ export const fetchCountSheetFn = createServerFn({ method: "GET" })
 		}
 		const reveal = !count.blind || finished || isManager
 
-		const rows = await readAllPages<CountLineRow>("as linhas da contagem", (from, to) =>
-			inv
-				.rpc("count_lines", { p_count_id: data.countId })
-				.order("ingredient_id", { ascending: true, nullsFirst: false })
-				.order("frozen_preparation_id", { ascending: true, nullsFirst: false })
-				.order("lot_id", { ascending: true, nullsFirst: true })
-				.order("owner_count_id", { ascending: true })
-				.range(from, to)
-		)
-
-		const scope = await readAllPages("o escopo da contagem", (from, to) =>
-			inv
-				.from("count_scope_item")
-				.select("id, ingredient_id, frozen_preparation_id, found, not_counted_accepted")
-				.eq("count_id", data.countId)
-				.order("id")
-				.range(from, to)
-		)
+		const [rows, scope, ownEntries] = await Promise.all([
+			readAllPages<CountLineRow>("as linhas da contagem", (from, to) =>
+				inv
+					.rpc("count_lines", { p_count_id: data.countId })
+					.order("ingredient_id", { ascending: true, nullsFirst: false })
+					.order("frozen_preparation_id", { ascending: true, nullsFirst: false })
+					.order("lot_id", { ascending: true, nullsFirst: true })
+					.order("owner_count_id", { ascending: true })
+					.range(from, to)
+			),
+			readAllPages("o escopo da contagem", (from, to) =>
+				inv
+					.from("count_scope_item")
+					.select("id, ingredient_id, frozen_preparation_id, found, not_counted_accepted")
+					.eq("count_id", data.countId)
+					.order("id")
+					.range(from, to)
+			),
+			// Chaves dos lançamentos DESTE usuário nesta rodada: a tela libera a chave pendente da linha
+			// quando a folha já mostra o lançamento dela (o próximo envio é lançamento novo, não
+			// correção). Só a chave, sem quantidade: a contagem cega não muda. Lidas todas, e não só as
+			// pendentes, porque as pendentes vivem na memória da tela e o loader da rota não as recebe.
+			readAllPages("os seus lançamentos", (from, to) =>
+				inv
+					.from("inventory_count_entry")
+					.select("client_event_id")
+					.eq("count_id", data.countId)
+					.eq("counted_by", ctx.userId)
+					.order("client_event_id")
+					.range(from, to)
+			),
+		])
 		const scopeByItem = new Map(scope.map((item) => [item.ingredient_id ?? item.frozen_preparation_id ?? "", item]))
 
 		const lotIds = rows.map((row) => row.lot_id).filter((id) => id != null)
@@ -238,18 +252,6 @@ export const fetchCountSheetFn = createServerFn({ method: "GET" })
 			}
 		}
 		const tolerance = await countToleranceFor(kitchenId)
-		// Chaves dos lançamentos DESTE usuário nesta rodada: a tela libera a chave pendente da linha
-		// quando a folha já mostra o lançamento dela (o próximo envio é lançamento novo, não correção).
-		// Só a chave, sem quantidade: a contagem cega não muda.
-		const ownEntries = await readAllPages("os seus lançamentos", (from, to) =>
-			inv
-				.from("inventory_count_entry")
-				.select("client_event_id")
-				.eq("count_id", data.countId)
-				.eq("counted_by", ctx.userId)
-				.order("client_event_id")
-				.range(from, to)
-		)
 
 		const lines: CountSheetLine[] = rows.map((row) => {
 			const itemKey = row.ingredient_id ?? row.frozen_preparation_id ?? ""

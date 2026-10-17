@@ -93,7 +93,8 @@ describe("claimEntryKey / releaseEntryKey", () => {
 		const next = sequence()
 		const sent = claimEntryKey(keys, "lot-1", 15, next)
 		expect(claimEntryKey(keys, "lot-1", 16, next)).toBe(sent)
-		expect(keys.get("lot-1")).toEqual({ clientEventId: sent, quantity: 16 })
+		// as tentativas divergiram: não se sabe mais qual valor o banco guardou
+		expect(keys.get("lot-1")).toEqual({ clientEventId: sent, quantity: null })
 	})
 
 	test("depois do sucesso, o próximo lançamento da linha ganha chave nova", () => {
@@ -202,6 +203,34 @@ describe("mensagens do lançamento", () => {
 				{ lineKey: "a", quantity: 1 },
 				{ lineKey: "b", quantity: 2 },
 			])
-		).toContain("2 lançamentos já estavam gravados")
+		).toContain("2 lançamentos anteriores já estavam gravados")
+	})
+
+	test("tentativas com valores diferentes: o aviso não anuncia número que não se conferiu", () => {
+		expect(describeSettledEntries([{ lineKey: "lot-1", quantity: null }])).toBe(
+			"O lançamento anterior desta linha já estava gravado (a resposta tinha se perdido). Confira a linha na folha antes de lançar de novo: um novo lançamento soma."
+		)
+	})
+})
+
+describe("15 grava, a resposta se perde, o operador corrige para 16 e o reenvio morre", () => {
+	test("a folha mostra a chave: aviso sem número, e o 16 digitado fica no campo para o operador decidir", () => {
+		const keys: EntryIntentKeys = new Map()
+		const key = claimEntryKey(keys, "lot-1", 15, () => "event-1")
+		expect(claimEntryKey(keys, "lot-1", 16, () => "event-2")).toBe(key)
+		const settled = settleRecordedEntryKeys(keys, [key])
+		expect(settled).toEqual([{ lineKey: "lot-1", quantity: null }])
+		expect(describeSettledEntries(settled)).not.toMatch(/1[56]/)
+		const typed = { "lot-1": "16" }
+		expect(clearSettledQuantities(typed, settled)).toBe(typed)
+	})
+
+	test("reenvio com o MESMO valor: o número é o que entrou, e o campo limpa", () => {
+		const keys: EntryIntentKeys = new Map()
+		const key = claimEntryKey(keys, "lot-1", 15, () => "event-1")
+		claimEntryKey(keys, "lot-1", 15, () => "event-2")
+		const settled = settleRecordedEntryKeys(keys, [key])
+		expect(settled).toEqual([{ lineKey: "lot-1", quantity: 15 }])
+		expect(clearSettledQuantities({ "lot-1": "15" }, settled)).toEqual({ "lot-1": "" })
 	})
 })

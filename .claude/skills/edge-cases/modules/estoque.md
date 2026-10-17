@@ -230,7 +230,10 @@ Hipóteses a verificar; a suíte `inventory-cycle.e2e.operations.test.ts` e as d
 - **UX:** na falha, o número digitado (e o alvo lido pelo scanner) fica no campo para reenviar, e
   a folha é relida. Se ela mostra que a tentativa entrou, o aviso diz "O lançamento de 15 já estava
   gravado (a resposta tinha se perdido)… Um novo lançamento da linha soma" e o campo que ainda
-  mostra 15 limpa. Se o reenvio corrigiu uma tentativa gravada, o aviso diz "O envio anterior desta
+  mostra 15 limpa. Se as tentativas levaram valores diferentes (15, depois 16 que não chegou), a
+  folha cega não diz qual entrou: o aviso sai sem número ("O lançamento anterior desta linha já
+  estava gravado… Confira a linha na folha antes de lançar de novo") e o valor digitado fica no
+  campo para o operador decidir. Se o reenvio corrigiu uma tentativa gravada, o aviso diz "O envio anterior desta
   linha tinha sido gravado; o lançamento foi corrigido para 16", em vez de "registrado". No sucesso
   o campo limpa. Campo vazio não lança (antes ia como zero).
 - **Cobertura:** `apps/sisub/src/components/features/storage/counts/counts-page.test.ts ›
