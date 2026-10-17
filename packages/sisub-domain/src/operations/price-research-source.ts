@@ -1,25 +1,30 @@
 /**
  * A consulta à fonte oficial (Compras.gov.br, módulo Pesquisa de Preços) como a pesquisa a faz e a
- * registra. O app coleta (é HTTP), o domínio grava e descreve: o relatório e a série dizem a
- * consulta, a hora e se a janela foi lida inteira.
+ * registra. O app coleta (é HTTP), o domínio dita a regra de coleta, grava e descreve: o relatório
+ * e a série dizem a consulta exata, a hora e se a janela foi lida inteira.
  *
- * A consulta é sempre a mesma: o CATMAT pelo par `tipo`/`codigo`, em todo o país, página a
- * página. A fonte devolve os registros em ordem DECRESCENTE de data do resultado (conferido em
- * 2026-10-16 nas 8.402 linhas do CATMAT 463770, sem exceção), e a janela de 1 ano conta por
- * essa data: a coleta para na primeira página que passa do início da janela, e a janela inteira
- * vem lida qualquer que seja o volume do CATMAT. O teto de páginas só alcança a consulta sem
- * janela (todo o histórico) ou a fonte fora de ordem.
+ * A fonte devolve os registros em ordem DECRESCENTE de data do resultado (conferido em 2026-10-16
+ * nas 8.402 linhas do CATMAT 463770, sem exceção), e a janela de 1 ano conta por essa data: a
+ * coleta para na primeira linha que passa do início da janela, e a janela inteira vem lida
+ * qualquer que seja o volume. O teto curto (`PRICE_RESEARCH_MAX_PAGES`) vale para a consulta sem
+ * janela e para a fonte fora de ordem; com janela em ordem, o teto é o largo
+ * (`PRICE_RESEARCH_WINDOW_MAX_PAGES`), só freio contra fonte patológica.
  */
+
+import { addCivilMonths, toBrasiliaCivilDate } from "../utils/civil-date.ts"
 
 export const PRICE_RESEARCH_SOURCE_URL = "https://dadosabertos.compras.gov.br/modulo-pesquisa-preco/1_consultarMaterial"
 export const PRICE_RESEARCH_SOURCE_DOCS_URL = "https://dadosabertos.compras.gov.br/swagger-ui/index.html"
 export const PRICE_RESEARCH_PAGE_SIZE = 500
-/** Teto de páginas por CATMAT (40 × 500 = 20.000 registros). Freio contra rajada na API pública. */
+/** Teto sem janela (todo o histórico) ou com a fonte fora de ordem: 40 × 500 = 20.000 registros. */
 export const PRICE_RESEARCH_MAX_PAGES = 40
+/** Teto com janela e fonte em ordem: 200 × 500 = 100.000 registros num ano, só contra fonte patológica. */
+export const PRICE_RESEARCH_WINDOW_MAX_PAGES = 200
 
 /**
  * Quanto da consulta foi lido:
- * - `window`: parou na primeira página que passou do início da janela (a janela inteira foi lida);
+ * - `window`: parou na primeira linha que passou do início da janela e conferiu a última página
+ *   (a janela inteira foi lida);
  * - `complete`: todas as páginas;
  * - `truncated`: parou no teto antes de cobrir a janela. Amostra parcial: não sustenta preço.
  */
@@ -36,15 +41,23 @@ export const SOURCE_COVERAGE_LABELS: Record<SourceCoverage, string> = {
 export interface PriceResearchSourceConsultation {
 	/** Hora em que o servidor do sisub recebeu a página 1 (a API não informa a hora da consulta). */
 	consultedAt: string
+	/** Parâmetros da consulta, sem `pagina`, como foram enviados (`tipo=…&codigo=…&tamanhoPagina=…`). */
+	query: string
 	totalRecords: number
 	totalPages: number
+	/** Páginas lidas, contando a última página quando ela foi lida para conferir a ordem. */
 	pagesFetched: number
 	coverage: SourceCoverage
 }
 
-/** URL da consulta de um CATMAT, como a pesquisa a fez (a página 1; as seguintes mudam `pagina`). */
-export function priceResearchQueryUrl(catmat: number, pagina = 1): string {
-	return `${PRICE_RESEARCH_SOURCE_URL}?tipo=codigoItemCatalogo&codigo=${catmat}&pagina=${pagina}&tamanhoPagina=${PRICE_RESEARCH_PAGE_SIZE}`
+/** Parâmetros da consulta do sisub por CATMAT, sem `pagina`: o que `searchMaterialPricesFn` envia. */
+export function priceResearchQueryString(catmat: number): string {
+	return `tipo=codigoItemCatalogo&codigo=${catmat}&tamanhoPagina=${PRICE_RESEARCH_PAGE_SIZE}`
+}
+
+/** URL da página 1 de uma consulta registrada (as seguintes mudam `pagina`). */
+export function priceResearchQueryUrl(query: string): string {
+	return `${PRICE_RESEARCH_SOURCE_URL}?${query}&pagina=1`
 }
 
 /** URL que devolve, da fonte, só os registros de uma compra do CATMAT: confere um preço da série. */
@@ -52,7 +65,7 @@ export function priceResearchSampleUrl(catmat: number, idCompra: string): string
 	return `${PRICE_RESEARCH_SOURCE_URL}?tipo=codigoItemCatalogo&codigo=${catmat}&idCompra=${encodeURIComponent(idCompra)}&pagina=1&tamanhoPagina=${PRICE_RESEARCH_PAGE_SIZE}`
 }
 
-/** Hora da consulta em Brasília, `AAAA-MM-DD HH:MM:SS`: o mesmo texto em qualquer máquina. */
+/** Hora da consulta em Brasília, `AAAA-MM-DD HH:MM:SS`, para a tela e o relatório. */
 export function formatConsultedAt(iso: string): string {
 	return new Intl.DateTimeFormat("sv-SE", {
 		timeZone: "America/Sao_Paulo",
@@ -64,6 +77,14 @@ export function formatConsultedAt(iso: string): string {
 		second: "2-digit",
 		hourCycle: "h23",
 	}).format(new Date(iso))
+}
+
+/**
+ * Início da janela de `months` meses contada do dia (em Brasília) da consulta. É o corte da coleta,
+ * do cálculo (modal, lote e API) e o que o relatório declara: um só, para os quatro não divergirem.
+ */
+export function consultationWindowStart(consultedAt: string, months: number): string {
+	return addCivilMonths(toBrasiliaCivilDate(consultedAt) ?? consultedAt.slice(0, 10), -months)
 }
 
 // ─── Coleta ─────────────────────────────────────────────────────────────────────
@@ -79,94 +100,112 @@ export interface SourcePage<T> {
 export interface CollectedSource<T> {
 	results: T[]
 	consultation: PriceResearchSourceConsultation
+	/** A fonte não veio em ordem de data do resultado: a coleta não soube onde a janela terminava. */
+	orderBroken: boolean
 }
 
-/** Data pela qual a fonte ordena a resposta (decrescente) e pela qual a janela conta. */
-const resultDateOf = (r: { dataResultado?: string | null }) => r.dataResultado?.slice(0, 10) ?? null
+type DatedRow = { dataResultado?: string | null; dataCompra?: string | null }
+
+/** Data pela qual a fonte ordena a resposta (decrescente). */
+const sortDateOf = (r: DatedRow) => r.dataResultado?.slice(0, 10) ?? null
+/** Data pela qual a janela conta: do resultado, ou da compra quando não há resultado. */
+const windowDateOf = (r: DatedRow) => (r.dataResultado ?? r.dataCompra)?.slice(0, 10) ?? null
 
 /**
- * Coleta as páginas de uma consulta, em lotes de `concurrency`. Com janela (`windowStartFor`
- * devolve o início dela a partir da hora da consulta), para quando a última linha lida passa do
- * início: a fonte ordena por data do resultado, decrescente, e o resto só é mais antigo. Antes de
- * parar, confere a ordem em cada página lida (de forma incremental) e lê a última página, onde
- * cairia linha sem data do resultado ou fora de ordem; qualquer quebra faz ler tudo, até o teto.
- * A última página lida como conferência é reaproveitada se a leitura completa chegar a ela.
+ * Coleta as páginas de uma consulta, em lotes de `concurrency`.
+ *
+ * Com janela, lê até a primeira linha cuja data do resultado passa do início dela, conferindo a
+ * ordem linha a linha até ali (linha sem data do resultado não entra na ordem). Depois desse ponto,
+ * só quebra a premissa uma linha que ainda caia na janela. Antes de parar, lê a última página: se
+ * nela houver linha da janela (linhas sem data do resultado no fim da ordenação, por exemplo), lê
+ * tudo; as linhas sem data nenhuma dela entram no resultado. Fora de ordem ou sem janela, o teto é
+ * o curto; com janela em ordem, o largo. A última página lida para conferir é reaproveitada.
  */
-export async function collectSourcePages<T extends { dataResultado?: string | null }>(options: {
+export async function collectSourcePages<T extends DatedRow>(options: {
 	fetchPage: (pagina: number) => Promise<SourcePage<T>>
-	windowStartFor: ((consultedAt: string) => string) | null
+	query: string
+	/** Janela em meses; null = todo o histórico. */
+	periodMonths: number | null
 	maxPages?: number
+	windowMaxPages?: number
 	concurrency?: number
 	/** Pausa de cortesia entre lotes, em ms. */
 	pauseMs?: number
 	now?: () => Date
 }): Promise<CollectedSource<T>> {
-	const maxPages = options.maxPages ?? PRICE_RESEARCH_MAX_PAGES
 	const concurrency = options.concurrency ?? 4
 	const cache = new Map<number, Promise<SourcePage<T>>>()
 	const fetchPage = (pagina: number) => {
-		const cached = cache.get(pagina)
-		if (cached) return cached
-		const request = options.fetchPage(pagina)
-		cache.set(pagina, request)
+		let request = cache.get(pagina)
+		if (!request) {
+			request = options.fetchPage(pagina)
+			cache.set(pagina, request)
+		}
 		return request
 	}
 
 	const first = await fetchPage(1)
 	const consultedAt = first.fetchedAt ?? (options.now?.() ?? new Date()).toISOString()
-	const cutoff = options.windowStartFor?.(consultedAt) ?? null
+	const cutoff = options.periodMonths ? consultationWindowStart(consultedAt, options.periodMonths) : null
 	const totalPages = first.totalPaginas
-	const limit = Math.min(totalPages, maxPages)
 	const pages: T[][] = []
 
-	// Ordem conferida a cada página que entra: uma quebra vale para o resto da coleta.
 	let ordered = true
-	let lastDate: string | null = null
-	const continuesOrder = (rows: readonly T[], from: string | null) => {
-		let previous = from
-		for (const r of rows) {
-			const date = resultDateOf(r)
-			if (!date || (previous && date > previous)) return { ok: false, last: previous }
-			previous = date
-		}
-		return { ok: true, last: previous }
-	}
+	let lastSortDate: string | null = null
+	let passed = false
 	const take = (rows: T[]) => {
 		pages.push(rows)
-		if (!ordered) return
-		const step = continuesOrder(rows, lastDate)
-		ordered = step.ok
-		lastDate = step.last
+		for (const r of rows) {
+			if (passed) {
+				const date = windowDateOf(r)
+				if (cutoff && date && date >= cutoff) ordered = false
+				continue
+			}
+			const date = sortDateOf(r)
+			if (!date) continue
+			if (lastSortDate && date > lastSortDate) ordered = false
+			lastSortDate = date
+			if (cutoff && ordered && date < cutoff) passed = true
+		}
 	}
-	const passedWindowStart = () => cutoff != null && ordered && lastDate != null && lastDate < cutoff
-
+	const limit = () =>
+		Math.min(totalPages, cutoff && ordered ? (options.windowMaxPages ?? PRICE_RESEARCH_WINDOW_MAX_PAGES) : (options.maxPages ?? PRICE_RESEARCH_MAX_PAGES))
 	let stopAtWindow = true
 	const readUpTo = async () => {
-		while (pages.length < limit && !(stopAtWindow && passedWindowStart())) {
+		while (pages.length < limit() && !(stopAtWindow && passed && ordered)) {
 			const start = pages.length + 1
-			const end = Math.min(start + concurrency - 1, limit)
+			const end = Math.min(start + concurrency - 1, limit())
 			const batch = await Promise.all(Array.from({ length: end - start + 1 }, (_, i) => fetchPage(start + i)))
 			for (const page of batch) take(page.resultado)
-			if (pages.length < limit && options.pauseMs) await new Promise((r) => setTimeout(r, options.pauseMs))
+			if (pages.length < limit() && options.pauseMs) await new Promise((r) => setTimeout(r, options.pauseMs))
 		}
 	}
 
 	take(first.resultado)
 	await readUpTo()
 	let stoppedAtWindow = false
-	if (pages.length < totalPages && passedWindowStart()) {
-		// A última página continua a ordem? Linha sem data ou mais nova que a última lida quebra a premissa.
-		const last = await fetchPage(totalPages)
-		if (continuesOrder(last.resultado, lastDate).ok) stoppedAtWindow = true
-		else {
+	const undatedTail: T[] = []
+	if (pages.length < totalPages && passed && ordered) {
+		const last = (await fetchPage(totalPages)).resultado
+		const inWindow = last.some((r) => {
+			const date = windowDateOf(r)
+			return date != null && cutoff != null && date >= cutoff
+		})
+		if (inWindow) {
+			ordered = false
 			stopAtWindow = false
 			await readUpTo()
+		} else {
+			stoppedAtWindow = true
+			undatedTail.push(...last.filter((r) => windowDateOf(r) == null))
 		}
 	}
 
 	const coverage: SourceCoverage = pages.length >= totalPages ? "complete" : stoppedAtWindow ? "window" : "truncated"
+	const pagesFetched = Math.min(pages.length + (stoppedAtWindow ? 1 : 0), totalPages)
 	return {
-		results: pages.flat(),
-		consultation: { consultedAt, totalRecords: first.totalRegistros, totalPages, pagesFetched: Math.min(pages.length, totalPages), coverage },
+		results: [...pages.flat(), ...undatedTail],
+		consultation: { consultedAt, query: options.query, totalRecords: first.totalRegistros, totalPages, pagesFetched, coverage },
+		orderBroken: !ordered,
 	}
 }

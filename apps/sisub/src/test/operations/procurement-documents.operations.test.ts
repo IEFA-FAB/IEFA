@@ -12,6 +12,7 @@ import {
 	explainQuantityEstimateNeeds,
 	fetchPriceResearchReport,
 	fetchQuantityEstimateDetails,
+	priceResearchQueryString,
 	priceResearchQueryUrl,
 	savePriceResearchAudit,
 	saveQuantityEstimateDraftItems,
@@ -123,7 +124,14 @@ describeSupabaseIntegration("documentos do anexo quantitativo", () => {
 				validSamples: samples,
 				outlierSamples: [],
 				measureUnit: "KG",
-				source: { consultedAt: new Date().toISOString(), totalRecords: 3, totalPages: 1, pagesFetched: 1, coverage: "complete" },
+				source: {
+					consultedAt: new Date().toISOString(),
+					query: "tipo=codigoItemCatalogo&codigo=447599&tamanhoPagina=500",
+					totalRecords: 3,
+					totalPages: 1,
+					pagesFetched: 1,
+					coverage: "complete",
+				},
 				quantityEstimateId: quantityEstimateId,
 				quantityEstimateItemId: item.id,
 			})
@@ -150,9 +158,15 @@ describeSupabaseIntegration("documentos do anexo quantitativo", () => {
 		// Série 2: o item aparece no resumo e nas 3 amostras, com a consulta que a repete.
 		expect(report?.seriesFormat).toBe(2)
 		expect(report?.csv.split("\n").filter((line) => line.startsWith("1,447599,"))).toHaveLength(4)
-		expect(report?.csv).toContain(priceResearchQueryUrl(447599))
+		expect(report?.csv).toContain(priceResearchQueryUrl(priceResearchQueryString(447599)))
 		// A consulta à fonte gravada na pesquisa volta congelada na emissão e sai na série.
-		expect(report?.items[0].research?.source).toMatchObject({ totalRecords: 3, totalPages: 1, pagesFetched: 1, coverage: "complete" })
+		expect(report?.items[0].research?.source).toMatchObject({
+			query: "tipo=codigoItemCatalogo&codigo=447599&tamanhoPagina=500",
+			totalRecords: 3,
+			totalPages: 1,
+			pagesFetched: 1,
+			coverage: "complete",
+		})
 		expect(report?.csv).toContain(",todas_as_paginas,")
 
 		// Editar o anexo depois da emissão não a invalida: ela congelou o que usou.

@@ -273,15 +273,27 @@ function idempotencyKeyFor(input: SavePriceResearchAudit, facts: ResearchComplia
 	// pesquisa que o lote gravou sem justificativa é OUTRA memória de cálculo; com a chave v2
 	// voltava o registro antigo, ainda não conforme, e a justificativa se perdia.
 	const justifications = justificationsToPersist(facts)
+	// v4: a consulta entra na chave. Repesquisar no mesmo dia, com as mesmas amostras, é outra
+	// consulta (outra hora, outros totais na fonte); com a v3 voltava a pesquisa antiga e o relatório
+	// declarava a consulta anterior.
 	const decisionFingerprint = nodeCrypto
 		.createHash("sha256")
-		.update(JSON.stringify([input.periodMonths ?? null, facts.manualSelection === true, justifications]))
+		.update(
+			JSON.stringify([
+				input.periodMonths ?? null,
+				facts.manualSelection === true,
+				justifications,
+				input.source.consultedAt,
+				input.source.query,
+				input.source.coverage,
+			])
+		)
 		.digest("hex")
 		.slice(0, 12)
 
 	// v2: a unidade e o preço entram na chave. Mesmas amostras em outra unidade (ou gravadas antes
 	// da conversão) são OUTRA pesquisa; com a chave v1 voltava o registro antigo com outro preço.
-	return `audit:v3:${scope}:${input.method}:${input.measureUnit ?? "-"}:${input.referencePrice.toFixed(4)}:${day}:${sampleFingerprint}:${decisionFingerprint}`
+	return `audit:v4:${scope}:${input.method}:${input.measureUnit ?? "-"}:${input.referencePrice.toFixed(4)}:${day}:${sampleFingerprint}:${decisionFingerprint}`
 }
 
 /**
@@ -413,7 +425,7 @@ const CONSULTED_AT_SKEW_MS = 5 * 60 * 1000
  * A consulta declarada precisa ser plausível e completa: coleta parcial não grava (a série seria
  * um corte do que a fonte tinha na janela), e hora no futuro não é hora de consulta.
  */
-export function assertSourceConsultation(source: PriceResearchSourceConsultation, now: Date = new Date()): void {
+export function assertSourceConsultation(source: PriceResearchSourceConsultation, catmatCodigo: number, now: Date = new Date()): void {
 	if (source.coverage === "truncated") {
 		throw new DomainError(
 			"PARTIAL_COLLECTION",
@@ -426,6 +438,11 @@ export function assertSourceConsultation(source: PriceResearchSourceConsultation
 	}
 	if (source.pagesFetched > source.totalPages || (source.coverage === "complete" && source.pagesFetched !== source.totalPages)) {
 		throw new DomainError("VALIDATION_FAILED", "Páginas lidas não batem com o total da consulta.")
+	}
+	// A consulta registrada é a deste CATMAT: o relatório monta a URL de repetição a partir dela.
+	const query = new URLSearchParams(source.query)
+	if (query.get("tipo") !== "codigoItemCatalogo" || query.get("codigo") !== String(catmatCodigo) || query.has("pagina")) {
+		throw new DomainError("VALIDATION_FAILED", "Parâmetros da consulta não são os do CATMAT pesquisado.")
 	}
 }
 
@@ -444,7 +461,7 @@ export async function savePriceResearchAudit(db: SisubDb, ctx: UserContext, inpu
 	// forjar memória de cálculo; guard sem escopo ainda deixava membro de qualquer unidade
 	// gravar/ligar auditoria em anexo alheio.
 	requirePermission(ctx, "unit", 1)
-	assertSourceConsultation(input.source)
+	assertSourceConsultation(input.source, input.catmatCodigo)
 	if (input.quantityEstimateId || input.quantityEstimateItemId) {
 		await authorizeQuantityEstimateTarget(db, ctx, input.quantityEstimateId, input.quantityEstimateItemId)
 	}
@@ -537,6 +554,7 @@ export async function savePriceResearchAudit(db: SisubDb, ctx: UserContext, inpu
 							sourceTotalPages: input.source.totalPages,
 							sourcePagesFetched: input.source.pagesFetched,
 							sourceCoverage: input.source.coverage,
+							sourceQuery: input.source.query,
 						})
 						.returning({ id: priceResearchItemInProcurement.id }),
 				{ prefix: "Erro ao salvar item da pesquisa" }

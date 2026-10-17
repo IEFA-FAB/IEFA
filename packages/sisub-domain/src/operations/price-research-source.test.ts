@@ -4,6 +4,7 @@ import { formatConsultedAt, type PriceResearchSourceConsultation } from "./price
 
 const source = (over: Partial<PriceResearchSourceConsultation> = {}): PriceResearchSourceConsultation => ({
 	consultedAt: "2026-10-16T14:58:30.000Z",
+	query: "tipo=codigoItemCatalogo&codigo=463770&tamanhoPagina=500",
 	totalRecords: 8402,
 	totalPages: 17,
 	pagesFetched: 5,
@@ -19,17 +20,24 @@ describe("consulta à fonte", () => {
 	})
 
 	test("coleta parcial não grava", () => {
-		expect(() => assertSourceConsultation(source({ coverage: "truncated", pagesFetched: 40, totalPages: 52 }), now)).toThrow("Coleta parcial")
+		expect(() => assertSourceConsultation(source({ coverage: "truncated", pagesFetched: 40, totalPages: 52 }), 463770, now)).toThrow("Coleta parcial")
 	})
 
 	test("janela completa e todas as páginas gravam", () => {
-		expect(() => assertSourceConsultation(source(), now)).not.toThrow()
-		expect(() => assertSourceConsultation(source({ coverage: "complete", pagesFetched: 17 }), now)).not.toThrow()
+		expect(() => assertSourceConsultation(source(), 463770, now)).not.toThrow()
+		expect(() => assertSourceConsultation(source({ coverage: "complete", pagesFetched: 17 }), 463770, now)).not.toThrow()
+	})
+
+	test("consulta de outro CATMAT é recusada", () => {
+		expect(() => assertSourceConsultation(source({ query: "tipo=codigoItemCatalogo&codigo=1&tamanhoPagina=500" }), 463770, now)).toThrow(
+			"Parâmetros da consulta"
+		)
+		expect(() => assertSourceConsultation(source({ query: "tipo=codigoItemCatalogo&codigo=463770&pagina=2" }), 463770, now)).toThrow("Parâmetros da consulta")
 	})
 
 	test("hora no futuro e páginas que não batem são recusadas", () => {
-		expect(() => assertSourceConsultation(source({ consultedAt: "2026-10-16T16:00:00.000Z" }), now)).toThrow("Hora da consulta")
-		expect(() => assertSourceConsultation(source({ pagesFetched: 18 }), now)).toThrow("Páginas lidas")
-		expect(() => assertSourceConsultation(source({ coverage: "complete", pagesFetched: 16 }), now)).toThrow("Páginas lidas")
+		expect(() => assertSourceConsultation(source({ consultedAt: "2026-10-16T16:00:00.000Z" }), 463770, now)).toThrow("Hora da consulta")
+		expect(() => assertSourceConsultation(source({ pagesFetched: 18 }), 463770, now)).toThrow("Páginas lidas")
+		expect(() => assertSourceConsultation(source({ coverage: "complete", pagesFetched: 16 }), 463770, now)).toThrow("Páginas lidas")
 	})
 })

@@ -61,7 +61,6 @@ import {
 	fetchAllPagesForCatmat,
 	isMethodAllowed,
 	isSampleSelectable,
-	MAX_PAGES,
 	type PriceStatsSummary,
 	partitionByPeriod,
 	priceForMethod,
@@ -80,6 +79,7 @@ import {
 	formatUndatedLabel,
 	getIncomparableSuffix,
 	getMeanPriceTitle,
+	getPartialCollectionHint,
 	getRecommendation,
 	getUsePriceLabel,
 	groupFindings,
@@ -381,7 +381,7 @@ function PriceResearchToolbar({
 					className="text-xs text-muted-foreground"
 					title="A API não informa a hora da consulta: vale a do servidor do sisub ao receber a página 1. A fonte ordena por data do resultado; com janela, a coleta para quando passa do início dela."
 				>
-					{data.totalRegistros.toLocaleString("pt-BR")} registros na fonte · consulta de {formatConsultedAt(data.source.consultedAt)} ·{" "}
+					{data.source.totalRecords.toLocaleString("pt-BR")} registros na fonte · consulta de {formatConsultedAt(data.source.consultedAt)} ·{" "}
 					{SOURCE_COVERAGE_LABELS[data.source.coverage]} ({data.source.pagesFetched} de {data.source.totalPages} páginas)
 				</span>
 			)}
@@ -401,13 +401,10 @@ function PriceResearchToolbar({
 					{formatUndatedLabel(includeUndated, undatedCount)}
 				</Button>
 			)}
-			{data?.truncated && (
+			{data?.source.coverage === "truncated" && (
 				<span className="text-xs text-destructive">
-					Coleta parcial: {totalCount.toLocaleString("pt-BR")} de {data.totalRegistros.toLocaleString("pt-BR")} registros (teto de {MAX_PAGES} páginas). O preço
-					não grava.{" "}
-					{periodMonths
-						? "A fonte não veio em ordem de data do resultado, e sem ela a coleta não sabe onde a janela termina: atualize mais tarde."
-						: "Volte à janela de 12 meses, que para quando a fonte passa do início dela."}
+					Coleta parcial: {totalCount.toLocaleString("pt-BR")} de {data.source.totalRecords.toLocaleString("pt-BR")} registros ({data.source.pagesFetched} de{" "}
+					{data.source.totalPages} páginas). O preço não grava. {getPartialCollectionHint(periodMonths, data.orderBroken)}
 				</span>
 			)}
 			{columnFilterCount > 0 && (
@@ -743,7 +740,7 @@ export function PriceResearchModal({
 	)
 	const scopedResults = partition.visible
 	// Parada na janela: o que não foi lido é todo mais antigo que ela, então conta como fora.
-	const outOfPeriodCount = data?.source.coverage === "window" ? Math.max(0, data.totalRegistros - partition.visible.length) : partition.outOfWindow.length
+	const outOfPeriodCount = data?.source.coverage === "window" ? Math.max(0, data.source.totalRecords - partition.visible.length) : partition.outOfWindow.length
 	const undatedCount = partition.undated.length
 	const calculationBase = includeUndated ? partition.visible : partition.inWindow
 	const researchUnit = useMemo(() => resolveResearchUnit(targetUnit, calculationBase), [targetUnit, calculationBase])
@@ -1014,7 +1011,7 @@ export function PriceResearchModal({
 	})
 
 	async function handleUsePrice(method: PriceResearchMethod) {
-		if (!onApplyPrice || !activeAnalysis || !researchUnit || !data || data.truncated) return
+		if (!onApplyPrice || !activeAnalysis || !researchUnit || !data || data.source.coverage === "truncated") return
 		const price = priceForMethod(method, activeAnalysis.stats)
 		setIsSavingMethod(method)
 		try {
@@ -1065,6 +1062,8 @@ export function PriceResearchModal({
 	}
 
 	function handleTogglePeriod() {
+		// Trocar a janela refaz a coleta: o id da linha leva o índice, e a seleção apontaria para outras amostras.
+		setRowSelection({})
 		setPeriodMonths((prev) => (prev ? null : DEFAULT_PERIOD_MONTHS))
 	}
 
@@ -1115,7 +1114,7 @@ export function PriceResearchModal({
 						isUnitInferred={researchUnit?.inferred}
 						onApplyPrice={onApplyPrice}
 						isSavingMethod={isSavingMethod}
-						isBlocked={Boolean(data?.truncated)}
+						isBlocked={data?.source.coverage === "truncated"}
 						onUsePrice={handleUsePrice}
 					/>
 				)}

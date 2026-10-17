@@ -36,7 +36,14 @@ const item: ReportItem = {
 		uniqueSources: 4,
 		referencePrice: 5.5,
 		nonComplianceReasons: [],
-		source: { consultedAt: "2026-09-01T14:58:30.000Z", totalRecords: 8402, totalPages: 17, pagesFetched: 5, coverage: "window" },
+		source: {
+			consultedAt: "2026-09-01T14:58:30.000Z",
+			query: "tipo=codigoItemCatalogo&codigo=217092&tamanhoPagina=500",
+			totalRecords: 8402,
+			totalPages: 17,
+			pagesFetched: 5,
+			coverage: "window",
+		},
 		samples: [],
 	},
 }

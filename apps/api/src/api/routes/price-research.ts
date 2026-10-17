@@ -195,7 +195,7 @@ async function researchQuantityEstimate(c: Context, quantityEstimateId: string) 
 					if (source.coverage === "truncated") {
 						throw new Error(`Coleta parcial: ${source.pagesFetched} de ${source.totalPages} páginas lidas sem cobrir a janela; refaça a pesquisa`)
 					}
-					analysisMap.set(catmatCode, { ...analyzePrices(catmatCode, catmatDescricao, rawItems, options), source })
+					analysisMap.set(catmatCode, { ...analyzePrices(catmatCode, catmatDescricao, rawItems, options, source.consultedAt), source })
 				} catch (err) {
 					const msg = err instanceof Error ? err.message : String(err)
 					console.error(`[price-research] anexo ${quantityEstimateId} CATMAT ${catmatCode}: ${msg}`)
@@ -323,7 +323,7 @@ export const priceResearchRoutes = new Hono()
 				codigoMunicipio: options.codigoMunicipio,
 			})
 			// Exploratória: devolve a análise com a leitura da fonte, inclusive quando parcial.
-			return c.json({ ...analyzePrices(catmatCode, catmatDescricao, rawItems, options), source })
+			return c.json({ ...analyzePrices(catmatCode, catmatDescricao, rawItems, options, source.consultedAt), source })
 		} catch (err) {
 			const message = err instanceof Error ? err.message : String(err)
 			console.error(`[price-research] CATMAT ${catmatCode}: ${message}`)

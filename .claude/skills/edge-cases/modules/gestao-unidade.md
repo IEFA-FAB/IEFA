@@ -160,16 +160,18 @@ lote e pelo worker da API. Texto conferido na IN consolidada em gov.br/compras.
 - **Realidade:** gênero muito comprado (o 463770 tinha 8.402 registros em 2026-10-16); com um
   teto de páginas, o corte caía justamente no que a janela precisava, sem ninguém notar.
 - **O sistema precisa:** a fonte ordena por data do resultado, decrescente, e a janela conta por
-  ela: a coleta para na primeira página que passa do início da janela e lê a janela inteira,
-  qualquer que seja o volume. Fonte fora de ordem ou linha sem data do resultado faz ler tudo.
-  A regra é uma só (`collectSourcePages`, em `sisub-domain/operations/price-research-source.ts`),
-  usada pelo modal, pelo lote e pela rota admin da API. Se ainda assim o teto (40 páginas) cortar
-  antes de cobrir a janela, a coleta é parcial: o modal desabilita "Usar", o lote e a rota da API
-  contam o item como erro e o servidor recusa (`PARTIAL_COLLECTION`). A pesquisa anterior ao
-  registro da consulta sai no relatório com o aviso "anterior ao registro da consulta à fonte".
-  **LACUNA:** fonte fora de ordem (ou com linha sem data do resultado) num CATMAT com mais de 40
-  páginas não tem caminho na tela: com janela, a coleta não sabe onde a janela termina e o item
-  fica sem preço pelo sisub. A tela diz para atualizar mais tarde; não aconteceu em nenhum CATMAT
+  ela (do dia da consulta): a coleta para na primeira linha que passa do início da janela, confere
+  a última página e lê a janela inteira, qualquer que seja o volume (teto largo de 200 páginas, só
+  contra fonte patológica). Linha da janela fora de ordem faz ler tudo, com o teto curto (40
+  páginas); linha sem data nenhuma não quebra a ordem e entra no resultado. A regra é uma só
+  (`collectSourcePages`, em `sisub-domain/operations/price-research-source.ts`), usada pelo modal,
+  pelo lote e pela rota admin da API, que gravam a consulta exata (`source_query`). Coleta
+  parcial não grava: o modal desabilita "Usar" e diz a causa (sem janela; fonte fora de ordem;
+  janela maior que o teto), o lote e a rota da API contam o item como erro e o servidor recusa
+  (`PARTIAL_COLLECTION`). Pesquisa anterior ao registro da consulta sai no relatório com o aviso
+  "anterior ao registro da consulta à fonte".
+  **LACUNA:** fonte fora de ordem num CATMAT com mais de 40 páginas, ou janela com mais de 200,
+  não tem caminho na tela: o item fica sem preço pelo sisub. Não aconteceu em nenhum CATMAT
   conferido até 2026-10-17.
 - **UX:** a barra do modal diz o total na fonte, a hora da consulta e a cobertura ("janela
   completa (4 de 17 páginas)").

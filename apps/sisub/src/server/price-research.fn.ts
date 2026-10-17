@@ -131,6 +131,7 @@ export const savePriceResearchFn = createServerFn({ method: "POST" })
 			// ela a pesquisa escaparia da recusa de coleta parcial.
 			source: z.object({
 				consultedAt: z.iso.datetime(),
+				query: z.string().min(1).max(1000),
 				totalRecords: z.number().int().min(0),
 				totalPages: z.number().int().min(0),
 				pagesFetched: z.number().int().min(0),

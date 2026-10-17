@@ -122,6 +122,12 @@ export interface ReportResearch {
 	 * migration 20261016150000). Null nas pesquisas anteriores, que não a registraram.
 	 */
 	source?: PriceResearchSourceConsultation | null
+	/**
+	 * Parâmetros da consulta das pesquisas anteriores ao registro dela, reconstruídos na emissão pelo
+	 * caminho que as gravou (sisub: só o CATMAT; rota da API: `dataResultado=true` e os filtros do
+	 * cabeçalho). Null quando a consulta está em `source`.
+	 */
+	legacyQuery?: string | null
 	samples: ReportSample[]
 }
 
@@ -200,6 +206,8 @@ const CSV_HEADER = [
 	"conversao",
 ]
 
+// `CLASS_LABEL`, `CLASS_ORDER`, `csvField` e `sortedSamples` entram nos bytes das séries 1 e 2:
+// mudar qualquer um muda o hash de toda emissão já feita. Mudança de formato é série nova.
 const CLASS_LABEL: Record<SampleClass, string> = { valid: "valida", outlier: "descartada_iqr", pollution: "inconsistente" }
 const CLASS_ORDER: Record<SampleClass, number> = { valid: 0, outlier: 1, pollution: 2 }
 
@@ -376,7 +384,7 @@ const V2_NOTE: ReadonlyArray<readonly [string, string]> = [
 	],
 	[
 		"Filtros da consulta",
-		"tipo=codigoItemCatalogo e codigo=<CATMAT do item>, páginas de 500 registros. Nenhum outro filtro: todo o país, sem recorte de UASG, órgão, estado, município, esfera, poder ou data. A URL da página 1 de cada item está em consulta_url.",
+		"Os parâmetros exatos de cada consulta estão em consulta_url (a URL da página 1). Pesquisa feita no sisub: tipo=codigoItemCatalogo e codigo=<CATMAT do item>, páginas de 500 registros, e nenhum outro filtro (todo o país, sem recorte de UASG, órgão, estado, município, esfera, poder ou data). Pesquisa feita pela rota de lote da API: também dataResultado=true e, quando pedidos, estado, codigoUasg ou codigoMunicipio, que aparecem na URL.",
 	],
 	[
 		"Coleta e hora",
@@ -401,7 +409,18 @@ const V2_NOTE: ReadonlyArray<readonly [string, string]> = [
 	["Integridade", "O SHA-256 deste arquivo, byte a byte, está impresso no relatório da emissão. Abrir e salvar na planilha muda o arquivo e o hash."],
 ]
 
-const v2QueryUrl = (catmat: number) => `${V2_SOURCE_URL}?tipo=codigoItemCatalogo&codigo=${catmat}&pagina=1&tamanhoPagina=500`
+const v2QueryUrl = (r: ReportResearch, catmat: number | null) => {
+	const query = r.source?.query ?? r.legacyQuery ?? (catmat != null ? `tipo=codigoItemCatalogo&codigo=${catmat}&tamanhoPagina=500` : null)
+	return query ? `${V2_SOURCE_URL}?${query}&pagina=1` : null
+}
+
+/** Datas da série 2, com regra própria: mudar `researchWindowOf` (tela) não pode mudar estes bytes. */
+function v2Window(r: ReportResearch): { researchDate: string; windowStart: string | null; windowEnd: string } {
+	const civil = (instant: string) => toBrasiliaCivilDate(instant) ?? instant.slice(0, 10)
+	const researchDate = civil(r.createdAt)
+	const windowEnd = r.source ? civil(r.source.consultedAt) : researchDate
+	return { researchDate, windowStart: r.periodMonths ? addCivilMonths(windowEnd, -r.periodMonths) : null, windowEnd }
+}
 const v2SampleUrl = (catmat: number, idCompra: string) =>
 	`${V2_SOURCE_URL}?tipo=codigoItemCatalogo&codigo=${catmat}&idCompra=${encodeURIComponent(idCompra)}&pagina=1&tamanhoPagina=500`
 
@@ -424,11 +443,12 @@ function v2SummaryRow(item: ReportItem): Array<string | number | null> {
 		row[32] = "sem pesquisa"
 		return row
 	}
-	const { researchDate, windowStart, windowEnd } = researchWindowOf(r)
+	const { researchDate, windowStart, windowEnd } = v2Window(r)
 	const catmat = r.catmatCodigo ?? item.catmat
-	const justifications = Object.entries(r.justifications ?? {})
-		.filter(([, text]) => text?.trim())
-		.map(([key, text]) => `${V2_JUSTIFICATION[key as ResearchJustificationKey] ?? key}: ${text?.trim()}`)
+	// Ordem fixa: o jsonb da emissão reordena as chaves do objeto, e a ordem dele mudaria o hash.
+	const justifications = (Object.keys(V2_JUSTIFICATION) as ResearchJustificationKey[])
+		.filter((key) => r.justifications?.[key]?.trim())
+		.map((key) => `${V2_JUSTIFICATION[key]}: ${r.justifications?.[key]?.trim()}`)
 	return [
 		item.order,
 		catmat,
@@ -441,7 +461,7 @@ function v2SummaryRow(item: ReportItem): Array<string | number | null> {
 		windowStart,
 		windowStart ? windowEnd : null,
 		r.source ? v2Instant(r.source.consultedAt) : null,
-		catmat != null ? v2QueryUrl(catmat) : null,
+		v2QueryUrl(r, catmat),
 		r.source?.totalRecords ?? null,
 		r.source?.totalPages ?? null,
 		r.source?.pagesFetched ?? null,
@@ -487,7 +507,7 @@ function buildSeriesCsvV2(items: readonly ReportItem[]): string {
 					item.order,
 					catmat,
 					item.description,
-					r.measureUnit,
+					r.measureUnit ?? item.unit,
 					CLASS_LABEL[s.sampleType],
 					s.idCompra,
 					s.idItemCompra,
@@ -808,14 +828,32 @@ async function loadItems(db: SisubDb, quantityEstimateId: string, status: string
 /** Consulta gravada na pesquisa (`ri.*` traz as colunas quando a migration 20261016150000 está aplicada). */
 function sourceConsultationOf(h: Row): PriceResearchSourceConsultation | null {
 	const coverage = str(h.source_coverage)
-	if (h.source_consulted_at == null || !(SOURCE_COVERAGES as readonly string[]).includes(coverage ?? "")) return null
+	if (h.source_consulted_at == null || h.source_query == null || !(SOURCE_COVERAGES as readonly string[]).includes(coverage ?? "")) return null
 	return {
 		consultedAt: new Date(String(h.source_consulted_at)).toISOString(),
+		query: String(h.source_query),
 		totalRecords: num(h.source_total_records) ?? 0,
 		totalPages: num(h.source_total_pages) ?? 0,
 		pagesFetched: num(h.source_pages_fetched) ?? 0,
 		coverage: coverage as SourceCoverage,
 	}
+}
+
+/**
+ * Consulta de pesquisa anterior ao registro dela, pelo caminho que a gravou. A rota da API grava o
+ * limiar de similaridade no cabeçalho, e o sisub não: é o que distingue os dois.
+ */
+function legacyQueryOf(h: Row): string | null {
+	const catmat = num(h.catmat_codigo)
+	if (catmat == null) return null
+	const base = `tipo=codigoItemCatalogo&codigo=${catmat}&tamanhoPagina=500`
+	if (h.header_similarity_threshold == null) return base
+	const filters = [
+		h.header_filter_estado != null ? `&estado=${encodeURIComponent(String(h.header_filter_estado))}` : "",
+		h.header_filter_uasg_code != null ? `&codigoUasg=${encodeURIComponent(String(h.header_filter_uasg_code))}` : "",
+		h.header_filter_municipio_code != null ? `&codigoMunicipio=${String(h.header_filter_municipio_code)}` : "",
+	]
+	return `${base}&dataResultado=true${filters.join("")}`
 }
 
 /** Pesquisas por id, com amostras e o nome do agente. */
@@ -831,6 +869,8 @@ async function loadResearch(db: SisubDb, researchItemIds: readonly string[]): Pr
 			() =>
 				db.execute(sql`
 					select ri.*, rh.created_by, rh.period_months, rh.reference_method as header_method,
+						rh.similarity_threshold as header_similarity_threshold, rh.filter_estado as header_filter_estado,
+						rh.filter_uasg_code as header_filter_uasg_code, rh.filter_municipio_code as header_filter_municipio_code,
 						nullif(btrim(coalesce(m.posto, '') || ' ' || coalesce(m.nome_guerra, '')), '') as military_name,
 						coalesce(ud.email, au.email) as email
 					from procurement.price_research_item ri
@@ -891,6 +931,7 @@ async function loadResearch(db: SisubDb, researchItemIds: readonly string[]): Pr
 			},
 			manualSelection: h.manual_selection === true,
 			source: sourceConsultationOf(h),
+			legacyQuery: h.source_query == null ? legacyQueryOf(h) : null,
 			samples: own.map((s) => {
 				const stored = s.converted_price != null
 				// Pesquisa anterior à gravação da conversão: refaz pela mesma regra pura, e o relatório diz.

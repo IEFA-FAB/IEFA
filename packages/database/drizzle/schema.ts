@@ -5055,6 +5055,7 @@ export const priceResearchItemInProcurement = procurement.table("price_research_
 	sourceTotalPages: integer("source_total_pages"),
 	sourcePagesFetched: integer("source_pages_fetched"),
 	sourceCoverage: text("source_coverage"),
+	sourceQuery: text("source_query"),
 }, (table) => [
 	index("idx_price_research_item_quantity_estimate_item").using("btree", table.quantityEstimateItemId.asc().nullsLast()),
 	index("idx_price_research_item_research").using("btree", table.researchId.asc().nullsLast()),
@@ -5075,6 +5076,7 @@ export const priceResearchItemInProcurement = procurement.table("price_research_
 	check("price_research_item_reference_method_check", sql`reference_method = ANY (ARRAY['median'::text, 'mean'::text, 'lowest'::text])`),
 	check("price_research_item_source_coverage_check", sql`source_coverage = ANY (ARRAY['window'::text, 'complete'::text, 'truncated'::text])`),
 	check("price_research_item_source_pages_fetched_check", sql`source_pages_fetched >= 0`),
+	check("price_research_item_source_query_check", sql`char_length(source_query) <= 1000`),
 	check("price_research_item_source_total_pages_check", sql`source_total_pages >= 0`),
 	check("price_research_item_source_total_records_check", sql`source_total_records >= 0`),
 ]);

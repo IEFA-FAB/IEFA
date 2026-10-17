@@ -82,12 +82,15 @@ export function useBulkPriceResearch(
 
 		const processItem = async (item: BulkResearchItem) => {
 			try {
-				const { results: samples, source, truncated } = await fetchAllPagesForCatmat(item.catmat_item_codigo as number, { periodMonths: DEFAULT_PERIOD_MONTHS })
-				// A janela conta da hora da consulta, a mesma que a coleta usou para parar.
-				const selected = autoSelectPrice(samples, { periodMonths: DEFAULT_PERIOD_MONTHS, now: new Date(source.consultedAt), targetUnit: annexItemUnit(item) })
-
+				const { results: samples, source } = await fetchAllPagesForCatmat(item.catmat_item_codigo as number, { periodMonths: DEFAULT_PERIOD_MONTHS })
 				// Coleta parcial não sustenta preço (o servidor também recusa): conta como erro do item.
-				if (!selected || truncated) {
+				// A janela conta da hora da consulta, a mesma que a coleta usou para parar.
+				const selected =
+					source.coverage === "truncated"
+						? null
+						: autoSelectPrice(samples, { periodMonths: DEFAULT_PERIOD_MONTHS, now: new Date(source.consultedAt), targetUnit: annexItemUnit(item) })
+
+				if (!selected) {
 					setProgress((prev) => ({ ...prev, done: prev.done + 1, errors: prev.errors + 1 }))
 					return
 				}

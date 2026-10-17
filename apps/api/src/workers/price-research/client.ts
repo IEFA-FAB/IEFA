@@ -1,11 +1,9 @@
 import { COMPRAS_BASE_URL, type ComprasQuery } from "@iefa/compras-api"
-import { collectSourcePages, PRICE_RESEARCH_MAX_PAGES, type PriceResearchSourceConsultation } from "@iefa/sisub-domain"
-import { addCivilDays, addCivilMonths, getBrasiliaToday } from "@iefa/sisub-domain/civil-date"
+import { collectSourcePages, PRICE_RESEARCH_PAGE_SIZE, type PriceResearchSourceConsultation } from "@iefa/sisub-domain"
 import type { ComprasMaterialPrecoItem, ComprasMaterialPrecoPage } from "./types.ts"
 
 const BASE_URL = COMPRAS_BASE_URL
 const ENDPOINT = "/modulo-pesquisa-preco/1_consultarMaterial" as const
-const PAGE_SIZE = 500
 const TIMEOUT_MS = 30_000
 /**
  * Tentativas por página: 3 chamadas, com esperas de 1 s e 3 s entre elas.
@@ -39,23 +37,30 @@ export interface ConsultaPrecoParams {
 	codigoMunicipio?: number
 }
 
-// ─── Fetch de uma página com retry exponencial ───────────────────────────────
-
-async function fetchPaginaMaterial(catmatCode: number, params: ConsultaPrecoParams, page: number, deadline: number): Promise<ComprasMaterialPrecoPage> {
+/**
+ * Parâmetros da consulta, sem `pagina`: é o que a pesquisa grava em `source_query` para o relatório
+ * montar a URL de repetição.
+ */
+function buildQuery(catmatCode: number, params: ConsultaPrecoParams): URLSearchParams {
 	// Conferido contra o swagger: `tipo` e `codigo` são obrigatórios, e o antigo
 	// `codigoItemCatalogo=<n>` responde 404 (Resource not found).
-	const query: ComprasQuery<typeof ENDPOINT> = {
+	const query: Omit<ComprasQuery<typeof ENDPOINT>, "pagina"> = {
 		tipo: "codigoItemCatalogo",
 		codigo: String(catmatCode),
-		pagina: page,
-		tamanhoPagina: PAGE_SIZE,
+		tamanhoPagina: PRICE_RESEARCH_PAGE_SIZE,
 		dataResultado: true, // apenas compras com resultado homologado
 		...(params.estado ? { estado: params.estado } : {}),
 		...(params.codigoUasg ? { codigoUasg: params.codigoUasg } : {}),
 		...(params.codigoMunicipio ? { codigoMunicipio: params.codigoMunicipio } : {}),
 	}
+	return new URLSearchParams(Object.entries(query).map(([k, v]): [string, string] => [k, String(v)]))
+}
 
-	const qs = new URLSearchParams(Object.entries(query).map(([k, v]): [string, string] => [k, String(v)]))
+// ─── Fetch de uma página com retry exponencial ───────────────────────────────
+
+async function fetchPaginaMaterial(catmatCode: number, params: ConsultaPrecoParams, page: number, deadline: number): Promise<ComprasMaterialPrecoPage> {
+	const qs = buildQuery(catmatCode, params)
+	qs.set("pagina", String(page))
 	const url = `${BASE_URL}${ENDPOINT}?${qs}`
 
 	let lastErr: unknown = new Error(`Prazo de ${QUERY_BUDGET_MS / 1000} s da consulta à API Compras esgotado`)
@@ -86,32 +91,29 @@ async function fetchPaginaMaterial(catmatCode: number, params: ConsultaPrecoPara
 
 // ─── Coleta das páginas ───────────────────────────────────────────────────────
 
-export interface ConsultaPrecoResult {
+export interface MaterialPriceQueryResult {
 	items: ComprasMaterialPrecoItem[]
-	/** Hora (deste servidor, ao receber a página 1), totais da fonte, páginas lidas e cobertura. */
+	/** Hora (deste servidor, ao receber a página 1), parâmetros, totais da fonte, páginas lidas e cobertura. */
 	source: PriceResearchSourceConsultation
 }
 
 /**
  * Consulta o módulo de pesquisa de preço da API Compras.gov.br para um item CATMAT pela mesma
  * regra do sisub (`collectSourcePages`): com janela, para quando a fonte (ordenada por data do
- * resultado, decrescente) passa do início dela, conferida a ordem e a última página; sem janela,
- * lê tudo até o teto. Lotes de 4 páginas, com 250 ms de cortesia entre eles. O corte no teto
- * volta como `coverage: "truncated"`, e quem chama não usa a amostra.
+ * resultado, decrescente) passa do início dela, conferida a última página; sem janela, lê tudo até
+ * o teto. Lotes de 4 páginas, com 250 ms de cortesia entre eles. O corte no teto volta como
+ * `coverage: "truncated"`, e quem chama não usa a amostra.
  */
 export async function consultarMaterialPrecos(
 	catmatCode: number,
 	params: ConsultaPrecoParams = {},
 	budgetMs: number = QUERY_BUDGET_MS
-): Promise<ConsultaPrecoResult> {
+): Promise<MaterialPriceQueryResult> {
 	const deadline = Date.now() + budgetMs
-	const months = params.months
 	const { results, consultation } = await collectSourcePages<ComprasMaterialPrecoItem>({
 		fetchPage: async (pagina) => ({ ...(await fetchPaginaMaterial(catmatCode, params, pagina, deadline)), fetchedAt: new Date().toISOString() }),
-		// Um dia a mais que o corte do `analyzePrices` (que conta em horas, não em dia civil):
-		// ler a mais é inofensivo, a análise descarta.
-		windowStartFor: months ? (consultedAt) => addCivilDays(addCivilMonths(getBrasiliaToday(new Date(consultedAt)), -months), -1) : null,
-		maxPages: PRICE_RESEARCH_MAX_PAGES,
+		query: buildQuery(catmatCode, params).toString(),
+		periodMonths: params.months ?? null,
 		concurrency: 4,
 		pauseMs: 250,
 	})

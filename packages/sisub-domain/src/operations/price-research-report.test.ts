@@ -16,7 +16,7 @@ import {
 	seriesFormatOf,
 	sha256Hex,
 } from "./price-research-report.ts"
-import { priceResearchQueryUrl, priceResearchSampleUrl } from "./price-research-source.ts"
+import { priceResearchQueryString, priceResearchQueryUrl, priceResearchSampleUrl } from "./price-research-source.ts"
 
 const sample = (over: Partial<ReportSample> = {}): ReportSample => ({
 	sampleType: "valid",
@@ -64,7 +64,14 @@ const research = (over: Partial<ReportResearch> = {}): ReportResearch => ({
 	uniqueSources: 4,
 	referencePrice: 5.5,
 	nonComplianceReasons: [],
-	source: { consultedAt: "2026-09-01T11:58:30.000Z", totalRecords: 8402, totalPages: 17, pagesFetched: 5, coverage: "window" },
+	source: {
+		consultedAt: "2026-09-01T11:58:30.000Z",
+		query: "tipo=codigoItemCatalogo&codigo=217092&tamanhoPagina=500",
+		totalRecords: 8402,
+		totalPages: 17,
+		pagesFetched: 5,
+		coverage: "window",
+	},
 	samples: [sample(), sample({ idCompra: "2", sampleType: "outlier", precoUnitario: "40" })],
 	...over,
 })
@@ -147,7 +154,8 @@ describe("série no formato 2 (nota, resumo e amostras)", () => {
 		const [note] = blocks(buildResearchSeriesCsv([v2(1)]))
 		expect(note).toContain("dadosabertos.compras.gov.br/modulo-pesquisa-preco/1_consultarMaterial")
 		expect(note).toContain("tipo=codigoItemCatalogo e codigo=<CATMAT do item>")
-		expect(note).toContain("Nenhum outro filtro")
+		expect(note).toContain("nenhum outro filtro")
+		expect(note).toContain("dataResultado=true")
 		expect(note).toContain("Janela,")
 		expect(note).toContain("Como repetir")
 		expect(note).toContain("ordem decrescente de data do resultado")
@@ -167,7 +175,7 @@ describe("série no formato 2 (nota, resumo e amostras)", () => {
 			janela_inicio: "2025-09-01",
 			janela_fim: "2026-09-01",
 			consulta_data_hora: "2026-09-01T08:58:30-03:00",
-			consulta_url: priceResearchQueryUrl(217092),
+			consulta_url: priceResearchQueryUrl(priceResearchQueryString(217092)),
 			fonte_total_registros: "8402",
 			fonte_total_paginas: "17",
 			paginas_lidas: "5",
@@ -200,10 +208,10 @@ describe("série no formato 2 (nota, resumo e amostras)", () => {
 		})
 	})
 
-	test("a consulta repetida é a do CATMAT pesquisado, não o do item editado depois", () => {
+	test("a consulta repetida é a registrada, não a do CATMAT do item editado depois", () => {
 		const csv = buildResearchSeriesCsv([v2(1, { catmat: 111, research: research({ catmatCodigo: 217092 }) })])
-		expect(csv).toContain(priceResearchQueryUrl(217092))
-		expect(csv).not.toContain(priceResearchQueryUrl(111))
+		expect(csv).toContain(priceResearchQueryUrl(priceResearchQueryString(217092)))
+		expect(csv).not.toContain(priceResearchQueryUrl(priceResearchQueryString(111)))
 	})
 
 	test("série 2 tem bytes congelados: mudar texto, rótulo ou URL quebraria o hash das emissões feitas", () => {
@@ -213,7 +221,27 @@ describe("série no formato 2 (nota, resumo e amostras)", () => {
 				samples: [sample({ descricaoItem: "VINAGRE DE ÁLCOOL 750 ML" }), sample({ idCompra: "2", sampleType: "outlier", precoUnitario: "40" })],
 			}),
 		})
-		expect(sha256Hex(buildResearchSeriesCsv([frozen, v2(2, { research: null })]))).toBe("ff4b3b22c91a167d4a453e7d3a25d11575dc8f2a1ea8e0b3dd8d1ee7bfb2bbb6")
+		expect(sha256Hex(buildResearchSeriesCsv([frozen, v2(2, { research: null })]))).toBe("4b758d33de82ae41dd60bdd84cb19897a2d92e53da09fcb35acd8760b6e2475b")
+	})
+
+	test("a ordem das justificativas não depende da ordem das chaves (o jsonb reordena)", () => {
+		const a = v2(1, { research: research({ justifications: { lowSample: "Item regional, pouco comprado.", method: "Mediana por dispersão alta." } }) })
+		const b = v2(1, { research: research({ justifications: { method: "Mediana por dispersão alta.", lowSample: "Item regional, pouco comprado." } }) })
+		expect(buildResearchSeriesCsv([a])).toBe(buildResearchSeriesCsv([b]))
+	})
+
+	test("pesquisa anterior ao registro da consulta usa a consulta reconstruída do caminho que a gravou", () => {
+		const legacy = v2(1, {
+			research: research({ source: null, legacyQuery: "tipo=codigoItemCatalogo&codigo=217092&tamanhoPagina=500&dataResultado=true&estado=SP" }),
+		})
+		const [, summary] = blocks(buildResearchSeriesCsv([legacy]))
+		const [, header, first] = summary.split("\n")
+		expect(record(header, first)).toMatchObject({
+			consulta_url: priceResearchQueryUrl("tipo=codigoItemCatalogo&codigo=217092&tamanhoPagina=500&dataResultado=true&estado=SP"),
+			consulta_data_hora: "",
+			cobertura: "",
+			janela_fim: "2026-09-01",
+		})
 	})
 
 	test("é determinística", () => {
@@ -232,7 +260,14 @@ describe("série no formato 2 (nota, resumo e amostras)", () => {
 	})
 
 	test("a janela conta do dia da consulta, não do dia em que a pesquisa foi gravada", () => {
-		const source = { consultedAt: "2026-09-01T02:50:00.000Z", totalRecords: 10, totalPages: 1, pagesFetched: 1, coverage: "complete" as const }
+		const source = {
+			consultedAt: "2026-09-01T02:50:00.000Z",
+			query: "tipo=codigoItemCatalogo&codigo=1&tamanhoPagina=500",
+			totalRecords: 10,
+			totalPages: 1,
+			pagesFetched: 1,
+			coverage: "complete" as const,
+		}
 		// consultou às 23h50 do dia 31/08 e gravou às 00h05 do dia 01/09 (Brasília)
 		expect(researchWindowOf({ createdAt: "2026-09-01T03:05:00.000Z", periodMonths: 12, source })).toEqual({
 			researchDate: "2026-09-01",

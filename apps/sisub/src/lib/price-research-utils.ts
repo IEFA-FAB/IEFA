@@ -1,14 +1,15 @@
 import {
 	collectSourcePages,
+	consultationWindowStart,
 	convertSamplePrice,
 	PRICE_RESEARCH_MAX_PAGES,
 	PRICE_RESEARCH_PAGE_SIZE,
 	type PriceResearchMethod,
 	type PriceResearchSourceConsultation,
+	priceResearchQueryString,
 	resolveResearchUnit,
 	splitOutliersByIqr,
 } from "@iefa/sisub-domain"
-import { addCivilMonths, getBrasiliaToday } from "@iefa/sisub-domain/civil-date"
 import { searchMaterialPricesFn } from "@/server/price-research.fn"
 import type { ComprasMaterialPriceResult } from "@/types/domain/price-research"
 
@@ -67,9 +68,9 @@ export function sampleReferenceDate(r: ComprasMaterialPriceResult): string | nul
 	return r.dataResultado ?? r.dataCompra ?? null
 }
 
-/** Início da janela: `months` meses antes de `now`, em YYYY-MM-DD. */
+/** Início da janela: `months` meses antes do dia (em Brasília) de `now`, em YYYY-MM-DD; a mesma conta da coleta. */
 export function periodCutoff(months: number, now: Date = new Date()): string {
-	return addCivilMonths(getBrasiliaToday(now), -months)
+	return consultationWindowStart(now.toISOString(), months)
 }
 
 export interface PeriodPartition {
@@ -126,12 +127,13 @@ export function filterByPeriod(
 
 export interface CatmatPriceFetch {
 	results: ComprasMaterialPriceResult[]
-	/** Total informado pela API, mesmo quando a coleta para antes. */
-	totalRegistros: number
-	/** true quando a coleta parou no teto sem cobrir a janela — a amostra é parcial e não grava. */
-	truncated: boolean
-	/** A consulta como a pesquisa a grava: hora da página 1, totais, páginas lidas e cobertura. */
+	/**
+	 * A consulta como a pesquisa a grava: hora da página 1, parâmetros, totais na fonte, páginas
+	 * lidas e cobertura. `coverage: "truncated"` é amostra parcial, que não grava.
+	 */
 	source: PriceResearchSourceConsultation
+	/** A fonte não veio em ordem de data do resultado (o motivo de um corte com janela). */
+	orderBroken: boolean
 }
 
 function calcMediana(values: number[]): number {
@@ -232,14 +234,14 @@ export function analyzeSamples(samples: ComprasMaterialPriceResult[], unit: stri
  * grava e que o relatório usa para dizer a janela. Corte no teto vira `truncated`, que não grava.
  */
 export async function fetchAllPagesForCatmat(code: number, options: { periodMonths?: number | null } = {}): Promise<CatmatPriceFetch> {
-	const months = options.periodMonths
-	const { results, consultation } = await collectSourcePages<ComprasMaterialPriceResult>({
+	const { results, consultation, orderBroken } = await collectSourcePages<ComprasMaterialPriceResult>({
 		fetchPage: (pagina) => searchMaterialPricesFn({ data: { codigoItemCatalogo: code, pagina, tamanhoPagina: PAGE_SIZE } }),
-		windowStartFor: months ? (consultedAt) => periodCutoff(months, new Date(consultedAt)) : null,
+		query: priceResearchQueryString(code),
+		periodMonths: options.periodMonths ?? null,
 		maxPages: MAX_PAGES,
 		concurrency: PAGE_CONCURRENCY,
 	})
-	return { results, totalRegistros: consultation.totalRecords, truncated: consultation.coverage === "truncated", source: consultation }
+	return { results, source: consultation, orderBroken }
 }
 
 /**

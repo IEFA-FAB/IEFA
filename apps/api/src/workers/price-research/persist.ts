@@ -193,6 +193,7 @@ async function writeResearchItems(supabase: PriceResearchClient, researchId: str
 				source_total_pages: analysis?.source?.totalPages ?? null,
 				source_pages_fetched: analysis?.source?.pagesFetched ?? null,
 				source_coverage: analysis?.source?.coverage ?? null,
+				source_query: analysis?.source?.query ?? null,
 			})
 			.select("id")
 			.single()

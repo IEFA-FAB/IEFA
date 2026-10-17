@@ -150,18 +150,18 @@ export function PriceResearchReportDocument({ report, layout = "print" }: { repo
 					{isSeries2 && (
 						<>
 							<p>
-								Filtros da consulta, iguais em todos os itens: o código CATMAT do item (tipo=codigoItemCatalogo), em todo o país, sem recorte de UASG, órgão,
-								estado, município, esfera, poder ou data, em páginas de 500 registros. A janela é aplicada sobre o resultado: entram os preços com data do
-								resultado, ou da compra quando não há resultado, do início da janela até o dia da consulta. A fonte devolve os registros em ordem decrescente de
-								data do resultado; a coleta lê as páginas até a primeira que passa do início da janela e confere a última página ("janela completa"), e sem
-								janela lê todas, até o teto de páginas. A API não informa a hora da consulta: a hora abaixo é a do servidor do sisub ao receber a primeira
-								página. Pesquisas com a consulta "não registrada" são anteriores a esse registro e foram coletadas pela regra da época: as primeiras 20 páginas,
-								sem parada pela janela.
+								Os parâmetros exatos de cada consulta estão no arquivo da série. Pesquisa feita no sisub: o código CATMAT do item (tipo=codigoItemCatalogo), em
+								todo o país, sem recorte de UASG, órgão, estado, município, esfera, poder ou data, em páginas de 500 registros; pesquisa feita pela rota de lote
+								da API: também dataResultado=true e os filtros pedidos. A janela é aplicada sobre o resultado: entram os preços com data do resultado, ou da
+								compra quando não há resultado, do início da janela até o dia da consulta. A fonte devolve os registros em ordem decrescente de data do
+								resultado; a coleta lê as páginas até a primeira que passa do início da janela e confere a última página ("janela completa"), e sem janela lê
+								todas, até o teto de páginas. A API não informa a hora da consulta: a hora abaixo é a do servidor do sisub ao receber a primeira página.
+								Pesquisas com a consulta "não registrada" são anteriores a esse registro e foram coletadas pela regra da época: as primeiras 20 páginas, sem
+								parada pela janela.
 							</p>
 							<p>
-								Para repetir, consulte https://dadosabertos.compras.gov.br/modulo-pesquisa-preco/1_consultarMaterial com tipo=codigoItemCatalogo e
-								codigo=CATMAT, página a página, até passar do início da janela; compras homologadas depois da pesquisa aparecem na consulta de hoje e não na
-								série. A URL de cada consulta e de cada preço está no arquivo da série.
+								Para repetir, abra a URL da consulta de cada item (arquivo da série, coluna consulta_url) e avance as páginas até passar do início da janela;
+								compras homologadas depois da pesquisa aparecem na consulta de hoje e não na série. Cada preço tem também a URL que o devolve da fonte.
 							</p>
 							{researchWindows.length > 0 && (
 								<table>
