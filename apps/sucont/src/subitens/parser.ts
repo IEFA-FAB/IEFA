@@ -3,6 +3,7 @@
 // subitens genéricos por UG. Era o corpo do `reader.onload` de `processFile`.
 import * as XLSX from "xlsx"
 import { parseBrazilianAmountOrZero } from "#/lib/analysis/saldo"
+import { readWorkbook } from "#/lib/spreadsheet"
 import type { ProcessedData, UgGroup } from "#/subitens/types"
 
 /**
@@ -133,7 +134,7 @@ function groupByUg(filtered: ProcessedData[]): UgGroup[] {
  * (nenhum subitem genérico) fica para quem chama decidir.
  */
 export function parseWorkbook(bstr: string | ArrayBuffer | null | undefined): UgGroup[] {
-	const workbook = XLSX.read(bstr, { type: "array" })
+	const workbook = readWorkbook(bstr)
 	const sheetName = workbook.SheetNames[0]
 	const worksheet = workbook.Sheets[sheetName]
 

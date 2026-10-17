@@ -61,4 +61,27 @@ describe("readWorkbook", () => {
 			["120062", "113110101", 123.456],
 		])
 	})
+
+	it("Texto Unicode do Excel (UTF-16 LE, separado por tabulação)", () => {
+		const [, encodeUtf16Le] = CSV_ENCODINGS.find(([label]) => label === "UTF-16 LE com BOM") ?? []
+		if (!encodeUtf16Le) throw new Error("fixture sem UTF-16 LE")
+		expect(firstSheetRows(readWorkbook(encodeUtf16Le("UG\tConta Contábil\tSaldo\r\n120062\t113110101\t1.234,56\r\n")))).toEqual([
+			["UG", "Conta Contábil", "Saldo"],
+			["120062", "113110101", "1.234,56"],
+		])
+	})
+
+	it("texto renomeado para .xls é lido como texto, sem adivinhar número", () => {
+		const html = "<table><tr><td>UG</td><td>Saldo</td></tr><tr><td>120062</td><td>1.234,56</td></tr></table>"
+		expect(firstSheetRows(readWorkbook(new TextEncoder().encode(html)))).toEqual([
+			["UG", "Saldo"],
+			["120062", "1.234,56"],
+		])
+	})
+
+	it("lança sem conteúdo", () => {
+		expect(() => readWorkbook(new ArrayBuffer(0))).toThrow("O arquivo está vazio.")
+		expect(() => readWorkbook(undefined)).toThrow("Não foi possível ler o arquivo.")
+		expect(() => readWorkbook("texto")).toThrow("Não foi possível ler o arquivo.")
+	})
 })

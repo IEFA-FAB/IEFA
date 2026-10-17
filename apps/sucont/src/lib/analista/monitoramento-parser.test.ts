@@ -3,6 +3,7 @@
 // o `FileReader.readAsArrayBuffer` da tela entrega ao parser.
 import { describe, expect, it } from "bun:test"
 import * as XLSX from "xlsx"
+import { encodeWindows1252 } from "#/lib/__fixtures__/csv-encodings"
 import { parseWorkbook } from "./monitoramento-parser"
 import type { ProcessedRow } from "./types"
 
@@ -38,6 +39,16 @@ describe("parseWorkbook: leitura", () => {
 	it("lança sem conteúdo nenhum", () => {
 		expect(() => parseWorkbook(undefined)).toThrow()
 		expect(() => parseWorkbook(null)).toThrow()
+	})
+
+	it("CSV windows-1252 (ou texto renomeado para .xls) é lido sem adivinhar número", () => {
+		const csv = "Unidade Gestora;Mês;Conta Contábil;Saldo - R$\n120062;JAN;115110101;1.234,56\n120062;FEV;115110101;12,345\n"
+		const result = parseWorkbook(encodeWindows1252(csv))
+		expect(result.isHeaderFound).toBe(true)
+		expect(result.processed.map((row) => [row.mes, row.saldo])).toEqual([
+			["JAN", 1234.56],
+			["FEV", 12.345],
+		])
 	})
 
 	it("planilha vazia não tem cabeçalho", () => {

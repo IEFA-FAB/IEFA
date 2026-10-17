@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import * as XLSX from "xlsx"
+import { encodeWindows1252 } from "#/lib/__fixtures__/csv-encodings"
 import { extractAccountCode, isGenericAccount, processData, readWorkbookRows } from "#/lib/conta-generica/process-data"
 
 const HEADER_ERROR = "Não foi possível encontrar o cabeçalho da tabela com as colunas: UG, Conta Contábil, Mês, Saldo - R$. Verifique o formato do arquivo."
@@ -16,6 +17,15 @@ describe("readWorkbookRows", () => {
 	it("lê só a primeira aba, linha a linha", () => {
 		const rows = readWorkbookRows(workbookBuffer([["Título"], ["UG", "Conta Contábil"]]))
 		expect(rows).toEqual([["Título"], ["UG", "Conta Contábil"]])
+	})
+
+	it("lê CSV windows-1252 com o saldo como texto digitado", () => {
+		const rows = readWorkbookRows(encodeWindows1252("UG;Conta Contábil;Mês;Saldo - R$\n120001;218810199;JAN;1.234,56\n"))
+		expect(processData(rows)).toEqual({
+			grouped: { "120001": { "218810199": [{ mes: "JAN", saldo: 1234.56 }] } },
+			hasGeneric: true,
+			skippedNonGeneric: 0,
+		})
 	})
 
 	it("lança quando não há arquivo (o componente mostra a mensagem de Excel inválido)", () => {

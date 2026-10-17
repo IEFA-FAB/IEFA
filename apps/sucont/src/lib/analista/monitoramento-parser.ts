@@ -2,6 +2,7 @@
 import * as XLSX from "xlsx"
 import { classifyAccount, type ProcessedRow } from "#/lib/analista/types"
 import { parseBrazilianAmount } from "#/lib/analysis/saldo"
+import { readWorkbook } from "#/lib/spreadsheet"
 import { isUgAcompanhada } from "#/lib/ug/registry"
 
 export interface ParsedWorkbook {
@@ -216,7 +217,7 @@ function parseRowsHeuristically(rows: unknown[][]): ProcessedRow[] {
 }
 
 export function parseWorkbook(rawData: string | ArrayBuffer | null | undefined): ParsedWorkbook {
-	const workbook = XLSX.read(rawData, { type: "array" })
+	const workbook = readWorkbook(rawData)
 	const firstSheetName = workbook.SheetNames[0]
 	const worksheet = workbook.Sheets[firstSheetName]
 	const rows = XLSX.utils.sheet_to_json<unknown[]>(worksheet, {

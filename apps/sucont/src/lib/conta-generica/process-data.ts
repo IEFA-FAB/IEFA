@@ -3,6 +3,7 @@
 import * as XLSX from "xlsx"
 import { parseBrazilianAmount } from "#/lib/analysis/saldo"
 import type { GroupedData } from "#/lib/conta-generica/helpers"
+import { readWorkbook } from "#/lib/spreadsheet"
 import { isUgAcompanhada } from "#/lib/ug/registry"
 
 export type ProcessDataResult =
@@ -36,9 +37,9 @@ const CONTA_HEADERS = ["conta contábil", "conta contabil"]
 const MES_HEADERS = ["mês", "mes", "conta corrente"]
 const SALDO_HEADERS = ["saldo - r$", "saldo - r $", "saldo", "valor alongado"]
 
-/** Linhas da primeira aba do workbook (o que o `FileReader` entrega). Lança se o arquivo não for Excel. */
+/** Linhas da primeira aba do workbook (o que o `FileReader` entrega). Lança se o arquivo não for legível. */
 export function readWorkbookRows(buffer: unknown): unknown[][] {
-	const wb = XLSX.read(buffer, { type: "array" })
+	const wb = readWorkbook(buffer)
 	const ws = wb.Sheets[wb.SheetNames[0]]
 	return XLSX.utils.sheet_to_json(ws, { header: 1 }) as unknown[][]
 }

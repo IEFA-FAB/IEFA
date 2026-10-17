@@ -8,7 +8,8 @@
  *  1. **Encoding.** O Tesouro Gerencial exporta em windows-1252. Lido como UTF-8,
  *     "Diárias" vira "Di�rias" e "Mês" vira "M�s" — o modelo então não
  *     casa o texto com os fatores de custo do Módulo 19 e passa a inventar rótulo.
- *     `decodeSpreadsheet` decide o encoding pelos bytes, não pela extensão.
+ *     `decodeSpreadsheet` (em `lib/spreadsheet`, compartilhado com as outras
+ *     ferramentas) decide o encoding pelos bytes, não pela extensão.
  *  2. **Índice da coluna de UG.** Era fixo (0 nos painéis 1-3, 3 no painel 4). Uma
  *     coluna a mais no export desloca tudo e a base inteira vai para a UG errada,
  *     em silêncio. Aqui o índice vem do cabeçalho.

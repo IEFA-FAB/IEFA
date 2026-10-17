@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import * as XLSX from "xlsx"
+import { encodeWindows1252 } from "#/lib/__fixtures__/csv-encodings"
 import { GENERIC_SUBITEM_REGEX, isGenericSubitem, parseSaldo, parseWorkbook } from "#/subitens/parser"
 
 /** Relatório do Tesouro Gerencial: onze linhas de título antes do cabeçalho (linha 12). */
@@ -15,6 +16,13 @@ function buildWorkbook(header: unknown[], rows: unknown[][], preamble = 11): Arr
 const HEADER = ["UG Executora", "Conta Contábil", "Conta Corrente", "Saldo - R$"]
 
 describe("parseWorkbook", () => {
+	it("lê CSV windows-1252 (ou texto renomeado para .xls) sem adivinhar número", () => {
+		const preamble = Array.from({ length: 11 }, (_, i) => `Título ${i + 1}`)
+		const csv = [...preamble, HEADER.join(";"), "120004 BABR;332110100;99;1.234,56", "120004 BABR;332110100;99;12,345"].join("\n")
+		const [group] = parseWorkbook(encodeWindows1252(csv))
+		expect(group.occurrences.map((o) => o.saldo)).toEqual([1234.56 + 12.345])
+	})
+
 	it("filtra subitens genéricos, soma repetidos e agrupa por UG em ordem", () => {
 		const buffer = buildWorkbook(HEADER, [
 			["120004 BABR ", " 332110100 ", " 99 ", 100],
