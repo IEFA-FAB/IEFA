@@ -71,6 +71,7 @@ function PriceResearchReportPage() {
 	return (
 		<PrintSheet
 			back={{ unitId, quantityEstimateId }}
+			screen={<PriceResearchReportDocument report={report} layout="tabs" />}
 			toolbar={
 				<>
 					<Select value={report.emission.id} onValueChange={(next) => next && setEmissionId(next)}>

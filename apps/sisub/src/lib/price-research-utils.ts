@@ -1,5 +1,15 @@
-import { convertSamplePrice, type PriceResearchMethod, resolveResearchUnit, splitOutliersByIqr } from "@iefa/sisub-domain"
-import { addCivilMonths, getBrasiliaToday } from "@iefa/sisub-domain/civil-date"
+import {
+	collectSourcePages,
+	consultationWindowStart,
+	convertSamplePrice,
+	PRICE_RESEARCH_MAX_PAGES,
+	PRICE_RESEARCH_PAGE_SIZE,
+	type PriceResearchMethod,
+	type PriceResearchSourceConsultation,
+	priceResearchQueryString,
+	resolveResearchUnit,
+	splitOutliersByIqr,
+} from "@iefa/sisub-domain"
 import { searchMaterialPricesFn } from "@/server/price-research.fn"
 import type { ComprasMaterialPriceResult } from "@/types/domain/price-research"
 
@@ -45,21 +55,22 @@ export interface AutoSelectResult {
 export const DEFAULT_PERIOD_MONTHS = 12
 
 /**
- * Teto de páginas por CATMAT (20 × 500 = 10.000 registros). Amostra mais que
- * suficiente para a estatística e evita rajada contra a API pública — que passa
- * pelo nosso próprio server, então uma consulta sem teto castiga os dois lados.
+ * Teto de páginas por CATMAT (40 × 500 = 20.000 registros), freio contra rajada na API pública,
+ * que passa pelo nosso próprio server. Com janela a coleta para bem antes (ver
+ * `collectSourcePages`); o teto só alcança a consulta sem janela ou a fonte fora de ordem.
+ * Os números moram no domínio: o relatório e a série descrevem esta mesma consulta.
  */
-export const MAX_PAGES = 20
-const PAGE_SIZE = 500
+export const MAX_PAGES = PRICE_RESEARCH_MAX_PAGES
+const PAGE_SIZE = PRICE_RESEARCH_PAGE_SIZE
 const PAGE_CONCURRENCY = 4
 
 export function sampleReferenceDate(r: ComprasMaterialPriceResult): string | null {
 	return r.dataResultado ?? r.dataCompra ?? null
 }
 
-/** Início da janela: `months` meses antes de `now`, em YYYY-MM-DD. */
+/** Início da janela: `months` meses antes do dia (em Brasília) de `now`, em YYYY-MM-DD; a mesma conta da coleta. */
 export function periodCutoff(months: number, now: Date = new Date()): string {
-	return addCivilMonths(getBrasiliaToday(now), -months)
+	return consultationWindowStart(now.toISOString(), months)
 }
 
 export interface PeriodPartition {
@@ -116,10 +127,13 @@ export function filterByPeriod(
 
 export interface CatmatPriceFetch {
 	results: ComprasMaterialPriceResult[]
-	/** Total informado pela API, mesmo quando o teto de páginas corta a coleta. */
-	totalRegistros: number
-	/** true quando a API tem mais páginas do que MAX_PAGES — a amostra é parcial. */
-	truncated: boolean
+	/**
+	 * A consulta como a pesquisa a grava: hora da página 1, parâmetros, totais na fonte, páginas
+	 * lidas e cobertura. `coverage: "truncated"` é amostra parcial, que não grava.
+	 */
+	source: PriceResearchSourceConsultation
+	/** A fonte não veio em ordem de data do resultado (o motivo de um corte com janela). */
+	orderBroken: boolean
 }
 
 function calcMediana(values: number[]): number {
@@ -214,25 +228,26 @@ export function analyzeSamples(samples: ComprasMaterialPriceResult[], unit: stri
 }
 
 /**
- * Coleta todas as páginas de um CATMAT, em lotes de PAGE_CONCURRENCY e até
- * MAX_PAGES. O corte é reportado em `truncated` — nunca silencioso.
+ * Coleta as páginas de um CATMAT pela regra do domínio (`collectSourcePages`): com janela, para
+ * quando a fonte passa do início dela, conferida a ordem e a última página; sem janela, lê tudo.
+ * A janela conta da hora da consulta (a do servidor ao receber a página 1), a mesma que a pesquisa
+ * grava e que o relatório usa para dizer a janela. Corte no teto vira `truncated`, que não grava.
  */
-export async function fetchAllPagesForCatmat(code: number): Promise<CatmatPriceFetch> {
-	const first = await searchMaterialPricesFn({ data: { codigoItemCatalogo: code, pagina: 1, tamanhoPagina: PAGE_SIZE } })
-	const results = [...first.resultado]
-	const totalPages = Math.min(first.totalPaginas, MAX_PAGES)
-
-	for (let start = 2; start <= totalPages; start += PAGE_CONCURRENCY) {
-		const end = Math.min(start + PAGE_CONCURRENCY - 1, totalPages)
-		const pages = await Promise.all(
-			Array.from({ length: end - start + 1 }, (_, i) =>
-				searchMaterialPricesFn({ data: { codigoItemCatalogo: code, pagina: start + i, tamanhoPagina: PAGE_SIZE } })
-			)
-		)
-		for (const page of pages) results.push(...page.resultado)
-	}
-
-	return { results, totalRegistros: first.totalRegistros, truncated: first.totalPaginas > MAX_PAGES }
+export async function fetchAllPagesForCatmat(
+	code: number,
+	/** `pauseMs`: cortesia entre lotes (250 ms por padrão). */
+	options: { periodMonths?: number | null; pauseMs?: number } = {}
+): Promise<CatmatPriceFetch> {
+	const { results, consultation, orderBroken } = await collectSourcePages<ComprasMaterialPriceResult>({
+		fetchPage: (pagina) => searchMaterialPricesFn({ data: { codigoItemCatalogo: code, pagina, tamanhoPagina: PAGE_SIZE } }),
+		query: priceResearchQueryString(code),
+		periodMonths: options.periodMonths ?? null,
+		maxPages: MAX_PAGES,
+		concurrency: PAGE_CONCURRENCY,
+		// Cortesia entre lotes, como a rota da API: com janela grande, a coleta pode passar de 40 páginas.
+		pauseMs: options.pauseMs ?? 250,
+	})
+	return { results, source: consultation, orderBroken }
 }
 
 /**

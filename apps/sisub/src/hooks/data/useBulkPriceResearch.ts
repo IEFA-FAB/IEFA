@@ -1,7 +1,7 @@
 import type { OpenResearchFinding } from "@iefa/sisub-domain"
 import { useCallback, useMemo, useRef, useState } from "react"
 import type { PriceResearchAuditIds } from "@/components/features/local/price-research/PriceResearchModal"
-import { autoSelectPrice, fetchAllPagesForCatmat } from "@/lib/price-research-utils"
+import { autoSelectPrice, DEFAULT_PERIOD_MONTHS, fetchAllPagesForCatmat } from "@/lib/price-research-utils"
 import { annexItemUnit } from "@/lib/quantity-estimate-annex"
 import { savePriceResearchFn } from "@/server/price-research.fn"
 
@@ -35,6 +35,8 @@ export interface BulkPriceProgress {
 	done: number
 	total: number
 	errors: number
+	/** Itens cuja coleta saiu parcial (teto de páginas): sem preço, e o motivo aparece no modal do item. */
+	partial: number
 	isRunning: boolean
 }
 
@@ -65,7 +67,7 @@ export function useBulkPriceResearch(
 	quantityEstimateId?: string,
 	onItemResult?: (result: BulkResearchResult) => Promise<void> | void
 ) {
-	const [progress, setProgress] = useState<BulkPriceProgress>({ done: 0, total: 0, errors: 0, isRunning: false })
+	const [progress, setProgress] = useState<BulkPriceProgress>({ done: 0, total: 0, errors: 0, partial: 0, isRunning: false })
 
 	// Ref keeps the callback current without forcing start() to rebuild on every render
 	const onItemResultRef = useRef(onItemResult)
@@ -76,14 +78,21 @@ export function useBulkPriceResearch(
 	const start = useCallback(async (): Promise<BulkResearchResult[]> => {
 		if (eligibleItems.length === 0) return []
 
-		setProgress({ done: 0, total: eligibleItems.length, errors: 0, isRunning: true })
+		setProgress({ done: 0, total: eligibleItems.length, errors: 0, partial: 0, isRunning: true })
 
 		const results: BulkResearchResult[] = []
 
 		const processItem = async (item: BulkResearchItem) => {
 			try {
-				const { results: samples } = await fetchAllPagesForCatmat(item.catmat_item_codigo as number)
-				const selected = autoSelectPrice(samples, { targetUnit: annexItemUnit(item) })
+				const { results: samples, source } = await fetchAllPagesForCatmat(item.catmat_item_codigo as number, { periodMonths: DEFAULT_PERIOD_MONTHS })
+				// Coleta parcial não sustenta preço (o servidor também recusa): conta à parte, para o
+				// usuário saber que o item precisa de outra fonte, não de repetir o lote.
+				if (source.coverage === "truncated") {
+					setProgress((prev) => ({ ...prev, done: prev.done + 1, errors: prev.errors + 1, partial: prev.partial + 1 }))
+					return
+				}
+				// A janela conta da hora da consulta, a mesma que a coleta usou para parar.
+				const selected = autoSelectPrice(samples, { periodMonths: DEFAULT_PERIOD_MONTHS, now: new Date(source.consultedAt), targetUnit: annexItemUnit(item) })
 
 				if (!selected) {
 					setProgress((prev) => ({ ...prev, done: prev.done + 1, errors: prev.errors + 1 }))
@@ -111,6 +120,7 @@ export function useBulkPriceResearch(
 						unitInferred: selected.unitInferred,
 						// O lote não escolhe amostra à mão; o servidor confere pela classificação recebida.
 						manualSelection: false,
+						source,
 						quantityEstimateId,
 						quantityEstimateItemId: item.quantity_estimate_item_id ?? undefined,
 					},

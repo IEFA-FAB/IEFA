@@ -1,6 +1,7 @@
 import {
 	convertSamplePrice,
 	evaluateResearchCompliance,
+	formatConsultedAt,
 	MIN_JUSTIFICATION_LENGTH,
 	type PriceResearchMethod,
 	RESEARCH_JUSTIFICATION_LABELS,
@@ -9,6 +10,7 @@ import {
 	type ResearchJustifications,
 	resolveResearchUnit,
 	SAMPLE_CONVERSION_REASON_LABELS,
+	SOURCE_COVERAGE_LABELS,
 } from "@iefa/sisub-domain"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
@@ -59,7 +61,6 @@ import {
 	fetchAllPagesForCatmat,
 	isMethodAllowed,
 	isSampleSelectable,
-	MAX_PAGES,
 	type PriceStatsSummary,
 	partitionByPeriod,
 	priceForMethod,
@@ -79,6 +80,7 @@ import {
 	formatUndatedLabel,
 	getIncomparableSuffix,
 	getMeanPriceTitle,
+	getPartialCollectionHint,
 	getRecommendation,
 	getUsePriceLabel,
 	groupFindings,
@@ -375,7 +377,15 @@ function PriceResearchToolbar({
 }: PriceResearchToolbarProps) {
 	return (
 		<div className="flex items-center gap-3 flex-wrap">
-			{hasResults && <span className="text-xs text-muted-foreground">{totalCount.toLocaleString("pt-BR")} registros totais</span>}
+			{hasResults && data && (
+				<span
+					className="text-xs text-muted-foreground"
+					title="A API não informa a hora da consulta: vale a do servidor do sisub ao receber a página 1. A fonte ordena por data do resultado; com janela, a coleta para quando passa do início dela."
+				>
+					{data.source.totalRecords.toLocaleString("pt-BR")} registros na fonte · consulta de {formatConsultedAt(data.source.consultedAt)} ·{" "}
+					{SOURCE_COVERAGE_LABELS[data.source.coverage]} ({data.source.pagesFetched} de {data.source.totalPages} páginas)
+				</span>
+			)}
 			{hasResults && (
 				<Button size="sm" variant="ghost" onClick={onTogglePeriod} className="h-7 px-2 text-xs">
 					<CalendarClock className="size-3.5" aria-hidden="true" />
@@ -392,9 +402,10 @@ function PriceResearchToolbar({
 					{formatUndatedLabel(includeUndated, undatedCount)}
 				</Button>
 			)}
-			{data?.truncated && (
-				<span className="text-xs text-warning">
-					Amostra parcial: {totalCount.toLocaleString("pt-BR")} de {data.totalRegistros.toLocaleString("pt-BR")} registros (teto de {MAX_PAGES} páginas)
+			{data?.source.coverage === "truncated" && (
+				<span className="text-xs text-destructive">
+					Coleta parcial: {totalCount.toLocaleString("pt-BR")} de {data.source.totalRecords.toLocaleString("pt-BR")} registros ({data.source.pagesFetched} de{" "}
+					{data.source.totalPages} páginas). O preço não grava. {getPartialCollectionHint(periodMonths, data.orderBroken)}
 				</span>
 			)}
 			{columnFilterCount > 0 && (
@@ -448,10 +459,12 @@ interface StatsGridProps {
 	stats: PriceStatsSummary
 	onApplyPrice?: (price: number, auditIds: PriceResearchAuditIds) => void
 	isSavingMethod: PriceResearchMethod | null
+	/** Coleta parcial: nenhum "Usar" grava. */
+	isBlocked: boolean
 	onUsePrice: (method: PriceResearchMethod) => void
 }
 
-function StatsGrid({ stats, onApplyPrice, isSavingMethod, onUsePrice }: StatsGridProps) {
+function StatsGrid({ stats, onApplyPrice, isSavingMethod, isBlocked, onUsePrice }: StatsGridProps) {
 	return (
 		<div className="grid grid-cols-4 gap-3">
 			<div className="text-center">
@@ -460,7 +473,7 @@ function StatsGrid({ stats, onApplyPrice, isSavingMethod, onUsePrice }: StatsGri
 				{onApplyPrice && (
 					<button
 						type="button"
-						disabled={isSavingMethod !== null || !isMethodAllowed("mean", stats)}
+						disabled={isBlocked || isSavingMethod !== null || !isMethodAllowed("mean", stats)}
 						title={getMeanPriceTitle(isMethodAllowed("mean", stats))}
 						className="mt-0.5 text-[11px] text-primary hover:underline disabled:opacity-50"
 						onClick={() => onUsePrice("mean")}
@@ -475,7 +488,7 @@ function StatsGrid({ stats, onApplyPrice, isSavingMethod, onUsePrice }: StatsGri
 				{onApplyPrice && (
 					<button
 						type="button"
-						disabled={isSavingMethod !== null}
+						disabled={isBlocked || isSavingMethod !== null}
 						className="mt-0.5 text-[11px] text-primary hover:underline disabled:opacity-50"
 						onClick={() => onUsePrice("median")}
 					>
@@ -489,7 +502,7 @@ function StatsGrid({ stats, onApplyPrice, isSavingMethod, onUsePrice }: StatsGri
 				{onApplyPrice && (
 					<button
 						type="button"
-						disabled={isSavingMethod !== null}
+						disabled={isBlocked || isSavingMethod !== null}
 						title="Menor dos valores válidos (IN SEGES/ME 65/2021, art. 6º, caput)."
 						className="mt-0.5 text-hint text-primary hover:underline disabled:opacity-50"
 						onClick={() => onUsePrice("lowest")}
@@ -513,7 +526,7 @@ interface PriceStatsPanelProps extends Omit<StatsGridProps, "stats"> {
 	isUnitInferred: boolean | undefined
 }
 
-function PriceStatsPanel({ analysis, periodMonths, unit, isUnitInferred, onApplyPrice, isSavingMethod, onUsePrice }: PriceStatsPanelProps) {
+function PriceStatsPanel({ analysis, periodMonths, unit, isUnitInferred, onApplyPrice, isSavingMethod, isBlocked, onUsePrice }: PriceStatsPanelProps) {
 	return (
 		<div className="rounded-lg border bg-muted/30 px-4 py-3 space-y-2">
 			{/* Sample info header */}
@@ -526,7 +539,7 @@ function PriceStatsPanel({ analysis, periodMonths, unit, isUnitInferred, onApply
 			)}
 
 			{/* 4-column grid: Média | Mediana | Mínimo | Máximo */}
-			<StatsGrid stats={analysis.stats} onApplyPrice={onApplyPrice} isSavingMethod={isSavingMethod} onUsePrice={onUsePrice} />
+			<StatsGrid stats={analysis.stats} onApplyPrice={onApplyPrice} isSavingMethod={isSavingMethod} isBlocked={isBlocked} onUsePrice={onUsePrice} />
 
 			{/* Recommendation footer */}
 			<div className="flex items-center gap-2 text-[11px] text-muted-foreground border-t pt-2">
@@ -709,9 +722,10 @@ export function PriceResearchModal({
 
 	// ── Data fetching (all pages) ─────────────────────────────────────────────
 
+	// A janela entra na consulta: com ela, a coleta para quando a fonte passa do início da janela.
 	const { data, isLoading, isError } = useQuery({
-		queryKey: ["compras", "price-research", "all", catmatCode],
-		queryFn: () => fetchAllPagesForCatmat(catmatCode),
+		queryKey: ["compras", "price-research", "all", catmatCode, periodMonths],
+		queryFn: () => fetchAllPagesForCatmat(catmatCode, { periodMonths }),
 		enabled: open,
 		staleTime: 5 * 60 * 1000,
 	})
@@ -720,9 +734,15 @@ export function PriceResearchModal({
 
 	// A tabela mostra a janela e as amostras sem data (visíveis, marcadas); o cálculo só leva as
 	// sem data quando o usuário as inclui ou seleciona.
-	const partition = useMemo(() => partitionByPeriod(allResults, periodMonths), [allResults, periodMonths])
+	// A janela conta da hora da consulta, a mesma que a coleta usou para parar e que a pesquisa grava.
+	const consultedAt = data?.source.consultedAt
+	const partition = useMemo(
+		() => partitionByPeriod(allResults, periodMonths, consultedAt ? new Date(consultedAt) : undefined),
+		[allResults, periodMonths, consultedAt]
+	)
 	const scopedResults = partition.visible
-	const outOfPeriodCount = partition.outOfWindow.length
+	// Parada na janela: o que não foi lido é todo mais antigo que ela, então conta como fora.
+	const outOfPeriodCount = data?.source.coverage === "window" ? Math.max(0, data.source.totalRecords - partition.visible.length) : partition.outOfWindow.length
 	const undatedCount = partition.undated.length
 	const calculationBase = includeUndated ? partition.visible : partition.inWindow
 	const researchUnit = useMemo(() => resolveResearchUnit(targetUnit, calculationBase), [targetUnit, calculationBase])
@@ -994,7 +1014,7 @@ export function PriceResearchModal({
 	})
 
 	async function handleUsePrice(method: PriceResearchMethod) {
-		if (!onApplyPrice || !activeAnalysis || !researchUnit) return
+		if (!onApplyPrice || !activeAnalysis || !researchUnit || !data || data.source.coverage === "truncated") return
 		const price = priceForMethod(method, activeAnalysis.stats)
 		setIsSavingMethod(method)
 		try {
@@ -1020,6 +1040,7 @@ export function PriceResearchModal({
 					unitInferred: researchUnit.inferred,
 					manualSelection,
 					justifications,
+					source: data.source,
 					quantityEstimateId: quantityEstimateId ?? undefined,
 					quantityEstimateItemId: quantityEstimateItemId ?? undefined,
 				},
@@ -1037,13 +1058,15 @@ export function PriceResearchModal({
 	// ── Handlers ──────────────────────────────────────────────────────────────
 
 	function handleRefresh() {
-		queryClient.invalidateQueries({ queryKey: ["compras", "price-research", "all", catmatCode] })
+		queryClient.invalidateQueries({ queryKey: ["compras", "price-research", "all", catmatCode, periodMonths] })
 		setRowSelection({})
 		setColumnFilters([])
 		setSorting([])
 	}
 
 	function handleTogglePeriod() {
+		// Trocar a janela refaz a coleta: o id da linha leva o índice, e a seleção apontaria para outras amostras.
+		setRowSelection({})
 		setPeriodMonths((prev) => (prev ? null : DEFAULT_PERIOD_MONTHS))
 	}
 
@@ -1094,6 +1117,7 @@ export function PriceResearchModal({
 						isUnitInferred={researchUnit?.inferred}
 						onApplyPrice={onApplyPrice}
 						isSavingMethod={isSavingMethod}
+						isBlocked={data?.source.coverage === "truncated"}
 						onUsePrice={handleUsePrice}
 					/>
 				)}

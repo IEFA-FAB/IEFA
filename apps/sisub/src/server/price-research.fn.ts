@@ -8,7 +8,7 @@
  */
 
 import { COMPRAS_MAX_PAGE_SIZE, COMPRAS_MIN_PAGE_SIZE } from "@iefa/compras-api"
-import { PRICE_RESEARCH_METHODS, type PriceResearchAuditResult, savePriceResearchAudit } from "@iefa/sisub-domain"
+import { PRICE_RESEARCH_METHODS, type PriceResearchAuditResult, SOURCE_COVERAGES, savePriceResearchAudit } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAuthWithPermission } from "@/lib/auth.server"
@@ -50,7 +50,8 @@ export const searchMaterialPricesFn = createServerFn({ method: "GET" })
 				parseAs: "text",
 			})
 		)
-		return parseComprasJson<ComprasMaterialPricePage>(raw)
+		// A API não informa a hora da consulta: vale a do servidor ao receber a resposta.
+		return { ...parseComprasJson<Omit<ComprasMaterialPricePage, "fetchedAt">>(raw), fetchedAt: new Date().toISOString() }
 	})
 
 // ─── Schema de amostra (subconjunto de ComprasMaterialPriceResult) ────────────
@@ -126,6 +127,16 @@ export const savePriceResearchFn = createServerFn({ method: "POST" })
 					outOfPeriod: JustificationSchema,
 				})
 				.optional(),
+			// A consulta à fonte (hora da página 1, totais, páginas lidas e cobertura). Obrigatória: sem
+			// ela a pesquisa escaparia da recusa de coleta parcial.
+			source: z.object({
+				consultedAt: z.iso.datetime(),
+				query: z.string().min(1).max(1000),
+				totalRecords: z.number().int().min(0),
+				totalPages: z.number().int().min(0),
+				pagesFetched: z.number().int().min(0),
+				coverage: z.enum(SOURCE_COVERAGES),
+			}),
 			// Se fornecidos, linka imediatamente (caso anexo já existente)
 			quantityEstimateId: z.uuid().optional(),
 			quantityEstimateItemId: z.uuid().optional(),

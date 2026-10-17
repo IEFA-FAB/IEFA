@@ -3977,56 +3977,6 @@ export const empenhoRpInscriptionInFinance = finance.table("empenho_rp_inscripti
 	check("empenho_rp_inscription_superseded_check", sql`(superseded_at IS NULL) = (supersede_reason IS NULL)`),
 ]);
 
-export const priceResearchItemInProcurement = procurement.table("price_research_item", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	researchId: uuid("research_id").notNull(),
-	catmatCodigo: integer("catmat_codigo"),
-	catmatDescricao: text("catmat_descricao"),
-	productName: text("product_name").notNull(),
-	totalRaw: integer("total_raw").default(0).notNull(),
-	totalAfterDateFilter: integer("total_after_date_filter").default(0).notNull(),
-	totalAfterPollutionFilter: integer("total_after_pollution_filter").default(0).notNull(),
-	totalAfterOutlier: integer("total_after_outlier").default(0).notNull(),
-	priceMin: numeric("price_min", { mode: "number", precision: 12, scale: 4 }),
-	priceMax: numeric("price_max", { mode: "number", precision: 12, scale: 4 }),
-	priceMean: numeric("price_mean", { mode: "number", precision: 12, scale: 4 }),
-	priceMedian: numeric("price_median", { mode: "number", precision: 12, scale: 4 }),
-	stdDev: numeric("std_dev", { mode: "number", precision: 12, scale: 4 }),
-	cvPct: numeric("cv_pct", { mode: "number", precision: 8, scale: 2 }),
-	uniqueSources: integer("unique_sources"),
-	referencePrice: numeric("reference_price", { mode: "number", precision: 12, scale: 4 }),
-	referenceMethod: text("reference_method"),
-	measureUnit: text("measure_unit"),
-	isCompliant: boolean("is_compliant").default(false).notNull(),
-	nonComplianceReasons: text("non_compliance_reasons").array().default([""]).notNull(),
-	error: text(),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	justificationLowSample: text("justification_low_sample"),
-	justificationMethod: text("justification_method"),
-	justificationOutlierCriteria: text("justification_outlier_criteria"),
-	justificationOutOfPeriod: text("justification_out_of_period"),
-	manualSelection: boolean("manual_selection").default(false).notNull(),
-	quantityEstimateItemId: uuid("quantity_estimate_item_id"),
-}, (table) => [
-	index("idx_price_research_item_quantity_estimate_item").using("btree", table.quantityEstimateItemId.asc().nullsLast()),
-	index("idx_price_research_item_research").using("btree", table.researchId.asc().nullsLast()),
-	foreignKey({
-			columns: [table.quantityEstimateItemId],
-			foreignColumns: [quantityEstimateItemInProcurement.id],
-			name: "price_research_item_quantity_estimate_item_id_fkey"
-		}).onDelete("set null"),
-	foreignKey({
-			columns: [table.researchId],
-			foreignColumns: [priceResearchInProcurement.id],
-			name: "price_research_item_research_id_fkey"
-		}).onDelete("cascade"),
-	check("price_research_item_justification_low_sample_check", sql`char_length(justification_low_sample) <= 4000`),
-	check("price_research_item_justification_method_check", sql`char_length(justification_method) <= 4000`),
-	check("price_research_item_justification_out_of_period_check", sql`char_length(justification_out_of_period) <= 4000`),
-	check("price_research_item_justification_outlier_criteria_check", sql`char_length(justification_outlier_criteria) <= 4000`),
-	check("price_research_item_reference_method_check", sql`reference_method = ANY (ARRAY['median'::text, 'mean'::text, 'lowest'::text])`),
-]);
-
 export const importBatchInSiafiIntegration = siafiIntegration.table("import_batch", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
@@ -5068,6 +5018,67 @@ export const arpItemInProcurement = procurement.table("arp_item", {
 			name: "arp_item_quantity_estimate_item_id_fkey"
 		}).onDelete("set null"),
 	check("arp_item_source_check", sql`source = ANY (ARRAY['compras_gov'::text, 'manual'::text])`),
+]);
+
+export const priceResearchItemInProcurement = procurement.table("price_research_item", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	researchId: uuid("research_id").notNull(),
+	catmatCodigo: integer("catmat_codigo"),
+	catmatDescricao: text("catmat_descricao"),
+	productName: text("product_name").notNull(),
+	totalRaw: integer("total_raw").default(0).notNull(),
+	totalAfterDateFilter: integer("total_after_date_filter").default(0).notNull(),
+	totalAfterPollutionFilter: integer("total_after_pollution_filter").default(0).notNull(),
+	totalAfterOutlier: integer("total_after_outlier").default(0).notNull(),
+	priceMin: numeric("price_min", { mode: "number", precision: 12, scale: 4 }),
+	priceMax: numeric("price_max", { mode: "number", precision: 12, scale: 4 }),
+	priceMean: numeric("price_mean", { mode: "number", precision: 12, scale: 4 }),
+	priceMedian: numeric("price_median", { mode: "number", precision: 12, scale: 4 }),
+	stdDev: numeric("std_dev", { mode: "number", precision: 12, scale: 4 }),
+	cvPct: numeric("cv_pct", { mode: "number", precision: 8, scale: 2 }),
+	uniqueSources: integer("unique_sources"),
+	referencePrice: numeric("reference_price", { mode: "number", precision: 12, scale: 4 }),
+	referenceMethod: text("reference_method"),
+	measureUnit: text("measure_unit"),
+	isCompliant: boolean("is_compliant").default(false).notNull(),
+	nonComplianceReasons: text("non_compliance_reasons").array().default([""]).notNull(),
+	error: text(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	justificationLowSample: text("justification_low_sample"),
+	justificationMethod: text("justification_method"),
+	justificationOutlierCriteria: text("justification_outlier_criteria"),
+	justificationOutOfPeriod: text("justification_out_of_period"),
+	manualSelection: boolean("manual_selection").default(false).notNull(),
+	quantityEstimateItemId: uuid("quantity_estimate_item_id"),
+	sourceConsultedAt: timestamp("source_consulted_at", { withTimezone: true, mode: 'string' }),
+	sourceTotalRecords: integer("source_total_records"),
+	sourceTotalPages: integer("source_total_pages"),
+	sourcePagesFetched: integer("source_pages_fetched"),
+	sourceCoverage: text("source_coverage"),
+	sourceQuery: text("source_query"),
+}, (table) => [
+	index("idx_price_research_item_quantity_estimate_item").using("btree", table.quantityEstimateItemId.asc().nullsLast()),
+	index("idx_price_research_item_research").using("btree", table.researchId.asc().nullsLast()),
+	foreignKey({
+			columns: [table.quantityEstimateItemId],
+			foreignColumns: [quantityEstimateItemInProcurement.id],
+			name: "price_research_item_quantity_estimate_item_id_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.researchId],
+			foreignColumns: [priceResearchInProcurement.id],
+			name: "price_research_item_research_id_fkey"
+		}).onDelete("cascade"),
+	check("price_research_item_justification_low_sample_check", sql`char_length(justification_low_sample) <= 4000`),
+	check("price_research_item_justification_method_check", sql`char_length(justification_method) <= 4000`),
+	check("price_research_item_justification_out_of_period_check", sql`char_length(justification_out_of_period) <= 4000`),
+	check("price_research_item_justification_outlier_criteria_check", sql`char_length(justification_outlier_criteria) <= 4000`),
+	check("price_research_item_reference_method_check", sql`reference_method = ANY (ARRAY['median'::text, 'mean'::text, 'lowest'::text])`),
+	check("price_research_item_source_coverage_check", sql`source_coverage = ANY (ARRAY['window'::text, 'complete'::text, 'truncated'::text])`),
+	check("price_research_item_source_pages_fetched_check", sql`source_pages_fetched >= 0`),
+	check("price_research_item_source_query_check", sql`char_length(source_query) <= 1000`),
+	check("price_research_item_source_total_pages_check", sql`source_total_pages >= 0`),
+	check("price_research_item_source_total_records_check", sql`source_total_records >= 0`),
 ]);
 
 export const quantityEstimateItemInProcurement = procurement.table("quantity_estimate_item", {
