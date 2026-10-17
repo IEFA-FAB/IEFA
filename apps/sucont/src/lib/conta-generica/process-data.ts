@@ -75,15 +75,16 @@ function findHeaderRow(data: unknown[][]): { headerRowIndex: number; colIndices:
 	return null
 }
 
-/** Código no início da célula: dígitos, com ponto ou espaço entre eles ("2.1.8.8.1.01.99"). */
-const LEADING_ACCOUNT_CODE = /^\s*(\d[\d.\s]*)/
+/** Código no início da célula: o primeiro token, só dígitos e pontos ("2.1.8.8.1.01.99"). Não atravessa espaço. */
+const LEADING_ACCOUNT_CODE = /^\s*(\d[\d.]*)/
 
 /**
  * Código da conta contábil, sem pontuação. A célula pode trazer a descrição depois do
  * código ("2.1.8.8.1.01.99 - Outros Créditos", "218810199 OUTROS CRÉDITOS"): só tirar
  * espaço e ponto deixava "218810199-OutrosCréditos", que não passa em `isGenericAccount`, e
- * a planilha inteira era descartada. Sem dígito no início, fica o texto sem espaço e
- * ponto, como antes.
+ * a planilha inteira era descartada. O código acaba no primeiro espaço: atravessá-lo
+ * juntava o dígito da descrição ("218810199 13º SALÁRIO" virava `21881019913`). Sem
+ * dígito no início, fica o texto sem espaço e ponto, como antes.
  */
 export function extractAccountCode(raw: string): string {
 	const leading = LEADING_ACCOUNT_CODE.exec(raw)
