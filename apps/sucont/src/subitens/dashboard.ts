@@ -2,7 +2,8 @@
 // painel gerencial (conferente, ODS, órgão superior, RAC, Pareto e níveis críticos)
 // sobre as UGs já filtradas pelo conferente.
 import { computeParetoGroup } from "#/lib/analysis/pareto"
-import type { ProcessedData, UgGroup } from "#/subitens/types"
+import { GENERIC_CODE_KINDS } from "#/subitens/generic-code"
+import type { GenericCodeFilter, GenericCodeKind, ProcessedData, UgGroup } from "#/subitens/types"
 import { getConferente, getOdsForUg, getOrgaoSuperiorForUg } from "#/subitens/ug"
 
 export interface ConferenteSummary {
@@ -15,6 +16,37 @@ export interface CountSaldoSummary {
 	name: string
 	count: number
 	saldo: number
+}
+
+/**
+ * Só as ocorrências do tipo de código escolhido, com o saldo da UG refeito sobre elas; UG que
+ * fica sem ocorrência sai. `"all"` devolve a lista como veio. Ocorrência com as duas marcas
+ * entra nos dois filtros.
+ */
+export function filterByGenericKind(groups: UgGroup[], filter: GenericCodeFilter): UgGroup[] {
+	if (filter === "all") return groups
+	return groups.flatMap((group) => {
+		const occurrences = group.occurrences.filter((occ) => occ.genericKinds.includes(filter))
+		if (occurrences.length === 0) return []
+		return [{ ...group, occurrences, totalSaldo: occurrences.reduce((sum, occ) => sum + occ.saldo, 0) }]
+	})
+}
+
+export type GenericKindSummary = Record<GenericCodeKind, { count: number; saldo: number }>
+
+/**
+ * Ocorrências e saldo por tipo de código. Ocorrência com as duas marcas conta nos dois tipos,
+ * então a soma dos tipos pode passar do total de ocorrências.
+ */
+export function summarizeByGenericKind(occurrences: ProcessedData[]): GenericKindSummary {
+	const summary = Object.fromEntries(GENERIC_CODE_KINDS.map((kind) => [kind, { count: 0, saldo: 0 }])) as GenericKindSummary
+	for (const occ of occurrences) {
+		for (const kind of occ.genericKinds) {
+			summary[kind].count += 1
+			summary[kind].saldo += occ.saldo
+		}
+	}
+	return summary
 }
 
 /** Quantas ocorrências cada conta contábil tem. */

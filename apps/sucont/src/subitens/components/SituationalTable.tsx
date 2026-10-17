@@ -2,6 +2,7 @@
 import { FileSpreadsheet } from "lucide-react"
 import { Badge } from "#/components/ui/badge"
 import { SectionHeader } from "#/components/ui/section-header"
+import { GenericCodeBadges } from "#/subitens/components/GenericCodeBadge"
 import type { UgGroup } from "#/subitens/types"
 import { formatUgName, getConferente } from "#/subitens/ug"
 
@@ -15,7 +16,7 @@ export function SituationalTable({ filteredData }: { filteredData: UgGroup[] }) 
 					<table className="w-full text-left border-collapse">
 						<thead className="bg-muted/50 border-b border-border text-label text-muted-foreground">
 							<tr>
-								{["UG Executora", "Questão RAC", "Conta Contábil", "Conta Corrente", "Saldo"].map((h) => (
+								{["UG Executora", "Questão RAC", "Conta Contábil", "Conta Corrente", "Código genérico", "Saldo"].map((h) => (
 									<th key={h} className={`px-4 py-3${h === "Saldo" ? " text-right" : ""}`}>
 										{h}
 									</th>
@@ -43,8 +44,9 @@ export function SituationalTable({ filteredData }: { filteredData: UgGroup[] }) 
 											<Badge variant="muted">{occ.racId}</Badge>
 										</td>
 										<td className="px-4 py-3 font-mono text-body text-muted-foreground">{occ.contaContabil}</td>
-										<td className="px-4 py-3 font-mono text-body">
-											<Badge variant="destructive">{occ.contaCorrente}</Badge>
+										<td className="px-4 py-3 font-mono text-body text-foreground">{occ.contaCorrente}</td>
+										<td className="px-4 py-3">
+											<GenericCodeBadges kinds={occ.genericKinds} />
 										</td>
 										<td className="px-4 py-3 font-mono text-subheading text-right text-foreground">
 											{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(occ.saldo)}
