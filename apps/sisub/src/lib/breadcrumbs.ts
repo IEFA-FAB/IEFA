@@ -193,7 +193,9 @@ export function buildCrumbs(pathname: string, navItems: NavItem[], scopeContext?
 			if (navLabel) return navLabel
 			// 3. "new" contextual
 			if (seg === "new") return NEW_LABEL_BY_PARENT[parentKey ?? ""] ?? "Novo"
-			// 4. Mapa estático
+			// 4. Data civil (dia do agendamento): "2026-10-28" vira "28/10/2026"
+			if (/^\d{4}-\d{2}-\d{2}$/.test(seg)) return seg.split("-").reverse().join("/")
+			// 5. Mapa estático
 			return SEGMENT_PT[seg] ?? seg
 		})()
 
