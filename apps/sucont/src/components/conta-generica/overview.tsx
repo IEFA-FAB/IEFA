@@ -81,7 +81,11 @@ export function RiskStatTiles({
 export function SkippedAccountsNote({ count }: { count: number }) {
 	if (count === 0) return null
 	const lines = count === 1 ? "1 linha com saldo em conta não genérica ficou" : `${count} linhas com saldo em contas não genéricas ficaram`
-	return <p className="text-caption text-muted-foreground">{lines} fora da análise (só entram contas com final 99).</p>
+	return (
+		<p className="text-caption text-muted-foreground">
+			{lines} fora da análise (só entram contas genéricas: subitem 99, ou item 99 sem subitem, como 113819900).
+		</p>
+	)
 }
 
 export function NoInconsistencyAlert() {
