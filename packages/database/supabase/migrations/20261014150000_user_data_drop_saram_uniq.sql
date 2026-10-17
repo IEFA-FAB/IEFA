@@ -1,0 +1,24 @@
+-- ============================================================================
+-- Sai o índice único total de SARAM em core.user_data
+-- ============================================================================
+-- `20260921160410` prometia subir um único total de SARAM (então "nrOrdem") "numa migration
+-- nova", depois de resolvidas as duplicatas. `20260927180000` (lote 6) o passou para
+-- `user_data_saram_uniq` (único sobre `btrim(saram)`), mas só onde o antigo existia: num banco
+-- recriado do zero (replay local, sem SARAM repetido) ele sobe; no compartilhado, nunca.
+--
+-- A decisão D7 de `20261003100000_saram_verified_link.sql` (openspec `saram-verified-link`)
+-- trocou a regra: único é só o SARAM VERIFICADO (`user_data_saram_verified_uniq`, parcial em
+-- `saram_verified_by in ('email', 'cpf', 'admin')`), e o SARAM gravado por fora ou legacy pode
+-- repetir; o administrador resolve pela fila. O índice total contradiz isso: no replay, recusaria
+-- a gravação não verificada que o trigger `user_data_guard_saram_link` aceita de propósito, e o
+-- banco local se comportaria diferente do compartilhado.
+--
+-- ESTADO EM PRODUÇÃO (2026-10-14, `pg_indexes`): `core.user_data_saram_uniq` NÃO existe (nem
+-- `user_data_nr_ordem_uniq`), há 3 SARAMs repetidos entre contas e o único de SARAM é o
+-- `user_data_saram_verified_uniq`. Aqui é no-op; no replay local, alinha o banco à D7.
+--
+-- Nenhuma tabela com `kitchen_id`/`unit_id`/`mess_hall_id` muda: o guard de reset do sisub não
+-- muda. Tipos e schema Drizzle também não (produção já não tem o índice).
+-- ============================================================================
+
+drop index if exists core.user_data_saram_uniq;
