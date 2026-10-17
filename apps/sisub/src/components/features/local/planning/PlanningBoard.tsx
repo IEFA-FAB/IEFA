@@ -2,6 +2,7 @@ import { Link, useNavigate, useParams } from "@tanstack/react-router"
 import {
 	addDays,
 	addMonths,
+	differenceInCalendarDays,
 	eachDayOfInterval,
 	endOfMonth,
 	endOfWeek,
@@ -15,7 +16,7 @@ import {
 } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { AlertTriangle, CalendarDays, Calendar as CalendarIcon, ChevronLeft, ChevronRight, Settings, Trash2, Users } from "lucide-react"
-import { useReducer } from "react"
+import { useReducer, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
@@ -26,6 +27,7 @@ import { useMenuTemplates } from "@/hooks/data/useTemplates"
 import { cn } from "@/lib/cn"
 import { isHeadcountPending } from "@/lib/headcount-pending"
 import { ApplyTemplateDialog } from "./ApplyTemplateDialog"
+import { BulkDayToolbar, FindRecipeBar, ShiftDaysDialog, type ShiftRequest } from "./BulkDayActions"
 import { ExpiringInPeriod } from "./ExpiringInPeriod"
 import { MealTypeManager } from "./MealTypeManager"
 import { AvailabilityStatusNote, DayAvailabilityList } from "./MenuAvailabilityAlert"
@@ -100,6 +102,15 @@ export function PlanningBoard({ month, onMonthChange }: { month?: string; onMont
 
 	const { data: menus } = useDailyMenus(kitchenId, startDate, endDate)
 	const { data: templates, isLoading: templatesLoading } = useMenuTemplates(kitchenId)
+	const [selectionAnchor, setSelectionAnchor] = useState<string | null>(null)
+	const [foundRecipeId, setFoundRecipeId] = useState<string | null>(null)
+	const [dropTarget, setDropTarget] = useState<string | null>(null)
+	const [shiftRequest, setShiftRequest] = useState<ShiftRequest | null>(null)
+	const foundDays = new Set(
+		(menus ?? [])
+			.filter((m) => foundRecipeId && m.service_date && (m.menu_items ?? []).some((i) => i.recipe_origin_id === foundRecipeId))
+			.map((m) => m.service_date as string)
+	)
 	const { data: availability, error: availabilityError } = usePlanningAvailability(kitchenId, format(startDate, "yyyy-MM-dd"), format(endDate, "yyyy-MM-dd"))
 	// Insumos distintos com aviso, por dia: o marcador diz "olhe este dia", o detalhe fica no painel.
 	const shortagesByDay = new Map<string, Set<string>>()
@@ -139,17 +150,20 @@ export function PlanningBoard({ month, onMonthChange }: { month?: string; onMont
 			return
 		}
 
-		const dayStr = day.toISOString()
+		// Chave é a data civil: `toISOString()` de meia-noite local já é o dia anterior em UTC.
+		const dayStr = format(day, "yyyy-MM-dd")
 
-		if (e.ctrlKey || e.metaKey || e.shiftKey) {
-			// Multi-selection mode
+		if (e.shiftKey && selectionAnchor) {
+			// Shift+clique estende do último dia escolhido até este (a semana inteira num gesto).
+			const [from, to] = [selectionAnchor, dayStr].toSorted()
+			const range = eachDayOfInterval({ start: parseISO(from as string), end: parseISO(to as string) }).map((d) => format(d, "yyyy-MM-dd"))
+			dispatch({ type: "SET_SELECTED_DAYS", value: new Set([...selectedDays, ...range]) })
+		} else if (e.ctrlKey || e.metaKey || e.shiftKey) {
 			const newSelected = new Set(selectedDays)
-			if (newSelected.has(dayStr)) {
-				newSelected.delete(dayStr)
-			} else {
-				newSelected.add(dayStr)
-			}
+			if (newSelected.has(dayStr)) newSelected.delete(dayStr)
+			else newSelected.add(dayStr)
 			dispatch({ type: "SET_SELECTED_DAYS", value: newSelected })
+			setSelectionAnchor(dayStr)
 		} else {
 			// Single selection (View Drawer)
 			// O dia abre na página dele: lá cabe o dia inteiro, com a semana no topo para navegar.
@@ -258,7 +272,7 @@ export function PlanningBoard({ month, onMonthChange }: { month?: string; onMont
 						onClick={() => {
 							// Sem isto o diálogo abria com a lista VAZIA: dizia "aos 0 dias
 							// selecionados" e o servidor recusava. A multisseleção não servia para nada.
-							dispatch({ type: "SET_TEMPLATE_TARGET_DATES", value: [...selectedDays].map((iso) => format(new Date(iso), "yyyy-MM-dd")).toSorted() })
+							dispatch({ type: "SET_TEMPLATE_TARGET_DATES", value: [...selectedDays].toSorted() })
 							dispatch({ type: "SET_TEMPLATE_MODAL_OPEN", value: true })
 						}}
 						disabled={selectedDays.size === 0}
@@ -289,6 +303,31 @@ export function PlanningBoard({ month, onMonthChange }: { month?: string; onMont
 				isLoading={templatesLoading}
 			/>
 
+			{/* Busca e edição em lote: localizar uma preparação marca os dias dela; com dias
+			    selecionados (Ctrl/Shift+clique ou "selecionar os dias") aparecem as ações. */}
+			<FindRecipeBar
+				menus={menus ?? []}
+				highlighted={foundRecipeId}
+				onHighlight={setFoundRecipeId}
+				onSelectDays={(dates) => {
+					dispatch({ type: "SET_SELECTED_DAYS", value: new Set(dates) })
+					setSelectionAnchor(dates.at(-1) ?? null)
+				}}
+			/>
+			{selectedDays.size > 0 ? (
+				<BulkDayToolbar
+					kitchenId={kitchenId}
+					dates={[...selectedDays].toSorted()}
+					menus={menus ?? []}
+					onClearSelection={() => dispatch({ type: "SET_SELECTED_DAYS", value: new Set() })}
+					onShift={() => setShiftRequest({ dates: [...selectedDays].toSorted(), offsetDays: 7 })}
+				/>
+			) : (
+				<p className="text-caption text-muted-foreground">
+					Ctrl+clique seleciona dias; Shift+clique, o intervalo. Arraste um dia (ou a seleção) sobre outro para mover ou copiar.
+				</p>
+			)}
+
 			{/* Calendar Grid */}
 			<div className="border rounded-md bg-card overflow-hidden select-none">
 				{/* Week Days Header */}
@@ -306,7 +345,11 @@ export function PlanningBoard({ month, onMonthChange }: { month?: string; onMont
 						const dayMenus = getMenusForDay(day)
 						const isCurrentMonth = isSameMonth(day, monthStart)
 						const isToday = isSameDay(day, new Date())
-						const isSelected = selectedDays.has(day.toISOString())
+						const dayKey = format(day, "yyyy-MM-dd")
+						const isSelected = selectedDays.has(dayKey)
+						// Dia em que está a preparação procurada na busca.
+						const isFound = foundDays.has(dayKey)
+						const isDropTarget = dropTarget === dayKey
 
 						const totalHeadcount = dayMenus.reduce((acc, m) => acc + (m.forecasted_headcount || 0), 0)
 						const hasMenus = dayMenus.length > 0
@@ -322,12 +365,33 @@ export function PlanningBoard({ month, onMonthChange }: { month?: string; onMont
 								aria-label={`${format(day, "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR })}${hasMenus ? ` — ${dayMenus.length} ${dayMenus.length === 1 ? "refeição planejada" : "refeições planejadas"}` : ""}${pendingMeals.length > 0 ? ` — efetivo a definir: ${pendingMeals.join(", ")}` : ""}${shortages > 0 ? ` — ${shortages} ${shortages === 1 ? "insumo pode faltar" : "insumos podem faltar"}` : ""}`}
 								data-date={format(day, "yyyy-MM-dd")}
 								onClick={(e) => handleDayClick(day, e)}
+								// Arrastar um dia (ou a seleção que o contém) sobre outro abre o mover/copiar.
+								draggable={hasMenus}
+								onDragStart={(e) => {
+									e.dataTransfer.setData("text/plain", dayKey)
+									e.dataTransfer.effectAllowed = "copyMove"
+								}}
+								onDragOver={(e) => {
+									e.preventDefault()
+									if (dropTarget !== dayKey) setDropTarget(dayKey)
+								}}
+								onDragLeave={() => setDropTarget((current) => (current === dayKey ? null : current))}
+								onDrop={(e) => {
+									e.preventDefault()
+									setDropTarget(null)
+									const source = e.dataTransfer.getData("text/plain")
+									if (!source || source === dayKey) return
+									const dates = selectedDays.has(source) ? [...selectedDays].toSorted() : [source]
+									setShiftRequest({ dates, offsetDays: differenceInCalendarDays(parseISO(dayKey), parseISO(source)) })
+								}}
 								className={cn(
 									"p-2 relative transition-colors cursor-pointer group text-left",
 									"focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring focus-visible:ring-offset-2",
 									!isCurrentMonth && "bg-muted/10 text-muted-foreground",
 									isCurrentMonth && "bg-background",
 									isToday && "bg-primary/5",
+									isFound && !isSelected && "ring-2 ring-warning ring-inset",
+									isDropTarget && "ring-2 ring-primary ring-inset bg-primary/15",
 									isSelected ? "ring-2 ring-primary ring-inset bg-primary/10" : "hover:bg-muted/50"
 								)}
 							>
@@ -393,6 +457,14 @@ export function PlanningBoard({ month, onMonthChange }: { month?: string; onMont
 			{Number.isInteger(kitchenId) && kitchenId > 0 && (
 				<ExpiringInPeriod kitchenId={kitchenId} from={format(startDate, "yyyy-MM-dd")} until={format(endDate, "yyyy-MM-dd")} />
 			)}
+
+			<ShiftDaysDialog
+				key={shiftRequest ? `shift:${shiftRequest.dates.join(",")}:${shiftRequest.offsetDays}` : "shift:closed"}
+				kitchenId={kitchenId}
+				request={shiftRequest}
+				onClose={() => setShiftRequest(null)}
+				onDone={() => dispatch({ type: "SET_SELECTED_DAYS", value: new Set() })}
+			/>
 
 			<ApplyTemplateDialog
 				// Remonta a cada abertura: o estado interno (template, modo de conflito) nasce da
