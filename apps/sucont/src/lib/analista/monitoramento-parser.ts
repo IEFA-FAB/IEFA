@@ -1,6 +1,7 @@
 // Extraído de routes/monitoramento.tsx (port do Analistasaldoimproprio e do centromonitoramento).
 import * as XLSX from "xlsx"
 import { classifyAccount, type ProcessedRow } from "#/lib/analista/types"
+import { parseBrazilianAmount } from "#/lib/analysis/saldo"
 import { isUgAcompanhada } from "#/lib/ug/registry"
 
 export interface ParsedWorkbook {
@@ -76,21 +77,6 @@ function findHeader(rows: unknown[][]): { colIndices: ColumnIndices; dataStartIn
 	return { colIndices: { ug: -1, mes: -1, conta: -1, saldo: -1 }, dataStartIndex: -1 }
 }
 
-export const parseSaldo = (saldoRaw: unknown): number => {
-	if (typeof saldoRaw === "number") return saldoRaw
-	if (typeof saldoRaw === "string") {
-		const cleaned = saldoRaw.replace(/[R$\s]/g, "")
-		if (cleaned.includes(",") && cleaned.includes(".")) {
-			return parseFloat(cleaned.replace(/\./g, "").replace(",", "."))
-		} else if (cleaned.includes(",")) {
-			return parseFloat(cleaned.replace(",", "."))
-		} else {
-			return parseFloat(cleaned)
-		}
-	}
-	return NaN
-}
-
 function isFilledCell(value: unknown): boolean {
 	return value != null && String(value).trim() !== ""
 }
@@ -126,7 +112,7 @@ function parseRowsWithHeader(rows: unknown[][], colIndices: ColumnIndices, dataS
 		const ug = String(ugRaw).trim()
 		const mes = String(mesRaw).trim()
 		const conta = String(contaRaw).trim()
-		const saldo = parseSaldo(saldoRaw)
+		const saldo = parseBrazilianAmount(saldoRaw)
 
 		if (!Number.isNaN(saldo) && saldo !== 0 && isUgAcompanhada(ug)) {
 			processed.push(buildProcessedRow(ug, mes, conta, saldo))
@@ -135,12 +121,26 @@ function parseRowsWithHeader(rows: unknown[][], colIndices: ColumnIndices, dataS
 	return processed
 }
 
+const MONTH_NAMES = "janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro"
+const MONTH_ABBREVIATIONS = "jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez"
+
+/** Mês por extenso ou abreviado, com ano opcional ("JAN", "jan/2026", "Março/26", "JAN2026"). */
+const NAMED_MONTH = new RegExp(`^(${MONTH_NAMES}|${MONTH_ABBREVIATIONS})(\\/?(\\d{2}|\\d{4}))?$`)
+
+/** "01/2026": mês de 01 a 12. */
+const NUMERIC_MONTH = /^(0[1-9]|1[0-2])\/\d{4}$/
+
+/**
+ * Célula com cara de competência, no fallback sem cabeçalho. O port aceitava qualquer
+ * palavra de três letras ou mais ("TEXTO", "TOTAL", "BASP"): a primeira palavra da linha
+ * virava a competência, e o mês de verdade, se viesse depois, era descartado.
+ */
 function isMonthLike(str: string): boolean {
-	return (
-		/^[A-Za-z]{3,}\/?\d{0,4}$/.test(str) ||
-		/^\d{2}\/\d{4}$/.test(str) ||
-		/^(janeiro|fevereiro|março|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)$/i.test(str)
-	)
+	const normalized = str
+		.toLowerCase()
+		.normalize("NFD")
+		.replace(/[\u0300-\u036f]/g, "")
+	return NAMED_MONTH.test(normalized) || NUMERIC_MONTH.test(str)
 }
 
 interface HeuristicRow {
@@ -169,7 +169,7 @@ function assignHeuristicCell(state: HeuristicRow, cell: unknown): void {
 		state.mes = str
 		state.foundMes = true
 	} else if (!state.foundSaldo) {
-		const parsed = parseSaldo(cell)
+		const parsed = parseBrazilianAmount(cell)
 		if (!Number.isNaN(parsed)) {
 			state.saldo = parsed
 			state.foundSaldo = true

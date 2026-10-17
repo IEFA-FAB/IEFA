@@ -1,10 +1,11 @@
-import { Copy } from "lucide-react"
+import { Check, Copy } from "lucide-react"
 import { useId, useState } from "react"
 import { EditableMessage } from "#/components/editable-message"
 import { Badge } from "#/components/ui/badge"
 import { Button } from "#/components/ui/button"
 import { Input } from "#/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
+import { useCopyFeedback } from "#/hooks/use-copy-feedback"
 import { useMessageDraft } from "#/hooks/use-editable-message"
 import { getOrganizacao } from "#/lib/analista/organizacao"
 import { getRacTopic, type ProcessedRow } from "#/lib/analista/types"
@@ -36,7 +37,13 @@ const formatDeadlineDate = (dateString: string) => {
 	return `${day}/${month}/${date.getFullYear()}`
 }
 
+/** Chave do "Copiado": o cartão tem uma mensagem só. */
+const MESSAGE_COPY_KEY = "message"
+
 export function UGCard({ group, type, activeRacFilter }: UGCardProps) {
+	// Antes o `writeText` não era aguardado: sem confirmação e com a falha calada.
+	const { copiedKey, copy } = useCopyFeedback()
+	const isCopied = copiedKey === MESSAGE_COPY_KEY
 	// Um card por UG e mês na mesma tela: id fixo faria o rótulo do terceiro card focar o campo do primeiro.
 	const fieldId = useId()
 	const [msgNumber, setMsgNumber] = useState("")
@@ -176,13 +183,13 @@ export function UGCard({ group, type, activeRacFilter }: UGCardProps) {
 							<h3 className="text-subheading text-foreground">Mensagem Institucional Pronta</h3>
 							<Button
 								type="button"
-								onClick={() => navigator.clipboard.writeText(message.text)}
+								onClick={() => copy(message.text, MESSAGE_COPY_KEY)}
 								variant="outline"
 								size="xs"
 								className="bg-card text-muted-foreground shadow-sm hover:text-foreground"
 							>
-								<Copy className="w-3 h-3" />
-								<span>Copiar</span>
+								{isCopied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+								<span>{isCopied ? "Copiado" : "Copiar"}</span>
 							</Button>
 						</div>
 

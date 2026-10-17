@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router"
-import { BookOpen, Copy, FileText, LayoutDashboard, MessageSquare, RefreshCw, Search } from "lucide-react"
+import { BookOpen, Check, Copy, FileText, LayoutDashboard, MessageSquare, RefreshCw, Search } from "lucide-react"
 import { useCallback, useMemo, useState } from "react"
 import * as XLSX from "xlsx"
 import { requireToolAccess } from "#/auth/pbac"
@@ -17,6 +17,7 @@ import { FileDropzone, SPREADSHEET_ACCEPT } from "#/components/ui/file-dropzone"
 import { SectionHeader } from "#/components/ui/section-header"
 import { SegmentedControl } from "#/components/ui/segmented-control"
 import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip"
+import { useCopyFeedback } from "#/hooks/use-copy-feedback"
 import { useMessageDrafts } from "#/hooks/use-editable-message"
 import { describeReportFilter } from "#/lib/compatibilidade/filters"
 import { formatCurrency } from "#/lib/compatibilidade/format"
@@ -45,6 +46,10 @@ const ANALYSIS_NOTES = [
 		text: "As divergências são agrupadas por par de contas e distribuídas entre os conferentes; cada um filtra as suas.",
 	},
 ] as const
+
+/** Chaves do "Copiado" dos botões que copiam várias mensagens de uma vez. */
+const COPY_ALL_KEY = "all"
+const COPY_RAC_SUMMARY_KEY = "rac-summary"
 
 export const Route = createFileRoute("/analista-compatibilidade")({
 	// A divisão exigida sai do catálogo (`sucontTools`), pelo `internalPath`.
@@ -151,9 +156,9 @@ function AnalistaCompatibilidade() {
 
 	// ── copyToClipboard / copyAll / copyRacSummary ─────────────────────────────
 
-	const copyToClipboard = (text: string) => {
-		navigator.clipboard.writeText(text)
-	}
+	// Cópia com confirmação honesta: "Copiado" só depois de a escrita resolver; falha vira
+	// aviso de erro. Antes o `writeText` não era aguardado e a falha passava calada.
+	const { copiedKey, copy } = useCopyFeedback()
 
 	const copyAll = () => {
 		const allText = filteredReports
@@ -165,7 +170,7 @@ function AnalistaCompatibilidade() {
 					).text
 			)
 			.join("\n\n-------------------------------------------------------\n\n")
-		navigator.clipboard.writeText(allText)
+		void copy(allText, COPY_ALL_KEY)
 	}
 
 	const copyRacSummary = () => {
@@ -186,7 +191,7 @@ function AnalistaCompatibilidade() {
 			})
 			.join("\n\n")
 
-		navigator.clipboard.writeText(header + body)
+		void copy(header + body, COPY_RAC_SUMMARY_KEY)
 	}
 
 	// ── Memos ──────────────────────────────────────────────────────────────────
@@ -350,18 +355,18 @@ function AnalistaCompatibilidade() {
 											<Tooltip>
 												<TooltipTrigger
 													render={
-														<Button type="button" variant="outline" size="sm" onClick={copyRacSummary}>
-															<Copy />
-															Copiar resumo {racFilter}
+														<Button type="button" variant={copiedKey === COPY_RAC_SUMMARY_KEY ? "success" : "outline"} size="sm" onClick={copyRacSummary}>
+															{copiedKey === COPY_RAC_SUMMARY_KEY ? <Check /> : <Copy />}
+															{copiedKey === COPY_RAC_SUMMARY_KEY ? "Copiado" : `Copiar resumo ${racFilter}`}
 														</Button>
 													}
 												/>
 												<TooltipContent>Copiar resumo simplificado para esta questão</TooltipContent>
 											</Tooltip>
 										)}
-										<Button type="button" size="sm" onClick={copyAll}>
-											<Copy />
-											Copiar mensagens filtradas
+										<Button type="button" size="sm" variant={copiedKey === COPY_ALL_KEY ? "success" : "default"} onClick={copyAll}>
+											{copiedKey === COPY_ALL_KEY ? <Check /> : <Copy />}
+											{copiedKey === COPY_ALL_KEY ? "Copiado" : "Copiar mensagens filtradas"}
 										</Button>
 									</>
 								}
@@ -417,7 +422,8 @@ function AnalistaCompatibilidade() {
 											setMsgSubjects={setMsgSubjects}
 											setMessageTypes={setMessageTypes}
 											setPrazos={setPrazos}
-											onCopy={copyToClipboard}
+											onCopy={(text) => copy(text, `ug:${report.ug}`)}
+											isCopied={copiedKey === `ug:${report.ug}`}
 										/>
 									)
 								})}

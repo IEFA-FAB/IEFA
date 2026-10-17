@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { afterEach, describe, expect, test, vi } from "vitest"
-import { DB_FAILURE_TEXT, NO_ROW_TEXT, publicDbMessage, RAISE_CODES, SYSTEM_FRAGMENTS } from "./db-error-message"
+import { DB_FAILURE_TEXT, NO_ROW_TEXT, publicDbMessage, RAISE_CODES, requireReadRow, SYSTEM_FRAGMENTS } from "./db-error-message"
 
 const MIGRATIONS_DIR = join(__dirname, "../../../../packages/database/supabase/migrations")
 /** Nomes de condição que as migrations usam no lugar do SQLSTATE. */
@@ -77,6 +77,37 @@ const migrations = () =>
 	readdirSync(MIGRATIONS_DIR)
 		.filter((name) => name.endsWith(".sql"))
 		.map((file) => readFileSync(join(MIGRATIONS_DIR, file), "utf8"))
+
+describe("requireReadRow", () => {
+	const consoleError = vi.spyOn(console, "error").mockImplementation(() => {})
+	afterEach(() => consoleError.mockClear())
+	const messages = { readFailure: "Erro ao carregar o recebimento", notFound: "Recebimento não encontrado" }
+
+	test("linha lida volta como veio", () => {
+		expect(requireReadRow({ data: { id: "r1" }, error: null }, messages)).toEqual({ id: "r1" })
+	})
+
+	test("sem linha e sem erro: não encontrado", () => {
+		expect(() => requireReadRow({ data: null, error: null }, messages)).toThrow(/^Recebimento não encontrado$/)
+	})
+
+	test("falha de leitura NÃO vira 'não encontrado': lança como falha, com o motivo", () => {
+		const transport = () => requireReadRow({ data: null, error: { code: "", message: "TypeError: fetch failed" } }, messages)
+		expect(transport).toThrow("Erro ao carregar o recebimento: o banco não respondeu; tente de novo")
+		expect(transport).not.toThrow(/não encontrado/)
+		expect(() => requireReadRow({ data: null, error: { code: "57014", message: "canceling statement due to statement timeout" } }, messages)).toThrow(
+			"Erro ao carregar o recebimento: o banco demorou demais para responder; tente de novo"
+		)
+		// o diagnóstico vai para o log do servidor
+		expect(consoleError).toHaveBeenCalled()
+	})
+
+	test("erro com linha junto (não acontece, mas) vale o erro", () => {
+		expect(() => requireReadRow({ data: { id: "r1" }, error: { code: "XX000", message: "boom" } }, messages)).toThrow(
+			`Erro ao carregar o recebimento: ${DB_FAILURE_TEXT}`
+		)
+	})
+})
 
 describe("contrato com os RAISE das migrations", () => {
 	test("nenhuma mensagem de RAISE contém texto que o helper toma por diagnóstico", () => {

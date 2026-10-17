@@ -114,7 +114,7 @@ export const sucontTools: Tool[] = [
 	{
 		id: "subitens-genericos",
 		title: "Subitens Genéricos",
-		description: "Uso de subitens genéricos (99/999) no Tesouro Gerencial, com mensagem à UG e oráculo de IA.",
+		description: "Uso do subitem genérico 99 e do favorecido genérico 999 no Tesouro Gerencial, com mensagem à UG e oráculo de IA.",
 		internalPath: "/subitens-genericos",
 		stage: "analisar",
 		// MSG `.../SUCONT-3/...`; item q34 do inventário da 3.1

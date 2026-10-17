@@ -1,4 +1,7 @@
 import { Glob } from "bun"
+// TypeScript 5 só pela API do compilador (o 7 nativo não a expõe), como no `compras-api-codegen`.
+// O scanner roda só em teste: é devDependency, não chega a app nenhum.
+import ts from "typescript-5"
 
 /**
  * Varredura das chaves de armazenamento do navegador, para o guard da Política de Cookies
@@ -58,8 +61,6 @@ const TEMPLATE_INLINE = /(?:usePersistentState(?:<[^(]*?>)?|(?:localStorage|sess
 // perderia exatamente as chaves que passam por abstração.
 const STORAGE_API = /localStorage|sessionStorage|document\.cookie|usePersistentState|useScrollRestoration|getStoredScrollOffset/
 
-/** Declaração de topo de módulo: o que pode carregar a chave até um export. */
-const TOP_LEVEL_DECLARATION = /^(export\s+)?(?:default\s+)?(?:declare\s+)?(?:async\s+)?(?:function\*?|const|let|var|class)\s+([A-Za-z_$][\w$]*)/gm
 /** `import [type] [Padrão,] [{ a, type b, c as d } | * as ns] from "x"`. */
 const IMPORT = /\bimport\s+(type\s+)?(?:([A-Za-z_$][\w$]*)\s*,?\s*)?(?:\{([^}]*)\}|\*\s*as\s+([A-Za-z_$][\w$]*))?\s*from\s*["']([^"']+)["']/g
 /** `export [type] { a, type b, c as d } from "x"` e `export * [as ns] from "x"`. */
@@ -127,16 +128,71 @@ function normalizePath(path: string): string {
 	return out.join("/")
 }
 
-type Declaration = { name: string; exported: boolean; start: number; end: number }
+/**
+ * Unidade de topo do módulo que pode levar a chave até um export: declaração de função, classe,
+ * enum ou namespace, cada declarador de `const`/`let`/`var`, e o `export default <expressão>`.
+ * `locals` são os nomes que o resto do módulo cita; `exportsAs`, os que quem importa enxerga
+ * (`default` em `export default function f`, que não exporta `f`).
+ *
+ * Os limites vêm do AST do TypeScript, não de regex de coluna 0: com regex, a unidade ia até a
+ * próxima declaração reconhecida e engolia o que viesse no meio (`export { … }`, `interface`,
+ * chamada solta), "citando" nomes que não usa e exportando a mais.
+ */
+type TopLevelUnit = { locals: string[]; exportsAs: string[]; start: number; end: number }
 
-function declarationsOf(source: string): Declaration[] {
-	const matches = [...source.matchAll(TOP_LEVEL_DECLARATION)]
-	return matches.map((match, i) => ({
-		name: match[2] as string,
-		exported: Boolean(match[1]),
-		start: match.index,
-		end: matches[i + 1]?.index ?? source.length,
-	}))
+/** arquivo → unidades de topo. A fonte não muda durante a varredura: cada arquivo é lido uma vez. */
+type UnitReader = (file: string) => TopLevelUnit[]
+
+function bindingNames(name: ts.BindingName): string[] {
+	if (ts.isIdentifier(name)) return [name.text]
+	return name.elements.flatMap((element) => (ts.isOmittedExpression(element) ? [] : bindingNames(element.name)))
+}
+
+function hasModifier(node: ts.Node, kind: ts.SyntaxKind): boolean {
+	return ts.canHaveModifiers(node) && (ts.getModifiers(node)?.some((modifier) => modifier.kind === kind) ?? false)
+}
+
+function parseUnits(file: string, source: string): TopLevelUnit[] {
+	const sourceFile = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, false, file.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS)
+	const units: TopLevelUnit[] = []
+	for (const statement of sourceFile.statements) {
+		const isExported = hasModifier(statement, ts.SyntaxKind.ExportKeyword)
+		if (ts.isVariableStatement(statement)) {
+			// O primeiro declarador começa no `const`: é onde a varredura de chave aponta o achado.
+			statement.declarationList.declarations.forEach((declaration, index) => {
+				const names = bindingNames(declaration.name)
+				const start = index === 0 ? statement.getStart(sourceFile) : declaration.getStart(sourceFile)
+				units.push({ locals: names, exportsAs: isExported ? names : [], start, end: declaration.end })
+			})
+			continue
+		}
+		const start = statement.getStart(sourceFile)
+		if (ts.isFunctionDeclaration(statement) || ts.isClassDeclaration(statement) || ts.isEnumDeclaration(statement) || ts.isModuleDeclaration(statement)) {
+			// `export default function () {}` e `export default class {}` não têm nome local.
+			const name = statement.name && ts.isIdentifier(statement.name) ? statement.name.text : undefined
+			const exportedAs = hasModifier(statement, ts.SyntaxKind.DefaultKeyword) ? "default" : name
+			units.push({ locals: name ? [name] : [], exportsAs: isExported && exportedAs ? [exportedAs] : [], start, end: statement.end })
+		} else if (ts.isExportAssignment(statement) && !statement.isExportEquals) {
+			// `export default memo(X)`, `export default () => …`, `export default load satisfies T`.
+			units.push({ locals: [], exportsAs: ["default"], start, end: statement.end })
+		}
+		// `import`, `export { … }`, `export * from`, `interface`, `type` e código solto não são
+		// unidades: não carregam a chave (os imports e reexports são lidos à parte), mas o AST
+		// os mantém fora do trecho da unidade anterior.
+	}
+	return units
+}
+
+function createUnitReader(tree: SourceTree): UnitReader {
+	const cache = new Map<string, TopLevelUnit[]>()
+	return (file) => {
+		let units = cache.get(file)
+		if (!units) {
+			units = parseUnits(file, tree.get(file) as string)
+			cache.set(file, units)
+		}
+		return units
+	}
 }
 
 function escapeRegExp(text: string): string {
@@ -185,13 +241,33 @@ function findReachingExports(target: string | undefined, taintedExports: Tainted
 	return exported
 }
 
-/** No arquivo da chave, o nome local de partida: a declaração que a contém. */
-function seedHitLocals(hit: KeyHit, declarations: Declaration[], locals: Set<string>): void {
-	const holder = declarations.find((decl) => hit.index >= decl.start && hit.index < decl.end)
-	// Chave usada fora de qualquer declaração (código solto no topo do módulo):
-	// não há como saber qual export a alcança, então todos alcançam.
-	if (holder) locals.add(holder.name)
-	else for (const decl of declarations) if (decl.exported) locals.add(decl.name)
+/** Unidades contaminadas e os nomes locais que elas declaram. */
+type Taint = { units: Set<TopLevelUnit>; locals: Set<string> }
+
+function taintUnit(taint: Taint, unit: TopLevelUnit): void {
+	taint.units.add(unit)
+	for (const name of unit.locals) taint.locals.add(name)
+}
+
+/** Nomes locais listados num `export { a, c as d }` sem `from`. */
+function locallyListedExports(source: string): string[] {
+	const names: string[] = []
+	for (const match of source.matchAll(LOCAL_EXPORT_LIST)) if (!match[1]) for (const [local] of parseSpecifiers(match[2] ?? "")) names.push(local)
+	return names
+}
+
+/** No arquivo da chave, o ponto de partida: a unidade que a contém. */
+function seedHit(hit: KeyHit, source: string, units: TopLevelUnit[], taint: Taint): void {
+	const holder = units.find((unit) => hit.index >= unit.start && hit.index < unit.end)
+	if (holder) {
+		taintUnit(taint, holder)
+		return
+	}
+	// Chave usada fora de qualquer unidade (código solto no topo do módulo): não há como saber
+	// qual export a alcança, então todos alcançam — os declarados com `export`, o default e os
+	// listados em `export { … }`.
+	for (const unit of units) if (unit.exportsAs.length > 0) taintUnit(taint, unit)
+	for (const name of locallyListedExports(source)) taint.locals.add(name)
 }
 
 /** Nomes locais que um import de VALOR traz de um módulo cujos exports chegam à chave. */
@@ -207,14 +283,14 @@ function addImportedLocals(file: string, source: string, locals: Set<string>, re
 }
 
 /** Ponto fixo dentro do módulo: `load` usa a chave, `getRemainingSeconds` usa `load`. */
-function growLocalsToFixpoint(source: string, declarations: Declaration[], locals: Set<string>): void {
+function growTaintToFixpoint(source: string, units: TopLevelUnit[], taint: Taint): void {
 	let grew = true
 	while (grew) {
 		grew = false
-		for (const decl of declarations) {
-			if (locals.has(decl.name)) continue
-			if (mentionsAny(source.slice(decl.start, decl.end), locals)) {
-				locals.add(decl.name)
+		for (const unit of units) {
+			if (taint.units.has(unit)) continue
+			if (mentionsAny(source.slice(unit.start, unit.end), taint.locals)) {
+				taintUnit(taint, unit)
 				grew = true
 			}
 		}
@@ -243,19 +319,19 @@ function addReexports(file: string, source: string, mine: Set<string>, resolve: 
 }
 
 /** Uma passada sobre um arquivo de package; devolve se o conjunto de exports dele cresceu. */
-function propagateFile(file: string, hit: KeyHit, tree: SourceTree, resolve: Resolver, taintedExports: TaintedExports): boolean {
+function propagateFile(file: string, hit: KeyHit, tree: SourceTree, readUnits: UnitReader, resolve: Resolver, taintedExports: TaintedExports): boolean {
 	const source = tree.get(file) as string
-	const declarations = declarationsOf(source)
-	const locals = new Set<string>()
+	const units = readUnits(file)
+	const taint: Taint = { units: new Set(), locals: new Set() }
 
-	if (file === hit.file) seedHitLocals(hit, declarations, locals)
-	addImportedLocals(file, source, locals, resolve, taintedExports)
-	growLocalsToFixpoint(source, declarations, locals)
+	if (file === hit.file) seedHit(hit, source, units, taint)
+	addImportedLocals(file, source, taint.locals, resolve, taintedExports)
+	growTaintToFixpoint(source, units, taint)
 
 	const mine = taintedExports.get(file) as Set<string>
 	const before = mine.size
-	for (const decl of declarations) if (decl.exported && locals.has(decl.name)) mine.add(decl.name)
-	addLocalExportList(source, locals, mine)
+	for (const unit of taint.units) for (const name of unit.exportsAs) mine.add(name)
+	addLocalExportList(source, taint.locals, mine)
 	addReexports(file, source, mine, resolve, taintedExports)
 	return mine.size !== before
 }
@@ -265,14 +341,14 @@ function propagateFile(file: string, hit: KeyHit, tree: SourceTree, resolve: Res
  * Cada passada visita todos os arquivos, na ordem da árvore, e já enxerga o que os anteriores
  * da mesma passada acrescentaram.
  */
-function propagateTaintedExports(hit: KeyHit, tree: SourceTree, resolve: Resolver): TaintedExports {
+function propagateTaintedExports(hit: KeyHit, tree: SourceTree, readUnits: UnitReader, resolve: Resolver): TaintedExports {
 	const packageFiles = [...tree.keys()].filter((file) => file.startsWith("packages/") && !isTestFile(file))
 	const taintedExports: TaintedExports = new Map(packageFiles.map((file) => [file, new Set<string>()]))
 
 	let changed = true
 	while (changed) {
 		changed = false
-		for (const file of packageFiles) if (propagateFile(file, hit, tree, resolve, taintedExports)) changed = true
+		for (const file of packageFiles) if (propagateFile(file, hit, tree, readUnits, resolve, taintedExports)) changed = true
 	}
 	return taintedExports
 }
@@ -314,9 +390,9 @@ function collectWriters(tree: SourceTree, entryBySpecifier: Map<string, string>,
  * VALOR — `import type`, `type X` dentro das chaves e os demais exports do mesmo
  * entry (`safeRedirect` ao lado do `useLoginRateLimiter`) não contam.
  */
-function resolvePackageKey(hit: KeyHit, tree: SourceTree, packages: PackageManifest[]): Set<string> {
+function resolvePackageKey(hit: KeyHit, tree: SourceTree, packages: PackageManifest[], readUnits: UnitReader): Set<string> {
 	const entryBySpecifier = mapEntriesBySpecifier(packages)
-	const taintedExports = propagateTaintedExports(hit, tree, createResolver(entryBySpecifier, tree))
+	const taintedExports = propagateTaintedExports(hit, tree, readUnits, createResolver(entryBySpecifier, tree))
 	return collectWriters(tree, entryBySpecifier, taintedExports)
 }
 
@@ -328,6 +404,7 @@ export function collectStorageKeys(tree: SourceTree, packages: PackageManifest[]
 		files.add(file)
 		found.set(key, files)
 	}
+	const readUnits = createUnitReader(tree)
 
 	for (const [file, source] of tree) {
 		if (file.includes("routeTree.gen.ts")) continue
@@ -336,7 +413,7 @@ export function collectStorageKeys(tree: SourceTree, packages: PackageManifest[]
 		if (isTestFile(file)) continue
 		for (const hit of findKeys(file, source)) {
 			add(hit.key, hit.file)
-			if (!isAppFile(file)) for (const writer of resolvePackageKey(hit, tree, packages)) add(hit.key, writer)
+			if (!isAppFile(file)) for (const writer of resolvePackageKey(hit, tree, packages, readUnits)) add(hit.key, writer)
 		}
 	}
 	return found

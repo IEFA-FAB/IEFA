@@ -33,7 +33,8 @@
 import { createServer } from "node:http"
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js"
-import { resolveCredential } from "./auth.ts"
+import { McpError } from "@modelcontextprotocol/sdk/types.js"
+import { isCredentialRejected, resolveCredential } from "./auth.ts"
 import { ALLOWED_ORIGINS_ENV, corsHeadersFor, evaluateOrigin, parseAllowedOrigins } from "./cors.ts"
 import { isDbPoolWedged } from "./db.ts"
 import { BodyTooLargeError, clientIpFrom, MAX_SESSIONS_PER_USER, readBodyCapped, SECURITY_HEADERS } from "./http-guards.ts"
@@ -220,9 +221,17 @@ if (transportMode === "stdio") {
 		try {
 			const ctx = await resolveCredential(credential)
 			currentUserId = ctx.userId
-		} catch {
-			res.writeHead(401, { "Content-Type": "application/json" })
-			res.end(JSON.stringify({ error: "Credencial inválida, expirada ou revogada" }))
+		} catch (err) {
+			// 401 só quando a credencial foi RECUSADA. Supabase fora do ar (deadline, rede, 5xx) é
+			// 503: o cliente MCP trata 401 como credencial perdida e a descartaria durante a queda.
+			if (isCredentialRejected(err)) {
+				res.writeHead(401, { "Content-Type": "application/json" })
+				res.end(JSON.stringify({ error: "Credencial inválida, expirada ou revogada" }))
+				return
+			}
+			if (!(err instanceof McpError)) process.stderr.write(`[sisub-mcp] Erro inesperado ao validar credencial: ${err}\n`)
+			res.writeHead(503, { "Content-Type": "application/json", "Retry-After": "5" })
+			res.end(JSON.stringify({ error: "Autenticação indisponível no momento. Tente novamente." }))
 			return
 		}
 

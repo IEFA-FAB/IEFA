@@ -1,5 +1,7 @@
 import { describe, expect, mock, test } from "bun:test"
 import { satisfiesAssurance } from "@iefa/pbac"
+import { ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js"
+import { AuthApiError, AuthRetryableFetchError } from "@supabase/supabase-js"
 import type { UserPermission } from "./types.ts"
 
 /**
@@ -57,14 +59,18 @@ function createDataClient(rows: Record<string, Row[]>) {
 			switch (table) {
 				case "mcp_api_keys":
 					return {
-						select: () => ({ eq: () => ({ eq: () => ({ single: async () => ({ data: rows.mcp_api_keys?.[0] ?? null, error: null }) }) }) }),
-						// `last_used_at`: o dublê devolve o builder sem executar nada porque o
-						// código de produção também não executa — `void db.from(...).update(...)`
-						// nunca chama `.then()`, e o `PostgrestBuilder` só dispara o fetch ali.
-						// A escrita nunca aconteceu; isto NÃO é o contrato desejado, é o bug
-						// pré-existente que a revisão desta PR encontrou. Corrigi-lo é outra
-						// mudança (precisa de sink de erro, senão vira unhandled rejection).
-						update: () => ({ eq: () => undefined }),
+						select: () => ({ eq: () => ({ eq: () => ({ single: async () => apiKeyLookup(rows) }) }) }),
+						// `last_used_at`: como o `PostgrestBuilder` real, a escrita só "acontece" quando
+						// alguém chama `.then()`. Era assim que o `void` antigo passava sem gravar nada.
+						update: (values: Row) => ({
+							eq: () => ({
+								// biome-ignore lint/suspicious/noThenProperty: thenable É o contrato — o builder real só dispara no consumo
+								then: <T>(onFulfilled?: (value: { error: { message: string } | null }) => T, onRejected?: (reason: unknown) => T) => {
+									lastUsedWrites.push(values)
+									return Promise.resolve({ error: lastUsedWriteError }).then(onFulfilled, onRejected)
+								},
+							}),
+						}),
 					}
 				case "user_permissions":
 				case "user_policy_attachment":
@@ -103,16 +109,27 @@ const noPolicyTables: Record<string, Row[]> = {
 
 let currentTables: Record<string, Row[]> = policyOnlyTables
 
+/** Resposta do GoTrue ao `getUser(jwt)`. Default: token válido. */
+type GetUserResult = { data: { user: { id: string } | null }; error: unknown }
+const VALID_USER: GetUserResult = { data: { user: { id: USER_ID } }, error: null }
+let getUserImpl: () => Promise<GetUserResult> = async () => VALID_USER
+
+/** Resposta do PostgREST ao `.single()` em `mcp_api_keys`. `null` = usa a linha da tabela. */
+let apiKeyLookupOverride: { data: Row | null; error: { code: string; message: string } | null } | null = null
+function apiKeyLookup(rows: Record<string, Row[]>) {
+	return apiKeyLookupOverride ?? { data: rows.mcp_api_keys?.[0] ?? null, error: null }
+}
+
+/** Escritas de `last_used_at` efetivamente disparadas, e o erro que o banco devolve a elas. */
+let lastUsedWrites: Row[] = []
+let lastUsedWriteError: { message: string } | null = null
+
 mock.module("./supabase.ts", () => ({
 	getDataClient: () => createDataClient(currentTables),
-	getAuthClient: () => ({
-		auth: {
-			getUser: async () => ({ data: { user: { id: USER_ID } }, error: null }),
-		},
-	}),
+	getAuthClient: () => ({ auth: { getUser: () => getUserImpl() } }),
 }))
 
-const { resolveApiKey, resolveCredential, resolveUserContext } = await import("./auth.ts")
+const { isCredentialRejected, resolveApiKey, resolveCredential, resolveUserContext } = await import("./auth.ts")
 
 function globalWrite(permissions: UserPermission[]): UserPermission | undefined {
 	return permissions.find((p) => p.module === "global" && p.level >= 2)
@@ -222,5 +239,109 @@ describe("prazo da chave de API", () => {
 		currentTables = policyOnlyTables
 
 		await expect(resolveApiKey("smcp_chave-de-teste")).resolves.toMatchObject({ userId: USER_ID })
+	})
+})
+
+/**
+ * Supabase fora do ar não é credencial ruim. Com o deadline do kit, GoTrue ou PostgREST que não
+ * respondem viram erro em segundos; se esse erro saísse como "inválida/revogada", o cliente MCP
+ * descartaria uma credencial boa durante a queda, e o log não separaria uma coisa da outra.
+ */
+describe("indisponibilidade do Supabase não vira credencial inválida", () => {
+	async function codeOf(promise: Promise<unknown>): Promise<number | undefined> {
+		try {
+			await promise
+		} catch (err) {
+			expect(err).toBeInstanceOf(McpError)
+			return (err as McpError).code
+		}
+		throw new Error("deveria ter lançado")
+	}
+
+	test("JWT recusado pelo GoTrue (4xx) é credencial inválida", async () => {
+		getUserImpl = async () => ({ data: { user: null }, error: new AuthApiError("invalid JWT", 401, "bad_jwt") })
+		try {
+			const code = await codeOf(resolveUserContext("jwt-vencido"))
+			expect(code).toBe(ErrorCode.InvalidRequest)
+		} finally {
+			getUserImpl = async () => VALID_USER
+		}
+	})
+
+	test("deadline ou rede no GoTrue é indisponibilidade, não token ruim", async () => {
+		getUserImpl = async () => ({ data: { user: null }, error: new AuthRetryableFetchError("Supabase request timed out after 5000ms", 0) })
+		try {
+			const promise = resolveUserContext("jwt-valido")
+			await expect(promise).rejects.toThrow(/indisponível/)
+			await promise.catch((err) => expect(isCredentialRejected(err)).toBe(false))
+		} finally {
+			getUserImpl = async () => VALID_USER
+		}
+	})
+
+	test("5xx do GoTrue também é indisponibilidade", async () => {
+		getUserImpl = async () => ({ data: { user: null }, error: new AuthApiError("upstream", 502, "unexpected_failure") })
+		try {
+			expect(await codeOf(resolveUserContext("jwt-valido"))).toBe(ErrorCode.InternalError)
+		} finally {
+			getUserImpl = async () => VALID_USER
+		}
+	})
+
+	test("exceção no client de auth é indisponibilidade", async () => {
+		getUserImpl = async () => {
+			throw new Error("boom")
+		}
+		try {
+			expect(await codeOf(resolveUserContext("jwt-valido"))).toBe(ErrorCode.InternalError)
+		} finally {
+			getUserImpl = async () => VALID_USER
+		}
+	})
+
+	test("chave inexistente (PGRST116) é inválida ou revogada", async () => {
+		apiKeyLookupOverride = { data: null, error: { code: "PGRST116", message: "0 rows" } }
+		try {
+			const promise = resolveApiKey("smcp_chave-de-teste")
+			await expect(promise).rejects.toThrow(/inválida ou revogada/)
+			await promise.catch((err) => expect(isCredentialRejected(err)).toBe(true))
+		} finally {
+			apiKeyLookupOverride = null
+		}
+	})
+
+	test("falha de transporte na consulta da chave é indisponibilidade, não revogação", async () => {
+		apiKeyLookupOverride = { data: null, error: { code: "", message: "AbortError: Supabase request timed out after 10000ms" } }
+		try {
+			const promise = resolveApiKey("smcp_chave-de-teste")
+			await expect(promise).rejects.toThrow(/indisponível/)
+			await promise.catch((err) => expect(isCredentialRejected(err)).toBe(false))
+		} finally {
+			apiKeyLookupOverride = null
+		}
+	})
+})
+
+describe("last_used_at da chave de API", () => {
+	test("a escrita é disparada de fato", async () => {
+		currentTables = policyOnlyTables
+		lastUsedWrites = []
+
+		await resolveApiKey("smcp_chave-de-teste")
+
+		expect(lastUsedWrites).toHaveLength(1)
+		expect(typeof lastUsedWrites[0].last_used_at).toBe("string")
+	})
+
+	test("falha na escrita não derruba a autenticação", async () => {
+		currentTables = policyOnlyTables
+		lastUsedWrites = []
+		lastUsedWriteError = { message: "permission denied" }
+		try {
+			await expect(resolveApiKey("smcp_chave-de-teste")).resolves.toMatchObject({ userId: USER_ID })
+			expect(lastUsedWrites).toHaveLength(1)
+		} finally {
+			lastUsedWriteError = null
+		}
 	})
 })

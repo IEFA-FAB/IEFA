@@ -49,10 +49,33 @@ describe("consultarMaterialPrecos — prazo global", () => {
 	})
 
 	test("dentro do prazo, a resposta passa e o idCompra vira string", async () => {
-		stubFetch(async () => new Response('{"resultado":[{"idCompra":12345678901234567}],"totalPaginas":1}'))
+		stubFetch(async () => new Response('{"resultado":[{"idCompra":12345678901234567}],"totalRegistros":1,"totalPaginas":1}'))
 
-		const items = await consultarMaterialPrecos(123)
+		const { items, source } = await consultarMaterialPrecos(123)
 
 		expect(items).toEqual([{ idCompra: "12345678901234567" } as never])
+		// A leitura da fonte volta junto: hora deste servidor, totais e cobertura.
+		expect(source).toMatchObject({ totalRecords: 1, totalPages: 1, pagesFetched: 1, coverage: "complete" })
+		expect(Date.parse(source.consultedAt)).not.toBeNaN()
+	})
+})
+
+describe("consultarMaterialPrecos — coleta pela janela", () => {
+	test("com janela, para quando a fonte passa do início dela e confere a última página", async () => {
+		const day = (i: number) => new Date(Date.now() - i * 86_400_000).toISOString().slice(0, 10)
+		const requested: number[] = []
+		globalThis.fetch = ((input: string | URL) => {
+			const pagina = Number(new URL(String(input)).searchParams.get("pagina"))
+			requested.push(pagina)
+			// 60 páginas de 10 linhas, um dia por linha, da mais nova para a mais antiga
+			const resultado = Array.from({ length: 10 }, (_, k) => ({ idCompra: `${pagina}-${k}`, dataResultado: day((pagina - 1) * 10 + k) }))
+			return Promise.resolve(new Response(JSON.stringify({ resultado, totalRegistros: 600, totalPaginas: 60 })))
+		}) as typeof fetch
+
+		const { source } = await consultarMaterialPrecos(123, { months: 1 })
+
+		expect(source.coverage).toBe("window")
+		expect(source.pagesFetched).toBeLessThan(10)
+		expect(requested).toContain(60)
 	})
 })

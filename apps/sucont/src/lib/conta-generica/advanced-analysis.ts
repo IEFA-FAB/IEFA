@@ -1,5 +1,6 @@
 // Extraído de routes/conta-generica.tsx (port do analistacontagenerica): Pareto,
 // mapa de risco por ODS, níveis críticos e lista de prioridade.
+import { computeParetoGroup } from "#/lib/analysis/pareto"
 import { type GroupedData, getOds, getOs } from "#/lib/conta-generica/helpers"
 
 export interface UgStat {
@@ -92,20 +93,10 @@ function aggregateByUg(grouped: GroupedData): UgAggregation {
 	return { ugStats, odsAgg, osAgg, totalInc, totalVol }
 }
 
-// Pareto
-function computePareto(sortedByCount: UgStat[], ugCount: number, totalInc: number): ParetoData {
-	let running = 0
-	let paretoIdx = -1
-	for (let i = 0; i < sortedByCount.length; i++) {
-		running += sortedByCount[i].count
-		if (running >= totalInc * 0.8 && paretoIdx === -1) paretoIdx = i
-	}
-	const paretoSlice = sortedByCount.slice(0, Math.max(3, paretoIdx + 1)).slice(0, 10)
-	return {
-		ugPercentage: Math.round(((paretoIdx + 1) / ugCount) * 100),
-		inconsistencyPercentage: Math.round((paretoSlice.reduce((a, c) => a + c.count, 0) / totalInc) * 100),
-		topUgs: paretoSlice,
-	}
+/** Pareto pelo critério compartilhado (`computeParetoGroup`): um grupo, uma ordenação. Porcentagens sem arredondar. */
+function computePareto(sortedByCount: UgStat[]): ParetoData {
+	const { group, ugPercentage, issuePercentage } = computeParetoGroup(sortedByCount)
+	return { ugPercentage, inconsistencyPercentage: issuePercentage, topUgs: group }
 }
 
 // ODS risk map
@@ -127,14 +118,24 @@ function buildCriticalSummary(riskMap: OdsRisk[], osAgg: Aggregate, sortedByCoun
 	}
 }
 
-// Priority list
+/** Parcela de `value` sobre o maior valor do conjunto; 0 quando o maior não é positivo. */
+function computeShareOfMax(value: number, max: number): number {
+	return max > 0 ? value / max : 0
+}
+
+/**
+ * Prioridade: metade pela contagem relativa à maior, metade pelo volume relativo ao maior.
+ * Sem volume positivo no conjunto (saldos que se anulam, ou todos negativos), a metade do
+ * volume vale 0 para todas as UGs; antes a divisão por zero dava `NaN` e a lista saía na
+ * ordem de chegada.
+ */
 function buildPriorityList(ugStats: UgStat[]): PriorityItem[] {
 	const maxCount = Math.max(...ugStats.map((u) => u.count))
 	const maxVolume = Math.max(...ugStats.map((u) => u.volume))
 	return ugStats
 		.map((u) => ({
 			...u,
-			priorityScore: Math.round((u.count / maxCount) * 50 + (u.volume / maxVolume) * 50),
+			priorityScore: Math.round(computeShareOfMax(u.count, maxCount) * 50 + computeShareOfMax(u.volume, maxVolume) * 50),
 		}))
 		.sort((a, b) => b.priorityScore - a.priorityScore)
 		.slice(0, 5)
@@ -143,7 +144,7 @@ function buildPriorityList(ugStats: UgStat[]): PriorityItem[] {
 export const performAdvancedAnalysis = (grouped: GroupedData): AdvancedAnalysis => {
 	const { ugStats, odsAgg, osAgg, totalInc, totalVol } = aggregateByUg(grouped)
 	const sortedByCount = [...ugStats].sort((a, b) => b.count - a.count)
-	const paretoData = computePareto(sortedByCount, ugStats.length, totalInc)
+	const paretoData = computePareto(sortedByCount)
 	const riskMap = buildOdsRiskMap(odsAgg, totalInc)
 	const criticalSummary = buildCriticalSummary(riskMap, osAgg, sortedByCount, ugStats)
 	const priorityList = buildPriorityList(ugStats)

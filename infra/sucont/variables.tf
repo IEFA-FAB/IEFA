@@ -127,3 +127,9 @@ variable "image_tag_mutability" {
   type    = string
   default = "MUTABLE"
 }
+
+variable "deregistration_delay" {
+  description = "Drenagem da task que sai de rotação; o valor fica no sizing.auto.tfvars. null cai no default do módulo, que também valida o intervalo."
+  type        = number
+  default     = null
+}

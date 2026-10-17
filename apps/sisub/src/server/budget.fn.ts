@@ -28,7 +28,7 @@ import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { withSensitiveAudit } from "@/lib/audit.server"
 import { compareCreditLines, compareCreditNotes, empenhoExercicioFilter, valorVigenteFromEvents, yearOfDate } from "@/lib/budget-reads"
-import { publicDbMessage } from "@/lib/db-error-message"
+import { publicDbMessage, requireReadRow } from "@/lib/db-error-message"
 import { readAllPagesByKey } from "@/lib/read-all-pages"
 import { selectColumns } from "@/lib/select-columns"
 import { getServerClient } from "@/lib/supabase.server"
@@ -312,8 +312,10 @@ export const applyCreditBatchFn = createServerFn({ method: "POST" })
 	.validator(z.object({ batchId: z.uuid() }))
 	.handler(async ({ data }) => {
 		const si = siafi()
-		const { data: batch, error: batchError } = await si.from("import_batch").select("*").eq("id", data.batchId).single()
-		if (batchError || !batch) throw new Error("Lote não encontrado")
+		const batch = requireReadRow(await si.from("import_batch").select("*").eq("id", data.batchId).maybeSingle(), {
+			readFailure: "Erro ao carregar o lote",
+			notFound: "Lote não encontrado",
+		})
 		const ctx = await requireUnitScope(2, Number(batch.unit_id))
 		if (batch.report_type !== "credito") throw new Error(`Este lote é do tipo "${batch.report_type}" — use a aplicação correspondente`)
 

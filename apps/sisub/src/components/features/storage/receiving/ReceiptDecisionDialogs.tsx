@@ -37,6 +37,9 @@ export function RefuseReceiptDialog({
 			onDone()
 		} catch (error) {
 			toast.error(error instanceof Error ? error.message : "Não foi possível recusar")
+			// A recusa são duas escritas: a NF-e pode ter ficado recusada mesmo com o erro. A tela
+			// relê o estado, e o diálogo fica aberto para recusar de novo.
+			onDone()
 		} finally {
 			setSaving(false)
 		}

@@ -5,6 +5,7 @@ import { Button } from "#/components/ui/button"
 import { Input } from "#/components/ui/input"
 import { Label } from "#/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
+import { useCopyFeedback } from "#/hooks/use-copy-feedback"
 import { useMessageDraft } from "#/hooks/use-editable-message"
 import type { UgConsolidated } from "../utils/analytics"
 import { RAC_MAPPING } from "../utils/rac"
@@ -38,8 +39,12 @@ const formatToBrazilianDate = (dateString: string) => {
 	return new Intl.DateTimeFormat("pt-BR").format(date)
 }
 
+/** Chave do "Copiado": o modal tem uma mensagem só. */
+const MESSAGE_COPY_KEY = "message"
+
 export function ConsolidatedMessageModal({ data, racFilter, onClose }: ConsolidatedMessageModalProps) {
-	const [copied, setCopied] = useState(false)
+	const { copiedKey, copy } = useCopyFeedback()
+	const copied = copiedKey === MESSAGE_COPY_KEY
 	const draft = useMessageDraft()
 	const [messageNumber, setMessageNumber] = useState("")
 
@@ -102,13 +107,9 @@ export function ConsolidatedMessageModal({ data, racFilter, onClose }: Consolida
 
 	const message = draft.of(generatedMessage)
 
-	const handleCopy = async () => {
-		try {
-			await navigator.clipboard.writeText(message.text)
-			setCopied(true)
-			setTimeout(() => setCopied(false), 2000)
-		} catch (_err) {}
-	}
+	// "Copiado" só depois de a escrita resolver; a falha, antes engolida pelo `catch` vazio,
+	// vira aviso de erro (`useCopyFeedback`).
+	const handleCopy = () => copy(message.text, MESSAGE_COPY_KEY)
 
 	return (
 		<div className="fixed inset-0 z-50 flex justify-center items-center bg-overlay/60 backdrop-blur-sm p-4 sm:p-6">

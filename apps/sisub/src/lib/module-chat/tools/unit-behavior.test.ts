@@ -308,3 +308,24 @@ describe("search_arp", () => {
 		expect(result.data).toHaveProperty("vigencia.max")
 	})
 })
+
+describe("list_empenhos", () => {
+	beforeEach(() => vi.spyOn(console, "error").mockImplementation(() => {}))
+	afterEach(() => vi.restoreAllMocks())
+
+	test("falha ao ler o anexo sobe como falha do banco, não como 'não encontrado'", async () => {
+		// Antes, `error || !row` respondia "Anexo quantitativo não encontrado" para a queda do banco,
+		// e o modelo dizia ao usuário que o anexo não existe.
+		const ctx = ctxFor({ quantity_estimate: [{ error: { message: "TypeError: fetch failed", code: "" } }] }, [])
+		const result = await tool("list_empenhos").handler({ quantityEstimateId: UUID }, ctx)
+		expect(result.success).toBe(false)
+		expect(result.error).not.toMatch(/não encontrado/)
+		expect(result.error).toMatch(/list_empenhos/)
+	})
+
+	test("anexo ausente é 'não encontrado'", async () => {
+		const ctx = ctxFor({ quantity_estimate: [{ data: null }] }, [])
+		const result = await tool("list_empenhos").handler({ quantityEstimateId: UUID }, ctx)
+		expect(result).toMatchObject({ success: false, error: "Anexo quantitativo não encontrado" })
+	})
+})

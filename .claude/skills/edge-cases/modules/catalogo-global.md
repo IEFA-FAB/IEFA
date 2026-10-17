@@ -10,7 +10,9 @@ Ler exige `global:1`; editar exige `global:2`. Na cozinha, o modelo se ADAPTA (c
   variante); escolher refeições ao copiar vale para evento da cozinha e kit de duas partes.
 - **UX:** Eventos → "Modelos da SDAB" (árvore de pastas) → marca o modelo → "Montar evento".
 - **Cobertura:** `e2e/tests/global-catalog-events.spec.ts` · `templates.operations.test.ts › forkTemplate
-  de evento escolhendo as refeições…` · `› forkTemplate de apoio global leva o kit e as porções por kit…`
+  de evento escolhendo as refeições…` · `› forkTemplate de apoio global leva o kit e as porções por kit…` ·
+  `scope-reads.authz.test.ts › forkTemplate — refeições escolhidas` (o escopo do destino confere só o
+  que a cópia leva: preparação local de refeição que ficou para trás não recusa a cópia)
 
 ### CG-EVT-02 — "A SDAB edita o modelo global"
 - **O sistema precisa:** edição in-place no escopo global; refeições com ids próprios; a cópia de

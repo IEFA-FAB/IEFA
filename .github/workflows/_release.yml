@@ -159,7 +159,9 @@ jobs:
     # (`wait services-stable`), e espera não fica mais rápida em CPU mais rápida. Versão fixada:
     # os passos dependem do `aws` e do `curl` da imagem, e o `ubuntu-latest` troca sozinho.
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    # Duas rodadas do `wait services-stable` (até 20 min, ver o passo) + conferência do
+    # rollout e smoke test.
+    timeout-minutes: 25
     permissions:
       id-token: write
       contents: read
@@ -200,7 +202,16 @@ jobs:
           CLUSTER: ${{ vars.ECS_CLUSTER }}
           SERVICE: ${{ inputs.service }}
         run: |
-          aws ecs wait services-stable --cluster "$CLUSTER" --services "$SERVICE"
+          # O waiter desiste em 10 min (40 × 15 s). O rollout soma subida da task nova (pull +
+          # grace de até 120 s + ~30 s até healthy) e a drenagem da antiga, que vai até o
+          # `deregistration_delay` do stack (330 s no sucont, infra/<stack>/sizing.auto.tfvars).
+          # Com pull lento ou falta de Spot isso passa de 10 min e o job ficava vermelho com o
+          # ECS concluindo. Uma segunda rodada dá até 20 min; o passo seguinte ainda confere o
+          # rolloutState, então um rollback não passa por sucesso.
+          if ! aws ecs wait services-stable --cluster "$CLUSTER" --services "$SERVICE"; then
+            echo "::warning::Service not stable after 10 min (long drain or slow start) — waiting another round."
+            aws ecs wait services-stable --cluster "$CLUSTER" --services "$SERVICE"
+          fi
 
       - name: Verify new revision rolled out (not rolled back)
         env:

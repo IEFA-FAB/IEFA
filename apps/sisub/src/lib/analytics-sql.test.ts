@@ -298,9 +298,16 @@ describe("validateSql: cada mensagem de recusa", () => {
 		expect(validateSql("SELECT * FROM units WHERE id IN (1, 2) GROUP BY a, b ORDER BY a, b LIMIT 5")).toEqual({ valid: true })
 		expect(validateSql("SELECT a, b FROM units u WHERE u.id = 1")).toEqual({ valid: true })
 		refuse("SELECT * FROM units u JOIN kitchen k ON (k.unit_id = u.id), secrets s", "Tabela não permitida: secrets")
-		// Caracterização: `)` sem par no nível zero encerra a lista do FROM (a profundidade
-		// não desce abaixo de zero). O Postgres recusa o parêntese sem par de todo jeito.
-		expect(validateSql("SELECT * FROM units) , secrets")).toEqual({ valid: true })
+	})
+
+	test("parênteses desbalanceados", () => {
+		// `)` sem par fecharia o invólucro do executeSql (`SELECT * FROM (<sql>) AS analytics_q`):
+		// com um `(` no fim, `units) , secrets s, (SELECT 1` vira SQL válido lendo `secrets`.
+		refuse("SELECT * FROM units) , secrets", "Parênteses desbalanceados")
+		refuse("SELECT * FROM units) , secrets s, (SELECT 1", "Parênteses desbalanceados")
+		refuse("SELECT 1 FROM units WHERE (id = 1", "Parênteses desbalanceados")
+		// Parêntese dentro de string não conta.
+		expect(validateSql("SELECT ')' AS x FROM units")).toEqual({ valid: true })
 	})
 
 	test("chamada de função", () => {

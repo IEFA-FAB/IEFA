@@ -101,7 +101,7 @@ describe("regras do Opengrep enxergam o que dizem vigiar", () => {
 	test("o parser acha regras e padrões (proteção contra um teste que passa vazio)", () => {
 		expect(ruleFiles.length).toBeGreaterThan(10)
 		expect(patterns.length).toBeGreaterThan(20)
-		expect(patterns).toContainEqual(expect.objectContaining({ rule: "money-tofixed-rounding", pattern: "apps/sisub/src/server/liquidacao.fn.ts" }))
+		expect(patterns).toContainEqual(expect.objectContaining({ rule: "money-tofixed-rounding", pattern: "packages/sisub-domain/src/operations/**" }))
 	})
 
 	test("o glob segue a sintaxe do gitignore", () => {

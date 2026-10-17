@@ -1,0 +1,80 @@
+##
+# `createClient` do supabase-js no servidor sem `auth: { autoRefreshToken: false }`.
+#
+# Nasceu de um bug que já aconteceu (#645): com a opção ligada (o default do supabase-js), fora do
+# navegador o `initialize()` do GoTrueClient chama `startAutoRefresh()`, que arma um
+# `setInterval` de 30 s que nada desarma. O intervalo referencia o client, então o padrão do repo
+# (um client por request) deixava um timer e um client vivos por request até o fim do processo:
+# vazamento de memória e de CPU que só aparece com horas de tráfego. Os serviços Hono (`api`,
+# `alpha`), o `sisub-mcp` e os próprios clients do kit tinham o defeito.
+#
+# Caminho certo: os clients do `@iefa/supabase-kit` (`createServiceRoleClient`,
+# `createStatelessAuthClient`), que usam `SERVER_AUTH_OPTIONS` (`server-options.ts`, desde o
+# #645). Onde o `createClient` direto ainda existe (dívida dos serviços Hono), passe
+# `auth: SERVER_AUTH_OPTIONS` ou `auth: { persistSession: false, autoRefreshToken: false }`.
+#
+# Fora do escopo, e por quê:
+#   - código de navegador: lá o auto-refresh é o que mantém a sessão viva, e só existe um client
+#     por aba. `browser.ts` do kit (`createAppBrowserClient`, que nem usa `createClient`),
+#     `*.client.ts(x)` e componentes (`**/components/**`);
+#   - testes, e2e e helpers de teste (`src/test/**`): processo curto, client de seed.
+#   O `createServerClient` do `@supabase/ssr` não entra: ele força `autoRefreshToken: false` no
+#   servidor depois de espalhar as opções do chamador.
+#
+# O que a regra enxerga: o `createClient` do supabase-js pelo import (nome direto, renomeado ou
+# namespace, como em `supabase-secret-client-outside-kit`), e as opções LITERAIS da chamada.
+# Opções passadas por variável (`createClient(url, key, options)`) são acusadas: a regra não
+# segue o valor; ponha o `auth` literal na chamada ou use `SERVER_AUTH_OPTIONS`.
+#
+# Casos de teste: `__fixtures__/supabase-server-client-auto-refresh.ts` (opengrep test --config
+# .opengrep/rules/supabase-server-client-auto-refresh.yaml
+# .opengrep/rules/__fixtures__/supabase-server-client-auto-refresh.ts).
+#
+# Regras compatíveis com Opengrep e Semgrep (mesma sintaxe).
+##
+rules:
+  - id: supabase-server-client-auto-refresh
+    languages: [typescript]
+    severity: ERROR
+    message: >-
+      `createClient` do supabase-js sem `auth: { autoRefreshToken: false }`. Fora do navegador o
+      GoTrueClient arma um `setInterval` de auto-refresh que nunca é desarmado e segura o client:
+      com um client por request, cada request deixa um timer e um client vivos até o processo
+      morrer. Use os clients do `@iefa/supabase-kit` (`createServiceRoleClient`,
+      `createStatelessAuthClient`) ou passe `auth: SERVER_AUTH_OPTIONS` (ou
+      `auth: { persistSession: false, autoRefreshToken: false }`) literal na chamada.
+    paths:
+      include:
+        - "apps/**"
+        - "packages/**"
+      exclude:
+        - "packages/supabase-kit/src/browser.ts"
+        - "**/*.client.ts"
+        - "**/*.client.tsx"
+        - "**/components/**"
+        - "**/*.test.ts"
+        - "**/*.test.tsx"
+        - "**/e2e/**"
+        - "**/src/test/**"
+    patterns:
+      - pattern-either:
+          - patterns:
+              - pattern-inside: |
+                  import { createClient } from "@supabase/supabase-js"
+                  ...
+              - pattern: createClient(...)
+          - patterns:
+              - pattern-inside: |
+                  import { createClient as $ALIAS } from "@supabase/supabase-js"
+                  ...
+              - pattern: $ALIAS(...)
+          - patterns:
+              - pattern-inside: |
+                  import * as $NS from "@supabase/supabase-js"
+                  ...
+              - pattern: $NS.createClient(...)
+      # Opções literais com o auto-refresh desligado, ou com a constante do kit (direta ou
+      # espalhada num objeto).
+      - pattern-not: '$F($URL, $KEY, {..., auth: {..., autoRefreshToken: false, ...}, ...})'
+      - pattern-not: '$F($URL, $KEY, {..., auth: SERVER_AUTH_OPTIONS, ...})'
+      - pattern-not: '$F($URL, $KEY, {..., auth: {..., ...SERVER_AUTH_OPTIONS, ...}, ...})'

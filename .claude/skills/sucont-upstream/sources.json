@@ -20,17 +20,22 @@
       "repo": "sucont32sau-debug/analistacompatibilidade",
       "tool": "Analista de compatibilidade",
       "route": "/analista-compatibilidade",
-      "targets": ["apps/sucont/src/lib/compatibilidade/", "apps/sucont/src/components/compatibilidade/", "apps/sucont/src/routes/analista-compatibilidade.tsx"],
+      "targets": [
+        "apps/sucont/src/lib/compatibilidade/",
+        "apps/sucont/src/components/compatibilidade/",
+        "apps/sucont/src/routes/analista-compatibilidade.tsx",
+        "apps/sucont/src/lib/analysis/saldo.ts"
+      ],
       "checkpoint": null,
       "checkpointDate": null,
       "lastReviewed": "2026-09-09 (parcial: só assunto dos commits, sem diff)",
-      "notes": "Trazida em 2026-09-09 a edição manual da mensagem. A exclusão da UG 170999 NÃO se aplica aqui — upstream só a tem nas três ferramentas de saldo (impróprio, alongado e cruzamento). O diff commit a commit segue sem conferir — por isso o checkpoint continua nulo."
+      "notes": "Trazida em 2026-09-09 a edição manual da mensagem. A exclusão da UG 170999 NÃO se aplica aqui — upstream a tem nas três ferramentas de saldo (impróprio, alongado e cruzamento) e na conta genérica (c64549f), não nesta. O diff commit a commit segue sem conferir — por isso o checkpoint continua nulo."
     },
     {
       "repo": "sucont32sau-debug/Analistasaldoalongado",
       "tool": "Analista de saldo alongado",
       "route": "/analistasaldoalongado",
-      "targets": ["apps/sucont/src/analistasaldoalongado/", "apps/sucont/src/routes/analistasaldoalongado.tsx"],
+      "targets": ["apps/sucont/src/analistasaldoalongado/", "apps/sucont/src/routes/analistasaldoalongado.tsx", "apps/sucont/src/lib/analysis/saldo.ts"],
       "checkpoint": null,
       "checkpointDate": null,
       "lastReviewed": "2026-09-09 (parcial: só assunto dos commits, sem diff)",
@@ -40,7 +45,12 @@
       "repo": "sucont32sau-debug/Analistasaldoimproprio",
       "tool": "Analista de saldo impróprio",
       "route": null,
-      "targets": ["apps/sucont/src/routes/monitoramento.tsx", "apps/sucont/src/lib/analista/", "apps/sucont/src/components/analista/"],
+      "targets": [
+        "apps/sucont/src/routes/monitoramento.tsx",
+        "apps/sucont/src/lib/analista/",
+        "apps/sucont/src/components/analista/",
+        "apps/sucont/src/lib/analysis/saldo.ts"
+      ],
       "checkpoint": null,
       "checkpointDate": null,
       "lastReviewed": "2026-09-09 (parcial: só assunto dos commits, sem diff)",
@@ -54,18 +64,24 @@
         "apps/sucont/src/components/conta-generica/",
         "apps/sucont/src/lib/conta-generica/",
         "apps/sucont/src/routes/conta-generica.tsx",
-        "apps/sucont/src/server/conta-generica.fn.ts"
+        "apps/sucont/src/server/conta-generica.fn.ts",
+        "apps/sucont/src/lib/analysis/saldo.ts"
       ],
       "checkpoint": null,
       "checkpointDate": null,
-      "lastReviewed": "2026-09-09 (parcial: só assunto dos commits, sem diff)",
-      "notes": "Trazida em 2026-09-09 a edição manual da mensagem. A exclusão da UG 170999 NÃO se aplica aqui — upstream só a tem nas três ferramentas de saldo (impróprio, alongado e cruzamento). O diff commit a commit segue sem conferir — por isso o checkpoint continua nulo."
+      "lastReviewed": "2026-10-16 (parcial: só c64549f com diff; o resto, só assunto dos commits)",
+      "notes": "Trazida em 2026-09-09 a edição manual da mensagem. Em 2026-10-16 foi conferido o diff de c64549f (2026-04-28): além de tirar a UG 120283 (GECAMP) da tabela literal, o upstream passou a descartar a UG 170999 no processData. A nota antiga dizia que a exclusão não se aplicava aqui; estava errada. O commit não diz o motivo, mas é a mesma exclusão das ferramentas de saldo: a 170999 é a STN (Órgão Central), contraparte e não UG a cobrar. Trazida via isUgAcompanhada em lib/conta-generica/process-data.ts. A 120283 não se aplica: a tabela de UG do app deriva de lib/ug/registry. O diff dos demais commits segue sem conferir — por isso o checkpoint continua nulo."
     },
     {
       "repo": "sucont32sau-debug/cruzamentocontas",
       "tool": "Cruzamento de contas",
       "route": "/cruzamento-contas",
-      "targets": ["apps/sucont/src/lib/cruzamento/", "apps/sucont/src/components/cruzamento/", "apps/sucont/src/routes/cruzamento-contas.tsx"],
+      "targets": [
+        "apps/sucont/src/lib/cruzamento/",
+        "apps/sucont/src/components/cruzamento/",
+        "apps/sucont/src/routes/cruzamento-contas.tsx",
+        "apps/sucont/src/lib/analysis/saldo.ts"
+      ],
       "checkpoint": "3f1245cf",
       "checkpointDate": "2026-07-06",
       "lastReviewed": "2026-09-09",
@@ -88,7 +104,7 @@
       "repo": "sucont32sau-debug/sucontsubitem",
       "tool": "Subitens genéricos",
       "route": "/subitens-genericos",
-      "targets": ["apps/sucont/src/subitens/", "apps/sucont/src/routes/subitens-genericos.tsx"],
+      "targets": ["apps/sucont/src/subitens/", "apps/sucont/src/routes/subitens-genericos.tsx", "apps/sucont/src/lib/analysis/saldo.ts"],
       "checkpoint": null,
       "checkpointDate": null,
       "lastReviewed": null
@@ -129,7 +145,12 @@
       "repo": "lsantosnels/SIAFI-x-SILOMS-Auditor",
       "tool": "Auditor SIAFI × SILOMS",
       "route": "/auditor",
-      "targets": ["apps/sucont/src/auditor/", "apps/sucont/src/routes/auditor.tsx", "apps/sucont/src/server/auditor.fn.ts"],
+      "targets": [
+        "apps/sucont/src/auditor/",
+        "apps/sucont/src/routes/auditor.tsx",
+        "apps/sucont/src/server/auditor.fn.ts",
+        "apps/sucont/src/lib/analysis/saldo.ts"
+      ],
       "portedIn": "PR #207",
       "checkpoint": "87d53450",
       "checkpointDate": "2026-05-04",

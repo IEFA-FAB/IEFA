@@ -1,10 +1,11 @@
-import { Copy } from "lucide-react"
+import { Check, Copy } from "lucide-react"
 import { useState } from "react"
 import { EditableMessage } from "#/components/editable-message"
 import { Badge } from "#/components/ui/badge"
 import { Button } from "#/components/ui/button"
 import { Input } from "#/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
+import { useCopyFeedback } from "#/hooks/use-copy-feedback"
 import { useMessageDraft } from "#/hooks/use-editable-message"
 import { getOrganizacao } from "#/lib/analista/organizacao"
 import { getRacTopic, type ProcessedRow } from "#/lib/analista/types"
@@ -33,7 +34,13 @@ const formatDeadlineDate = (dateString: string) => {
 	return `${day}/${month}/${date.getFullYear()}`
 }
 
+/** Chave do "Copiado": o cartão tem uma mensagem só. */
+const MESSAGE_COPY_KEY = "message"
+
 export function ConsolidatedMessageCard({ rows, activeRacFilter }: ConsolidatedMessageCardProps) {
+	// Antes o `writeText` não era aguardado: sem confirmação e com a falha calada.
+	const { copiedKey, copy } = useCopyFeedback()
+	const isCopied = copiedKey === MESSAGE_COPY_KEY
 	const [msgNumber, setMsgNumber] = useState("")
 	const [sendDate, setSendDate] = useState(new Date().toISOString().split("T")[0])
 	const [messageType, setMessageType] = useState<"SEM_PRAZO" | "COM_PRAZO" | "ALERTA">("SEM_PRAZO")
@@ -120,13 +127,13 @@ export function ConsolidatedMessageCard({ rows, activeRacFilter }: ConsolidatedM
 							<h3 className="text-subheading text-foreground">Mensagem Institucional Pronta (Consolidada)</h3>
 							<Button
 								type="button"
-								onClick={() => navigator.clipboard.writeText(message.text)}
+								onClick={() => copy(message.text, MESSAGE_COPY_KEY)}
 								variant="outline"
 								size="xs"
 								className="bg-card text-muted-foreground shadow-sm hover:text-foreground"
 							>
-								<Copy className="w-3 h-3" />
-								<span>Copiar</span>
+								{isCopied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+								<span>{isCopied ? "Copiado" : "Copiar"}</span>
 							</Button>
 						</div>
 
