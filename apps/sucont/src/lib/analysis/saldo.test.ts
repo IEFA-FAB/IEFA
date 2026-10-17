@@ -44,6 +44,18 @@ describe("parseBrazilianAmount", () => {
 		["−1.234,56", -1234.56],
 		["(0,00)", 0],
 		["$ 10,00", 10],
+		// Sufixo de natureza: sai, e a natureza é ignorada.
+		["1.234,56 C", 1234.56],
+		["1.234,56 D", 1234.56],
+		["1.234,56D", 1234.56],
+		["1.234,56c", 1234.56],
+		["1.234,56\u00a0D", 1234.56],
+		["R$ 1.234,56 D", 1234.56],
+		["(1.234,56) C", -1234.56],
+		["1.234,56- D", -1234.56],
+		// Vírgula decimal sem parte inteira.
+		[",5", 0.5],
+		["-,50", -0.5],
 	])("%p → %p", (raw, expected) => {
 		expect(parseBrazilianAmount(raw)).toBe(expected)
 	})
@@ -55,9 +67,12 @@ describe("parseBrazilianAmount", () => {
 		expect(parseBrazilianAmount(null)).toBeNaN()
 	})
 
-	it.each(["12,3,4", "1,234,567", "1.23.4", "12abc", "1.234,56D", "-1.234-", "--1", "(1.234", ",", "."])("formato ambíguo ou com lixo sai NaN: %p", (raw) => {
-		expect(parseBrazilianAmount(raw)).toBeNaN()
-	})
+	it.each(["12,3,4", "1,234,567", "1.23.4", "12abc", "1.234,56X", "D", "1.234,56CD", "-1.234-", "--1", "(1.234", ",", "."])(
+		"formato ambíguo ou com lixo sai NaN: %p",
+		(raw) => {
+			expect(parseBrazilianAmount(raw)).toBeNaN()
+		}
+	)
 
 	it("zero negativo não existe", () => {
 		expect(Object.is(parseBrazilianAmount("-0,00"), 0)).toBe(true)

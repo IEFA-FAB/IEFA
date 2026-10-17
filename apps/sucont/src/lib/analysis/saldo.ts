@@ -5,7 +5,7 @@
  *
  * O texto que chega aqui é sempre o DIGITADO, na convenção brasileira: as ferramentas leem
  * o xlsx com `raw: true` (célula numérica chega como número e passa direto) e o CSV sem
- * deixar o SheetJS adivinhar número (`readWorkbook` de `lib/spreadsheet`, ou o Papa). Texto que o
+ * deixar o SheetJS adivinhar número (`readWorkbook` de `lib/spreadsheet`). Texto que o
  * SheetJS FORMATA (`raw: false`) sai em inglês ("123.456" é cento e vinte e três), e não
  * deve chegar a este parser: lido como brasileiro, viraria um valor mil vezes maior.
  */
@@ -13,8 +13,8 @@
 /** Milhar com ponto, em grupos de três dígitos: "1.234", "12.345.678". O primeiro grupo não começa por zero. */
 const THOUSANDS_WITH_DOT = /^[1-9]\d{0,2}(\.\d{3})+$/
 
-/** Formato brasileiro completo: milhar com ponto (opcional) e decimal com vírgula. */
-const BRAZILIAN_FULL = /^\d{1,3}(\.\d{3})*,\d*$|^\d+,\d*$/
+/** Formato brasileiro completo: milhar com ponto (opcional) e decimal com vírgula; a parte inteira pode faltar (",5"). */
+const BRAZILIAN_FULL = /^(\d{1,3}(\.\d{3})*|\d*),\d*$/
 
 /** Formato inglês completo ("1,234.56"): com os dois separadores e a vírgula antes, não há outra leitura. */
 const ENGLISH_FULL = /^\d{1,3}(,\d{3})+\.\d*$/
@@ -65,8 +65,11 @@ function normalizeBody(body: string): string | null {
 /**
  * Saldo da célula: número passa direto; texto na convenção brasileira.
  *
- * - "R$" e espaços saem: "R$ 1.234,56" → 1234.56; "-R$ 10,00" → -10.
- * - Vírgula é sempre o decimal: "1.234,56" → 1234.56; "12,345" → 12.345; "1,5" → 1.5.
+ * - "R$" e espaços (inclusive o não separável) saem: "R$ 1.234,56" → 1234.56; "-R$ 10,00" → -10.
+ * - O sufixo de natureza "C"/"D" (crédito/débito, qualquer caixa) sai e a natureza é
+ *   ignorada, como sempre foi: "1.234,56 D" e "1.234,56c" → 1234.56.
+ * - Vírgula é sempre o decimal: "1.234,56" → 1234.56; "12,345" → 12.345; "1,5" → 1.5;
+ *   ",5" → 0.5.
  * - Ponto sozinho é milhar no padrão de milhar e decimal fora dele: "1.234" → 1234,
  *   "1.234.567" → 1234567, "1500.25" → 1500.25, "0.500" → 0.5.
  * - "1,234.56" (os dois, vírgula antes) só tem uma leitura: 1234.56.
@@ -79,7 +82,10 @@ function normalizeBody(body: string): string | null {
 export function parseBrazilianAmount(raw: unknown): number {
 	if (typeof raw === "number") return raw
 	if (typeof raw !== "string") return Number.NaN
-	const cleaned = raw.replace(/R?\$|\s/g, "").replace(/−/g, "-")
+	const cleaned = raw
+		.replace(/R?\$|\s/g, "")
+		.replace(/−/g, "-")
+		.replace(/[CD]$/i, "")
 	const { negative, body } = splitSign(cleaned)
 	const normalized = normalizeBody(body)
 	if (normalized === null) return Number.NaN

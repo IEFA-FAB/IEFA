@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test"
+import * as XLSX from "xlsx"
 import { parseSaldoCell, readRawRows } from "#/analistasaldoalongado/utils/parser"
 import { CSV_ENCODINGS } from "#/lib/__fixtures__/csv-encodings"
 
@@ -34,8 +35,10 @@ describe("parseSaldoCell", () => {
 		expect(parseSaldoCell("12,345")).toBe(12.345)
 	})
 
-	it("mantém a tolerância a letras no texto, como a cópia antiga", () => {
+	it("lê o sufixo de natureza como as outras ferramentas", () => {
 		expect(parseSaldoCell("1.234,56 C")).toBe(1234.56)
+		expect(parseSaldoCell("1.234,56 D")).toBe(1234.56)
+		expect(parseSaldoCell("1.234,56D")).toBe(1234.56)
 		expect(parseSaldoCell("")).toBe(0)
 		expect(parseSaldoCell("abc")).toBe(0)
 		expect(parseSaldoCell(undefined)).toBe(0)
@@ -45,11 +48,27 @@ describe("parseSaldoCell", () => {
 describe("readRawRows", () => {
 	it.each(CSV_ENCODINGS)('CSV %s: acha "Conta Contábil" com o acento', (_label, encode) => {
 		const csv = "UG;Conta Contábil;Conta Corrente;Saldo\n120062;897110300;CC1;1.234,56\n"
-		const [row] = readRawRows("saldo.csv", encode(csv))
+		const [row] = readRawRows(encode(csv))
 		expect(row).toEqual({ UG: "120062", "Conta Contábil": "897110300", "Conta Corrente": "CC1", Saldo: "1.234,56" })
 	})
 
-	it("recusa formato que não é CSV nem Excel", () => {
-		expect(() => readRawRows("saldo.txt", new Uint8Array())).toThrow("Formato de arquivo não suportado")
+	it("CSV pt-BR: o saldo chega como texto e sai pela regra brasileira", () => {
+		const csv =
+			"UG;Conta Contábil;Conta Corrente;Saldo\n120062;897110300;CC1;1.234,56\n120062;897110300;CC2;1.234\n120062;897110300;CC3;12,345\n120062;897110300;CC4;(1.234,56) D\n"
+		const rows = readRawRows(new TextEncoder().encode(csv))
+		expect(rows.map((row) => parseSaldoCell(row.Saldo))).toEqual([1234.56, 1234, 12.345, -1234.56])
+	})
+
+	it("xlsx: número cru passa direto", () => {
+		const book = XLSX.utils.book_new()
+		XLSX.utils.book_append_sheet(
+			book,
+			XLSX.utils.aoa_to_sheet([
+				["UG", "Saldo"],
+				["120062", 123.456],
+			]),
+			"a"
+		)
+		expect(readRawRows(XLSX.write(book, { type: "array", bookType: "xlsx" }))).toEqual([{ UG: "120062", Saldo: 123.456 }])
 	})
 })
