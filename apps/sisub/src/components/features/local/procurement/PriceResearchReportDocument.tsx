@@ -1,9 +1,6 @@
 import {
 	formatConsultedAt,
 	HIGH_CV_PERCENT,
-	PRICE_RESEARCH_MAX_PAGES,
-	PRICE_RESEARCH_PAGE_SIZE,
-	PRICE_RESEARCH_SOURCE_URL,
 	type PriceResearchReport,
 	researchWindowOf,
 	SAMPLE_MAX_AGE_DAYS,
@@ -52,13 +49,13 @@ function formatOrderRanges(orders: number[]): string {
 function groupResearchWindows(items: PriceResearchReport["items"]) {
 	const groups = new Map<
 		string,
-		{ researchDate: string; windowStart: string | null; coverage: SourceCoverage | null; consultedAt: string[]; orders: number[] }
+		{ researchDate: string; windowStart: string | null; windowEnd: string; coverage: SourceCoverage | null; consultedAt: string[]; orders: number[] }
 	>()
 	for (const i of items) {
 		if (!i.research) continue
 		const window = researchWindowOf(i.research)
 		const coverage = i.research.source?.coverage ?? null
-		const key = `${window.researchDate}|${window.windowStart}|${coverage}`
+		const key = `${window.researchDate}|${window.windowStart}|${window.windowEnd}|${coverage}`
 		const group = groups.get(key) ?? { ...window, coverage, consultedAt: [], orders: [] }
 		group.orders.push(i.order)
 		if (i.research.source) group.consultedAt.push(i.research.source.consultedAt)
@@ -150,38 +147,47 @@ export function PriceResearchReportDocument({ report, layout = "print" }: { repo
 						{periods.length > 0 ? ` nos últimos ${periods.join("/")} meses anteriores à data de cada pesquisa` : ""}. Cada preço da série identifica a compra de
 						origem (identificador da compra e do item, UASG, data e fornecedor quando informado) e pode ser conferido na fonte.
 					</p>
-					<p>
-						Filtros da consulta, iguais em todos os itens: o código CATMAT do item (tipo=codigoItemCatalogo), em todo o país, sem recorte de UASG, órgão,
-						estado, município, esfera, poder ou data, em páginas de {INT.format(PRICE_RESEARCH_PAGE_SIZE)} registros. A janela de 1 ano é aplicada sobre o
-						resultado: entram os preços com data do resultado, ou da compra quando não há resultado, do início da janela até a data da pesquisa. A fonte devolve
-						os registros em ordem decrescente de data do resultado; a coleta lê as páginas até a primeira que passa do início da janela e confere a última
-						página ("janela completa"), e sem janela lê todas, até {PRICE_RESEARCH_MAX_PAGES}. A API não informa a hora da consulta: a hora abaixo é a do
-						servidor do sisub ao receber a primeira página. Para repetir, consulte {PRICE_RESEARCH_SOURCE_URL} com tipo=codigoItemCatalogo e codigo=CATMAT,
-						página a página, até passar do início da janela; compras homologadas depois da pesquisa aparecem na consulta de hoje e não na série.
-					</p>
-					{researchWindows.length > 0 && (
-						<table>
-							<thead>
-								<tr>
-									<th>Itens</th>
-									<th>Data da pesquisa</th>
-									<th>Janela aplicada</th>
-									<th>Consulta (hora de Brasília)</th>
-									<th>Leitura da fonte</th>
-								</tr>
-							</thead>
-							<tbody>
-								{researchWindows.map((w) => (
-									<tr key={`${w.researchDate}-${w.windowStart}-${w.coverage}`}>
-										<td>{formatOrderRanges(w.orders)}</td>
-										<td>{fmtCivil(w.researchDate)}</td>
-										<td>{w.windowStart ? `${fmtCivil(w.windowStart)} a ${fmtCivil(w.researchDate)}` : "todo o histórico"}</td>
-										<td>{formatConsultationRange(w.consultedAt)}</td>
-										<td>{w.coverage ? SOURCE_COVERAGE_LABELS[w.coverage] : "não registrada"}</td>
-									</tr>
-								))}
-							</tbody>
-						</table>
+					{isSeries2 && (
+						<>
+							<p>
+								Filtros da consulta, iguais em todos os itens: o código CATMAT do item (tipo=codigoItemCatalogo), em todo o país, sem recorte de UASG, órgão,
+								estado, município, esfera, poder ou data, em páginas de 500 registros. A janela é aplicada sobre o resultado: entram os preços com data do
+								resultado, ou da compra quando não há resultado, do início da janela até o dia da consulta. A fonte devolve os registros em ordem decrescente de
+								data do resultado; a coleta lê as páginas até a primeira que passa do início da janela e confere a última página ("janela completa"), e sem
+								janela lê todas, até o teto de páginas. A API não informa a hora da consulta: a hora abaixo é a do servidor do sisub ao receber a primeira
+								página. Pesquisas com a consulta "não registrada" são anteriores a esse registro e foram coletadas pela regra da época: as primeiras 20 páginas,
+								sem parada pela janela.
+							</p>
+							<p>
+								Para repetir, consulte https://dadosabertos.compras.gov.br/modulo-pesquisa-preco/1_consultarMaterial com tipo=codigoItemCatalogo e
+								codigo=CATMAT, página a página, até passar do início da janela; compras homologadas depois da pesquisa aparecem na consulta de hoje e não na
+								série. A URL de cada consulta e de cada preço está no arquivo da série.
+							</p>
+							{researchWindows.length > 0 && (
+								<table>
+									<thead>
+										<tr>
+											<th>Itens</th>
+											<th>Data da pesquisa</th>
+											<th>Janela aplicada</th>
+											<th>Consulta (hora de Brasília)</th>
+											<th>Leitura da fonte</th>
+										</tr>
+									</thead>
+									<tbody>
+										{researchWindows.map((w) => (
+											<tr key={`${w.researchDate}-${w.windowStart}-${w.windowEnd}-${w.coverage}`}>
+												<td>{formatOrderRanges(w.orders)}</td>
+												<td>{fmtCivil(w.researchDate)}</td>
+												<td>{w.windowStart ? `${fmtCivil(w.windowStart)} a ${fmtCivil(w.windowEnd)}` : "todo o histórico"}</td>
+												<td>{formatConsultationRange(w.consultedAt)}</td>
+												<td>{w.coverage ? SOURCE_COVERAGE_LABELS[w.coverage] : "não registrada"}</td>
+											</tr>
+										))}
+									</tbody>
+								</table>
+							)}
+						</>
 					)}
 					<p>
 						A pesquisa direta com fornecedores (art. 5º, IV), sítios especializados (III) e notas fiscais (V) não foram usados nesta emissão; por isso o inciso
@@ -198,7 +204,7 @@ export function PriceResearchReportDocument({ report, layout = "print" }: { repo
 				<>
 					<p>
 						{isSeries2
-							? `A série completa está no arquivo anexo "serie-precos-emissao-${emission.sequence}.csv", em três blocos: a nota com a fonte, os filtros da consulta e como repeti-la; o resumo por item, com a data da pesquisa, a janela, a URL da consulta, o funil de amostras, a estatística, o método, o preço e as justificativas; e as amostras, cada preço válido, descartado ou inconsistente com a descrição na compra, a embalagem original, a conversão para a unidade do item e a URL que o devolve da fonte. A integridade do arquivo se confere pelo SHA-256:`
+							? `A série completa está no arquivo anexo "serie-precos-emissao-${emission.sequence}.csv", em três blocos: a nota com a fonte, os filtros da consulta e como repeti-la; o resumo por item, com a data da pesquisa, a janela, a hora e a URL da consulta, a leitura da fonte, o funil de amostras, a estatística, o método, o preço e as justificativas; e as amostras, cada preço válido, descartado ou inconsistente com a descrição na compra, a embalagem original, a conversão para a unidade do item e a URL que o devolve da fonte. A integridade do arquivo se confere pelo SHA-256:`
 							: `A série completa, com cada preço válido, descartado ou inconsistente, a embalagem original e a conversão para a unidade do item, está no arquivo anexo "serie-precos-emissao-${emission.sequence}.csv", cuja integridade se confere pelo SHA-256:`}
 					</p>
 					<p data-proc="mono">{emission.sha256}</p>

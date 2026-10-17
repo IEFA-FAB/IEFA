@@ -187,6 +187,12 @@ async function writeResearchItems(supabase: PriceResearchClient, researchId: str
 				non_compliance_reasons: analysis?.compliance.nonComplianceReasons ?? [],
 				// Erro
 				error: item.error ?? null,
+				// Leitura da fonte (migration 20261016150000)
+				source_consulted_at: analysis?.source?.consultedAt ?? null,
+				source_total_records: analysis?.source?.totalRecords ?? null,
+				source_total_pages: analysis?.source?.totalPages ?? null,
+				source_pages_fetched: analysis?.source?.pagesFetched ?? null,
+				source_coverage: analysis?.source?.coverage ?? null,
 			})
 			.select("id")
 			.single()

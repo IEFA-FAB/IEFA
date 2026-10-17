@@ -185,12 +185,17 @@ async function researchQuantityEstimate(c: Context, quantityEstimateId: string) 
 			batch.map(async ([catmatCode, itemDescription]) => {
 				try {
 					const catmatDescricao = (await buscarDescricaoCatmat(supabase, catmatCode)) ?? itemDescription
-					const rawItems = await consultarMaterialPrecos(catmatCode, {
+					const { items: rawItems, source } = await consultarMaterialPrecos(catmatCode, {
+						months: options.months ?? 12,
 						estado: options.estado,
 						codigoUasg: options.codigoUasg,
 						codigoMunicipio: options.codigoMunicipio,
 					})
-					analysisMap.set(catmatCode, analyzePrices(catmatCode, catmatDescricao, rawItems, options))
+					// Amostra cortada no teto não sustenta preço: o item fica com erro, sem análise.
+					if (source.coverage === "truncated") {
+						throw new Error(`Coleta parcial: ${source.pagesFetched} de ${source.totalPages} páginas lidas sem cobrir a janela; refaça a pesquisa`)
+					}
+					analysisMap.set(catmatCode, { ...analyzePrices(catmatCode, catmatDescricao, rawItems, options), source })
 				} catch (err) {
 					const msg = err instanceof Error ? err.message : String(err)
 					console.error(`[price-research] anexo ${quantityEstimateId} CATMAT ${catmatCode}: ${msg}`)
@@ -311,12 +316,14 @@ export const priceResearchRoutes = new Hono()
 		const catmatDescricao = await buscarDescricaoCatmat(supabase, catmatCode)
 
 		try {
-			const rawItems = await consultarMaterialPrecos(catmatCode, {
+			const { items: rawItems, source } = await consultarMaterialPrecos(catmatCode, {
+				months: options.months ?? 12,
 				estado: options.estado,
 				codigoUasg: options.codigoUasg,
 				codigoMunicipio: options.codigoMunicipio,
 			})
-			return c.json(analyzePrices(catmatCode, catmatDescricao, rawItems, options))
+			// Exploratória: devolve a análise com a leitura da fonte, inclusive quando parcial.
+			return c.json({ ...analyzePrices(catmatCode, catmatDescricao, rawItems, options), source })
 		} catch (err) {
 			const message = err instanceof Error ? err.message : String(err)
 			console.error(`[price-research] CATMAT ${catmatCode}: ${message}`)

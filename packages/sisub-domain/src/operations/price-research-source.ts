@@ -65,3 +65,108 @@ export function formatConsultedAt(iso: string): string {
 		hourCycle: "h23",
 	}).format(new Date(iso))
 }
+
+// ─── Coleta ─────────────────────────────────────────────────────────────────────
+
+/** Uma página da consulta, como a fonte a devolve. `fetchedAt` é a hora do servidor que a recebeu. */
+export interface SourcePage<T> {
+	resultado: T[]
+	totalRegistros: number
+	totalPaginas: number
+	fetchedAt?: string
+}
+
+export interface CollectedSource<T> {
+	results: T[]
+	consultation: PriceResearchSourceConsultation
+}
+
+/** Data pela qual a fonte ordena a resposta (decrescente) e pela qual a janela conta. */
+const resultDateOf = (r: { dataResultado?: string | null }) => r.dataResultado?.slice(0, 10) ?? null
+
+/**
+ * Coleta as páginas de uma consulta, em lotes de `concurrency`. Com janela (`windowStartFor`
+ * devolve o início dela a partir da hora da consulta), para quando a última linha lida passa do
+ * início: a fonte ordena por data do resultado, decrescente, e o resto só é mais antigo. Antes de
+ * parar, confere a ordem em cada página lida (de forma incremental) e lê a última página, onde
+ * cairia linha sem data do resultado ou fora de ordem; qualquer quebra faz ler tudo, até o teto.
+ * A última página lida como conferência é reaproveitada se a leitura completa chegar a ela.
+ */
+export async function collectSourcePages<T extends { dataResultado?: string | null }>(options: {
+	fetchPage: (pagina: number) => Promise<SourcePage<T>>
+	windowStartFor: ((consultedAt: string) => string) | null
+	maxPages?: number
+	concurrency?: number
+	/** Pausa de cortesia entre lotes, em ms. */
+	pauseMs?: number
+	now?: () => Date
+}): Promise<CollectedSource<T>> {
+	const maxPages = options.maxPages ?? PRICE_RESEARCH_MAX_PAGES
+	const concurrency = options.concurrency ?? 4
+	const cache = new Map<number, Promise<SourcePage<T>>>()
+	const fetchPage = (pagina: number) => {
+		const cached = cache.get(pagina)
+		if (cached) return cached
+		const request = options.fetchPage(pagina)
+		cache.set(pagina, request)
+		return request
+	}
+
+	const first = await fetchPage(1)
+	const consultedAt = first.fetchedAt ?? (options.now?.() ?? new Date()).toISOString()
+	const cutoff = options.windowStartFor?.(consultedAt) ?? null
+	const totalPages = first.totalPaginas
+	const limit = Math.min(totalPages, maxPages)
+	const pages: T[][] = []
+
+	// Ordem conferida a cada página que entra: uma quebra vale para o resto da coleta.
+	let ordered = true
+	let lastDate: string | null = null
+	const continuesOrder = (rows: readonly T[], from: string | null) => {
+		let previous = from
+		for (const r of rows) {
+			const date = resultDateOf(r)
+			if (!date || (previous && date > previous)) return { ok: false, last: previous }
+			previous = date
+		}
+		return { ok: true, last: previous }
+	}
+	const take = (rows: T[]) => {
+		pages.push(rows)
+		if (!ordered) return
+		const step = continuesOrder(rows, lastDate)
+		ordered = step.ok
+		lastDate = step.last
+	}
+	const passedWindowStart = () => cutoff != null && ordered && lastDate != null && lastDate < cutoff
+
+	let stopAtWindow = true
+	const readUpTo = async () => {
+		while (pages.length < limit && !(stopAtWindow && passedWindowStart())) {
+			const start = pages.length + 1
+			const end = Math.min(start + concurrency - 1, limit)
+			const batch = await Promise.all(Array.from({ length: end - start + 1 }, (_, i) => fetchPage(start + i)))
+			for (const page of batch) take(page.resultado)
+			if (pages.length < limit && options.pauseMs) await new Promise((r) => setTimeout(r, options.pauseMs))
+		}
+	}
+
+	take(first.resultado)
+	await readUpTo()
+	let stoppedAtWindow = false
+	if (pages.length < totalPages && passedWindowStart()) {
+		// A última página continua a ordem? Linha sem data ou mais nova que a última lida quebra a premissa.
+		const last = await fetchPage(totalPages)
+		if (continuesOrder(last.resultado, lastDate).ok) stoppedAtWindow = true
+		else {
+			stopAtWindow = false
+			await readUpTo()
+		}
+	}
+
+	const coverage: SourceCoverage = pages.length >= totalPages ? "complete" : stoppedAtWindow ? "window" : "truncated"
+	return {
+		results: pages.flat(),
+		consultation: { consultedAt, totalRecords: first.totalRegistros, totalPages, pagesFetched: Math.min(pages.length, totalPages), coverage },
+	}
+}

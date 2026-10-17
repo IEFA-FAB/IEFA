@@ -25,7 +25,6 @@ describe("consulta à fonte", () => {
 	test("janela completa e todas as páginas gravam", () => {
 		expect(() => assertSourceConsultation(source(), now)).not.toThrow()
 		expect(() => assertSourceConsultation(source({ coverage: "complete", pagesFetched: 17 }), now)).not.toThrow()
-		expect(() => assertSourceConsultation(undefined, now)).not.toThrow()
 	})
 
 	test("hora no futuro e páginas que não batem são recusadas", () => {

@@ -1,4 +1,5 @@
 import {
+	collectSourcePages,
 	convertSamplePrice,
 	PRICE_RESEARCH_MAX_PAGES,
 	PRICE_RESEARCH_PAGE_SIZE,
@@ -53,9 +54,9 @@ export interface AutoSelectResult {
 export const DEFAULT_PERIOD_MONTHS = 12
 
 /**
- * Teto de páginas por CATMAT (20 × 500 = 10.000 registros). Amostra mais que
- * suficiente para a estatística e evita rajada contra a API pública — que passa
- * pelo nosso próprio server, então uma consulta sem teto castiga os dois lados.
+ * Teto de páginas por CATMAT (40 × 500 = 20.000 registros), freio contra rajada na API pública,
+ * que passa pelo nosso próprio server. Com janela a coleta para bem antes (ver
+ * `collectSourcePages`); o teto só alcança a consulta sem janela ou a fonte fora de ordem.
  * Os números moram no domínio: o relatório e a série descrevem esta mesma consulta.
  */
 export const MAX_PAGES = PRICE_RESEARCH_MAX_PAGES
@@ -224,78 +225,21 @@ export function analyzeSamples(samples: ComprasMaterialPriceResult[], unit: stri
 	}
 }
 
-/** Data pela qual a fonte ordena a resposta (decrescente) e pela qual a janela conta. */
-const resultDate = (r: ComprasMaterialPriceResult) => r.dataResultado?.slice(0, 10) ?? null
-
 /**
- * true quando as páginas, em sequência, estão em ordem decrescente de data do resultado e toda
- * linha tem essa data. É a premissa que deixa a coleta parar no início da janela; sem ela, lê tudo.
+ * Coleta as páginas de um CATMAT pela regra do domínio (`collectSourcePages`): com janela, para
+ * quando a fonte passa do início dela, conferida a ordem e a última página; sem janela, lê tudo.
+ * A janela conta da hora da consulta (a do servidor ao receber a página 1), a mesma que a pesquisa
+ * grava e que o relatório usa para dizer a janela. Corte no teto vira `truncated`, que não grava.
  */
-export function isOrderedByResultDate(pages: readonly ComprasMaterialPriceResult[][]): boolean {
-	let previous: string | null = null
-	for (const page of pages) {
-		for (const r of page) {
-			const date = resultDate(r)
-			if (!date || (previous && date > previous)) return false
-			previous = date
-		}
-	}
-	return true
-}
-
-/** true quando a última linha lida já é anterior ao início da janela: o resto da fonte é mais antigo. */
-export function hasPassedWindowStart(pages: readonly ComprasMaterialPriceResult[][], cutoff: string): boolean {
-	const last = pages.at(-1)?.at(-1)
-	const date = last ? resultDate(last) : null
-	return date != null && date < cutoff
-}
-
-/**
- * Coleta as páginas de um CATMAT, em lotes de PAGE_CONCURRENCY. Com janela, para na primeira
- * página que passa do início dela: a fonte ordena por data do resultado, decrescente, e o que
- * vem depois só é mais antigo. Antes de confiar, confere a ordem nas páginas lidas e a última
- * página (onde cairiam linhas sem data do resultado); qualquer quebra faz ler tudo. O teto de
- * MAX_PAGES só sobra para a consulta sem janela ou a fonte fora de ordem, e o corte vira
- * `coverage: "truncated"`, que não grava.
- */
-export async function fetchAllPagesForCatmat(code: number, options: { periodMonths?: number | null; now?: Date } = {}): Promise<CatmatPriceFetch> {
-	const fetchPage = (pagina: number) => searchMaterialPricesFn({ data: { codigoItemCatalogo: code, pagina, tamanhoPagina: PAGE_SIZE } })
-	const cutoff = options.periodMonths ? periodCutoff(options.periodMonths, options.now) : null
-	const first = await fetchPage(1)
-	const totalPages = first.totalPaginas
-	const limit = Math.min(totalPages, MAX_PAGES)
-	const pages: ComprasMaterialPriceResult[][] = [first.resultado]
-	const canStop = () => cutoff != null && isOrderedByResultDate(pages) && hasPassedWindowStart(pages, cutoff)
-	let stopEarly = true
-
-	const fetchUpTo = async (until: number) => {
-		while (pages.length < until && !(stopEarly && canStop())) {
-			const start = pages.length + 1
-			const end = Math.min(start + PAGE_CONCURRENCY - 1, until)
-			const batch = await Promise.all(Array.from({ length: end - start + 1 }, (_, i) => fetchPage(start + i)))
-			for (const page of batch) pages.push(page.resultado)
-		}
-	}
-
-	await fetchUpTo(limit)
-	let stoppedAtWindow = pages.length < totalPages && canStop()
-	if (stoppedAtWindow) {
-		// Linha sem data do resultado cairia no fim da ordenação: a última página confirma que não há.
-		const last = await fetchPage(totalPages)
-		if (last.resultado.some((r) => !resultDate(r))) {
-			stopEarly = false
-			stoppedAtWindow = false
-			await fetchUpTo(limit)
-		}
-	}
-
-	const coverage = pages.length >= totalPages ? "complete" : stoppedAtWindow ? "window" : "truncated"
-	return {
-		results: pages.flat(),
-		totalRegistros: first.totalRegistros,
-		truncated: coverage === "truncated",
-		source: { consultedAt: first.fetchedAt, totalRecords: first.totalRegistros, totalPages, pagesFetched: Math.min(pages.length, totalPages), coverage },
-	}
+export async function fetchAllPagesForCatmat(code: number, options: { periodMonths?: number | null } = {}): Promise<CatmatPriceFetch> {
+	const months = options.periodMonths
+	const { results, consultation } = await collectSourcePages<ComprasMaterialPriceResult>({
+		fetchPage: (pagina) => searchMaterialPricesFn({ data: { codigoItemCatalogo: code, pagina, tamanhoPagina: PAGE_SIZE } }),
+		windowStartFor: months ? (consultedAt) => periodCutoff(months, new Date(consultedAt)) : null,
+		maxPages: MAX_PAGES,
+		concurrency: PAGE_CONCURRENCY,
+	})
+	return { results, totalRegistros: consultation.totalRecords, truncated: consultation.coverage === "truncated", source: consultation }
 }
 
 /**

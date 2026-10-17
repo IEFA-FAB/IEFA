@@ -1,4 +1,6 @@
 import { COMPRAS_BASE_URL, type ComprasQuery } from "@iefa/compras-api"
+import { collectSourcePages, PRICE_RESEARCH_MAX_PAGES, type PriceResearchSourceConsultation } from "@iefa/sisub-domain"
+import { addCivilDays, addCivilMonths, getBrasiliaToday } from "@iefa/sisub-domain/civil-date"
 import type { ComprasMaterialPrecoItem, ComprasMaterialPrecoPage } from "./types.ts"
 
 const BASE_URL = COMPRAS_BASE_URL
@@ -28,14 +30,10 @@ const MAX_ATTEMPTS = 3
  */
 export const QUERY_BUDGET_MS = 50_000
 const MIN_ATTEMPT_MS = 1_000
-/**
- * Cap de páginas buscadas por item CATMAT.
- * 20 páginas × 500 = 10.000 registros — suficiente para qualquer análise
- * estatística e evita hammering na API pública.
- */
-const MAX_PAGES = 20
 
 export interface ConsultaPrecoParams {
+	/** Janela em meses: a coleta para quando a fonte passa do início dela. Ausente = todo o histórico. */
+	months?: number
 	estado?: string
 	codigoUasg?: string
 	codigoMunicipio?: number
@@ -86,41 +84,36 @@ async function fetchPaginaMaterial(catmatCode: number, params: ConsultaPrecoPara
 	throw lastErr
 }
 
-// ─── Fetch de todas as páginas com concorrência controlada ───────────────────
+// ─── Coleta das páginas ───────────────────────────────────────────────────────
+
+export interface ConsultaPrecoResult {
+	items: ComprasMaterialPrecoItem[]
+	/** Hora (deste servidor, ao receber a página 1), totais da fonte, páginas lidas e cobertura. */
+	source: PriceResearchSourceConsultation
+}
 
 /**
- * Consulta o módulo de pesquisa de preço da API Compras.gov.br para
- * um item CATMAT e retorna TODOS os registros disponíveis (até MAX_PAGES).
- *
- * Busca as páginas restantes com concorrência de 4 workers e um intervalo
- * de cortesia de 250ms entre lotes para não sobrecarregar a API pública.
+ * Consulta o módulo de pesquisa de preço da API Compras.gov.br para um item CATMAT pela mesma
+ * regra do sisub (`collectSourcePages`): com janela, para quando a fonte (ordenada por data do
+ * resultado, decrescente) passa do início dela, conferida a ordem e a última página; sem janela,
+ * lê tudo até o teto. Lotes de 4 páginas, com 250 ms de cortesia entre eles. O corte no teto
+ * volta como `coverage: "truncated"`, e quem chama não usa a amostra.
  */
 export async function consultarMaterialPrecos(
 	catmatCode: number,
 	params: ConsultaPrecoParams = {},
 	budgetMs: number = QUERY_BUDGET_MS
-): Promise<ComprasMaterialPrecoItem[]> {
+): Promise<ConsultaPrecoResult> {
 	const deadline = Date.now() + budgetMs
-	const firstPage = await fetchPaginaMaterial(catmatCode, params, 1, deadline)
-	const items: ComprasMaterialPrecoItem[] = [...firstPage.resultado]
-
-	const totalPages = Math.min(firstPage.totalPaginas, MAX_PAGES)
-	if (totalPages <= 1) return items
-
-	// Buscar páginas restantes em lotes de 4 (cortesia à API pública)
-	const CONCURRENCY = 4
-	for (let batchStart = 2; batchStart <= totalPages; batchStart += CONCURRENCY) {
-		const batchEnd = Math.min(batchStart + CONCURRENCY - 1, totalPages)
-		const pageNums = Array.from({ length: batchEnd - batchStart + 1 }, (_, i) => batchStart + i)
-
-		const pages = await Promise.all(pageNums.map((p) => fetchPaginaMaterial(catmatCode, params, p, deadline)))
-		for (const page of pages) items.push(...page.resultado)
-
-		// Intervalo de cortesia entre lotes
-		if (batchEnd < totalPages) {
-			await new Promise((r) => setTimeout(r, 250))
-		}
-	}
-
-	return items
+	const months = params.months
+	const { results, consultation } = await collectSourcePages<ComprasMaterialPrecoItem>({
+		fetchPage: async (pagina) => ({ ...(await fetchPaginaMaterial(catmatCode, params, pagina, deadline)), fetchedAt: new Date().toISOString() }),
+		// Um dia a mais que o corte do `analyzePrices` (que conta em horas, não em dia civil):
+		// ler a mais é inofensivo, a análise descarta.
+		windowStartFor: months ? (consultedAt) => addCivilDays(addCivilMonths(getBrasiliaToday(new Date(consultedAt)), -months), -1) : null,
+		maxPages: PRICE_RESEARCH_MAX_PAGES,
+		concurrency: 4,
+		pauseMs: 250,
+	})
+	return { items: results, source: consultation }
 }

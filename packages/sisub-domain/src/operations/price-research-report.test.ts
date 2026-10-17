@@ -117,7 +117,24 @@ describe("série no formato 2 (nota, resumo e amostras)", () => {
 			.trimEnd()
 			.split("\n\n")
 	// Uma linha da série em campos: os textos com vírgula saem entre aspas.
-	const cells = (line: string) => [...line.matchAll(/("(?:[^"]|"")*"|[^,]*)(?:,|$)/g)].map((m) => m[1].replace(/^"|"$/g, "").replaceAll('""', '"')).slice(0, -1)
+	const cells = (line: string) => {
+		const out: string[] = []
+		let cell = ""
+		let quoted = false
+		for (let i = 0; i < line.length; i++) {
+			const c = line[i]
+			if (quoted && c === '"' && line[i + 1] === '"') {
+				cell += '"'
+				i++
+			} else if (c === '"') quoted = !quoted
+			else if (c === "," && !quoted) {
+				out.push(cell)
+				cell = ""
+			} else cell += c
+		}
+		out.push(cell)
+		return out
+	}
 	const record = (header: string, line: string) => Object.fromEntries(cells(header).map((h, i) => [h, cells(line)[i]]))
 
 	test("emissão sem formato gravado continua no formato 1: o hash dela não muda", () => {
@@ -131,7 +148,7 @@ describe("série no formato 2 (nota, resumo e amostras)", () => {
 		expect(note).toContain("dadosabertos.compras.gov.br/modulo-pesquisa-preco/1_consultarMaterial")
 		expect(note).toContain("tipo=codigoItemCatalogo e codigo=<CATMAT do item>")
 		expect(note).toContain("Nenhum outro filtro")
-		expect(note).toContain("Janela de 1 ano")
+		expect(note).toContain("Janela,")
 		expect(note).toContain("Como repetir")
 		expect(note).toContain("ordem decrescente de data do resultado")
 		expect(note).toContain("SHA-256")
@@ -149,7 +166,7 @@ describe("série no formato 2 (nota, resumo e amostras)", () => {
 			janela_meses: "12",
 			janela_inicio: "2025-09-01",
 			janela_fim: "2026-09-01",
-			consulta_data_hora_brasilia: "2026-09-01 08:58:30",
+			consulta_data_hora: "2026-09-01T08:58:30-03:00",
 			consulta_url: priceResearchQueryUrl(217092),
 			fonte_total_registros: "8402",
 			fonte_total_paginas: "17",
@@ -163,8 +180,9 @@ describe("série no formato 2 (nota, resumo e amostras)", () => {
 			preco_no_anexo: "5.5",
 			selecao_manual: "nao",
 		})
-		// item sem pesquisa aparece no resumo, para o anexo inteiro estar na série
-		expect(second).toBe("2,217092,Vinagre,LT,sem pesquisa")
+		// item sem pesquisa aparece no resumo, com todas as colunas, para o anexo inteiro estar na série
+		expect(record(header, second)).toMatchObject({ item: "2", pesquisa_item_id: "", preco_no_anexo: "5.5", nao_conformidades: "sem pesquisa" })
+		expect(cells(second)).toHaveLength(cells(header).length)
 	})
 
 	test("cada amostra leva a descrição na compra e a URL que a devolve da fonte", () => {
@@ -188,6 +206,16 @@ describe("série no formato 2 (nota, resumo e amostras)", () => {
 		expect(csv).not.toContain(priceResearchQueryUrl(111))
 	})
 
+	test("série 2 tem bytes congelados: mudar texto, rótulo ou URL quebraria o hash das emissões feitas", () => {
+		const frozen = v2(1, {
+			research: research({
+				justifications: { lowSample: "Item regional, pouco comprado no período." },
+				samples: [sample({ descricaoItem: "VINAGRE DE ÁLCOOL 750 ML" }), sample({ idCompra: "2", sampleType: "outlier", precoUnitario: "40" })],
+			}),
+		})
+		expect(sha256Hex(buildResearchSeriesCsv([frozen, v2(2, { research: null })]))).toBe("ff4b3b22c91a167d4a453e7d3a25d11575dc8f2a1ea8e0b3dd8d1ee7bfb2bbb6")
+	})
+
 	test("é determinística", () => {
 		const a = buildResearchSeriesCsv([v2(1)])
 		const b = buildResearchSeriesCsv([v2(1, { research: research({ samples: [...research().samples].reverse() }) })])
@@ -195,8 +223,22 @@ describe("série no formato 2 (nota, resumo e amostras)", () => {
 	})
 
 	test("janela de pesquisa feita à noite em Brasília usa o dia de Brasília", () => {
-		expect(researchWindowOf({ createdAt: "2026-09-02T01:30:00.000Z", periodMonths: 12 })).toEqual({ researchDate: "2026-09-01", windowStart: "2025-09-01" })
+		expect(researchWindowOf({ createdAt: "2026-09-02T01:30:00.000Z", periodMonths: 12 })).toEqual({
+			researchDate: "2026-09-01",
+			windowStart: "2025-09-01",
+			windowEnd: "2026-09-01",
+		})
 		expect(researchWindowOf({ createdAt: "2026-09-02T01:30:00.000Z", periodMonths: null }).windowStart).toBeNull()
+	})
+
+	test("a janela conta do dia da consulta, não do dia em que a pesquisa foi gravada", () => {
+		const source = { consultedAt: "2026-09-01T02:50:00.000Z", totalRecords: 10, totalPages: 1, pagesFetched: 1, coverage: "complete" as const }
+		// consultou às 23h50 do dia 31/08 e gravou às 00h05 do dia 01/09 (Brasília)
+		expect(researchWindowOf({ createdAt: "2026-09-01T03:05:00.000Z", periodMonths: 12, source })).toEqual({
+			researchDate: "2026-09-01",
+			windowStart: "2025-08-31",
+			windowEnd: "2026-08-31",
+		})
 	})
 })
 
@@ -221,12 +263,10 @@ describe("auditReportItem", () => {
 		expect(auditReportItem(item(1, { research: research({ catmatCodigo: 217092 }) }), at)).toEqual([])
 	})
 
-	test("coleta parcial bloqueia; pesquisa sem a consulta registrada não", () => {
-		const partial = research({
-			source: { consultedAt: "2026-09-01T11:58:30.000Z", totalRecords: 30000, totalPages: 60, pagesFetched: 40, coverage: "truncated" },
-		})
-		expect(auditReportItem(item(1, { research: partial }), at).some((c) => c.severity === "blocking" && c.message.startsWith("Coleta parcial"))).toBe(true)
-		expect(auditReportItem(item(1, { research: research({ source: null }) }), at)).toEqual([])
+	test("pesquisa sem a consulta registrada é aviso, só na regra vigente", () => {
+		const old = item(1, { research: research({ source: null }) })
+		expect(auditReportItem(old, at).map((c) => [c.severity, c.message.slice(0, 40)])).toEqual([["warning", "Pesquisa anterior ao registro da consult"]])
+		expect(auditReportItemV1(old, at)).toEqual([])
 	})
 
 	test("preço acima da mediana bloqueia (art. 6º, § 6º)", () => {

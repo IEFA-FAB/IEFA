@@ -127,16 +127,15 @@ export const savePriceResearchFn = createServerFn({ method: "POST" })
 					outOfPeriod: JustificationSchema,
 				})
 				.optional(),
-			// A consulta à fonte (hora da página 1, totais, páginas lidas e cobertura).
-			source: z
-				.object({
-					consultedAt: z.iso.datetime(),
-					totalRecords: z.number().int().min(0),
-					totalPages: z.number().int().min(0),
-					pagesFetched: z.number().int().min(0),
-					coverage: z.enum(SOURCE_COVERAGES),
-				})
-				.optional(),
+			// A consulta à fonte (hora da página 1, totais, páginas lidas e cobertura). Obrigatória: sem
+			// ela a pesquisa escaparia da recusa de coleta parcial.
+			source: z.object({
+				consultedAt: z.iso.datetime(),
+				totalRecords: z.number().int().min(0),
+				totalPages: z.number().int().min(0),
+				pagesFetched: z.number().int().min(0),
+				coverage: z.enum(SOURCE_COVERAGES),
+			}),
 			// Se fornecidos, linka imediatamente (caso anexo já existente)
 			quantityEstimateId: z.uuid().optional(),
 			quantityEstimateItemId: z.uuid().optional(),

@@ -73,6 +73,7 @@ const BASE: SavePriceResearchAudit = {
 	validCount: 3,
 	validSamples: [],
 	outlierSamples: [],
+	source: { consultedAt: "2026-10-16T14:58:30.000Z", totalRecords: 3, totalPages: 1, pagesFetched: 1, coverage: "complete" },
 }
 
 function input(extra: Partial<SavePriceResearchAudit> = {}): SavePriceResearchAudit {

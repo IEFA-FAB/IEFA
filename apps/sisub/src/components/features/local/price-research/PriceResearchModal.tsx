@@ -403,8 +403,11 @@ function PriceResearchToolbar({
 			)}
 			{data?.truncated && (
 				<span className="text-xs text-destructive">
-					Coleta parcial: {totalCount.toLocaleString("pt-BR")} de {data.totalRegistros.toLocaleString("pt-BR")} registros (teto de {MAX_PAGES} páginas), sem
-					cobrir a janela. O preço não grava: volte à janela de 12 meses.
+					Coleta parcial: {totalCount.toLocaleString("pt-BR")} de {data.totalRegistros.toLocaleString("pt-BR")} registros (teto de {MAX_PAGES} páginas). O preço
+					não grava.{" "}
+					{periodMonths
+						? "A fonte não veio em ordem de data do resultado, e sem ela a coleta não sabe onde a janela termina: atualize mais tarde."
+						: "Volte à janela de 12 meses, que para quando a fonte passa do início dela."}
 				</span>
 			)}
 			{columnFilterCount > 0 && (
@@ -732,7 +735,12 @@ export function PriceResearchModal({
 
 	// A tabela mostra a janela e as amostras sem data (visíveis, marcadas); o cálculo só leva as
 	// sem data quando o usuário as inclui ou seleciona.
-	const partition = useMemo(() => partitionByPeriod(allResults, periodMonths), [allResults, periodMonths])
+	// A janela conta da hora da consulta, a mesma que a coleta usou para parar e que a pesquisa grava.
+	const consultedAt = data?.source.consultedAt
+	const partition = useMemo(
+		() => partitionByPeriod(allResults, periodMonths, consultedAt ? new Date(consultedAt) : undefined),
+		[allResults, periodMonths, consultedAt]
+	)
 	const scopedResults = partition.visible
 	// Parada na janela: o que não foi lido é todo mais antigo que ela, então conta como fora.
 	const outOfPeriodCount = data?.source.coverage === "window" ? Math.max(0, data.totalRegistros - partition.visible.length) : partition.outOfWindow.length

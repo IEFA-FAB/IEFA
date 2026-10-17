@@ -23,25 +23,8 @@ import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
 import { addCivilMonths, toBrasiliaCivilDate } from "../utils/civil-date.ts"
 import { runQuery } from "../utils/index.ts"
-import {
-	evaluateResearchCompliance,
-	RESEARCH_JUSTIFICATION_LABELS,
-	type ResearchFinding,
-	type ResearchJustificationKey,
-	type ResearchJustifications,
-} from "./price-research-compliance.ts"
-import {
-	formatConsultedAt,
-	PRICE_RESEARCH_MAX_PAGES,
-	PRICE_RESEARCH_PAGE_SIZE,
-	PRICE_RESEARCH_SOURCE_DOCS_URL,
-	PRICE_RESEARCH_SOURCE_URL,
-	type PriceResearchSourceConsultation,
-	priceResearchQueryUrl,
-	priceResearchSampleUrl,
-	SOURCE_COVERAGES,
-	type SourceCoverage,
-} from "./price-research-source.ts"
+import { evaluateResearchCompliance, type ResearchFinding, type ResearchJustificationKey, type ResearchJustifications } from "./price-research-compliance.ts"
+import { type PriceResearchSourceConsultation, SOURCE_COVERAGES, type SourceCoverage } from "./price-research-source.ts"
 import { convertSamplePrice, isSamePrice, PRICE_MATCH_ABSOLUTE, PRICE_MATCH_RELATIVE } from "./price-units.ts"
 import { PRICE_RESEARCH_VALIDITY_DAYS, resolveQuantityEstimateMaxQuantities } from "./quantity-estimate.ts"
 
@@ -55,10 +38,21 @@ export const CURVE_A_SHARE = 0.8
 export const SAMPLE_SHARE = 0.1
 export const SAMPLE_MIN = 5
 
-/** Data da pesquisa (civil, em Brasília) e início da janela de recência aplicada nela. */
-export function researchWindowOf(r: Pick<ReportResearch, "createdAt" | "periodMonths">): { researchDate: string; windowStart: string | null } {
-	const researchDate = toBrasiliaCivilDate(r.createdAt) ?? r.createdAt.slice(0, 10)
-	return { researchDate, windowStart: r.periodMonths ? addCivilMonths(researchDate, -r.periodMonths) : null }
+/**
+ * Dia da pesquisa (gravação, em Brasília) e a janela de recência aplicada nela: de `windowStart` a
+ * `windowEnd`, o dia da consulta à fonte.
+ */
+export function researchWindowOf(r: Pick<ReportResearch, "createdAt" | "periodMonths" | "source">): {
+	researchDate: string
+	windowStart: string | null
+	windowEnd: string
+} {
+	const civil = (instant: string) => toBrasiliaCivilDate(instant) ?? instant.slice(0, 10)
+	const researchDate = civil(r.createdAt)
+	// A janela conta do dia da consulta, que foi o corte da coleta e do cálculo; sem a consulta
+	// registrada (pesquisa anterior), do dia em que a pesquisa foi gravada.
+	const windowEnd = r.source ? civil(r.source.consultedAt) : researchDate
+	return { researchDate, windowStart: r.periodMonths ? addCivilMonths(windowEnd, -r.periodMonths) : null, windowEnd }
 }
 
 export type SampleClass = "valid" | "outlier" | "pollution"
@@ -286,7 +280,17 @@ function buildSeriesCsvV1(items: readonly ReportItem[]): string {
 	return `﻿${lines.join("\n")}\n`
 }
 
-const SUMMARY_HEADER = [
+// ─── Série 2 (congelada) ────────────────────────────────────────────────────────
+//
+// O SHA-256 de cada emissão é sobre estes bytes, refeitos a cada abertura. Tudo o que entra na
+// série 2 mora aqui, em literal: rótulo, texto da nota, URL, mapa de valores. Não importe
+// constante de outro módulo para cá (teto de páginas, rótulo de justificativa, URL da fonte):
+// mudar uma delas lá mudaria o hash de toda emissão já feita. Mudança de formato é série 3.
+// Guarda: `price-research-report.test.ts › série 2 tem bytes congelados`.
+
+const V2_SOURCE_URL = "https://dadosabertos.compras.gov.br/modulo-pesquisa-preco/1_consultarMaterial"
+
+const V2_SUMMARY_HEADER = [
 	"item",
 	"catmat",
 	"descricao_item",
@@ -297,7 +301,7 @@ const SUMMARY_HEADER = [
 	"janela_meses",
 	"janela_inicio",
 	"janela_fim",
-	"consulta_data_hora_brasilia",
+	"consulta_data_hora",
 	"consulta_url",
 	"fonte_total_registros",
 	"fonte_total_paginas",
@@ -321,9 +325,9 @@ const SUMMARY_HEADER = [
 	"selecao_manual",
 	"nao_conformidades",
 	"justificativas",
-]
+] as const
 
-const SAMPLE_HEADER_V2 = [
+const V2_SAMPLE_HEADER = [
 	"item",
 	"catmat",
 	"descricao_item",
@@ -350,36 +354,37 @@ const SAMPLE_HEADER_V2 = [
 	"conversao",
 	"conversao_refeita",
 	"conferir_na_fonte",
-]
+] as const
 
-const COVERAGE_CSV: Record<SourceCoverage, string> = { window: "janela_completa", complete: "todas_as_paginas", truncated: "parcial" }
+const V2_COVERAGE: Record<SourceCoverage, string> = { window: "janela_completa", complete: "todas_as_paginas", truncated: "parcial" }
+const V2_METHOD: Record<string, string> = { median: "mediana", mean: "media", lowest: "menor_preco" }
+const V2_JUSTIFICATION: Record<ResearchJustificationKey, string> = {
+	lowSample: "amostra reduzida (art. 6º, § 5º)",
+	method: "método (art. 6º, § 1º)",
+	outlierCriteria: "critério de desconsideração (art. 6º, § 3º)",
+	outOfPeriod: "preço fora do período de 1 ano (art. 5º, § 3º)",
+}
 
-const METHOD_LABEL: Record<string, string> = { median: "mediana", mean: "media", lowest: "menor_preco" }
-
-/**
- * Nota da série 2: a consulta feita, a janela, a classificação e como repetir. Texto fixo: o que
- * varia por item (CATMAT, data, janela, URL) está nas colunas do resumo.
- */
-const SERIES_NOTE: ReadonlyArray<[string, string]> = [
+const V2_NOTE: ReadonlyArray<readonly [string, string]> = [
 	[
 		"Série de preços coletados",
 		"Pesquisa de preços do anexo quantitativo (IN SEGES/ME 65/2021, art. 3º, IV). Três blocos: esta nota, o resumo por item e as amostras.",
 	],
 	[
 		"Fonte",
-		`Sistema oficial de preços do Governo Federal (IN SEGES/ME 65/2021, art. 5º, I): API de Dados Abertos do Compras.gov.br, módulo Pesquisa de Preços, consulta de material (${PRICE_RESEARCH_SOURCE_URL}). Documentação: ${PRICE_RESEARCH_SOURCE_DOCS_URL}.`,
+		`Sistema oficial de preços do Governo Federal (IN SEGES/ME 65/2021, art. 5º, I): API de Dados Abertos do Compras.gov.br, módulo Pesquisa de Preços, consulta de material (${V2_SOURCE_URL}). Documentação: https://dadosabertos.compras.gov.br/swagger-ui/index.html.`,
 	],
 	[
 		"Filtros da consulta",
-		`tipo=codigoItemCatalogo e codigo=<CATMAT do item>, páginas de ${PRICE_RESEARCH_PAGE_SIZE} registros. Nenhum outro filtro: todo o país, sem recorte de UASG, órgão, estado, município, esfera, poder ou data. A URL da página 1 de cada item está em consulta_url.`,
+		"tipo=codigoItemCatalogo e codigo=<CATMAT do item>, páginas de 500 registros. Nenhum outro filtro: todo o país, sem recorte de UASG, órgão, estado, município, esfera, poder ou data. A URL da página 1 de cada item está em consulta_url.",
 	],
 	[
 		"Coleta e hora",
-		`A fonte devolve os registros em ordem decrescente de data do resultado. Com janela, a coleta lê as páginas até a primeira que passa do início da janela e confere a última página (cobertura = janela_completa: a janela inteira foi lida); sem janela, lê todas (todas_as_paginas), até ${PRICE_RESEARCH_MAX_PAGES} páginas. cobertura = parcial é amostra cortada no teto, que não sustenta preço. A API não informa a hora da consulta: consulta_data_hora_brasilia é a hora em que o servidor do sisub recebeu a página 1. fonte_total_registros e fonte_total_paginas são os totais que a fonte informou naquela hora.`,
+		"A fonte devolve os registros em ordem decrescente de data do resultado. Com janela, a coleta lê as páginas até a primeira que passa do início da janela e confere a última página (cobertura = janela_completa: a janela inteira foi lida); sem janela, lê todas até o teto de páginas (todas_as_paginas). paginas_lidas e fonte_total_paginas dizem quanto foi lido. A API não informa a hora da consulta: consulta_data_hora é a hora em que o servidor do sisub recebeu a página 1, em UTC−3; fonte_total_registros e fonte_total_paginas são os totais que a fonte informou naquela hora. Pesquisa com essas colunas vazias é anterior ao registro da consulta: foi coletada pela regra da época, as primeiras 20 páginas, sem parada pela janela.",
 	],
 	[
-		"Janela de 1 ano",
-		"Aplicada sobre o resultado da consulta, não nela: entram os preços com data do resultado (ou da compra, quando não há resultado) de janela_inicio a janela_fim (a data da pesquisa), art. 5º, II. Preço sem data fica fora do cálculo, salvo quando o agente o incluiu (aparece em nao_conformidades).",
+		"Janela",
+		"Com janela_meses preenchido, a janela é aplicada sobre o resultado da consulta, não nela: entram os preços com data do resultado (ou da compra, quando não há resultado) de janela_inicio a janela_fim, o dia da consulta (art. 5º, II). Preço sem data fica fora do cálculo, salvo quando o agente o incluiu (aparece em nao_conformidades). Com janela_meses vazio, a pesquisa usou todo o histórico, sem janela, e a não conformidade do art. 5º está em nao_conformidades.",
 	],
 	[
 		"Funil",
@@ -396,14 +401,34 @@ const SERIES_NOTE: ReadonlyArray<[string, string]> = [
 	["Integridade", "O SHA-256 deste arquivo, byte a byte, está impresso no relatório da emissão. Abrir e salvar na planilha muda o arquivo e o hash."],
 ]
 
-function summaryRow(item: ReportItem): Array<string | number | null> {
+const v2QueryUrl = (catmat: number) => `${V2_SOURCE_URL}?tipo=codigoItemCatalogo&codigo=${catmat}&pagina=1&tamanhoPagina=500`
+const v2SampleUrl = (catmat: number, idCompra: string) =>
+	`${V2_SOURCE_URL}?tipo=codigoItemCatalogo&codigo=${catmat}&idCompra=${encodeURIComponent(idCompra)}&pagina=1&tamanhoPagina=500`
+
+/** Instante em UTC−3, com o deslocamento explícito: o mesmo texto em qualquer máquina, sem tabela de fuso. */
+function v2Instant(iso: string): string {
+	return `${new Date(Date.parse(iso) - 3 * 3_600_000).toISOString().slice(0, 19)}-03:00`
+}
+
+function v2SummaryRow(item: ReportItem): Array<string | number | null> {
 	const r = item.research
-	if (!r) return [item.order, item.catmat, item.description, item.unit, "sem pesquisa"]
-	const { researchDate, windowStart } = researchWindowOf(r)
+	if (!r) {
+		// A linha tem todas as colunas: "sem pesquisa" vai em nao_conformidades, não num id.
+		const row: Array<string | number | null> = V2_SUMMARY_HEADER.map(() => null)
+		row[0] = item.order
+		row[1] = item.catmat
+		row[2] = item.description
+		row[3] = item.unit
+		row[29] = item.unitPrice
+		row[30] = item.maxQuantity
+		row[32] = "sem pesquisa"
+		return row
+	}
+	const { researchDate, windowStart, windowEnd } = researchWindowOf(r)
 	const catmat = r.catmatCodigo ?? item.catmat
 	const justifications = Object.entries(r.justifications ?? {})
 		.filter(([, text]) => text?.trim())
-		.map(([key, text]) => `${RESEARCH_JUSTIFICATION_LABELS[key as ResearchJustificationKey] ?? key}: ${text?.trim()}`)
+		.map(([key, text]) => `${V2_JUSTIFICATION[key as ResearchJustificationKey] ?? key}: ${text?.trim()}`)
 	return [
 		item.order,
 		catmat,
@@ -414,13 +439,13 @@ function summaryRow(item: ReportItem): Array<string | number | null> {
 		r.createdByName,
 		r.periodMonths,
 		windowStart,
-		researchDate,
-		r.source ? formatConsultedAt(r.source.consultedAt) : "nao registrada",
-		catmat != null ? priceResearchQueryUrl(catmat) : null,
+		windowStart ? windowEnd : null,
+		r.source ? v2Instant(r.source.consultedAt) : null,
+		catmat != null ? v2QueryUrl(catmat) : null,
 		r.source?.totalRecords ?? null,
 		r.source?.totalPages ?? null,
 		r.source?.pagesFetched ?? null,
-		r.source ? COVERAGE_CSV[r.source.coverage] : null,
+		r.source ? V2_COVERAGE[r.source.coverage] : null,
 		r.totalRaw,
 		r.afterDate,
 		r.afterPollution,
@@ -432,7 +457,7 @@ function summaryRow(item: ReportItem): Array<string | number | null> {
 		r.priceMedian,
 		r.stdDev,
 		r.cvPct,
-		r.method ? (METHOD_LABEL[r.method] ?? r.method) : null,
+		r.method ? (V2_METHOD[r.method] ?? r.method) : null,
 		r.referencePrice,
 		item.unitPrice,
 		item.maxQuantity,
@@ -443,15 +468,15 @@ function summaryRow(item: ReportItem): Array<string | number | null> {
 }
 
 /**
- * Série 2: nota (fonte, filtros, janela, como repetir), resumo por item (pesquisa, janela, URL da
- * consulta, funil, estatística, método, preço e justificativas) e as amostras, cada uma com a URL
- * que a devolve da fonte. Três blocos separados por linha em branco; a planilha abre direto.
+ * Série 2: nota (fonte, filtros, coleta, janela, como repetir), resumo por item (pesquisa, janela,
+ * hora e URL da consulta, leitura da fonte, funil, estatística, método, preço e justificativas) e
+ * as amostras, cada uma com a URL que a devolve da fonte. Três blocos separados por linha em branco.
  */
 function buildSeriesCsvV2(items: readonly ReportItem[]): string {
 	const row = (values: ReadonlyArray<string | number | null | undefined>) => values.map(csvField).join(",")
-	const lines = SERIES_NOTE.map(([label, text]) => row([label, text]))
-	lines.push("", row(["Resumo por item"]), row(SUMMARY_HEADER), ...items.map((i) => row(summaryRow(i))))
-	lines.push("", row(["Amostras"]), row(SAMPLE_HEADER_V2))
+	const lines = V2_NOTE.map(([label, text]) => row([label, text]))
+	lines.push("", row(["Resumo por item"]), row(V2_SUMMARY_HEADER), ...items.map((i) => row(v2SummaryRow(i))))
+	lines.push("", row(["Amostras"]), row(V2_SAMPLE_HEADER))
 	for (const item of items) {
 		const r = item.research
 		if (!r) continue
@@ -484,13 +509,14 @@ function buildSeriesCsvV2(items: readonly ReportItem[]): string {
 					s.convertedPrice,
 					s.conversion,
 					s.conversionRecomputed ? "sim" : "nao",
-					catmat != null ? priceResearchSampleUrl(catmat, s.idCompra) : null,
+					catmat != null ? v2SampleUrl(catmat, s.idCompra) : null,
 				])
 			)
 		}
 	}
 	return `﻿${lines.join("\n")}\n`
 }
+
 // ─── Puro: checklist de conformidade por item ──────────────────────────────────
 
 const daysBetween = (from: string, to: string) => (Date.parse(to.slice(0, 10)) - Date.parse(from.slice(0, 10))) / 86_400_000
@@ -546,13 +572,6 @@ function commonChecks(item: ReportItem, emittedAt: string, sampleChecks: (r: Rep
 			basis: "IN SEGES/ME 65/2021, art. 3º, IV",
 		})
 	}
-	if (r.source?.coverage === "truncated") {
-		checks.push({
-			severity: "blocking",
-			message: `Coleta parcial: ${r.source.pagesFetched} de ${r.source.totalPages} páginas lidas, sem cobrir a janela. Refaça a pesquisa.`,
-			basis: "IN SEGES/ME 65/2021, art. 3º, IV",
-		})
-	}
 	checks.push(...sampleChecks(r))
 	if (r.nonComplianceReasons.some((reason) => reason.includes("sem unidade declarada"))) {
 		checks.push({
@@ -593,11 +612,21 @@ function commonChecks(item: ReportItem, emittedAt: string, sampleChecks: (r: Rep
  * justificáveis sem justificativa viram aviso; justificadas, saem daqui para a seção 7.
  */
 export function auditReportItem(item: ReportItem, emittedAt: string): ReportCheck[] {
-	return commonChecks(item, emittedAt, (r) =>
-		justifiableFindingsOf(r)
+	return commonChecks(item, emittedAt, (r) => [
+		...justifiableFindingsOf(r)
 			.filter((f) => !f.justified)
-			.map((f) => ({ severity: "warning" as const, message: `${f.message}. ${f.remedy}`, basis: f.basis }))
-	)
+			.map((f) => ({ severity: "warning" as const, message: `${f.message}. ${f.remedy}`, basis: f.basis })),
+		// Pesquisa gravada antes do registro da consulta: sem hora nem prova de que a janela foi lida inteira.
+		...(r.source
+			? []
+			: [
+					{
+						severity: "warning" as const,
+						message: "Pesquisa anterior ao registro da consulta à fonte (sem hora nem leitura da janela). Refaça para juntar a consulta completa.",
+						basis: "IN SEGES/ME 65/2021, art. 3º, III e IV",
+					},
+				]),
+	])
 }
 
 /**

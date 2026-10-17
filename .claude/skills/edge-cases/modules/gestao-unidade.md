@@ -162,14 +162,20 @@ lote e pelo worker da API. Texto conferido na IN consolidada em gov.br/compras.
 - **O sistema precisa:** a fonte ordena por data do resultado, decrescente, e a janela conta por
   ela: a coleta para na primeira página que passa do início da janela e lê a janela inteira,
   qualquer que seja o volume. Fonte fora de ordem ou linha sem data do resultado faz ler tudo.
-  Se ainda assim o teto (40 páginas) cortar antes de cobrir a janela, a coleta é parcial: o modal
-  desabilita "Usar", o lote conta o item como erro, o servidor recusa (`PARTIAL_COLLECTION`) e o
-  relatório bloqueia.
+  A regra é uma só (`collectSourcePages`, em `sisub-domain/operations/price-research-source.ts`),
+  usada pelo modal, pelo lote e pela rota admin da API. Se ainda assim o teto (40 páginas) cortar
+  antes de cobrir a janela, a coleta é parcial: o modal desabilita "Usar", o lote e a rota da API
+  contam o item como erro e o servidor recusa (`PARTIAL_COLLECTION`). A pesquisa anterior ao
+  registro da consulta sai no relatório com o aviso "anterior ao registro da consulta à fonte".
+  **LACUNA:** fonte fora de ordem (ou com linha sem data do resultado) num CATMAT com mais de 40
+  páginas não tem caminho na tela: com janela, a coleta não sabe onde a janela termina e o item
+  fica sem preço pelo sisub. A tela diz para atualizar mais tarde; não aconteceu em nenhum CATMAT
+  conferido até 2026-10-17.
 - **UX:** a barra do modal diz o total na fonte, a hora da consulta e a cobertura ("janela
   completa (4 de 17 páginas)").
 - **Cobertura:** `price-research-utils.test.ts › fetchAllPagesForCatmat`;
-  `price-research-source.test.ts › coleta parcial não grava`; `price-research-report.test.ts ›
-  coleta parcial bloqueia`.
+  `apps/api/.../client.test.ts › coleta pela janela`; `price-research-source.test.ts › coleta
+  parcial não grava`; `price-research-report.test.ts › pesquisa sem a consulta registrada é aviso`.
 
 ### GU-PRC-10 — "O auditor quer refazer a consulta"
 - **Realidade:** o TCU ou o controle interno pede para reproduzir a pesquisa meses depois.
@@ -177,8 +183,9 @@ lote e pelo worker da API. Texto conferido na IN consolidada em gov.br/compras.
   de parada, e por item a URL da consulta, a hora (a API não informa a dela: vale a do servidor do
   sisub na página 1), o total na fonte, as páginas lidas e a cobertura; cada amostra traz a URL
   que a devolve da fonte pelo `idCompra`. Emissões anteriores continuam no formato 1, para o hash
-  delas continuar conferindo.
-- **Cobertura:** `price-research-report.test.ts › série no formato 2`; integração
+  delas continuar conferindo; os bytes da série 2 são congelados (texto, rótulo e URL em literal).
+- **Cobertura:** `price-research-report.test.ts › série no formato 2`, `› série 2 tem bytes
+  congelados`; integração
   `procurement-documents.operations.test.ts`.
 
 

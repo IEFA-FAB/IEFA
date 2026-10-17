@@ -129,10 +129,10 @@ export type SavePriceResearchAudit = {
 	/** Justificativas da pesquisa; só as que respondem a uma não conformidade dela são gravadas. */
 	justifications?: ResearchJustifications
 	/**
-	 * A consulta à fonte (hora, totais, páginas lidas, cobertura), como o app a coletou. Ausente só
-	 * em chamador antigo; coleta parcial (`truncated`) é recusada: amostra cortada não sustenta preço.
+	 * A consulta à fonte (hora, totais, páginas lidas, cobertura), como o app a coletou.
+	 * Obrigatória; coleta parcial (`truncated`) é recusada: amostra cortada não sustenta preço.
 	 */
-	source?: PriceResearchSourceConsultation
+	source: PriceResearchSourceConsultation
 	/** Se fornecidos, linka imediatamente (caso anexo já existente). */
 	quantityEstimateId?: string
 	quantityEstimateItemId?: string
@@ -413,8 +413,7 @@ const CONSULTED_AT_SKEW_MS = 5 * 60 * 1000
  * A consulta declarada precisa ser plausível e completa: coleta parcial não grava (a série seria
  * um corte do que a fonte tinha na janela), e hora no futuro não é hora de consulta.
  */
-export function assertSourceConsultation(source: PriceResearchSourceConsultation | undefined, now: Date = new Date()): void {
-	if (!source) return
+export function assertSourceConsultation(source: PriceResearchSourceConsultation, now: Date = new Date()): void {
 	if (source.coverage === "truncated") {
 		throw new DomainError(
 			"PARTIAL_COLLECTION",
@@ -533,11 +532,11 @@ export async function savePriceResearchAudit(db: SisubDb, ctx: UserContext, inpu
 							justificationOutlierCriteria: justifications.outlierCriteria,
 							justificationOutOfPeriod: justifications.outOfPeriod,
 							// A consulta à fonte: hora, totais e quanto foi lido (migration 20261016150000).
-							sourceConsultedAt: input.source?.consultedAt ?? null,
-							sourceTotalRecords: input.source?.totalRecords ?? null,
-							sourceTotalPages: input.source?.totalPages ?? null,
-							sourcePagesFetched: input.source?.pagesFetched ?? null,
-							sourceCoverage: input.source?.coverage ?? null,
+							sourceConsultedAt: input.source.consultedAt,
+							sourceTotalRecords: input.source.totalRecords,
+							sourceTotalPages: input.source.totalPages,
+							sourcePagesFetched: input.source.pagesFetched,
+							sourceCoverage: input.source.coverage,
 						})
 						.returning({ id: priceResearchItemInProcurement.id }),
 				{ prefix: "Erro ao salvar item da pesquisa" }

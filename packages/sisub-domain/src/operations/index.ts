@@ -692,6 +692,8 @@ export {
 	seriesFormatOf,
 } from "./price-research-report.ts"
 export {
+	type CollectedSource,
+	collectSourcePages,
 	formatConsultedAt,
 	PRICE_RESEARCH_MAX_PAGES,
 	PRICE_RESEARCH_PAGE_SIZE,
@@ -703,6 +705,7 @@ export {
 	SOURCE_COVERAGE_LABELS,
 	SOURCE_COVERAGES,
 	type SourceCoverage,
+	type SourcePage,
 } from "./price-research-source.ts"
 export {
 	convertSamplePrice,
