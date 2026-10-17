@@ -315,13 +315,20 @@ export const UG_FORA_DO_ACOMPANHAMENTO: readonly string[] = ["170999"]
  *
  * Aceita o código puro e o texto do relatório ("170999 - STN"): as planilhas do
  * Tesouro Gerencial trazem as duas formas na mesma coluna conforme o layout
- * escolhido na extração, e comparar a string inteira deixaria a exclusão passar.
+ * escolhido na extração, e comparar a string inteira deixaria a exclusão passar. Pelo
+ * mesmo motivo o código é normalizado antes: "170.999" e "170999STN" também saem.
  */
 export function isUgAcompanhada(ugOuTexto: string): boolean {
 	return !UG_FORA_DO_ACOMPANHAMENTO.includes(extractCodigoUg(ugOuTexto))
 }
 
-const CODIGO_UG_REGEX = /\b\d{6}\b/
+/** Seis dígitos que não fazem parte de um número maior; letra colada não conta como borda ("170999STN"). */
+const CODIGO_UG_REGEX = /(?<!\d)\d{6}(?!\d)/
+
+/** Tira o ponto entre dígitos ("170.999" → "170999") antes de procurar o código. */
+function withoutDigitDots(texto: string): string {
+	return texto.replace(/(\d)\.(?=\d)/g, "$1")
+}
 
 /** Busca pelo código exato. */
 export function getUg(codigo: string): UnidadeGestora | undefined {
@@ -334,14 +341,17 @@ export function getUg(codigo: string): UnidadeGestora | undefined {
  * formas, às vezes no mesmo arquivo.
  */
 export function getUgFromText(texto: string): UnidadeGestora | undefined {
-	const match = String(texto ?? "").match(CODIGO_UG_REGEX)
+	const match = withoutDigitDots(String(texto ?? "")).match(CODIGO_UG_REGEX)
 	return match ? UNIDADES_GESTORAS[match[0]] : undefined
 }
 
-/** Código de UG contido no texto, ou o próprio texto quando não houver um. */
+/**
+ * Código de UG contido no texto, ou o próprio texto quando não houver um. Aceita o
+ * código com ponto ("170.999") e colado ao nome ("170999STN").
+ */
 export function extractCodigoUg(texto: string): string {
 	const raw = String(texto ?? "").trim()
-	return raw.match(CODIGO_UG_REGEX)?.[0] ?? raw
+	return withoutDigitDots(raw).match(CODIGO_UG_REGEX)?.[0] ?? raw
 }
 
 export const CONFERENTE_NAO_ATRIBUIDO = "NÃO ATRIBUÍDO"

@@ -1,6 +1,6 @@
-import Papa from "papaparse"
 import * as XLSX from "xlsx"
 import { parseBrazilianAmountOrZero } from "#/lib/analysis/saldo"
+import { readWorkbook } from "#/lib/spreadsheet"
 import { isUgAcompanhada } from "#/lib/ug/registry"
 
 export interface ParsedRow {
@@ -79,18 +79,24 @@ const findSaldoKey = (keys: string[]): string | undefined => {
 }
 
 /**
- * Saldo da célula pela regra compartilhada (`parseBrazilianAmount`); o que não for número
- * vira 0, como antes.
- *
- * Diferença mantida de propósito: o texto (CSV do Papa, ou célula de texto no Excel)
- * perde antes tudo que não seja dígito, separador, sinal ou parêntese. A cópia antiga já
- * tolerava assim um sufixo como "C"/"D" ou uma moeda escrita; só que tirava também os
- * parênteses, e "(1.234,56)" virava positivo. Número do Excel (`raw: true`) passa direto:
- * antes ia por `String()`, e o separador único ("1.234") era lido como decimal.
+ * Saldo da célula pela regra compartilhada (`parseBrazilianAmount`), igual às outras
+ * ferramentas; o que não for número vira 0, como antes. A limpeza própria que existia
+ * aqui (tirar tudo que não fosse dígito, separador ou sinal) saiu: o sufixo "C"/"D" e o
+ * "R$", que era o que ela cobria, a regra compartilhada já tira.
  */
 export function parseSaldoCell(value: unknown): number {
-	if (typeof value !== "string") return parseBrazilianAmountOrZero(value)
-	return parseBrazilianAmountOrZero(value.replace(/[^\d.,()-]/g, ""))
+	return parseBrazilianAmountOrZero(value)
+}
+
+/**
+ * Linhas do arquivo como objetos por cabeçalho. O formato vem dos bytes (`readWorkbook`),
+ * não da extensão: "RELATORIO.CSV" era recusado. CSV em UTF-8 (com ou sem BOM), UTF-16
+ * ou windows-1252 chega com a célula como texto digitado.
+ */
+export function readRawRows(data: ArrayBuffer | Uint8Array): Record<string, unknown>[] {
+	const workbook = readWorkbook(data)
+	const worksheet = workbook.Sheets[workbook.SheetNames[0]]
+	return XLSX.utils.sheet_to_json(worksheet, { defval: "", raw: true }) as Record<string, unknown>[]
 }
 
 export const parseFile = async (file: File): Promise<ParsedRow[]> => {
@@ -102,20 +108,7 @@ export const parseFile = async (file: File): Promise<ParsedRow[]> => {
 				const data = e.target?.result
 				if (!data) throw new Error("Failed to read file")
 
-				let rawData: Record<string, unknown>[] = []
-
-				if (file.name.endsWith(".csv")) {
-					const text = new TextDecoder("utf-8").decode(data as ArrayBuffer)
-					const parsed = Papa.parse(text, { header: true, skipEmptyLines: true })
-					rawData = parsed.data as Record<string, unknown>[]
-				} else if (file.name.endsWith(".xlsx") || file.name.endsWith(".xls")) {
-					const workbook = XLSX.read(data, { type: "array", raw: true })
-					const firstSheetName = workbook.SheetNames[0]
-					const worksheet = workbook.Sheets[firstSheetName]
-					rawData = XLSX.utils.sheet_to_json(worksheet, { defval: "", raw: true }) as Record<string, unknown>[]
-				} else {
-					throw new Error("Formato de arquivo não suportado. Use CSV ou Excel.")
-				}
+				const rawData = readRawRows(data as ArrayBuffer)
 
 				if (rawData.length === 0) {
 					resolve([])

@@ -4,6 +4,7 @@
 // `processFile`. O que é código genérico, e de que tipo, mora em `generic-code.ts`.
 import * as XLSX from "xlsx"
 import { parseBrazilianAmountOrZero } from "#/lib/analysis/saldo"
+import { readWorkbook } from "#/lib/spreadsheet"
 import { classifyGenericCode } from "#/subitens/generic-code"
 import type { ProcessedData, UgGroup } from "#/subitens/types"
 
@@ -91,7 +92,7 @@ function groupByUg(filtered: ProcessedData[]): UgGroup[] {
  * (nenhum código genérico) fica para quem chama decidir.
  */
 export function parseWorkbook(bstr: string | ArrayBuffer | null | undefined): UgGroup[] {
-	const workbook = XLSX.read(bstr, { type: "array" })
+	const workbook = readWorkbook(bstr)
 	const sheetName = workbook.SheetNames[0]
 	const worksheet = workbook.Sheets[sheetName]
 

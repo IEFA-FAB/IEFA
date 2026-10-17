@@ -1,10 +1,13 @@
 import { describe, expect, it } from "bun:test"
+import * as XLSX from "xlsx"
+import { CSV_ENCODINGS } from "#/lib/__fixtures__/csv-encodings"
 import {
 	analyzeData,
 	CONTA_EXECUCAO_RESPONSABILIDADE,
 	CONTA_RESPONSABILIDADE,
 	parseSaldoCell,
 	type RawRecord,
+	readRecords,
 	UG_AUTORIZADA_EXECUCAO_RESPONSABILIDADE,
 } from "./analyzer"
 
@@ -129,15 +132,99 @@ describe("cruzamento 897210300 × 897110300 (Q22)", () => {
 })
 
 describe("parseSaldoCell", () => {
-	it("lê o texto formatado pelo SheetJS (raw: false) e o brasileiro", () => {
-		expect(parseSaldoCell("1,234.56")).toBe(1234.56)
+	it("lê o valor cru: número direto, texto na convenção brasileira", () => {
+		expect(parseSaldoCell(123.456)).toBe(123.456)
 		expect(parseSaldoCell("1.234,56")).toBe(1234.56)
-		// Separador único no padrão de milhar: a cópia antiga lia "1,234" como 1,234.
-		expect(parseSaldoCell("1,234")).toBe(1234)
-		// Parênteses: a cópia antiga devolvia 0.
-		expect(parseSaldoCell("(1,234.56)")).toBe(-1234.56)
-		expect(parseSaldoCell(42)).toBe(42)
+		// Vírgula sozinha é decimal: a regra anterior lia "1,234" como mil duzentos e trinta e quatro.
+		expect(parseSaldoCell("1,234")).toBe(1.234)
+		expect(parseSaldoCell("(1.234,56)")).toBe(-1234.56)
 		expect(parseSaldoCell("")).toBe(0)
 		expect(parseSaldoCell("abc")).toBe(0)
+	})
+})
+
+type SheetLine = [ug: string, conta: string, contaCorrente: string | number, saldo: string | number, formato?: string]
+
+/**
+ * Planilha xlsx de verdade, escrita e relida pelo SheetJS. O quinto campo é o formato
+ * da célula de saldo; conta corrente numérica leva o formato "00000".
+ */
+function buildWorkbook(lines: SheetLine[]): Uint8Array {
+	const sheet = XLSX.utils.aoa_to_sheet([
+		["Relatório Tesouro Gerencial"],
+		["UG", "Conta Contábil", "Conta Corrente", "Saldo - R$"],
+		...lines.map((line) => line.slice(0, 4)),
+	])
+	lines.forEach(([, , contaCorrente, , format], index) => {
+		if (format) sheet[XLSX.utils.encode_cell({ r: index + 2, c: 3 })].z = format
+		if (typeof contaCorrente === "number") sheet[XLSX.utils.encode_cell({ r: index + 2, c: 2 })].z = "00000"
+	})
+	const book = XLSX.utils.book_new()
+	XLSX.utils.book_append_sheet(book, sheet, "Relatório")
+	return new Uint8Array(XLSX.write(book, { type: "array", bookType: "xlsx" }))
+}
+
+describe("readRecords (xlsx real)", () => {
+	it("lê o saldo cru, sem passar pelo texto em inglês do SheetJS", () => {
+		const records = readRecords(
+			buildWorkbook([
+				// Célula Geral: o SheetJS formataria "123.456", que pela regra brasileira é 123456.
+				["120052", CONTA_EXECUCAO_RESPONSABILIDADE, 42, 123.456],
+				// "#,##0.00": formatado sairia "1,234,567.89".
+				["120052", CONTA_EXECUCAO_RESPONSABILIDADE, "CC2", 1234567.891, "#,##0.00"],
+				// Texto digitado no padrão brasileiro.
+				["120062", CONTA_RESPONSABILIDADE, "CC3", "1.234,56"],
+				["120062", CONTA_RESPONSABILIDADE, "CC4", "(1.234,56)"],
+			])
+		)
+		expect(records.map((r) => r.Saldo)).toEqual([123.456, 1234567.891, 1234.56, -1234.56])
+		// Os identificadores seguem como texto formatado: o zero à esquerda do formato "00000" fica.
+		expect(records[0]).toMatchObject({ UG: "120052", ContaContabil: CONTA_EXECUCAO_RESPONSABILIDADE, ContaCorrente: "00042" })
+	})
+
+	it("mantém as linhas alinhadas com linha vazia no meio", () => {
+		const sheet = XLSX.utils.aoa_to_sheet([
+			["UG", "Conta Contábil", "Conta Corrente", "Saldo"],
+			["120052", CONTA_EXECUCAO_RESPONSABILIDADE, "CC1", 10],
+			[],
+			["120062", CONTA_RESPONSABILIDADE, "CC2", 20],
+		])
+		const book = XLSX.utils.book_new()
+		XLSX.utils.book_append_sheet(book, sheet, "a")
+		const records = readRecords(new Uint8Array(XLSX.write(book, { type: "array", bookType: "xlsx" })))
+		expect(records.map((r) => [r.ContaCorrente, r.Saldo])).toEqual([
+			["CC1", 10],
+			["CC2", 20],
+		])
+	})
+
+	it("acha o cabeçalho quando a dimensão (!ref) não começa em A1", () => {
+		// Duas linhas sem célula antes do cabeçalho, e a dimensão declarada a partir de A3.
+		const sheet = XLSX.utils.aoa_to_sheet([
+			[],
+			[],
+			["UG", "Conta Contábil", "Conta Corrente", "Saldo"],
+			["120052", CONTA_EXECUCAO_RESPONSABILIDADE, "CC1", 10],
+			["120062", CONTA_RESPONSABILIDADE, "CC2", "1.234,56"],
+		])
+		sheet["!ref"] = "A3:D5"
+		const book = XLSX.utils.book_new()
+		XLSX.utils.book_append_sheet(book, sheet, "a")
+		const bytes = XLSX.write(book, { type: "array", bookType: "xlsx" })
+		expect(XLSX.read(bytes, { type: "array" }).Sheets.a["!ref"]).toBe("A3:D5")
+		expect(readRecords(bytes).map((r) => [r.UG, r.ContaCorrente, r.Saldo])).toEqual([
+			["120052", "CC1", 10],
+			["120062", "CC2", 1234.56],
+		])
+	})
+
+	it.each(CSV_ENCODINGS)('CSV %s: acha "Conta Contábil" e lê o saldo brasileiro', (_label, encode) => {
+		const csv = "UG;Conta Contábil;Conta Corrente;Saldo\n120052;897210300;CC1;1.234,56\n120052;897210300;CC2;1.234\n120052;897210300;CC3;12,345\n"
+		const records = readRecords(encode(csv))
+		expect(records.map((r) => [r.ContaContabil, r.Saldo])).toEqual([
+			["897210300", 1234.56],
+			["897210300", 1234],
+			["897210300", 12.345],
+		])
 	})
 })

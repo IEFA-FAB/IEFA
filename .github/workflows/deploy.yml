@@ -49,7 +49,7 @@ jobs:
           filters: .github/paths-filter.yml
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
-          bun-version: "1.4.3"
+          bun-version-file: package.json
       - name: Resolve apps
         id: plan
         env:
@@ -88,7 +88,7 @@ jobs:
           persist-credentials: false
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
-          bun-version: "1.4.3"
+          bun-version-file: package.json
       - uses: actions/cache@v6
         with:
           path: ~/.bun/install/cache
@@ -186,7 +186,7 @@ jobs:
           persist-credentials: false
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
-          bun-version: "1.4.3"
+          bun-version-file: package.json
       - uses: actions/cache@v6
         with:
           path: ~/.bun/install/cache
@@ -205,6 +205,10 @@ jobs:
       # verde (um helper do tslib que deixou de resolver derrubou o render de /docs/,
       # e das 23 rotas só 8 saíram). Conferir antes de sincronizar transforma isso
       # num deploy vermelho em vez de num site vazio.
+      # O piso de 12 páginas (`index.html`) veio dessa medição (4a99f5ce): build são deu 16,
+      # o truncado deu 1. Fica abaixo do total são com folga e muito acima do truncado. Hoje
+      # (2026-10-14) o build gera 20. Página nova não exige mexer; remover páginas até perto de
+      # 12 exige baixar o piso, senão o deploy fica vermelho. Mesmo número no deploy-docs.
       - name: Verify prerender output
         run: |
           set -euo pipefail
@@ -254,7 +258,8 @@ jobs:
           path: site
 
       # Segunda conferência, agora sobre o que vai de fato para o bucket: um artifact
-      # truncado no upload/download também apagaria páginas no sync --delete.
+      # truncado no upload/download também apagaria páginas no sync --delete. O piso de 12 é o
+      # mesmo do build-docs (o porquê está lá).
       - name: Verify downloaded site
         run: |
           set -euo pipefail

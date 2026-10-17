@@ -174,6 +174,12 @@ jobs:
       id-token: write
     strategy:
       fail-fast: false
+      # `max-parallel: 3`: motivo não registrado quando entrou (#165). Critério atual: no máximo
+      # três stacks de serviço aplicando ao mesmo tempo, de ~13. Cada stack tem state e lock
+      # próprios, então o limite não é de lock: é de chamadas à API da mesma conta AWS ao mesmo
+      # tempo (throttling vira retry e apply lento) e de quantos applies de produção correm juntos
+      # se algo der errado. Subir encurta o merge que mexe em muitos stacks (raro: módulo comum);
+      # descer só alonga.
       max-parallel: 3
       matrix:
         stack: ${{ fromJSON(needs.detect.outputs.services) }}

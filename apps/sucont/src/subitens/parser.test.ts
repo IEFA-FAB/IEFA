@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import * as XLSX from "xlsx"
+import { encodeWindows1252 } from "#/lib/__fixtures__/csv-encodings"
 import { classifyGenericCode, PAYEE_999_REGEX, SUBITEM_99_REGEX } from "#/subitens/generic-code"
 import { parseSaldo, parseWorkbook } from "#/subitens/parser"
 import type { GenericCodeKind } from "#/subitens/types"
@@ -17,6 +18,13 @@ function buildWorkbook(header: unknown[], rows: unknown[][], preamble = 11): Arr
 const HEADER = ["UG Executora", "Conta Contábil", "Conta Corrente", "Saldo - R$"]
 
 describe("parseWorkbook", () => {
+	it("lê CSV windows-1252 (ou texto renomeado para .xls) sem adivinhar número", () => {
+		const preamble = Array.from({ length: 11 }, (_, i) => `Título ${i + 1}`)
+		const csv = [...preamble, HEADER.join(";"), "120004 BABR;332110100;99;1.234,56", "120004 BABR;332110100;99;12,345"].join("\n")
+		const [group] = parseWorkbook(encodeWindows1252(csv).buffer)
+		expect(group.occurrences.map((o) => o.saldo)).toEqual([1234.56 + 12.345])
+	})
+
 	it("filtra códigos genéricos, marca o tipo, soma repetidos e agrupa por UG em ordem", () => {
 		const buffer = buildWorkbook(HEADER, [
 			["120004 BABR ", " 332110100 ", " 99 ", 100],

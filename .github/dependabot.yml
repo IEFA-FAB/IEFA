@@ -145,8 +145,13 @@ updates:
         patterns: ["*"]
 
   # ── Imagem base do Docker ──────────────────────────────────────────────────
+  # Só o Dockerfile do pdf: o Dependabot lê FROM literal, e é o único que tem (node e nginx do
+  # ECR Public, tag + digest; o digest do nginx já sumiu do registry uma vez, #531). O Dockerfile
+  # raiz é gerado e tira a imagem de um ARG; as imagens Bun dele (`bunImage`/`bunRuntimeImage` do
+  # apps.manifest.json) andam junto com o `packageManager` do package.json, à mão, e o
+  # `check:deploy` falha se divergirem (.claude/rules/ci.md, "Versão do Bun").
   - package-ecosystem: docker
-    directory: /
+    directory: /apps/pdf
     schedule:
       interval: weekly
       day: monday
@@ -159,6 +164,12 @@ updates:
       default-days: 7
     commit-message:
       prefix: "chore(deps)"
+    # Node só em LTS, e trocar de major é decisão (o upstream do BentoPDF builda com 20). A tag é
+    # `24-alpine`, sem minor nem patch: o Dependabot só anda o digest dela, e a versão do node é a
+    # que esse digest trouxer. O `ignore` impede que ele proponha `25-alpine`.
+    ignore:
+      - dependency-name: "*/node"
+        update-types: ["version-update:semver-major"]
 
   # ── Providers do Terraform ─────────────────────────────────────────────────
   # Sem isto os `.terraform.lock.hcl` só andavam à mão e derivavam entre stacks (6.53 e 6.55 do

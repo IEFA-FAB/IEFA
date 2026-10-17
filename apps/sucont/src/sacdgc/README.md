@@ -48,7 +48,7 @@ registrado: o pedido cai no catch-all do SSR e volta 307 para `/auth`.
 
 | Defeito | Efeito | Onde |
 |---|---|---|
-| CSV windows-1252 lido como UTF-8 | "Diárias" chegava ao modelo como "Di<?>rias" | `parser.ts` (`decodeSpreadsheet`) |
+| CSV windows-1252 lido como UTF-8 | "Diárias" chegava ao modelo como "Di<?>rias" | `lib/spreadsheet.ts` (`decodeSpreadsheet`) |
 | Coluna da UG com índice fixo | Linha do Painel 4 ia para a UG emitente, não a beneficiada | `parser.ts` (`ugColumnIndex`) |
 | Modelo `gemini-3.5-flash` (inexistente) | Toda chamada falhava | Bedrock via `@iefa/ai-provider` |
 | Exemplo numérico em padrão inglês no prompt | Valores reportados 1000× errados | `prompt.ts` |

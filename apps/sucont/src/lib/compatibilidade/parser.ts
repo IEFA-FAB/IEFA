@@ -4,9 +4,11 @@
  * linhas da planilha do Tesouro Gerencial → relatório de divergências por UG.
  */
 
+import * as XLSX from "xlsx"
 import { parseBrazilianAmountOrZero } from "#/lib/analysis/saldo"
 import { agregarSaldos, compararPares, type LinhaSaldo, PARES, type ParDivergente } from "#/lib/compatibilidade/pares"
-import { getUg } from "#/lib/ug/registry"
+import { readWorkbook } from "#/lib/spreadsheet"
+import { extractCodigoUg, getUg } from "#/lib/ug/registry"
 import { formatCurrency, normalizeKey } from "./format"
 
 export const PAIRS = PARES
@@ -41,6 +43,16 @@ export interface UGReport {
 }
 
 export type SheetRow = (string | number | boolean | null | undefined)[]
+
+/**
+ * Linhas da primeira aba do arquivo (xlsx, xls ou CSV). Célula numérica chega como número
+ * (`sheet_to_json` cru) e texto como foi digitado; o CSV passa por `readWorkbook`.
+ */
+export function readSheetRows(data: ArrayBuffer | Uint8Array): SheetRow[] {
+	const workbook = readWorkbook(data)
+	const worksheet = workbook.Sheets[workbook.SheetNames[0]]
+	return XLSX.utils.sheet_to_json<SheetRow>(worksheet, { header: 1 })
+}
 
 interface HeaderColumns {
 	headerRowIndex: number
@@ -133,10 +145,13 @@ Diferença apurada: ${formatCurrency(diff)}
 `.trim()
 }
 
-/** Código, nome e vinculação da UG: do cadastro quando houver, senão do próprio texto da planilha. */
+/**
+ * Código, nome e vinculação da UG: do cadastro quando houver, senão do próprio texto da
+ * planilha. O código sai pela regra do registry: "120.062" é a 120062, e "1200621" não
+ * é UG nenhuma (o `\d{6}` sem borda tirava 120062 de dentro dele).
+ */
 function resolveUgIdentity(ug: string) {
-	const ugMatch = ug.match(/\d{6}/)
-	const ugCode = ugMatch ? ugMatch[0] : ug
+	const ugCode = extractCodigoUg(ug)
 	const metadata = getUg(ugCode)
 	const ugName = metadata ? metadata.sigla : ug.includes(" - ") ? ug.split(" - ")[1] : ug
 	const superior = metadata?.orgaoSuperior ?? "Não Identificado"

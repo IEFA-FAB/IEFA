@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import * as XLSX from "xlsx"
+import { encodeWindows1252 } from "#/lib/__fixtures__/csv-encodings"
 import { extractAccountCode, isGenericAccount, processData, readWorkbookRows } from "#/lib/conta-generica/process-data"
 
 const HEADER_ERROR = "Não foi possível encontrar o cabeçalho da tabela com as colunas: UG, Conta Contábil, Mês, Saldo - R$. Verifique o formato do arquivo."
@@ -16,6 +17,15 @@ describe("readWorkbookRows", () => {
 	it("lê só a primeira aba, linha a linha", () => {
 		const rows = readWorkbookRows(workbookBuffer([["Título"], ["UG", "Conta Contábil"]]))
 		expect(rows).toEqual([["Título"], ["UG", "Conta Contábil"]])
+	})
+
+	it("lê CSV windows-1252 com o saldo como texto digitado", () => {
+		const rows = readWorkbookRows(encodeWindows1252("UG;Conta Contábil;Mês;Saldo - R$\n120001;218810199;JAN;1.234,56\n"))
+		expect(processData(rows)).toEqual({
+			grouped: { "120001": { "218810199": [{ mes: "JAN", saldo: 1234.56 }] } },
+			hasGeneric: true,
+			skippedNonGeneric: 0,
+		})
 	})
 
 	it("lança quando não há arquivo (o componente mostra a mensagem de Excel inválido)", () => {
@@ -187,11 +197,13 @@ describe("processData", () => {
 		})
 	})
 
-	it("descarta a UG 170999 (STN), em código puro ou com o nome", () => {
+	it("descarta a UG 170999 (STN), em código puro, com o nome, com ponto ou colada ao nome", () => {
 		const data = [
 			["UG", "Conta Contábil", "Mês", "Saldo"],
 			["170999", "11199", "JAN", 1],
 			["170999 - STN", "11199", "JAN", 2],
+			["170.999", "11199", "JAN", 4],
+			["170999STN", "11199", "JAN", 5],
 			["120001", "11199", "JAN", 3],
 		]
 		expect(processData(data)).toEqual({ grouped: { "120001": { "11199": [{ mes: "JAN", saldo: 3 }] } }, hasGeneric: true, skippedNonGeneric: 0 })
@@ -211,6 +223,13 @@ describe("extractAccountCode", () => {
 		["2.1.8.8.1.01.99 - Outros Créditos", "218810199"],
 		["218810199 OUTROS CRÉDITOS", "218810199"],
 		["218810199-OUTROS", "218810199"],
+		["218810199", "218810199"],
+		// O código acaba no primeiro espaço: o dígito da descrição não entra.
+		["218810199 13º SALARIO", "218810199"],
+		["218810199 000001", "218810199"],
+		// Espaço como separador do código.
+		["2 1 8 8 1 01 99", "218810199"],
+		["2 1 8 8 1 01 99 - Outros Créditos", "218810199"],
 		["1.1.1. 99", "11199"],
 		[" 113819900 ", "113819900"],
 		[" . ", ""],
@@ -229,6 +248,26 @@ describe("extractAccountCode", () => {
 			grouped: { "120001": { "218810199": [{ mes: "JAN", saldo: 5 }] } },
 			hasGeneric: true,
 			skippedNonGeneric: 1,
+		})
+	})
+
+	it("descrição que começa por dígito não descarta a linha", () => {
+		const data = [
+			["UG", "Conta Contábil", "Mês", "Saldo"],
+			["120001", "218810199 13º SALARIO", "JAN", 5],
+			["120001", "218810199 000001", "FEV", 7],
+		]
+		expect(processData(data)).toEqual({
+			grouped: {
+				"120001": {
+					"218810199": [
+						{ mes: "JAN", saldo: 5 },
+						{ mes: "FEV", saldo: 7 },
+					],
+				},
+			},
+			hasGeneric: true,
+			skippedNonGeneric: 0,
 		})
 	})
 })

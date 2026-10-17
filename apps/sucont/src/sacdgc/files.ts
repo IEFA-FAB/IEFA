@@ -9,7 +9,8 @@
  */
 
 import * as XLSX from "xlsx"
-import { decodeSpreadsheet, type PanelSource } from "#/sacdgc/parser"
+import { decodeSpreadsheet } from "#/lib/spreadsheet"
+import type { PanelSource } from "#/sacdgc/parser"
 
 const SPREADSHEET = /\.(xlsx|xlsm|xls)$/i
 

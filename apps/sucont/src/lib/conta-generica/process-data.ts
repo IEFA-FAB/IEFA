@@ -3,6 +3,7 @@
 import * as XLSX from "xlsx"
 import { parseBrazilianAmount } from "#/lib/analysis/saldo"
 import type { GroupedData } from "#/lib/conta-generica/helpers"
+import { readWorkbook } from "#/lib/spreadsheet"
 import { isUgAcompanhada } from "#/lib/ug/registry"
 
 export type ProcessDataResult =
@@ -36,9 +37,9 @@ const CONTA_HEADERS = ["conta contábil", "conta contabil"]
 const MES_HEADERS = ["mês", "mes", "conta corrente"]
 const SALDO_HEADERS = ["saldo - r$", "saldo - r $", "saldo", "valor alongado"]
 
-/** Linhas da primeira aba do workbook (o que o `FileReader` entrega). Lança se o arquivo não for Excel. */
+/** Linhas da primeira aba do workbook (o que o `FileReader` entrega). Lança se o arquivo não for legível. */
 export function readWorkbookRows(buffer: unknown): unknown[][] {
-	const wb = XLSX.read(buffer, { type: "array" })
+	const wb = readWorkbook(buffer)
 	const ws = wb.Sheets[wb.SheetNames[0]]
 	return XLSX.utils.sheet_to_json(ws, { header: 1 }) as unknown[][]
 }
@@ -75,20 +76,29 @@ function findHeaderRow(data: unknown[][]): { headerRowIndex: number; colIndices:
 	return null
 }
 
-/** Código no início da célula: dígitos, com ponto ou espaço entre eles ("2.1.8.8.1.01.99"). */
+/** Prefixo da célula com cara de código: dígitos, pontos e espaços a partir do primeiro dígito. */
 const LEADING_ACCOUNT_CODE = /^\s*(\d[\d.\s]*)/
+
+/** Tamanho do código da conta contábil no PCASP. */
+const ACCOUNT_CODE_LENGTH = 9
 
 /**
  * Código da conta contábil, sem pontuação. A célula pode trazer a descrição depois do
  * código ("2.1.8.8.1.01.99 - Outros Créditos", "218810199 OUTROS CRÉDITOS"): só tirar
  * espaço e ponto deixava "218810199-OutrosCréditos", que não passa em `isGenericAccount`, e
- * a planilha inteira era descartada. Sem dígito no início, fica o texto sem espaço e
- * ponto, como antes.
+ * a planilha inteira era descartada.
+ *
+ * O código pode usar espaço como separador ("2 1 8 8 1 01 99"), e a descrição pode
+ * começar por dígito ("218810199 13º SALÁRIO"). Os dois cabem numa regra: do prefixo de
+ * dígitos, pontos e espaços, com nove dígitos ou mais o código são os nove primeiros
+ * (os seguintes são da descrição); com menos, são todos ("1.1.1. 99" → `11199`). Sem
+ * dígito no início, fica o texto sem espaço e ponto, como antes.
  */
 export function extractAccountCode(raw: string): string {
 	const leading = LEADING_ACCOUNT_CODE.exec(raw)
-	if (leading) return leading[1].replace(/\D/g, "")
-	return raw.replace(/\s+/g, "").replace(/\./g, "")
+	if (!leading) return raw.replace(/\s+/g, "").replace(/\./g, "")
+	const digits = leading[1].replace(/\D/g, "")
+	return digits.length >= ACCOUNT_CODE_LENGTH ? digits.slice(0, ACCOUNT_CODE_LENGTH) : digits
 }
 
 /**
