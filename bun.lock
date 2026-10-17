@@ -413,7 +413,7 @@
         "zod": "^4.6.5",
       },
       "devDependencies": {
-        "@grafana/faro-rollup-plugin": "^0.12.0",
+        "@grafana/faro-rollup-plugin": "^0.13.1",
         "@iefa/tsconfig": "workspace:*",
         "@playwright/test": "^1.64.0",
         "@rolldown/plugin-babel": "^0.2.4",
@@ -982,11 +982,11 @@
 
     "@google/genai": ["@google/genai@2.21.0", "", { "dependencies": { "google-auth-library": "^10.3.0", "p-retry": "^4.6.2", "protobufjs": "^7.5.4", "ws": "^8.18.0" }, "peerDependencies": { "@modelcontextprotocol/sdk": "^1.25.2" }, "optionalPeers": ["@modelcontextprotocol/sdk"] }, "sha512-+PDtco2/Z0ONdzCGekCoCT+O1VJS9xJQNN4XzQpXG/t3El/SWWMkCWlFRO1KmivOHPa4Q0VjUYu1HBKCZ/v33Q=="],
 
-    "@grafana/faro-bundlers-shared": ["@grafana/faro-bundlers-shared@0.12.0", "", { "dependencies": { "ansis": "^4.0.0", "tar": "^7.5.21", "undici": "^8.5.0" } }, "sha512-X/QulhlO55W4Tgw9C4RSFyTVo8Aus0ChuGHH6iuVZAB1d1UZkcy6hjBCP7esdQ8vHNphmevsdcbX5ql4pA3wng=="],
+    "@grafana/faro-bundlers-shared": ["@grafana/faro-bundlers-shared@0.13.2", "", { "dependencies": { "ansis": "^4.0.0", "tar": "^7.5.21", "undici": "^8.5.0" } }, "sha512-7nH8RdAT1dqiurnshd+JKHVRdkCViTL2dsRm6RWkpPFia0qXoXvUkeDsf8PvwiMSdG/XZyaSjUtwamhSF2XpSw=="],
 
     "@grafana/faro-core": ["@grafana/faro-core@2.12.1", "", { "dependencies": { "@opentelemetry/api": "^1.9.0", "@opentelemetry/otlp-transformer": "^0.222.0" } }, "sha512-Pg0vjgsR1BxdmLzzX9r8YcZ8rI4aXLlDGtreppZev++BbnH2utKBwCI16Vx+IzfQqHKRT+7WGc63HOue8/9J6Q=="],
 
-    "@grafana/faro-rollup-plugin": ["@grafana/faro-rollup-plugin@0.12.0", "", { "dependencies": { "@grafana/faro-bundlers-shared": "^0.12.0", "magic-string": "^0.30.5" } }, "sha512-8VOlM9L3ZQIyz80GmZGzkoUDi4hKe9tqvavu+kJMY+en+wZ/gQY+MQ24AFBLf9e9UDFUaoiWgzk38buCXOAV2A=="],
+    "@grafana/faro-rollup-plugin": ["@grafana/faro-rollup-plugin@0.13.1", "", { "dependencies": { "@grafana/faro-bundlers-shared": "^0.13.1", "magic-string": "^1.0.0" } }, "sha512-wSJmKPG2ssD7oqjq/UX2+1/DozuAa+YLwMTyO5gMjtcqdAU2gV1iMZqBUmbxiDCrsWYsfTc3MmHplSn/JtQFag=="],
 
     "@grafana/faro-web-sdk": ["@grafana/faro-web-sdk@2.12.1", "", { "dependencies": { "@grafana/faro-core": "^2.12.1", "ua-parser-js": "1.0.41", "web-vitals": "^6.0.0" } }, "sha512-JnpZy/ztfkP3UZ3AW0DzUxVgMRTBvYz+m0oZuVi+KRpGTYz0GGF0umi0S0pAemnaUbQBo6umGdCm5CL6n8BAWQ=="],
 
@@ -3357,8 +3357,6 @@
     "@eslint/plugin-kit/@eslint/core": ["@eslint/core@1.2.1", "", { "dependencies": { "@types/json-schema": "^7.0.15" } }, "sha512-MwcE1P+AZ4C6DWlpin/OmOA54mmIZ/+xZuJiQd4SyB29oAJjN30UW9wkKNptW2ctp4cEsvhlLY/CsQ1uoHDloQ=="],
 
     "@grafana/faro-core/@opentelemetry/otlp-transformer": ["@opentelemetry/otlp-transformer@0.222.0", "", { "dependencies": { "@opentelemetry/api-logs": "0.222.0", "@opentelemetry/core": "2.11.0", "@opentelemetry/resources": "2.11.0", "@opentelemetry/sdk-logs": "0.222.0", "@opentelemetry/sdk-metrics": "2.11.0", "@opentelemetry/sdk-trace": "2.11.0" }, "peerDependencies": { "@opentelemetry/api": "^1.3.0" } }, "sha512-/F3BZ89+CJQnZkMh2tCrtcdB+XT2Dxhj4FFE+WPQ//413hmFL0/RfEX6vgOIWGhiSzrkHWTK3+6SiT7K5/g/jQ=="],
-
-    "@grafana/faro-rollup-plugin/magic-string": ["magic-string@0.30.21", "", { "dependencies": { "@jridgewell/sourcemap-codec": "^1.5.5" } }, "sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ=="],
 
     "@iefa/compras-api-codegen/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
 

@@ -85,7 +85,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@grafana/faro-rollup-plugin": "^0.12.0",
+    "@grafana/faro-rollup-plugin": "^0.13.1",
     "@iefa/tsconfig": "workspace:*",
     "@playwright/test": "^1.64.0",
     "@rolldown/plugin-babel": "^0.2.4",
