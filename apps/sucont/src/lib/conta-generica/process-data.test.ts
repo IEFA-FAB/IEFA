@@ -96,7 +96,7 @@ describe("processData", () => {
 		const rows = readWorkbookRows(
 			workbookBuffer([
 				["UG", "Conta Contábil", "Mês", "Saldo - R$"],
-				[" 120001 ", " 1.1.1.99", " JAN ", 1234.56],
+				[" 120001 ", "1.1.1. 99", " JAN ", 1234.56],
 				["120001", "11199", "FEV", "1.234,56"],
 				["120001", "2.1.2.99", "JAN", "-10,5"],
 				["120006", "11199", "MAR", -3],
@@ -227,7 +227,10 @@ describe("extractAccountCode", () => {
 		// O código acaba no primeiro espaço: o dígito da descrição não entra.
 		["218810199 13º SALARIO", "218810199"],
 		["218810199 000001", "218810199"],
-		["1.1.1. 99", "111"],
+		// Espaço como separador do código.
+		["2 1 8 8 1 01 99", "218810199"],
+		["2 1 8 8 1 01 99 - Outros Créditos", "218810199"],
+		["1.1.1. 99", "11199"],
 		[" 113819900 ", "113819900"],
 		[" . ", ""],
 		["CONTA X", "CONTAX"],

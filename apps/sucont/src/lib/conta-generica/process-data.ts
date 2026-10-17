@@ -76,21 +76,29 @@ function findHeaderRow(data: unknown[][]): { headerRowIndex: number; colIndices:
 	return null
 }
 
-/** Código no início da célula: o primeiro token, só dígitos e pontos ("2.1.8.8.1.01.99"). Não atravessa espaço. */
-const LEADING_ACCOUNT_CODE = /^\s*(\d[\d.]*)/
+/** Prefixo da célula com cara de código: dígitos, pontos e espaços a partir do primeiro dígito. */
+const LEADING_ACCOUNT_CODE = /^\s*(\d[\d.\s]*)/
+
+/** Tamanho do código da conta contábil no PCASP. */
+const ACCOUNT_CODE_LENGTH = 9
 
 /**
  * Código da conta contábil, sem pontuação. A célula pode trazer a descrição depois do
  * código ("2.1.8.8.1.01.99 - Outros Créditos", "218810199 OUTROS CRÉDITOS"): só tirar
  * espaço e ponto deixava "218810199-OutrosCréditos", que não passa em `isGenericAccount`, e
- * a planilha inteira era descartada. O código acaba no primeiro espaço: atravessá-lo
- * juntava o dígito da descrição ("218810199 13º SALÁRIO" virava `21881019913`). Sem
+ * a planilha inteira era descartada.
+ *
+ * O código pode usar espaço como separador ("2 1 8 8 1 01 99"), e a descrição pode
+ * começar por dígito ("218810199 13º SALÁRIO"). Os dois cabem numa regra: do prefixo de
+ * dígitos, pontos e espaços, com nove dígitos ou mais o código são os nove primeiros
+ * (os seguintes são da descrição); com menos, são todos ("1.1.1. 99" → `11199`). Sem
  * dígito no início, fica o texto sem espaço e ponto, como antes.
  */
 export function extractAccountCode(raw: string): string {
 	const leading = LEADING_ACCOUNT_CODE.exec(raw)
-	if (leading) return leading[1].replace(/\D/g, "")
-	return raw.replace(/\s+/g, "").replace(/\./g, "")
+	if (!leading) return raw.replace(/\s+/g, "").replace(/\./g, "")
+	const digits = leading[1].replace(/\D/g, "")
+	return digits.length >= ACCOUNT_CODE_LENGTH ? digits.slice(0, ACCOUNT_CODE_LENGTH) : digits
 }
 
 /**
