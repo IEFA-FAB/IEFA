@@ -425,7 +425,12 @@ const CONSULTED_AT_SKEW_MS = 5 * 60 * 1000
  * A consulta declarada precisa ser plausível e completa: coleta parcial não grava (a série seria
  * um corte do que a fonte tinha na janela), e hora no futuro não é hora de consulta.
  */
-export function assertSourceConsultation(source: PriceResearchSourceConsultation, catmatCodigo: number, now: Date = new Date()): void {
+export function assertSourceConsultation(
+	source: PriceResearchSourceConsultation,
+	catmatCodigo: number,
+	periodMonths: number | null,
+	now: Date = new Date()
+): void {
 	if (source.coverage === "truncated") {
 		throw new DomainError(
 			"PARTIAL_COLLECTION",
@@ -438,6 +443,10 @@ export function assertSourceConsultation(source: PriceResearchSourceConsultation
 	}
 	if (source.pagesFetched > source.totalPages || (source.coverage === "complete" && source.pagesFetched !== source.totalPages)) {
 		throw new DomainError("VALIDATION_FAILED", "Páginas lidas não batem com o total da consulta.")
+	}
+	// Parada pela janela só existe com janela: sem ela, "janela completa" descreveria outra coleta.
+	if (source.coverage === "window" && !periodMonths) {
+		throw new DomainError("VALIDATION_FAILED", "Cobertura pela janela numa pesquisa sem janela.")
 	}
 	// A consulta registrada é a deste CATMAT: o relatório monta a URL de repetição a partir dela.
 	const query = new URLSearchParams(source.query)
@@ -461,7 +470,7 @@ export async function savePriceResearchAudit(db: SisubDb, ctx: UserContext, inpu
 	// forjar memória de cálculo; guard sem escopo ainda deixava membro de qualquer unidade
 	// gravar/ligar auditoria em anexo alheio.
 	requirePermission(ctx, "unit", 1)
-	assertSourceConsultation(input.source, input.catmatCodigo)
+	assertSourceConsultation(input.source, input.catmatCodigo, input.periodMonths ?? null)
 	if (input.quantityEstimateId || input.quantityEstimateItemId) {
 		await authorizeQuantityEstimateTarget(db, ctx, input.quantityEstimateId, input.quantityEstimateItemId)
 	}

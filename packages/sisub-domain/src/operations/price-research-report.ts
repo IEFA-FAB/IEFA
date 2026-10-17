@@ -414,12 +414,36 @@ const v2QueryUrl = (r: ReportResearch, catmat: number | null) => {
 	return query ? `${V2_SOURCE_URL}?${query}&pagina=1` : null
 }
 
-/** Datas da série 2, com regra própria: mudar `researchWindowOf` (tela) não pode mudar estes bytes. */
+/** Dia civil em UTC−3 (Brasília, sem horário de verão desde 2019), sem tabela de fuso. */
+const v2CivilDate = (instant: string) => new Date(Date.parse(instant) - 3 * 3_600_000).toISOString().slice(0, 10)
+
+/** Dia civil somado de `months` meses, com a rolagem do `Date` (31/03 − 1 mês = 03/03). */
+function v2AddMonths(civil: string, months: number): string {
+	const date = new Date(`${civil}T12:00:00Z`)
+	date.setUTCMonth(date.getUTCMonth() + months)
+	return date.toISOString().slice(0, 10)
+}
+
+/**
+ * Datas da série 2, com regra própria: mudar `researchWindowOf` (tela) ou `civil-date` não pode
+ * mudar estes bytes. Mesmo resultado que a coleta usou enquanto Brasília for UTC−3.
+ */
 function v2Window(r: ReportResearch): { researchDate: string; windowStart: string | null; windowEnd: string } {
-	const civil = (instant: string) => toBrasiliaCivilDate(instant) ?? instant.slice(0, 10)
-	const researchDate = civil(r.createdAt)
-	const windowEnd = r.source ? civil(r.source.consultedAt) : researchDate
-	return { researchDate, windowStart: r.periodMonths ? addCivilMonths(windowEnd, -r.periodMonths) : null, windowEnd }
+	const researchDate = v2CivilDate(r.createdAt)
+	const windowEnd = r.source ? v2CivilDate(r.source.consultedAt) : researchDate
+	return { researchDate, windowStart: r.periodMonths ? v2AddMonths(windowEnd, -r.periodMonths) : null, windowEnd }
+}
+
+/**
+ * Campo da série 2: como `csvField`, e também neutraliza TAB/CR no começo e põe entre aspas o CR
+ * solto. A série 2 traz texto livre da fonte (descrição na compra); a 1 não, e o `csvField` dela
+ * fica como está para o hash das emissões antigas.
+ */
+function v2Field(value: string | number | null | undefined): string {
+	if (value == null) return ""
+	const text = String(value)
+	const safe = /^[=+\-@\t\r]/.test(text) && !/^[+-]?\d+(?:\.\d+)?$/.test(text) ? `'${text}` : text
+	return /[",\n\r;]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe
 }
 const v2SampleUrl = (catmat: number, idCompra: string) =>
 	`${V2_SOURCE_URL}?tipo=codigoItemCatalogo&codigo=${catmat}&idCompra=${encodeURIComponent(idCompra)}&pagina=1&tamanhoPagina=500`
@@ -432,16 +456,17 @@ function v2Instant(iso: string): string {
 function v2SummaryRow(item: ReportItem): Array<string | number | null> {
 	const r = item.research
 	if (!r) {
-		// A linha tem todas as colunas: "sem pesquisa" vai em nao_conformidades, não num id.
-		const row: Array<string | number | null> = V2_SUMMARY_HEADER.map(() => null)
-		row[0] = item.order
-		row[1] = item.catmat
-		row[2] = item.description
-		row[3] = item.unit
-		row[29] = item.unitPrice
-		row[30] = item.maxQuantity
-		row[32] = "sem pesquisa"
-		return row
+		// A linha tem todas as colunas, pelo nome: "sem pesquisa" vai em nao_conformidades, não num id.
+		const known: Partial<Record<(typeof V2_SUMMARY_HEADER)[number], string | number | null>> = {
+			item: item.order,
+			catmat: item.catmat,
+			descricao_item: item.description,
+			unidade_pesquisa: item.unit,
+			preco_no_anexo: item.unitPrice,
+			quantidade_maxima: item.maxQuantity,
+			nao_conformidades: "sem pesquisa",
+		}
+		return V2_SUMMARY_HEADER.map((column) => known[column] ?? null)
 	}
 	const { researchDate, windowStart, windowEnd } = v2Window(r)
 	const catmat = r.catmatCodigo ?? item.catmat
@@ -493,7 +518,7 @@ function v2SummaryRow(item: ReportItem): Array<string | number | null> {
  * as amostras, cada uma com a URL que a devolve da fonte. Três blocos separados por linha em branco.
  */
 function buildSeriesCsvV2(items: readonly ReportItem[]): string {
-	const row = (values: ReadonlyArray<string | number | null | undefined>) => values.map(csvField).join(",")
+	const row = (values: ReadonlyArray<string | number | null | undefined>) => values.map(v2Field).join(",")
 	const lines = V2_NOTE.map(([label, text]) => row([label, text]))
 	lines.push("", row(["Resumo por item"]), row(V2_SUMMARY_HEADER), ...items.map((i) => row(v2SummaryRow(i))))
 	lines.push("", row(["Amostras"]), row(V2_SAMPLE_HEADER))

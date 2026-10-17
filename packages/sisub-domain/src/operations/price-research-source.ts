@@ -7,8 +7,8 @@
  * nas 8.402 linhas do CATMAT 463770, sem exceção), e a janela de 1 ano conta por essa data: a
  * coleta para na primeira linha que passa do início da janela, e a janela inteira vem lida
  * qualquer que seja o volume. O teto curto (`PRICE_RESEARCH_MAX_PAGES`) vale para a consulta sem
- * janela e para a fonte fora de ordem; com janela em ordem, o teto é o largo
- * (`PRICE_RESEARCH_WINDOW_MAX_PAGES`), só freio contra fonte patológica.
+ * janela; com janela, o teto é o largo (`PRICE_RESEARCH_WINDOW_MAX_PAGES`), só freio contra fonte
+ * patológica, porque a janela precisa vir inteira mesmo com a fonte fora de ordem.
  */
 
 import { addCivilMonths, toBrasiliaCivilDate } from "../utils/civil-date.ts"
@@ -16,9 +16,9 @@ import { addCivilMonths, toBrasiliaCivilDate } from "../utils/civil-date.ts"
 export const PRICE_RESEARCH_SOURCE_URL = "https://dadosabertos.compras.gov.br/modulo-pesquisa-preco/1_consultarMaterial"
 export const PRICE_RESEARCH_SOURCE_DOCS_URL = "https://dadosabertos.compras.gov.br/swagger-ui/index.html"
 export const PRICE_RESEARCH_PAGE_SIZE = 500
-/** Teto sem janela (todo o histórico) ou com a fonte fora de ordem: 40 × 500 = 20.000 registros. */
+/** Teto sem janela (todo o histórico): 40 × 500 = 20.000 registros. */
 export const PRICE_RESEARCH_MAX_PAGES = 40
-/** Teto com janela e fonte em ordem: 200 × 500 = 100.000 registros num ano, só contra fonte patológica. */
+/** Teto com janela: 200 × 500 = 100.000 registros. A janela precisa vir inteira; é só freio contra fonte patológica. */
 export const PRICE_RESEARCH_WINDOW_MAX_PAGES = 200
 
 /**
@@ -104,22 +104,20 @@ export interface CollectedSource<T> {
 	orderBroken: boolean
 }
 
-type DatedRow = { dataResultado?: string | null; dataCompra?: string | null }
+type DatedRow = { dataResultado?: string | null }
 
-/** Data pela qual a fonte ordena a resposta (decrescente). */
+/** Data pela qual a fonte ordena a resposta (decrescente) e pela qual a janela conta. */
 const sortDateOf = (r: DatedRow) => r.dataResultado?.slice(0, 10) ?? null
-/** Data pela qual a janela conta: do resultado, ou da compra quando não há resultado. */
-const windowDateOf = (r: DatedRow) => (r.dataResultado ?? r.dataCompra)?.slice(0, 10) ?? null
 
 /**
  * Coleta as páginas de uma consulta, em lotes de `concurrency`.
  *
  * Com janela, lê até a primeira linha cuja data do resultado passa do início dela, conferindo a
- * ordem linha a linha até ali (linha sem data do resultado não entra na ordem). Depois desse ponto,
- * só quebra a premissa uma linha que ainda caia na janela. Antes de parar, lê a última página: se
- * nela houver linha da janela (linhas sem data do resultado no fim da ordenação, por exemplo), lê
- * tudo; as linhas sem data nenhuma dela entram no resultado. Fora de ordem ou sem janela, o teto é
- * o curto; com janela em ordem, o largo. A última página lida para conferir é reaproveitada.
+ * ordem linha a linha, e então lê a última página: ela precisa continuar a ordem. Linha sem data do
+ * resultado (que a fonte não devolveu em nenhum dos CATMATs conferidos em 2026-10-17) ou fora de
+ * ordem quebra a premissa, e a coleta lê a fonte inteira. Com janela, o teto é o largo, porque a
+ * janela precisa vir inteira; sem janela, o curto. A última página lida para conferir é
+ * reaproveitada e conta como lida.
  */
 export async function collectSourcePages<T extends DatedRow>(options: {
 	fetchPage: (pagina: number) => Promise<SourcePage<T>>
@@ -148,63 +146,58 @@ export async function collectSourcePages<T extends DatedRow>(options: {
 	const consultedAt = first.fetchedAt ?? (options.now?.() ?? new Date()).toISOString()
 	const cutoff = options.periodMonths ? consultationWindowStart(consultedAt, options.periodMonths) : null
 	const totalPages = first.totalPaginas
+	const limit = Math.min(totalPages, cutoff ? (options.windowMaxPages ?? PRICE_RESEARCH_WINDOW_MAX_PAGES) : (options.maxPages ?? PRICE_RESEARCH_MAX_PAGES))
 	const pages: T[][] = []
 
 	let ordered = true
 	let lastSortDate: string | null = null
-	let passed = false
+	const continuesOrder = (rows: readonly T[], from: string | null) => {
+		let previous = from
+		for (const r of rows) {
+			const date = sortDateOf(r)
+			if (!date || (previous && date > previous)) return { ok: false, last: previous }
+			previous = date
+		}
+		return { ok: true, last: previous }
+	}
 	const take = (rows: T[]) => {
 		pages.push(rows)
-		for (const r of rows) {
-			if (passed) {
-				const date = windowDateOf(r)
-				if (cutoff && date && date >= cutoff) ordered = false
-				continue
-			}
-			const date = sortDateOf(r)
-			if (!date) continue
-			if (lastSortDate && date > lastSortDate) ordered = false
-			lastSortDate = date
-			if (cutoff && ordered && date < cutoff) passed = true
-		}
+		if (!ordered) return
+		const step = continuesOrder(rows, lastSortDate)
+		ordered = step.ok
+		lastSortDate = step.last
 	}
-	const limit = () =>
-		Math.min(totalPages, cutoff && ordered ? (options.windowMaxPages ?? PRICE_RESEARCH_WINDOW_MAX_PAGES) : (options.maxPages ?? PRICE_RESEARCH_MAX_PAGES))
+	const passedWindowStart = () => cutoff != null && ordered && lastSortDate != null && lastSortDate < cutoff
 	let stopAtWindow = true
 	const readUpTo = async () => {
-		while (pages.length < limit() && !(stopAtWindow && passed && ordered)) {
+		while (pages.length < limit && !(stopAtWindow && passedWindowStart())) {
 			const start = pages.length + 1
-			const end = Math.min(start + concurrency - 1, limit())
+			const end = Math.min(start + concurrency - 1, limit)
 			const batch = await Promise.all(Array.from({ length: end - start + 1 }, (_, i) => fetchPage(start + i)))
 			for (const page of batch) take(page.resultado)
-			if (pages.length < limit() && options.pauseMs) await new Promise((r) => setTimeout(r, options.pauseMs))
+			if (pages.length < limit && options.pauseMs) await new Promise((r) => setTimeout(r, options.pauseMs))
 		}
 	}
 
 	take(first.resultado)
 	await readUpTo()
 	let stoppedAtWindow = false
-	const undatedTail: T[] = []
-	if (pages.length < totalPages && passed && ordered) {
+	let checkedLastPage = false
+	if (pages.length < totalPages && passedWindowStart()) {
+		checkedLastPage = true
 		const last = (await fetchPage(totalPages)).resultado
-		const inWindow = last.some((r) => {
-			const date = windowDateOf(r)
-			return date != null && cutoff != null && date >= cutoff
-		})
-		if (inWindow) {
+		if (continuesOrder(last, lastSortDate).ok) stoppedAtWindow = true
+		else {
 			ordered = false
 			stopAtWindow = false
 			await readUpTo()
-		} else {
-			stoppedAtWindow = true
-			undatedTail.push(...last.filter((r) => windowDateOf(r) == null))
 		}
 	}
 
 	const coverage: SourceCoverage = pages.length >= totalPages ? "complete" : stoppedAtWindow ? "window" : "truncated"
-	const pagesFetched = Math.min(pages.length + (stoppedAtWindow ? 1 : 0), totalPages)
+	const pagesFetched = Math.min(pages.length + (checkedLastPage && pages.length < totalPages ? 1 : 0), totalPages)
 	return {
-		results: [...pages.flat(), ...undatedTail],
+		results: pages.flat(),
 		consultation: { consultedAt, query: options.query, totalRecords: first.totalRegistros, totalPages, pagesFetched, coverage },
 		orderBroken: !ordered,
 	}

@@ -233,13 +233,19 @@ export function analyzeSamples(samples: ComprasMaterialPriceResult[], unit: stri
  * A janela conta da hora da consulta (a do servidor ao receber a página 1), a mesma que a pesquisa
  * grava e que o relatório usa para dizer a janela. Corte no teto vira `truncated`, que não grava.
  */
-export async function fetchAllPagesForCatmat(code: number, options: { periodMonths?: number | null } = {}): Promise<CatmatPriceFetch> {
+export async function fetchAllPagesForCatmat(
+	code: number,
+	/** `pauseMs`: cortesia entre lotes (250 ms por padrão). */
+	options: { periodMonths?: number | null; pauseMs?: number } = {}
+): Promise<CatmatPriceFetch> {
 	const { results, consultation, orderBroken } = await collectSourcePages<ComprasMaterialPriceResult>({
 		fetchPage: (pagina) => searchMaterialPricesFn({ data: { codigoItemCatalogo: code, pagina, tamanhoPagina: PAGE_SIZE } }),
 		query: priceResearchQueryString(code),
 		periodMonths: options.periodMonths ?? null,
 		maxPages: MAX_PAGES,
 		concurrency: PAGE_CONCURRENCY,
+		// Cortesia entre lotes, como a rota da API: com janela grande, a coleta pode passar de 40 páginas.
+		pauseMs: options.pauseMs ?? 250,
 	})
 	return { results, source: consultation, orderBroken }
 }

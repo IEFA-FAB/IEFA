@@ -244,6 +244,14 @@ describe("série no formato 2 (nota, resumo e amostras)", () => {
 		})
 	})
 
+	test("texto da fonte com TAB/CR não vira fórmula nem quebra a linha da planilha", () => {
+		const csv = buildResearchSeriesCsv([
+			v2(1, { research: research({ samples: [sample({ descricaoItem: '\t=HYPERLINK("x")' }), sample({ idCompra: "2", descricaoItem: "linha\rquebrada" })] }) }),
+		])
+		expect(csv).toContain(`"'\t=HYPERLINK(""x"")"`)
+		expect(csv).toContain(`"linha\rquebrada"`)
+	})
+
 	test("é determinística", () => {
 		const a = buildResearchSeriesCsv([v2(1)])
 		const b = buildResearchSeriesCsv([v2(1, { research: research({ samples: [...research().samples].reverse() }) })])

@@ -144,8 +144,11 @@ export function PriceResearchReportDocument({ report, layout = "print" }: { repo
 					<p>
 						Sistema oficial de preços do Governo Federal (parâmetro do art. 5º, I): módulo de pesquisa de preços da API de Dados Abertos do Compras.gov.br
 						(dadosabertos.compras.gov.br, consulta por código CATMAT), com os preços de compras homologadas
-						{periods.length > 0 ? ` nos últimos ${periods.join("/")} meses anteriores à data de cada pesquisa` : ""}. Cada preço da série identifica a compra de
-						origem (identificador da compra e do item, UASG, data e fornecedor quando informado) e pode ser conferido na fonte.
+						{periods.length > 0
+							? ` nos últimos ${periods.join("/")} meses anteriores ${isSeries2 ? "ao dia de cada consulta à fonte" : "à data de cada pesquisa"}`
+							: ""}
+						. Cada preço da série identifica a compra de origem (identificador da compra e do item, UASG, data e fornecedor quando informado) e pode ser
+						conferido na fonte.
 					</p>
 					{isSeries2 && (
 						<>

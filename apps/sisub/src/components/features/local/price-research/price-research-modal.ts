@@ -81,7 +81,8 @@ export function getIncomparableSuffix(count: number): string {
  */
 export function getPartialCollectionHint(periodMonths: number | null, orderBroken: boolean): string {
 	if (!periodMonths) return "Volte à janela de 12 meses: com ela a coleta para quando a fonte passa do início da janela."
-	if (orderBroken) return "A fonte não veio em ordem de data do resultado, e sem ela a coleta não sabe onde a janela termina. Atualize mais tarde."
+	if (orderBroken)
+		return "A fonte não veio ordenada por data do resultado, e a fonte inteira passa do teto de páginas: não há como garantir a janela inteira. Registre o caso: o item precisa de outra fonte de preço."
 	return "A própria janela tem mais registros do que o teto de páginas. Registre o caso: o item precisa de outra fonte de preço."
 }
 

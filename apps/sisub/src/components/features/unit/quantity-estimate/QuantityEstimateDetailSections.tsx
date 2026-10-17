@@ -186,7 +186,8 @@ export function BulkResearchBar({ eligibleCount, progress, onRun }: { eligibleCo
 			{!progress.isRunning && progress.total > 0 && (
 				<span className="text-xs text-muted-foreground">
 					{progress.done - progress.errors} preços aplicados
-					{progress.errors > 0 && ` · ${progress.errors} sem resultado`}
+					{progress.errors - progress.partial > 0 && ` · ${progress.errors - progress.partial} sem resultado`}
+					{progress.partial > 0 && ` · ${progress.partial} com coleta parcial (abra a pesquisa do item para ver o motivo)`}
 				</span>
 			)}
 		</div>
