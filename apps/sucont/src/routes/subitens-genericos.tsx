@@ -204,9 +204,12 @@ function SubitensGenericos() {
 	const conferenteOccurrences = conferenteData.flatMap((group) => group.occurrences)
 	const conferenteKindSummary = summarizeByGenericKind(conferenteOccurrences)
 
-	// O filtro de tipo vale para a tela inteira, como o de conferente: tabela, mensagens e painel.
+	// O filtro de tipo recorta tabela e painel. As mensagens seguem o recorte de UGs, mas com
+	// TODAS as ocorrências de cada UG (`messageData`): o texto não muda com o filtro, então o
+	// rascunho e a configuração por UG continuam valendo, e a cobrança não sai pela metade.
 	const filteredData = filterByGenericKind(conferenteData, genericCodeFilter)
-	const kindSummary = summarizeByGenericKind(filteredData.flatMap((group) => group.occurrences))
+	const conferenteGroupByUg = new Map(conferenteData.map((group) => [group.ug, group]))
+	const messageData = filteredData.map((group) => conferenteGroupByUg.get(group.ug) ?? group)
 
 	// ── Dashboard data ────────────────────────────────────────
 	const topUgsBySaldo = [...filteredData]
@@ -236,7 +239,7 @@ function SubitensGenericos() {
 
 	const criticalLevels = findCriticalLevels(odsList, orgaoSuperiorList, topUgsByInconsistencias, filteredData)
 
-	const occurrencesByRac = groupOccurrencesByRac(filteredData)
+	const occurrencesByRac = groupOccurrencesByRac(messageData)
 
 	// ── Render ────────────────────────────────────────────────
 	const guide = (
@@ -320,7 +323,13 @@ function SubitensGenericos() {
 								<StatTile
 									label="Total de ocorrências"
 									value={totalInconsistencias}
-									hint={`${kindSummary["subitem-99"].count} subitem 99 · ${kindSummary["favorecido-999"].count} favorecido 999`}
+									hint={
+										// Com filtro, as contagens por tipo ficam nos botões do filtro: aqui elas
+										// contariam só as ocorrências com os dois códigos e contradiriam os botões.
+										genericCodeFilter === "all"
+											? `${conferenteKindSummary["subitem-99"].count} subitem 99 · ${conferenteKindSummary["favorecido-999"].count} favorecido 999`
+											: `só ${GENERIC_CODE_LABELS[genericCodeFilter].toLowerCase()}`
+									}
 									status="action"
 								/>
 								<StatTile label="Volume financeiro" value={formatCurrency(totalVolume)} hint="em códigos genéricos" status="warning" />
@@ -407,7 +416,7 @@ function SubitensGenericos() {
 
 												{messageMode === "individual" ? (
 													<div className="grid grid-cols-1 gap-8">
-														{filteredData.map((group, idx) => {
+														{messageData.map((group, idx) => {
 															const ugConfig: MessageConfig = ugConfigs[group.ug] || { messageType: "sem_prazo", deadlineDate: "", msgNumber, msgDate }
 															const currentMsgNumber = ugConfig.msgNumber || msgNumber
 															const currentMsgDate = ugConfig.msgDate || msgDate
@@ -542,7 +551,8 @@ function SubitensGenericos() {
 					dataContext={{
 						totalInconsistencias,
 						totalVolume,
-						kindSummary,
+						genericCodeFilter,
+						conferenteKindSummary,
 						odsList,
 						orgaoSuperiorList,
 						topUgsByInconsistencias,

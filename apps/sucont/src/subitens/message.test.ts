@@ -145,7 +145,7 @@ describe("tipo do código na linha da ocorrência", () => {
 		const text = INSTITUTIONAL_TEMPLATE("120001", [occ("120001", "1", "P 99", 1), occ("120001", "2", "P999", 2), occ("120001", "3", "999 / 99", 3)], "d", "M")
 		expect(text).toContain(`   • Conta Contábil 1 — Conta Corrente P 99 — Subitem genérico (99) — Saldo: ${BRL}1,00`)
 		expect(text).toContain(`   • Conta Contábil 2 — Conta Corrente P999 — Favorecido genérico (999) — Saldo: ${BRL}2,00`)
-		expect(text).toContain(`   • Conta Contábil 3 — Conta Corrente 999 / 99 — Subitem genérico (99) e Favorecido genérico (999) — Saldo: ${BRL}3,00`)
+		expect(text).toContain(`   • Conta Contábil 3 — Conta Corrente 999 / 99 — Subitem genérico (99) e favorecido genérico (999) — Saldo: ${BRL}3,00`)
 	})
 })
 

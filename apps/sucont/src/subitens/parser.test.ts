@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import * as XLSX from "xlsx"
-import { classifyGenericCode, FAVORECIDO_999_REGEX, SUBITEM_99_REGEX } from "#/subitens/generic-code"
+import { classifyGenericCode, PAYEE_999_REGEX, SUBITEM_99_REGEX } from "#/subitens/generic-code"
 import { parseSaldo, parseWorkbook } from "#/subitens/parser"
 import type { GenericCodeKind } from "#/subitens/types"
 
@@ -158,12 +158,12 @@ describe("classifyGenericCode", () => {
 	})
 
 	it("cada regex só vê o seu código", () => {
-		expect(["99", "P 99", "12/99"].map((v) => [SUBITEM_99_REGEX.test(v), FAVORECIDO_999_REGEX.test(v)])).toEqual([
+		expect(["99", "P 99", "12/99"].map((v) => [SUBITEM_99_REGEX.test(v), PAYEE_999_REGEX.test(v)])).toEqual([
 			[true, false],
 			[true, false],
 			[true, false],
 		])
-		expect(["999", "P999", "A999B"].map((v) => [SUBITEM_99_REGEX.test(v), FAVORECIDO_999_REGEX.test(v)])).toEqual([
+		expect(["999", "P999", "A999B"].map((v) => [SUBITEM_99_REGEX.test(v), PAYEE_999_REGEX.test(v)])).toEqual([
 			[false, true],
 			[false, true],
 			[false, true],

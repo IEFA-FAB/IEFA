@@ -77,7 +77,8 @@ export const formatDeadlineText = (config: MessageConfig | undefined, fallbackDe
 
 // ── Message Templates ────────────────────────────────────────
 /** Tipo do código na linha da mensagem: a UG precisa saber se corrige o subitem ou o favorecido. */
-const formatGenericKinds = (occ: ProcessedData) => occ.genericKinds.map((kind) => GENERIC_CODE_LABELS[kind]).join(" e ")
+const formatGenericKinds = (occ: ProcessedData) =>
+	occ.genericKinds.map((kind, index) => (index === 0 ? GENERIC_CODE_LABELS[kind] : GENERIC_CODE_LABELS[kind].toLowerCase())).join(" e ")
 
 const formatOccurrenceLines = (occurrences: ProcessedData[]) =>
 	occurrences

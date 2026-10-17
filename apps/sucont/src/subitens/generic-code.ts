@@ -5,7 +5,7 @@ import type { GenericCodeKind } from "#/subitens/types"
 /**
  * Código genérico na conta corrente: 99 ou 999 isolados (sem dígito colado dos dois lados).
  * Antes uma regex única, `/(^|\D)(99|999)($|\D)/`, marcava os dois juntos; hoje cada um tem a
- * sua (`SUBITEM_99_REGEX`, `FAVORECIDO_999_REGEX`) e `classifyGenericCode` dá marca própria a
+ * sua (`SUBITEM_99_REGEX`, `PAYEE_999_REGEX`) e `classifyGenericCode` dá marca própria a
  * cada um. A união das duas reconhece exatamente o que a regex única reconhecia
  * (`parser.test.ts` trava isso).
  * Igual ao upstream (sucontsubitem, src/App.tsx), que dá como exemplos "99, 999, P99, /99".
@@ -52,7 +52,7 @@ import type { GenericCodeKind } from "#/subitens/types"
 export const SUBITEM_99_REGEX = /(^|\D)99($|\D)/
 
 /** 999 isolado: o favorecido genérico do c/c tipo 002 ("999", "P999"). Não é subitem. */
-export const FAVORECIDO_999_REGEX = /(^|\D)999($|\D)/
+export const PAYEE_999_REGEX = /(^|\D)999($|\D)/
 
 /** CNPJ `00.000.000/0000-00` ou CPF `000.000.000-00`, com a pontuação completa. */
 export const FORMATTED_TAX_ID_REGEX = /\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}|\d{3}\.\d{3}\.\d{3}-\d{2}/g
@@ -78,6 +78,6 @@ export function classifyGenericCode(contaCorrente: string): GenericCodeKind[] {
 	const value = contaCorrente.replace(FORMATTED_TAX_ID_REGEX, " ")
 	const kinds: GenericCodeKind[] = []
 	if (SUBITEM_99_REGEX.test(value)) kinds.push("subitem-99")
-	if (FAVORECIDO_999_REGEX.test(value)) kinds.push("favorecido-999")
+	if (PAYEE_999_REGEX.test(value)) kinds.push("favorecido-999")
 	return kinds
 }
