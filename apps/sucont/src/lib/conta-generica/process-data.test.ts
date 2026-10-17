@@ -187,11 +187,13 @@ describe("processData", () => {
 		})
 	})
 
-	it("descarta a UG 170999 (STN), em código puro ou com o nome", () => {
+	it("descarta a UG 170999 (STN), em código puro, com o nome, com ponto ou colada ao nome", () => {
 		const data = [
 			["UG", "Conta Contábil", "Mês", "Saldo"],
 			["170999", "11199", "JAN", 1],
 			["170999 - STN", "11199", "JAN", 2],
+			["170.999", "11199", "JAN", 4],
+			["170999STN", "11199", "JAN", 5],
 			["120001", "11199", "JAN", 3],
 		]
 		expect(processData(data)).toEqual({ grouped: { "120001": { "11199": [{ mes: "JAN", saldo: 3 }] } }, hasGeneric: true, skippedNonGeneric: 0 })

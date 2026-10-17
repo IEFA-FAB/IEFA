@@ -71,6 +71,8 @@ describe("consultas", () => {
 		expect(getUgFromText("sem código")).toBeUndefined()
 		expect(extractCodigoUg("120062 - BASP")).toBe("120062")
 		expect(extractCodigoUg("nada")).toBe("nada")
+		expect(extractCodigoUg("120.062")).toBe("120062")
+		expect(getUgFromText("120062BASP")?.sigla).toBe("BASP")
 	})
 
 	it("devolve conferente atribuído ou o marcador, nunca undefined", () => {
@@ -160,6 +162,15 @@ describe("UGs fora do acompanhamento", () => {
 		expect(isUgAcompanhada(" 170999 ")).toBe(false)
 		// A mesma coluna do Tesouro Gerencial vem ora como código, ora como texto.
 		expect(isUgAcompanhada("170999 - SECRETARIA DO TESOURO NACIONAL")).toBe(false)
+		// Código com ponto de milhar ou colado ao nome também sai.
+		expect(isUgAcompanhada("170.999")).toBe(false)
+		expect(isUgAcompanhada("170999STN")).toBe(false)
+		expect(isUgAcompanhada("170.999 - STN")).toBe(false)
+	})
+
+	it("não confunde seis dígitos dentro de um número maior com a UG", () => {
+		expect(isUgAcompanhada("1709990")).toBe(true)
+		expect(isUgAcompanhada("21709991")).toBe(true)
 	})
 
 	it("não exclui UG do COMAER, nem UG desconhecida", () => {
