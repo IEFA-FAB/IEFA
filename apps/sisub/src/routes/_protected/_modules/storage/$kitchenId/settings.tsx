@@ -1,6 +1,6 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router"
 import { GitMerge, RefreshCw, Save, SlidersHorizontal, TriangleAlert, X } from "lucide-react"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useEffectEvent, useRef, useState } from "react"
 import { requirePermission } from "@/auth/pbac"
 import { PendingChanges } from "@/components/features/shared/PendingChanges"
 import { PageHeader } from "@/components/layout/PageHeader"
@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/components/ui/toast"
 import { useDraft } from "@/hooks/forms/useDraft"
+import { useLatest } from "@/hooks/ui/useLatest"
 import { type DraftFields, formatDraftValue, isDraftValueEqual } from "@/lib/drafts/draft-diff"
 import { draftStore } from "@/lib/drafts/draft-store"
 import { rebaseDraftValues } from "@/lib/drafts/rebase-draft"
@@ -146,8 +147,7 @@ function StockSettingsEditor({ kitchenId, settings }: { kitchenId: number; setti
 
 	// O que a releitura do foco consulta DEPOIS do await: a renderização em que o foco disparou
 	// já pode ter passado (o usuário digitou, ou salvou, enquanto a leitura voava).
-	const live = useRef({ isDirty: draft.isDirty, openedVersion: opened.version, hasConflict: conflict != null })
-	live.current = { isDirty: draft.isDirty, openedVersion: opened.version, hasConflict: conflict != null }
+	const live = useLatest({ isDirty: draft.isDirty, openedVersion: opened.version, hasConflict: conflict != null })
 	const savingRef = useRef(false)
 	// Cada gravação abre uma época nova; leitura iniciada antes dela é descartada (veria a versão
 	// de antes do próprio save e acusaria "outra pessoa salvou").
@@ -170,16 +170,15 @@ function StockSettingsEditor({ kitchenId, settings }: { kitchenId: number; setti
 		if (now.isDirty || now.hasConflict) setConflict({ head: current })
 		else applyBaseline(current)
 	}
-	const checkHeadRef = useRef(checkHead)
-	checkHeadRef.current = checkHead
+	const checkHeadOnFocus = useEffectEvent(() => {
+		checkHead().catch(() => {
+			// Falha da releitura não é conflito: a gravação ainda confere a versão no servidor, e
+			// um conflito já aberto continua congelado até a próxima leitura dar certo.
+		})
+	})
 
 	useEffect(() => {
-		const onFocus = () => {
-			checkHeadRef.current().catch(() => {
-				// Falha da releitura não é conflito: a gravação ainda confere a versão no servidor, e
-				// um conflito já aberto continua congelado até a próxima leitura dar certo.
-			})
-		}
+		const onFocus = () => checkHeadOnFocus()
 		window.addEventListener("focus", onFocus)
 		return () => window.removeEventListener("focus", onFocus)
 	}, [])
@@ -227,10 +226,11 @@ function StockSettingsEditor({ kitchenId, settings }: { kitchenId: number; setti
 				const current = await fetchStockSettingsFn({ data: { kitchenId } }).catch(() => null)
 				if (current) setConflict({ head: current })
 			}
-		} finally {
-			savingRef.current = false
-			setBusy(false)
 		}
+		// Sem `finally`: o catch não relança (a releitura tem o próprio `.catch`), então esta linha
+		// roda em todo caminho, e o React Compiler não compila try com finalizer (react-hooks-js/todo).
+		savingRef.current = false
+		setBusy(false)
 	}
 
 	const frozen = conflict != null
