@@ -123,7 +123,7 @@ export function formatCapacityLabel(capacity: number, unitName: string | null): 
 	return `${NUM.format(capacity)} ${unitName ?? ""}`
 }
 
-/** Os campos do registro, em ordem fixa: o critério que desempata duplicatas sem olhar a ordem. */
+/** Os campos do registro além do `idCompra`-`idItemCompra`, em ordem fixa: a impressão digital do id. */
 function getPriceRowFingerprint(row: ComprasMaterialPriceResult): string {
 	return JSON.stringify([
 		row.niFornecedor,
@@ -155,17 +155,29 @@ function getPriceRowFingerprint(row: ComprasMaterialPriceResult): string {
 	])
 }
 
+/** FNV-1a de 32 bits, em base 36: curto, determinístico e igual em qualquer navegador. */
+function hashPriceRowFingerprint(fingerprint: string): string {
+	let hash = 0x811c9dc5
+	for (let index = 0; index < fingerprint.length; index++) {
+		hash ^= fingerprint.charCodeAt(index)
+		hash = Math.imul(hash, 0x01000193) >>> 0
+	}
+	return hash.toString(36)
+}
+
 /**
  * Id estável de cada linha da pesquisa, para a seleção da tabela.
  *
  * O id era `compra-item-ÍNDICE`, com o índice da lista JÁ recortada pela janela de recência:
  * mudar a janela (ou a lista mudar num refetch) deslocava os índices, e a seleção guardada
- * passava a apontar para outras linhas. Aqui o id vem do registro (`idCompra`-`idItemCompra`) e é
- * atribuído sobre a lista INTEIRA. O mesmo item de compra repetido (um por fornecedor, por
- * exemplo) ganha `#2`, `#3` pela ordem dos OUTROS campos do registro (fornecedor, preço, datas…),
- * não pela ordem de chegada: um refetch que devolva as duplicatas em outra ordem dava a cada uma o
- * id da outra, e a seleção trocava de linha. Duplicatas idênticas em tudo são a mesma amostra para
- * o cálculo, e trocar uma pela outra não muda nada. A seleção sobrevive à troca da janela: a linha
+ * passava a apontar para outras linhas. Depois, o mesmo item de compra repetido (um por
+ * fornecedor, por exemplo) ganhava `#2`, `#3` por posição: um refetch que reordenasse as
+ * duplicatas, ou que acrescentasse uma, deslocava a seleção para a vizinha.
+ *
+ * Aqui o id é o registro: `idCompra`-`idItemCompra` mais o hash dos outros campos (fornecedor,
+ * preço, datas, UASG…). Ele não depende da posição nem de quais outras linhas vieram. O sufixo
+ * `#2` só sobra para duplicatas idênticas em TODOS os campos, que são a mesma amostra para o
+ * cálculo: trocar uma pela outra não muda o preço. A seleção sobrevive à troca da janela: a linha
  * fora dela sai da tabela e do cálculo, e volta marcada quando a janela a inclui de novo.
  *
  * Registro que não estava na lista (não acontece: a tabela mostra um recorte dela) ganha o
@@ -175,17 +187,13 @@ export function createPriceRowIdResolver(results: readonly ComprasMaterialPriceR
 	const ids = new Map<ComprasMaterialPriceResult, string>()
 	const seen = new Map<string, number>()
 	const assign = (row: ComprasMaterialPriceResult): string => {
-		const base = `${row.idCompra}-${row.idItemCompra}`
+		const base = `${row.idCompra}-${row.idItemCompra}~${hashPriceRowFingerprint(getPriceRowFingerprint(row))}`
 		const occurrence = (seen.get(base) ?? 0) + 1
 		seen.set(base, occurrence)
 		const id = occurrence === 1 ? base : `${base}#${occurrence}`
 		ids.set(row, id)
 		return id
 	}
-	const ordered = results
-		.map((row) => ({ row, base: `${row.idCompra}-${row.idItemCompra}`, fingerprint: getPriceRowFingerprint(row) }))
-		// comparação por código, não por localidade: a ordem não pode depender do navegador
-		.sort((a, b) => (a.base < b.base ? -1 : a.base > b.base ? 1 : a.fingerprint < b.fingerprint ? -1 : a.fingerprint > b.fingerprint ? 1 : 0))
-	for (const { row } of ordered) assign(row)
+	for (const row of results) assign(row)
 	return (row) => ids.get(row) ?? assign(row)
 }
