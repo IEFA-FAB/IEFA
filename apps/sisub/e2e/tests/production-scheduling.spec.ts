@@ -283,29 +283,22 @@ async function gotoPlanning(page: Page) {
 	await expect(page.getByRole("heading", { name: "Agendamento da Produção" })).toBeVisible({ timeout: 30_000 })
 }
 
-/** Abre o dia no calendário, avançando o mês quando a data ainda não está na grade. */
+/** Abre o dia pelo calendário: clicar na data leva à página do dia. */
 async function openDay(page: Page, iso: string) {
-	// Grade hidratada antes de navegar: o "Próximo mês" clicado antes disso não faz nada.
-	await waitForHydration(page, "[data-date]")
-	for (let attempt = 0; attempt < 4; attempt++) {
-		const cell = page.locator(`[data-date="${iso}"]`).first()
-		if ((await cell.count()) > 0) {
-			// Clique antes da hidratação não abre o dia (o botão ainda não tem handler).
-			await waitForHydration(page, `[data-date="${iso}"]`)
-			await cell.click()
-			await expect(page.locator('[data-slot="sheet-content"]')).toBeVisible()
-			return
-		}
-		const month = await page.locator("[data-date]").first().getAttribute("data-date")
-		await page.getByRole("button", { name: "Próximo mês" }).click()
-		await expect(page.locator("[data-date]").first()).not.toHaveAttribute("data-date", month ?? "")
-	}
-	throw new Error(`dia ${iso} não apareceu no calendário`)
+	await page.goto(`/kitchen/${KITCHEN_ID}/planning?month=${iso.slice(0, 7)}`)
+	// Clique antes da hidratação não navega (o botão ainda não tem handler).
+	await waitForHydration(page, `[data-date="${iso}"]`)
+	await page.locator(`[data-date="${iso}"]`).first().click()
+	await page.waitForURL(`**/kitchen/${KITCHEN_ID}/planning/${iso}`)
+	await expect(page.getByRole("navigation", { name: "Dias da semana" })).toBeVisible()
+	// Página hidratada antes de agir: os botões do dia só funcionam depois disso.
+	await waitForHydration(page, '[aria-current="date"]')
 }
 
+/** Volta do dia ao calendário do mês. */
 async function closeDay(page: Page) {
-	await page.keyboard.press("Escape")
-	await expect(page.locator('[data-slot="sheet-content"]')).toHaveCount(0)
+	await page.getByRole("link", { name: "Calendário do mês" }).click()
+	await expect(page.getByRole("heading", { name: "Agendamento da Produção" })).toBeVisible()
 }
 
 function originRow(page: Page, name: string) {

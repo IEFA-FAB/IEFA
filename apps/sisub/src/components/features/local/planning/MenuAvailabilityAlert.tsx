@@ -11,7 +11,7 @@
 
 import { AlertTriangle } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import type { AvailabilityWarning } from "@/lib/planning-availability"
+import type { AvailabilityChecks, AvailabilityWarning } from "@/lib/planning-availability"
 
 const NUM = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 })
 
@@ -73,5 +73,52 @@ export function MenuAvailabilityAlert({ warnings: all, dailyMenuId }: { warnings
 				</div>
 			</AlertDescription>
 		</Alert>
+	)
+}
+
+/** Resumo do dia para o hover do calendário: refeição → preparação → insumo, com o motivo. */
+export function DayAvailabilityList({ warnings }: { warnings: readonly AvailabilityWarning[] }) {
+	const byMeal = new Map<string, AvailabilityWarning[]>()
+	for (const warning of warnings) byMeal.set(warning.mealName, [...(byMeal.get(warning.mealName) ?? []), warning])
+	return (
+		<div className="space-y-2">
+			<p className="text-subheading flex items-center gap-1.5">
+				<AlertTriangle className="size-3.5 text-warning" aria-hidden="true" />
+				Insumo que pode faltar
+			</p>
+			{[...byMeal.entries()].map(([meal, items]) => (
+				<div key={meal} className="space-y-0.5">
+					<p className="text-label text-muted-foreground">{meal}</p>
+					<ul className="space-y-0.5 text-xs">
+						{items.map((w) => (
+							<li key={`${w.menuItemId}:${w.ingredientId}`}>
+								<strong>{w.description}</strong> ({w.recipeName}): {describeAvailabilityGap(w)}
+							</li>
+						))}
+					</ul>
+				</div>
+			))}
+			<p className="text-caption text-muted-foreground">Clique no dia para trocar a preparação.</p>
+		</div>
+	)
+}
+
+/** O que o aviso deixou de conferir (fonte não usada no sisub) ou não conseguiu ler. */
+export function AvailabilityStatusNote({ checks, error }: { checks: AvailabilityChecks | null; error: Error | null }) {
+	// Falha não é "atende": sem esta linha o calendário limpo pareceria tudo conferido.
+	if (error) return <p className="text-caption text-muted-foreground">Não foi possível conferir os insumos que podem faltar: {error.message}</p>
+	// Fonte que a OM não usa no sisub fica fora do aviso: dizer isso evita ler silêncio como "atende".
+	if (!checks || (checks.stock && checks.contracts)) return null
+	const reasons = [
+		!checks.stock && "a cozinha não controla estoque no sisub",
+		!checks.contracts && "a unidade não tem ata nem empenho registrado no sisub",
+	].filter(Boolean)
+	const skipped = [!checks.stock && "o estoque", !checks.contracts && "ata e empenho"].filter(Boolean)
+	// Item de compra se confere sempre: não depende de fonte nenhuma da OM.
+	return (
+		<p className="text-caption text-muted-foreground">
+			Aviso de insumo que pode faltar: {reasons.join(" e ")}, então {skipped.join(" e ")} não {skipped.length > 1 ? "são conferidos" : "é conferido"}
+			{checks.stock || checks.contracts ? "." : "; só se confere se o insumo tem item de compra."}
+		</p>
 	)
 }

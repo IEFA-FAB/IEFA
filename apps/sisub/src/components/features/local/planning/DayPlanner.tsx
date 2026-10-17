@@ -18,8 +18,6 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { toast } from "@/components/ui/toast"
 import { useMealTypes } from "@/hooks/data/useMealTypes"
 import { useMealTypeGroups } from "@/hooks/data/useMenuGroups"
@@ -44,16 +42,18 @@ import { MenuItemCard } from "./MenuItemCard"
 import { RecipeSelector } from "./RecipeSelector"
 import { SubstitutionModal } from "./SubstitutionModal"
 
-interface DayDrawerProps {
-	date: Date | null
+interface DayPlannerProps {
+	date: Date
 	kitchenId: number
-	onClose: () => void
-	open: boolean
-	/** Avisos de insumo que pode faltar, já lidos pelo calendário; `null` quando a leitura falhou. */
+	/** Avisos de insumo que pode faltar no dia; `null` quando a leitura falhou. */
 	availabilityWarnings: readonly AvailabilityWarning[] | null
 }
 
-export function DayDrawer({ date, kitchenId, onClose, open, availabilityWarnings }: DayDrawerProps) {
+/**
+ * O dia do agendamento: o calendário aberto num dia só, com as refeições, os ajustes e os avisos.
+ * Era uma gaveta lateral; virou o corpo da página do dia (`planning/$date`), que navega entre dias.
+ */
+export function DayPlanner({ date, kitchenId, availabilityWarnings }: DayPlannerProps) {
 	"use no memo"
 
 	const isoDate = toIsoDate(date)
@@ -64,7 +64,7 @@ export function DayDrawer({ date, kitchenId, onClose, open, availabilityWarnings
 	const { groupsFor } = useMealTypeGroups(kitchenId, mealTypes)
 	// Tipo de refeição de sistema: fica FORA de `mealTypes` (não é planejável), mas o dia pode
 	// ter produção de lanche vinda de pedido aceito.
-	const { data: snackMealType } = useSnackMealType(open)
+	const { data: snackMealType } = useSnackMealType(true)
 
 	const isLoading = menusLoading || mealTypesLoading
 
@@ -222,184 +222,173 @@ export function DayDrawer({ date, kitchenId, onClose, open, availabilityWarnings
 	}
 
 	return (
-		<Sheet open={open} onOpenChange={(v) => !v && onClose()}>
-			<SheetContent className="sm:max-w-xl w-full pl-4 ">
-				<SheetHeader className="mb-6">
-					<SheetTitle className="capitalize">{formattedDate}</SheetTitle>
-					<SheetDescription>O que a cozinha produz neste dia — e os ajustes quando a realidade muda.</SheetDescription>
-					<div className="flex flex-wrap gap-2">
-						{plannedMeals.length > 0 && (
-							<Button type="button" size="sm" variant="outline" onClick={() => setHeadcountOpen(true)}>
-								<Users />
-								Quantitativo do dia
-							</Button>
-						)}
-						<Button type="button" size="sm" variant="outline" onClick={() => setOccasionMode("add")}>
-							<CalendarPlus />
-							Aplicar evento ou cardápio de apoio
-						</Button>
-						{plannedMeals.length > 0 && (
-							<Button type="button" size="sm" variant="outline" onClick={() => setOccasionMode("replace")}>
-								<RefreshCcw />
-								Trocar o dia
-							</Button>
-						)}
-					</div>
-				</SheetHeader>
-
-				{isLoading ? (
-					<div className="flex justify-center py-10">
-						<Loader2 className="size-8 animate-spin text-muted-foreground" />
-					</div>
-				) : (
-					<ScrollArea className="h-[calc(100vh-180px)] pr-4">
-						<div className="pb-4">
-							<DayOriginsPanel kitchenId={kitchenId} date={isoDate} menus={dayMenus ?? []} />
-						</div>
-						<Accordion className="w-full space-y-4">
-							{meals.map(({ mealType, menu }) => (
-								<MealSection
-									key={mealType.id}
-									mealType={mealType}
-									menu={menu}
-									date={date}
-									kitchenId={kitchenId}
-									availabilityWarnings={availabilityWarnings}
-									onSubstitute={(item) => setSubstitutionItem(item)}
-									onReplaceRecipe={setReplaceItem}
-									onDelete={handleDeleteItem}
-									onAddRecipe={setRecipeSelectorMenu}
-									onCopyMeal={handleCopyMeal}
-									onPasteMeal={handlePasteMeal}
-									clipboardCount={clipboard.length}
-									outdatedById={outdatedById}
-									groups={groupsFor(mealType.id)}
-								/>
-							))}
-						</Accordion>
-
-						{snackMenu ? (
-							<div className="pt-4">
-								<SnackDayPanel kitchenId={kitchenId} date={format(date as Date, "yyyy-MM-dd")} menu={snackMenu} />
-							</div>
-						) : null}
-					</ScrollArea>
+		<div className="space-y-4">
+			<div className="flex flex-wrap gap-2">
+				{plannedMeals.length > 0 && (
+					<Button type="button" size="sm" variant="outline" onClick={() => setHeadcountOpen(true)}>
+						<Users />
+						Quantitativo do dia
+					</Button>
 				)}
+				<Button type="button" size="sm" variant="outline" onClick={() => setOccasionMode("add")}>
+					<CalendarPlus />
+					Aplicar evento ou cardápio de apoio
+				</Button>
+				{plannedMeals.length > 0 && (
+					<Button type="button" size="sm" variant="outline" onClick={() => setOccasionMode("replace")}>
+						<RefreshCcw />
+						Trocar o dia
+					</Button>
+				)}
+			</div>
 
-				<MenuHeadcountDialog
-					open={headcountOpen}
-					onOpenChange={setHeadcountOpen}
-					mealTypes={plannedMeals.map(({ mealType }) => ({ id: mealType.id, name: mealType.name }))}
-					scope="day-menu"
-					countTargets={countHeadcountTargets}
-					onApply={handleApplyHeadcount}
-				/>
-
-				<SubstitutionModal open={!!substitutionItem} onClose={() => setSubstitutionItem(null)} menuItem={substitutionItem} />
-
-				<DayOccasionDialog
-					open={occasionMode != null}
-					onOpenChange={(open) => !open && setOccasionMode(null)}
-					mode={occasionMode ?? "add"}
-					kitchenId={kitchenId}
-					date={isoDate}
-					dateLabel={formattedDate}
-				/>
-
-				{/* Trocar preparação: escolhe a nova, depois diz o motivo (vai para o turno). */}
-				<RecipeSelector
-					key={`replace-${replaceItem?.id ?? "none"}`}
-					open={!!replaceItem}
-					onClose={() => setReplaceItem(null)}
-					kitchenId={kitchenId}
-					selectedRecipeIds={[]}
-					multiSelect={false}
-					title="Trocar preparação"
-					description={replaceRecipeDescription(replaceItem)}
-					onSelect={(recipeIds) => {
-						const item = replaceItem
-						setReplaceItem(null)
-						const recipeId = recipeIds[0]
-						if (!item || !recipeId) return
-						setReplaceRationale("")
-						setPendingReplace({ item, recipeId })
-					}}
-				/>
-
-				<AlertDialog open={!!pendingReplace} onOpenChange={(open) => !open && setPendingReplace(null)}>
-					<AlertDialogContent>
-						<AlertDialogHeader>
-							<AlertDialogTitle>Por que a preparação mudou?</AlertDialogTitle>
-							<AlertDialogDescription>O motivo fica no item e aparece para o turno na Produção Cozinha.</AlertDialogDescription>
-						</AlertDialogHeader>
-						<Field>
-							<FieldLabel htmlFor="replace-rationale">Motivo</FieldLabel>
-							<Input
-								id="replace-rationale"
-								value={replaceRationale}
-								onChange={(e) => setReplaceRationale(e.target.value)}
-								placeholder="Ex.: faltou frango no fornecedor"
-								maxLength={300}
+			{isLoading ? (
+				<div className="flex justify-center py-10">
+					<Loader2 className="size-8 animate-spin text-muted-foreground" />
+				</div>
+			) : (
+				<div className="space-y-4">
+					<DayOriginsPanel kitchenId={kitchenId} date={isoDate} menus={dayMenus ?? []} />
+					{/* Na página há espaço: as refeições já abrem expandidas. */}
+					<Accordion multiple defaultValue={meals.map(({ mealType }) => mealType.id)} className="w-full space-y-4">
+						{meals.map(({ mealType, menu }) => (
+							<MealSection
+								key={mealType.id}
+								mealType={mealType}
+								menu={menu}
+								date={date}
+								kitchenId={kitchenId}
+								availabilityWarnings={availabilityWarnings}
+								onSubstitute={(item) => setSubstitutionItem(item)}
+								onReplaceRecipe={setReplaceItem}
+								onDelete={handleDeleteItem}
+								onAddRecipe={setRecipeSelectorMenu}
+								onCopyMeal={handleCopyMeal}
+								onPasteMeal={handlePasteMeal}
+								clipboardCount={clipboard.length}
+								outdatedById={outdatedById}
+								groups={groupsFor(mealType.id)}
 							/>
-						</Field>
-						<AlertDialogFooter>
-							<AlertDialogCancel>Cancelar</AlertDialogCancel>
-							<AlertDialogAction
-								disabled={!replaceRationale.trim() || isReplacingRecipe}
-								onClick={() => {
-									if (!pendingReplace) return
-									replaceRecipe(
-										{ menuItemId: pendingReplace.item.id, recipeId: pendingReplace.recipeId, rationale: replaceRationale.trim() },
-										{ onSuccess: () => setPendingReplace(null) }
-									)
-								}}
-							>
-								Trocar preparação
-							</AlertDialogAction>
-						</AlertDialogFooter>
-					</AlertDialogContent>
-				</AlertDialog>
+						))}
+					</Accordion>
 
-				<RecipeSelector
-					key={recipeSelectorMenu?.id || "none"}
-					open={!!recipeSelectorMenu}
-					onClose={() => {
-						setRecipeSelectorMenu(null)
-					}}
-					kitchenId={kitchenId}
-					selectedRecipeIds={[]}
-					onSelect={async (recipeIds) => {
-						const menu = recipeSelectorMenu
-						setRecipeSelectorMenu(null)
-						if (!menu || recipeIds.length === 0) return
-						await addToMenu(
-							menu,
-							recipeIds.map((recipeId) => ({ recipeId })),
-							"adicionada"
-						)
-					}}
-					multiSelect={true}
-				/>
+					{snackMenu ? <SnackDayPanel kitchenId={kitchenId} date={format(date, "yyyy-MM-dd")} menu={snackMenu} /> : null}
+				</div>
+			)}
 
-				<AlertDialog open={!!itemToDelete} onOpenChange={(open) => !open && setItemToDelete(null)}>
-					<AlertDialogContent>
-						<AlertDialogHeader>
-							<AlertDialogTitle>Remover Preparação</AlertDialogTitle>
-							<AlertDialogDescription>
-								Tem certeza que deseja remover "{itemToDelete?.name}" do cardápio?
-								<br />
-								<br />
-								Esta preparação poderá ser recuperada na lixeira.
-							</AlertDialogDescription>
-						</AlertDialogHeader>
-						<AlertDialogFooter>
-							<AlertDialogCancel>Cancelar</AlertDialogCancel>
-							<AlertDialogAction onClick={confirmDelete}>Remover</AlertDialogAction>
-						</AlertDialogFooter>
-					</AlertDialogContent>
-				</AlertDialog>
-			</SheetContent>
-		</Sheet>
+			<MenuHeadcountDialog
+				open={headcountOpen}
+				onOpenChange={setHeadcountOpen}
+				mealTypes={plannedMeals.map(({ mealType }) => ({ id: mealType.id, name: mealType.name }))}
+				scope="day-menu"
+				countTargets={countHeadcountTargets}
+				onApply={handleApplyHeadcount}
+			/>
+
+			<SubstitutionModal open={!!substitutionItem} onClose={() => setSubstitutionItem(null)} menuItem={substitutionItem} />
+
+			<DayOccasionDialog
+				open={occasionMode != null}
+				onOpenChange={(open) => !open && setOccasionMode(null)}
+				mode={occasionMode ?? "add"}
+				kitchenId={kitchenId}
+				date={isoDate}
+				dateLabel={formattedDate}
+			/>
+
+			{/* Trocar preparação: escolhe a nova, depois diz o motivo (vai para o turno). */}
+			<RecipeSelector
+				key={`replace-${replaceItem?.id ?? "none"}`}
+				open={!!replaceItem}
+				onClose={() => setReplaceItem(null)}
+				kitchenId={kitchenId}
+				selectedRecipeIds={[]}
+				multiSelect={false}
+				title="Trocar preparação"
+				description={replaceRecipeDescription(replaceItem)}
+				onSelect={(recipeIds) => {
+					const item = replaceItem
+					setReplaceItem(null)
+					const recipeId = recipeIds[0]
+					if (!item || !recipeId) return
+					setReplaceRationale("")
+					setPendingReplace({ item, recipeId })
+				}}
+			/>
+
+			<AlertDialog open={!!pendingReplace} onOpenChange={(open) => !open && setPendingReplace(null)}>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>Por que a preparação mudou?</AlertDialogTitle>
+						<AlertDialogDescription>O motivo fica no item e aparece para o turno na Produção Cozinha.</AlertDialogDescription>
+					</AlertDialogHeader>
+					<Field>
+						<FieldLabel htmlFor="replace-rationale">Motivo</FieldLabel>
+						<Input
+							id="replace-rationale"
+							value={replaceRationale}
+							onChange={(e) => setReplaceRationale(e.target.value)}
+							placeholder="Ex.: faltou frango no fornecedor"
+							maxLength={300}
+						/>
+					</Field>
+					<AlertDialogFooter>
+						<AlertDialogCancel>Cancelar</AlertDialogCancel>
+						<AlertDialogAction
+							disabled={!replaceRationale.trim() || isReplacingRecipe}
+							onClick={() => {
+								if (!pendingReplace) return
+								replaceRecipe(
+									{ menuItemId: pendingReplace.item.id, recipeId: pendingReplace.recipeId, rationale: replaceRationale.trim() },
+									{ onSuccess: () => setPendingReplace(null) }
+								)
+							}}
+						>
+							Trocar preparação
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
+
+			<RecipeSelector
+				key={recipeSelectorMenu?.id || "none"}
+				open={!!recipeSelectorMenu}
+				onClose={() => {
+					setRecipeSelectorMenu(null)
+				}}
+				kitchenId={kitchenId}
+				selectedRecipeIds={[]}
+				onSelect={async (recipeIds) => {
+					const menu = recipeSelectorMenu
+					setRecipeSelectorMenu(null)
+					if (!menu || recipeIds.length === 0) return
+					await addToMenu(
+						menu,
+						recipeIds.map((recipeId) => ({ recipeId })),
+						"adicionada"
+					)
+				}}
+				multiSelect={true}
+			/>
+
+			<AlertDialog open={!!itemToDelete} onOpenChange={(open) => !open && setItemToDelete(null)}>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>Remover Preparação</AlertDialogTitle>
+						<AlertDialogDescription>
+							Tem certeza que deseja remover "{itemToDelete?.name}" do cardápio?
+							<br />
+							<br />
+							Esta preparação poderá ser recuperada na lixeira.
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel>Cancelar</AlertDialogCancel>
+						<AlertDialogAction onClick={confirmDelete}>Remover</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
+		</div>
 	)
 }
 
@@ -461,7 +450,7 @@ function MealMenuItems({
 				{groupMenuItems(menuItems, groups).map((group) => (
 					<div key={group.key} className="space-y-2">
 						<p className="text-xs uppercase tracking-wide text-muted-foreground/80">{group.label}</p>
-						<div className="grid gap-2">
+						<div className="grid gap-2 lg:grid-cols-2 2xl:grid-cols-3">
 							{group.items.map((item) => (
 								<MenuItemCard
 									key={item.id}

@@ -1,10 +1,24 @@
 import { Link, useNavigate, useParams } from "@tanstack/react-router"
-import { addDays, addMonths, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, startOfMonth, startOfWeek, subMonths } from "date-fns"
+import {
+	addDays,
+	addMonths,
+	eachDayOfInterval,
+	endOfMonth,
+	endOfWeek,
+	format,
+	isSameDay,
+	isSameMonth,
+	parseISO,
+	startOfMonth,
+	startOfWeek,
+	subMonths,
+} from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { AlertTriangle, CalendarDays, Calendar as CalendarIcon, ChevronLeft, ChevronRight, Settings, Trash2, Users } from "lucide-react"
 import { useReducer } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useDailyMenus } from "@/hooks/data/usePlanning"
 import { usePlanningAvailability } from "@/hooks/data/usePlanningAvailability"
@@ -12,19 +26,16 @@ import { useMenuTemplates } from "@/hooks/data/useTemplates"
 import { cn } from "@/lib/cn"
 import { isHeadcountPending } from "@/lib/headcount-pending"
 import { ApplyTemplateDialog } from "./ApplyTemplateDialog"
-import { DayDrawer } from "./DayDrawer"
 import { ExpiringInPeriod } from "./ExpiringInPeriod"
 import { MealTypeManager } from "./MealTypeManager"
+import { AvailabilityStatusNote, DayAvailabilityList } from "./MenuAvailabilityAlert"
 import { TemplatePalette } from "./TemplatePalette"
 import { TrashDrawer } from "./TrashDrawer"
 
 // ─── Reducer ─────────────────────────────────────────────────────────────────
 
 type PlanningBoardState = {
-	currentMonth: Date
-	selectedDay: Date | null
 	selectedDays: Set<string>
-	isDrawerOpen: boolean
 	isTemplateModalOpen: boolean
 	isTrashOpen: boolean
 	isMealTypeManagerOpen: boolean
@@ -33,10 +44,7 @@ type PlanningBoardState = {
 }
 
 type PlanningBoardAction =
-	| { type: "SET_CURRENT_MONTH"; value: Date }
-	| { type: "SET_SELECTED_DAY"; value: Date | null }
 	| { type: "SET_SELECTED_DAYS"; value: Set<string> }
-	| { type: "SET_DRAWER_OPEN"; value: boolean }
 	| { type: "SET_TEMPLATE_MODAL_OPEN"; value: boolean }
 	| { type: "SET_TRASH_OPEN"; value: boolean }
 	| { type: "SET_MEAL_TYPE_MANAGER_OPEN"; value: boolean }
@@ -45,14 +53,8 @@ type PlanningBoardAction =
 
 function planningBoardReducer(state: PlanningBoardState, action: PlanningBoardAction): PlanningBoardState {
 	switch (action.type) {
-		case "SET_CURRENT_MONTH":
-			return { ...state, currentMonth: action.value }
-		case "SET_SELECTED_DAY":
-			return { ...state, selectedDay: action.value }
 		case "SET_SELECTED_DAYS":
 			return { ...state, selectedDays: action.value }
-		case "SET_DRAWER_OPEN":
-			return { ...state, isDrawerOpen: action.value }
 		case "SET_TEMPLATE_MODAL_OPEN":
 			return { ...state, isTemplateModalOpen: action.value }
 		case "SET_TRASH_OPEN":
@@ -69,10 +71,7 @@ function planningBoardReducer(state: PlanningBoardState, action: PlanningBoardAc
 }
 
 const initialPlanningBoardState: PlanningBoardState = {
-	currentMonth: new Date(),
-	selectedDay: null,
 	selectedDays: new Set(),
-	isDrawerOpen: false,
 	isTemplateModalOpen: false,
 	isTrashOpen: false,
 	isMealTypeManagerOpen: false,
@@ -80,23 +79,18 @@ const initialPlanningBoardState: PlanningBoardState = {
 	templateTargetDates: [],
 }
 
-export function PlanningBoard() {
+/**
+ * Calendário do mês. `month` (YYYY-MM) vem da URL e `onMonthChange` a atualiza: voltar da página do
+ * dia cai no mês daquele dia. Clicar num dia abre a página dele; Ctrl/Shift+clique seleciona.
+ */
+export function PlanningBoard({ month, onMonthChange }: { month?: string; onMonthChange: (month: string) => void }) {
 	const navigate = useNavigate()
 	const { kitchenId: kitchenIdStr } = useParams({ strict: false })
 	const kitchenId = Number(kitchenIdStr)
 	const [boardState, dispatch] = useReducer(planningBoardReducer, initialPlanningBoardState)
-	const {
-		currentMonth,
-		selectedDay,
-		selectedDays,
-		isDrawerOpen,
-		isTemplateModalOpen,
-		isTrashOpen,
-		isMealTypeManagerOpen,
-		selectedTemplateId,
-		templateTargetDates,
-	} = boardState
+	const { selectedDays, isTemplateModalOpen, isTrashOpen, isMealTypeManagerOpen, selectedTemplateId, templateTargetDates } = boardState
 
+	const currentMonth = month ? parseISO(`${month}-01`) : new Date()
 	const monthStart = startOfMonth(currentMonth)
 	const monthEnd = endOfMonth(monthStart)
 	// Semana de segunda a domingo, a mesma do cardápio semanal (dia 1 = segunda): com o grid
@@ -158,18 +152,18 @@ export function PlanningBoard() {
 			dispatch({ type: "SET_SELECTED_DAYS", value: newSelected })
 		} else {
 			// Single selection (View Drawer)
-			dispatch({ type: "SET_SELECTED_DAY", value: day })
-			dispatch({ type: "SET_DRAWER_OPEN", value: true })
+			// O dia abre na página dele: lá cabe o dia inteiro, com a semana no topo para navegar.
+			if (kitchenIdStr) navigate({ to: "/kitchen/$kitchenId/planning/$date", params: { kitchenId: kitchenIdStr, date: format(day, "yyyy-MM-dd") } })
 		}
 	}
 
 	const handleMonthChange = (direction: -1 | 0 | 1) => {
 		if (direction === -1) {
-			dispatch({ type: "SET_CURRENT_MONTH", value: subMonths(currentMonth, 1) })
+			onMonthChange(format(subMonths(currentMonth, 1), "yyyy-MM"))
 		} else if (direction === 1) {
-			dispatch({ type: "SET_CURRENT_MONTH", value: addMonths(currentMonth, 1) })
+			onMonthChange(format(addMonths(currentMonth, 1), "yyyy-MM"))
 		} else {
-			dispatch({ type: "SET_CURRENT_MONTH", value: new Date() })
+			onMonthChange(format(new Date(), "yyyy-MM"))
 		}
 	}
 
@@ -307,7 +301,7 @@ export function PlanningBoard() {
 				</div>
 
 				{/* Days */}
-				<div className="grid grid-cols-7 auto-rows-[140px] divide-x divide-y">
+				<div className="grid grid-cols-7 auto-rows-[minmax(140px,auto)] divide-x divide-y">
 					{calendarDays.map((day, _dayIdx) => {
 						const dayMenus = getMenusForDay(day)
 						const isCurrentMonth = isSameMonth(day, monthStart)
@@ -345,7 +339,17 @@ export function PlanningBoard() {
 											{format(day, "d")}
 										</span>
 										{/* Insumo sem ata, empenho ou estoque no horizonte do dia: não impede, avisa. */}
-										{shortages > 0 && <AlertTriangle className="size-3.5 text-warning" aria-hidden="true" />}
+										{/* Insumo que pode faltar: o resumo abre ao passar o mouse; o detalhe, na página do dia. */}
+										{shortages > 0 && (
+											<HoverCard>
+												<HoverCardTrigger delay={150} render={<span className="inline-flex" />}>
+													<AlertTriangle className="size-3.5 text-warning" aria-hidden="true" />
+												</HoverCardTrigger>
+												<HoverCardContent side="right" align="start" className="w-80">
+													<DayAvailabilityList warnings={(availability?.warnings ?? []).filter((w) => w.date === format(day, "yyyy-MM-dd"))} />
+												</HoverCardContent>
+											</HoverCard>
+										)}
 									</span>
 									{hasMenus && (
 										<Badge
@@ -380,20 +384,7 @@ export function PlanningBoard() {
 				</div>
 			</div>
 
-			{/* Falha não é "atende": sem esta linha o calendário limpo pareceria tudo conferido. */}
-			{availabilityError && (
-				<p className="text-caption text-muted-foreground">Não foi possível conferir os insumos que podem faltar: {availabilityError.message}</p>
-			)}
-			{/* Fonte que a OM não usa no sisub fica fora do aviso: dizer isso evita ler silêncio como "atende". */}
-			{availability?.checks && !(availability.checks.stock && availability.checks.contracts) && (
-				<p className="text-caption text-muted-foreground">
-					{availability.checks.stock || availability.checks.contracts ? "Aviso de insumo que pode faltar: " : "Aviso de insumo que pode faltar desligado: "}
-					{!availability.checks.stock && "a cozinha não controla estoque no sisub"}
-					{!availability.checks.stock && !availability.checks.contracts && " e "}
-					{!availability.checks.contracts && "a unidade não tem ata nem empenho registrado no sisub"}
-					{availability.checks.stock || availability.checks.contracts ? ", então isso não é conferido." : "."}
-				</p>
-			)}
+			<AvailabilityStatusNote checks={availability?.checks ?? null} error={availabilityError} />
 
 			{/*
 			 * O período é o do calendário na tela (inclui a semana que transborda o
@@ -402,14 +393,6 @@ export function PlanningBoard() {
 			{Number.isInteger(kitchenId) && kitchenId > 0 && (
 				<ExpiringInPeriod kitchenId={kitchenId} from={format(startDate, "yyyy-MM-dd")} until={format(endDate, "yyyy-MM-dd")} />
 			)}
-
-			<DayDrawer
-				open={isDrawerOpen}
-				onClose={() => dispatch({ type: "SET_DRAWER_OPEN", value: false })}
-				date={selectedDay}
-				kitchenId={kitchenId}
-				availabilityWarnings={availabilityError ? null : (availability?.warnings ?? [])}
-			/>
 
 			<ApplyTemplateDialog
 				// Remonta a cada abertura: o estado interno (template, modo de conflito) nasce da
