@@ -24,20 +24,25 @@ export function ReceiptStageActions({
 	awaitingDefinitive,
 	canRefuse,
 	isInvoiceRefused,
+	canCompleteInvoiceRefusal,
 	busy,
 	onProvisional,
 	onDefinitive,
 	onRefuse,
+	onCompleteInvoiceRefusal,
 }: {
 	status: string
 	awaitingDefinitive: boolean
 	canRefuse: boolean
 	/** NF-e já recusada: efetivar não vale, e concluir a recusa é o próximo passo. */
 	isInvoiceRefused: boolean
+	/** Recebimento recusado com a NF-e ainda aceita (ordem antiga das escritas). */
+	canCompleteInvoiceRefusal: boolean
 	busy: boolean
 	onProvisional: () => void
 	onDefinitive: () => void
 	onRefuse: () => void
+	onCompleteInvoiceRefusal: () => void
 }) {
 	return (
 		<>
@@ -60,6 +65,12 @@ export function ReceiptStageActions({
 					{isInvoiceRefused ? "Concluir a recusa" : "Recusar entrega"}
 				</Button>
 			)}
+			{canCompleteInvoiceRefusal && (
+				<Button size="sm" variant="destructive" disabled={busy} onClick={onCompleteInvoiceRefusal}>
+					{busy ? <Spinner className="size-4" /> : <Ban data-icon="inline-start" aria-hidden="true" />}
+					Concluir a recusa da NF-e
+				</Button>
+			)}
 		</>
 	)
 }
@@ -74,7 +85,7 @@ export function InvoiceProblemAlert({ invoice, canRefuse }: { invoice: ReceiptCo
 				<AlertTitle>NF-e recusada, recebimento ainda aberto</AlertTitle>
 				<AlertDescription>
 					{canRefuse
-						? `${invoice.problem}: use "Concluir a recusa". Nada entra no estoque enquanto a nota estiver recusada.`
+						? `${invoice.problem} pelo botão "Concluir a recusa". Nada entra no estoque enquanto a nota estiver recusada.`
 						: `${invoice.problem}. Quem recebe em definitivo (nível 3) conclui a recusa. Nada entra no estoque enquanto a nota estiver recusada.`}
 				</AlertDescription>
 			</Alert>

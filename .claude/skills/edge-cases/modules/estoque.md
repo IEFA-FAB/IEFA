@@ -114,23 +114,37 @@ Hipóteses a verificar; a suíte `inventory-cycle.e2e.operations.test.ts` e as d
 ### EST-REC-11 — "A entrega inteira veio estragada"
 - **O sistema precisa:** recusar o recebimento todo, com motivo; nada entra no estoque e ele
   não sustenta liquidação. A decisão tem colunas próprias (`rejected_at`/`rejected_by`,
-  20260926205000), nunca `definitive_at`.
+  20260926205000), nunca `definitive_at`. A NF-e recusada não volta a aceita por ato de rotina:
+  o "Rodar matching" (nível 2) não roda em nota `refused`, `cancelled`, `received` ou `divergent`
+  e só reescreve a situação a partir de `available`/`imported`/`matched` (antes ele devolvia a nota
+  recusada a `matched`, a trava da efetivação sumia e a entrega recusada entrava no estoque).
 - **UX:** "Recusar entrega" no recebimento aberto (nível 3, com designação de gestor ou
   comissão); o cabeçalho e o termo mostram "Recusado em" e o motivo. A NF-e do recebimento é
-  marcada como recusada ANTES do recebimento: se a segunda escrita falhar, a tela diz que a nota
-  ficou recusada e o recebimento continua aberto, relê o estado e "Recusar" de novo conclui.
+  marcada como recusada ANTES do recebimento, a partir da situação lida (nota cancelada na SEFAZ
+  fica cancelada): se a segunda escrita falhar, a tela diz que a nota ficou recusada e o
+  recebimento continua aberto, relê o estado e "Concluir a recusa" conclui.
   No estado parcial (nota recusada, recebimento aberto), a efetivação é recusada no servidor
-  ("A NF-e deste recebimento foi recusada. Conclua a recusa do recebimento ou peça a reabertura
-  da NF-e"), sem adiamento possível; a tela mostra o aviso, desabilita "Efetivar definitivo" e
-  oferece "Concluir a recusa". É coerência documental, não trava por falta de dado.
+  ("A NF-e deste recebimento foi recusada: conclua a recusa do recebimento"), sem adiamento
+  possível; a tela mostra o aviso, desabilita "Efetivar definitivo" e oferece "Concluir a
+  recusa". É coerência documental, não trava por falta de dado. A recusa do recebimento só pega
+  recebimento aberto: se a efetivação terminou no meio, a resposta diz que ele mudou de estado e
+  não pode mais ser recusado, e a marca da nota feita agora é desfeita (entrega no estoque com nota
+  recusada não teria caminho de volta); se outra decisão o recusou antes, a nota fica recusada.
+  Recebimento recusado na ordem antiga (recebimento primeiro) com a nota ainda aceita mostra
+  "Concluir a recusa da NF-e", que só completa a marca da nota (não se a nota já sustenta outro
+  recebimento). Na página da NF-e recusada, cancelada ou recebida, "Rodar matching" não aparece.
 - **Cobertura:** `invoice-gate.test.ts` (recusado não sustenta liquidação);
-  `apps/sisub/src/lib/receipt-refusal.test.ts` (plano e mensagem do estado parcial);
+  `apps/sisub/src/lib/receipt-refusal.test.ts` (plano, recusa na ordem antiga, corrida com a
+  efetivação, mensagens); `nfe-match-candidates.test.ts › o matching não rebaixa nota recusada…`;
   `receipt-invoice-gate.test.ts › NF-e recusada pela unidade não efetiva…`;
   `receipt-documents.test.ts › nota recusada (recusa do recebimento pela metade)…`.
   **LACUNA:** teste de integração da recusa pela tela; nota e recebimento ainda são duas
   escritas sem transação (a atômica pede função SQL), e a conferência da nota recusada roda
   antes de `finalize_goods_receipt`, fora da trava do recebimento (fechar a corrida também pede
-  a checagem dentro da função SQL).
+  a checagem dentro da função SQL). Se desfazer a marca da nota falhar depois da corrida com a
+  efetivação, a nota fica recusada com o estoque lançado e não há reabertura de NF-e na tela (a
+  mensagem pede para avisar a gestão do estoque). Não existe "reabrir a NF-e recusada": recusa
+  por engano não tem caminho de volta pela tela.
 
 ### EST-REC-12 — "Vinculei a NF-e errada à entrega"
 - **O sistema precisa:** trocar a nota enquanto não houver liquidação; depois dela, a NF-e e o

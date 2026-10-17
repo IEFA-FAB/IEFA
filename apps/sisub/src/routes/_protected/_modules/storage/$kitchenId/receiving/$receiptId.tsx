@@ -35,6 +35,7 @@ import {
 	fetchReceiptFn,
 	finalizeReceiptFn,
 	listScanEventsFn,
+	refuseReceiptFn,
 	resolveFiscalPendingFn,
 	setReceiptProvisionalFn,
 } from "@/server/receiving.fn"
@@ -113,6 +114,21 @@ function ReceiptDetailPage() {
 		}
 	}
 
+	/** Recebimento recusado antes da ordem atual das escritas, com a nota ainda aceita. */
+	async function completeInvoiceRefusal() {
+		if (!window.confirm("A NF-e deste recebimento recusado será marcada como recusada. Não se desfaz.")) return
+		setBusy(true)
+		try {
+			await refuseReceiptFn({ data: { receiptId: receipt.id } })
+			toast.success("NF-e marcada como recusada: a recusa da entrega está completa")
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : "Falha ao concluir a recusa da NF-e")
+		} finally {
+			setBusy(false)
+			await router.invalidate()
+		}
+	}
+
 	async function resolveFiscalPending(resolution: FiscalResolution, reference: string) {
 		// trava os três botões enquanto viaja: duplo clique mandava duas resoluções
 		setBusy(true)
@@ -146,10 +162,12 @@ function ReceiptDetailPage() {
 						awaitingDefinitive={awaitingDefinitive}
 						canRefuse={editable && canDecide}
 						isInvoiceRefused={context.invoice?.refused === true}
+						canCompleteInvoiceRefusal={context.canCompleteInvoiceRefusal && canDecide}
 						busy={busy}
 						onProvisional={toProvisional}
 						onDefinitive={toDefinitive}
 						onRefuse={() => setRefusing(true)}
+						onCompleteInvoiceRefusal={completeInvoiceRefusal}
 					/>
 				</PageHeader>
 			</div>
