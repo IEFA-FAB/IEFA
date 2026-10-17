@@ -478,6 +478,11 @@ export const ASSURANCE_REGISTRY = {
 	replaceDayWithTemplateFn: { require: "none" },
 	replaceMenuItemRecipeFn: { require: "none" },
 	recordMenuSubstitutionFn: { require: "none" },
+	// ── planning-bulk.fn.ts (o mesmo ajuste, em vários dias: lixeira restaura, produção iniciada fica)
+	clearPlannedDaysFn: { require: "none" },
+	shiftPlannedDaysFn: { require: "none" },
+	replaceRecipeInDaysFn: { require: "none" },
+	refreshRecipeVersionsInDaysFn: { require: "none" },
 	// ── planning.fn.ts
 	upsertDailyMenuFn: { require: "none" },
 	addMenuItemFn: { require: "none" },

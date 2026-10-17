@@ -51,13 +51,13 @@ import { demandRoundingFor, resolveItemDemand } from "./demand-math.ts"
 import { applyEventTemplate } from "./templates.ts"
 
 type PlanningTx = Parameters<Parameters<SisubDb["transaction"]>[0]>[0]
-type PlanningDb = SisubDb | PlanningTx
+export type PlanningDb = SisubDb | PlanningTx
 
 /** Cardápio de tipo de refeição de SISTEMA (produção dos pedidos de lanche): fora dos ajustes do planejamento da cozinha. */
-const notSystemMealTypeMenu = sql`not exists (select 1 from kitchen.meal_type mt where mt.id = ${dailyMenuInKitchen.mealTypeId} and mt.system_key is not null)`
+export const notSystemMealTypeMenu = sql`not exists (select 1 from kitchen.meal_type mt where mt.id = ${dailyMenuInKitchen.mealTypeId} and mt.system_key is not null)`
 
 /** Itens ativos de um dia (todas as refeições), opcionalmente só de uma origem. */
-async function activeItemsOfDay(db: PlanningDb, kitchenId: number, date: string, originTemplateId?: string) {
+export async function activeItemsOfDay(db: PlanningDb, kitchenId: number, date: string, originTemplateId?: string) {
 	return runQuery("FETCH_FAILED", () =>
 		db
 			.select({
@@ -88,7 +88,7 @@ async function activeItemsOfDay(db: PlanningDb, kitchenId: number, date: string,
  * ponto apagaria do agendamento uma produção que aconteceu — o turno precisa registrar sobra,
  * não o planejamento fingir que ela não existiu.
  */
-async function assertNoStartedProduction(db: PlanningDb, itemIds: string[]): Promise<void> {
+export async function assertNoStartedProduction(db: PlanningDb, itemIds: string[]): Promise<void> {
 	if (itemIds.length === 0) return
 	// `for update` em TODAS as tarefas dos itens, não só nas já iniciadas: o turno que clica
 	// "Iniciar" ao mesmo tempo espera esta transação terminar, em vez de começar uma produção
@@ -109,7 +109,7 @@ async function assertNoStartedProduction(db: PlanningDb, itemIds: string[]): Pro
 	}
 }
 
-async function softDeleteItems(db: PlanningDb, itemIds: string[]): Promise<void> {
+export async function softDeleteItems(db: PlanningDb, itemIds: string[]): Promise<void> {
 	if (itemIds.length === 0) return
 	const deletedAt = new Date().toISOString()
 	await runQuery("DELETE_FAILED", () =>
