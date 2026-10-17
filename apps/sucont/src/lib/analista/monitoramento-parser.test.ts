@@ -43,7 +43,7 @@ describe("parseWorkbook: leitura", () => {
 
 	it("CSV windows-1252 (ou texto renomeado para .xls) é lido sem adivinhar número", () => {
 		const csv = "Unidade Gestora;Mês;Conta Contábil;Saldo - R$\n120062;JAN;115110101;1.234,56\n120062;FEV;115110101;12,345\n"
-		const result = parseWorkbook(encodeWindows1252(csv))
+		const result = parseWorkbook(encodeWindows1252(csv).buffer)
 		expect(result.isHeaderFound).toBe(true)
 		expect(result.processed.map((row) => [row.mes, row.saldo])).toEqual([
 			["JAN", 1234.56],

@@ -19,7 +19,7 @@ describe("parseWorkbook", () => {
 	it("lê CSV windows-1252 (ou texto renomeado para .xls) sem adivinhar número", () => {
 		const preamble = Array.from({ length: 11 }, (_, i) => `Título ${i + 1}`)
 		const csv = [...preamble, HEADER.join(";"), "120004 BABR;332110100;99;1.234,56", "120004 BABR;332110100;99;12,345"].join("\n")
-		const [group] = parseWorkbook(encodeWindows1252(csv))
+		const [group] = parseWorkbook(encodeWindows1252(csv).buffer)
 		expect(group.occurrences.map((o) => o.saldo)).toEqual([1234.56 + 12.345])
 	})
 

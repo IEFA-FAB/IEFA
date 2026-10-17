@@ -199,14 +199,14 @@ describe("readRecords (xlsx real)", () => {
 	})
 
 	it("acha o cabeçalho quando a dimensão (!ref) não começa em A1", () => {
-		const sheet = XLSX.utils.aoa_to_sheet(
-			[
-				["UG", "Conta Contábil", "Conta Corrente", "Saldo"],
-				["120052", CONTA_EXECUCAO_RESPONSABILIDADE, "CC1", 10],
-				["120062", CONTA_RESPONSABILIDADE, "CC2", "1.234,56"],
-			],
-			{ origin: "A3" }
-		)
+		// Duas linhas sem célula antes do cabeçalho, e a dimensão declarada a partir de A3.
+		const sheet = XLSX.utils.aoa_to_sheet([
+			[],
+			[],
+			["UG", "Conta Contábil", "Conta Corrente", "Saldo"],
+			["120052", CONTA_EXECUCAO_RESPONSABILIDADE, "CC1", 10],
+			["120062", CONTA_RESPONSABILIDADE, "CC2", "1.234,56"],
+		])
 		sheet["!ref"] = "A3:D5"
 		const book = XLSX.utils.book_new()
 		XLSX.utils.book_append_sheet(book, sheet, "a")
