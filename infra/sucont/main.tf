@@ -1,6 +1,7 @@
-# Per-service stack. Identical across every service — the service definition
-# comes from terraform.tfvars. Reads shared platform outputs from the foundation
-# stack and instantiates the reusable `service` module.
+# Stack de um serviço ECS. O corpo é o mesmo em todos os stacks de serviço: lê a
+# foundation pelo remote state e instancia `../modules/service`. Quem é o serviço vem do
+# terraform.tfvars (segredo TF_TFVARS_JSON); o que é versionado, do sizing.auto.tfvars.
+# Onde cada stack diverge dos outros: infra/README.md, seção "Onde os stacks divergem".
 
 terraform {
   required_version = ">= 1.16.0"
@@ -84,6 +85,7 @@ module "service" {
   fargate_on_demand_weight = var.fargate_on_demand_weight
   assign_public_ip         = var.assign_public_ip
   enable_cloudwatch_logs   = var.enable_cloudwatch_logs
+  deregistration_delay     = var.deregistration_delay
 
   cloudwatch_log_retention_days = var.cloudwatch_log_retention_days
   image_tag_mutability          = var.image_tag_mutability

@@ -28,21 +28,25 @@ infra_dir="$(cd "$script_dir/.." && pwd)"
 
 cluster="$(cd "$infra_dir/foundation" && terraform output -raw ecs_cluster_name)"
 
-# Service stack folders = every dir with a main.tf that isn't foundation/bootstrap/modules.
+# Serviço ECS = stack que instancia `../modules/service`. "Tem main.tf" não basta: o
+# docs-static (S3 + CloudFront) também tem, e não existe serviço ECS com esse nome. Com
+# `set -e`, o update-service dele falhava e o `all` parava ali, sem forçar o deploy dos
+# stacks que vinham depois na ordem alfabética (forms, pdf, portal, rumaer, sisub...).
+is_ecs_stack() {
+  grep -Eq '^[[:space:]]*source[[:space:]]*=[[:space:]]*"\.\./modules/service"' "$infra_dir/$1/main.tf" 2>/dev/null
+}
+
 all_services() {
   for d in "$infra_dir"/*/; do
     name="$(basename "$d")"
-    case "$name" in
-      foundation | bootstrap | modules | scripts) continue ;;
-    esac
-    [[ -f "$d/main.tf" ]] && echo "$name"
+    if is_ecs_stack "$name"; then echo "$name"; fi
   done
 }
 
 if [[ "$target" == "all" ]]; then
   mapfile -t services < <(all_services)
 else
-  [[ -f "$infra_dir/$target/main.tf" ]] || { echo "Unknown service: $target" >&2; exit 1; }
+  is_ecs_stack "$target" || { echo "Not an ECS service stack: $target" >&2; exit 1; }
   services=("$target")
 fi
 
