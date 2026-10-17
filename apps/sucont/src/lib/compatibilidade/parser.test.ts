@@ -185,6 +185,14 @@ describe("processData: relatório", () => {
 		])
 	})
 
+	it("código de UG com ponto é a UG; sete dígitos não é UG nenhuma", () => {
+		const reports = parseSheet([HEADER, ["120.062", PAR_BMP.a, 10], ["1200621", PAR_BMP.a, 20]])
+		expect(reports.map((r) => [r.ug, r.ugCode, r.ugName])).toEqual([
+			["1200621", "1200621", "1200621"],
+			["120.062", "120062", "BASP"],
+		])
+	})
+
 	it("UG do cadastro com nome no texto usa a sigla do cadastro", () => {
 		const [report] = parseSheet([HEADER, ["120001 - OUTRO NOME", PAR_BMP.a, 10]])
 		expect(report.ugCode).toBe("120001")

@@ -8,7 +8,7 @@ import * as XLSX from "xlsx"
 import { parseBrazilianAmountOrZero } from "#/lib/analysis/saldo"
 import { agregarSaldos, compararPares, type LinhaSaldo, PARES, type ParDivergente } from "#/lib/compatibilidade/pares"
 import { readWorkbook } from "#/lib/spreadsheet"
-import { getUg } from "#/lib/ug/registry"
+import { extractCodigoUg, getUg } from "#/lib/ug/registry"
 import { formatCurrency, normalizeKey } from "./format"
 
 export const PAIRS = PARES
@@ -145,10 +145,13 @@ Diferença apurada: ${formatCurrency(diff)}
 `.trim()
 }
 
-/** Código, nome e vinculação da UG: do cadastro quando houver, senão do próprio texto da planilha. */
+/**
+ * Código, nome e vinculação da UG: do cadastro quando houver, senão do próprio texto da
+ * planilha. O código sai pela regra do registry: "120.062" é a 120062, e "1200621" não
+ * é UG nenhuma (o `\d{6}` sem borda tirava 120062 de dentro dele).
+ */
 function resolveUgIdentity(ug: string) {
-	const ugMatch = ug.match(/\d{6}/)
-	const ugCode = ugMatch ? ugMatch[0] : ug
+	const ugCode = extractCodigoUg(ug)
 	const metadata = getUg(ugCode)
 	const ugName = metadata ? metadata.sigla : ug.includes(" - ") ? ug.split(" - ")[1] : ug
 	const superior = metadata?.orgaoSuperior ?? "Não Identificado"
