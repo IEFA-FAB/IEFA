@@ -1,0 +1,67 @@
+##
+# Leitura PostgREST com `.limit(N)` acima do teto de 1000 linhas.
+#
+# Nasceu de um bug que já aconteceu (#626): o PostgREST devolve no máximo `max_rows` linhas por
+# requisição (1000, o padrão, que o projeto não altera) e NÃO avisa quando corta. `.limit(2000)`
+# parece pedir 2000 e volta 1000, com status 200 e sem erro:
+#
+#   - `budget.fn.ts` lia empenhos, `v_empenho_vigente` e notas de crédito com `.limit(2000)`. A
+#     view nem tinha ordem, então o corte era aleatório: empenho fora dele entrava com valor
+#     vigente 0 e inflava o saldo projetado;
+#   - `acquisition.fn.ts` lia as classes CATMAT com `.limit(2000)`;
+#   - na api, o `defaultLimit`/`maxLimit = 100000` do factory prometia o que não entregava:
+#     `/arranchamentos` (~44 mil linhas) respondia 200 com exatamente 1000.
+#
+# Caminho certo, no sisub: `readAllPages` (`apps/sisub/src/lib/read-all-pages.ts`), que pagina
+# com `.range(from, to)` sobre uma ordem por chave única até a página vazia, ou
+# `readAllPagesByKey` (keyset, para leitura que soma dinheiro). Na api, o #626 trocou a promessa
+# de `limit` alto por paginação de keyset (`apps/api/src/api/cursor.ts`): a rota devolve até 1000
+# linhas e o cabeçalho `X-Next-Cursor` quando a página veio cheia.
+#
+# `.range(0, 4999)` é o mesmo defeito por outro caminho: pede 5000 e volta 1000. A regra acusa
+# `.range(A, B)` com literais e B − A ≥ 1000 (o intervalo é inclusivo, então são B − A + 1
+# linhas). Com variáveis, como dentro do `readAllPages`, não casa.
+#
+# A regra só olha cadeia PostgREST (`.from(…).select(…)` ou `.rpc(…)`): no Drizzle a ordem é
+# `db.select().from(t)` e não há teto, então `.limit(5000)` ali não casa. Limite em variável
+# (`.limit(input.limit)`) também não casa: o literal é o caso que dá para afirmar sem seguir valor.
+# Escopo de `apps/**` e `packages/**`: o teto é do PostgREST, não de um app.
+#
+# Casos de teste: `__fixtures__/postgrest-row-cap.ts` (opengrep test --config
+# .opengrep/rules/postgrest-row-cap.yaml .opengrep/rules/__fixtures__/postgrest-row-cap.ts).
+#
+# Regras compatíveis com Opengrep e Semgrep (mesma sintaxe).
+##
+rules:
+  - id: postgrest-limit-above-row-cap
+    languages: [typescript]
+    severity: ERROR
+    message: >-
+      `.limit(N)` com N > 1000, ou `.range(A, B)` com mais de 1000 linhas, numa leitura
+      PostgREST. O PostgREST corta calado em 1000 linhas (`max_rows`): a resposta vem com status
+      200, sem erro, e menor do que o pedido, e quem soma, conta ou decide a partir dela erra sem
+      saber. No sisub, pagine com `readAllPages` ou `readAllPagesByKey`
+      (`apps/sisub/src/lib/read-all-pages.ts`, ordem por chave única); na api, com o cursor de
+      keyset de `apps/api/src/api/cursor.ts` (`X-Next-Cursor`).
+    paths:
+      include:
+        - "apps/**"
+        - "packages/**"
+      exclude:
+        - "**/*.test.ts"
+    patterns:
+      - pattern-either:
+          - patterns:
+              - pattern: $Q.limit($N)
+              - metavariable-comparison:
+                  metavariable: $N
+                  comparison: $N > 1000
+          - patterns:
+              - pattern: $Q.range($FROM, $TO)
+              - metavariable-comparison:
+                  comparison: $TO - $FROM >= 1000
+      - metavariable-pattern:
+          metavariable: $Q
+          pattern-either:
+            - pattern: $C.from(...).select(...)
+            - pattern: $C.rpc(...)
