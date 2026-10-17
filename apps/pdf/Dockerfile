@@ -119,7 +119,7 @@ RUN if grep -q 'cdn.jsdelivr.net' security-headers.conf; then \
     fi
 
 # ---- Runtime: nginx sem root, com a config do próprio upstream ----------------
-FROM public.ecr.aws/nginx/nginx-unprivileged:alpine-slim@sha256:c81a27f28bc2d9c2da8998444e653c7b85b9bbbaa92e44ef18d8920784e06507
+FROM public.ecr.aws/nginx/nginx-unprivileged:alpine-slim@sha256:b94a56c52fd315bbd8f1f4368d64c25983351c978313e02feff2c0b35e856f2d
 LABEL org.opencontainers.image.source="https://github.com/IEFA-FAB/IEFA" \
       org.opencontainers.image.licenses="AGPL-3.0-only" \
       org.opencontainers.image.description="BentoPDF (github.com/alam00000/bentopdf), sem modificações"
