@@ -13,11 +13,12 @@
 import { dailyMenuInKitchen, menuItemsInKitchen, productionTaskInKitchen, recipesInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
 import { and, eq, inArray, isNull, sql } from "drizzle-orm"
 import { requireKitchen } from "../guards/require-permission.ts"
-import type { ClearPlannedDays, RefreshRecipeVersionsInDays, ReplaceRecipeInDays, ShiftPlannedDays } from "../schemas/planning.ts"
+import type { ClearPlannedDays, RefreshRecipeVersionsInDays, ReplaceRecipeInDays, SetHeadcountInDays, ShiftPlannedDays } from "../schemas/planning.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError } from "../types/errors.ts"
 import { addCivilDays, getBrasiliaToday } from "../utils/civil-date.ts"
 import { runQuery, toWire } from "../utils/index.ts"
+import { applyHeadcount } from "./planning.ts"
 import { activeItemsOfDay, assertNoStartedProduction, notSystemMealTypeMenu, type PlanningDb, softDeleteItems } from "./planning-adjustments.ts"
 import { loadLineageRows, loadRecipeLineageRoot, pickLiveLineageHead } from "./recipe-head.ts"
 
@@ -71,6 +72,17 @@ async function retireMenusWithoutItems(db: PlanningDb, menuIds: readonly (string
 			)
 			.then(() => undefined)
 	)
+}
+
+/** Próxima posição livre do cardápio: depois do último item ativo dele. */
+async function nextSortOffset(db: PlanningDb, menuId: string): Promise<number> {
+	const [{ maxSort } = { maxSort: null }] = await runQuery("FETCH_FAILED", () =>
+		db
+			.select({ maxSort: sql<number | null>`max(${menuItemsInKitchen.sortOrder})` })
+			.from(menuItemsInKitchen)
+			.where(and(eq(menuItemsInKitchen.dailyMenuId, menuId), isNull(menuItemsInKitchen.deletedAt)))
+	)
+	return maxSort == null ? 0 : Number(maxSort) + 1
 }
 
 /** Cardápios ativos (não de sistema) de um dia, por tipo de refeição. */
@@ -181,23 +193,26 @@ export async function shiftPlannedDays(
 		for (const source of order) {
 			const target = targetOf(source)
 			const items = await activeItemsOfDay(tx, input.kitchenId, source)
-			if (items.length === 0) continue
+			const sourceMenus = await menusOfDay(tx, input.kitchenId, source)
+			// Refeição só com efetivo (preparações ainda por vir) também é do dia: vai junto.
+			if (items.length === 0 && sourceMenus.every((m) => m.forecastedHeadcount == null)) continue
 			const ids = items.map((i) => i.id)
 			// Dia pela metade não se move: o que começou fica, e o resto viraria outro dia sem ele.
 			if (input.mode === "move") await assertNoStartedProduction(tx, ids)
 
-			const sourceMenus = await menusOfDay(tx, input.kitchenId, source)
 			const targetMenus = await menusOfDay(tx, input.kitchenId, target)
 			const headcountOf = new Map(sourceMenus.map((m) => [m.mealTypeId, m.forecastedHeadcount]))
-
-			const byMealType = new Map<string, ActiveItem[]>()
+			const itemsByMeal = new Map<string, ActiveItem[]>()
 			for (const item of items) {
 				if (!item.mealTypeId) continue
-				byMealType.set(item.mealTypeId, [...(byMealType.get(item.mealTypeId) ?? []), item])
+				itemsByMeal.set(item.mealTypeId, [...(itemsByMeal.get(item.mealTypeId) ?? []), item])
 			}
+			const mealTypeIds = new Set([...sourceMenus.flatMap((m) => (m.mealTypeId ? [m.mealTypeId] : [])), ...itemsByMeal.keys()])
 
-			for (const [mealTypeId, mealItems] of byMealType) {
+			for (const mealTypeId of mealTypeIds) {
+				const mealItems = itemsByMeal.get(mealTypeId) ?? []
 				const headcount = headcountOf.get(mealTypeId) ?? null
+				if (mealItems.length === 0 && headcount == null) continue
 				let targetMenu = targetMenus.find((m) => m.mealTypeId === mealTypeId)
 				if (!targetMenu) {
 					const [created] = await runQuery("INSERT_FAILED", () =>
@@ -209,7 +224,8 @@ export async function shiftPlannedDays(
 					if (!created) throw new DomainError("INSERT_FAILED", "no row returned")
 					targetMenu = created
 					menusCreated++
-				} else if (targetMenu.forecastedHeadcount == null && headcount != null) {
+				} else if (headcount != null && targetMenu.forecastedHeadcount !== headcount) {
+					// O efetivo do dia levado é o que vale no destino: as porções que chegam foram medidas por ele.
 					const menuId = targetMenu.id
 					await runQuery("UPDATE_FAILED", () =>
 						tx
@@ -219,13 +235,17 @@ export async function shiftPlannedDays(
 							.then(() => undefined)
 					)
 				}
+				if (mealItems.length === 0) continue
 				const menuId = targetMenu.id
+				// Entra DEPOIS do que o cardápio de destino já tem (item restaurado, por exemplo),
+				// preservando a ordem relativa, como no adiar de uma origem.
+				const offset = await nextSortOffset(tx, menuId)
 
 				if (input.mode === "move") {
 					await runQuery("UPDATE_FAILED", () =>
 						tx
 							.update(menuItemsInKitchen)
-							.set({ dailyMenuId: menuId })
+							.set({ dailyMenuId: menuId, sortOrder: sql`${offset} + coalesce(${menuItemsInKitchen.sortOrder}, 0)` })
 							.where(
 								inArray(
 									menuItemsInKitchen.id,
@@ -260,7 +280,7 @@ export async function shiftPlannedDays(
 								recommendedProportion: o.recommendedProportion,
 								excludedFromProcurement: o.excludedFromProcurement,
 								itemGroup: o.itemGroup,
-								sortOrder: o.sortOrder,
+								sortOrder: offset + (o.sortOrder ?? 0),
 								originTemplateId: o.originTemplateId,
 								originTemplateType: o.originTemplateType,
 							}))
@@ -271,16 +291,31 @@ export async function shiftPlannedDays(
 
 			if (input.mode === "move") {
 				// Tarefa ainda pendente acompanha o item (a iniciada foi recusada acima).
-				await runQuery("UPDATE_FAILED", () =>
+				if (ids.length > 0) {
+					await runQuery("UPDATE_FAILED", () =>
+						tx
+							.update(productionTaskInKitchen)
+							.set({ productionDate: target, updatedAt: new Date().toISOString() })
+							.where(inArray(productionTaskInKitchen.menuItemId, ids))
+							.then(() => undefined)
+					)
+				}
+				// Tudo o que o dia tinha (itens e efetivo) foi para o destino: os cardápios de origem saem.
+				await runQuery("DELETE_FAILED", () =>
 					tx
-						.update(productionTaskInKitchen)
-						.set({ productionDate: target, updatedAt: new Date().toISOString() })
-						.where(inArray(productionTaskInKitchen.menuItemId, ids))
+						.update(dailyMenuInKitchen)
+						.set({ deletedAt: new Date().toISOString() })
+						.where(
+							and(
+								inArray(
+									dailyMenuInKitchen.id,
+									sourceMenus.map((m) => m.id)
+								),
+								isNull(dailyMenuInKitchen.deletedAt),
+								sql`not exists (select 1 from kitchen.menu_items mi where mi.daily_menu_id = ${dailyMenuInKitchen.id} and mi.deleted_at is null)`
+							)
+						)
 						.then(() => undefined)
-				)
-				await retireMenusWithoutItems(
-					tx,
-					sourceMenus.map((m) => m.id)
 				)
 			}
 			moved += ids.length
@@ -330,60 +365,68 @@ export async function replaceRecipeInDays(
 	input: ReplaceRecipeInDays
 ): Promise<{ replaced: number; skippedDuplicate: number; skippedStarted: number }> {
 	requireKitchen(ctx, 2, input.kitchenId)
-	if (input.fromRecipeId === input.toRecipeId) throw new DomainError("SAME_RECIPE", "Escolha uma preparação diferente da atual.")
 	assertNotPast(input.dates, "O dia")
 	const { snapshot } = await loadRecipeSnapshot(db, input.toRecipeId, input.kitchenId)
 
 	return db.transaction(async (tx) => {
+		// A preparação é a LINHAGEM, não a versão: o peixe na v2 em uns dias e na v3 em outros
+		// sai de todos. E a "nova já na refeição" também vale por linhagem.
+		const fromLineage = await lineageIds(tx, input.fromRecipeId)
+		const toLineage = await lineageIds(tx, input.toRecipeId)
+		if (fromLineage.has(input.toRecipeId)) throw new DomainError("SAME_RECIPE", "Escolha uma preparação diferente da atual.")
+
 		const items = await activeItemsOfDays(tx, input.kitchenId, input.dates)
-		const targets = items.filter((i) => i.recipeOriginId === input.fromRecipeId)
-		const menusWithNew = new Set(items.filter((i) => i.recipeOriginId === input.toRecipeId).map((i) => i.dailyMenuId))
+		const targets = items.filter((i) => i.recipeOriginId != null && fromLineage.has(i.recipeOriginId))
+		const menusWithNew = new Set(items.filter((i) => i.recipeOriginId != null && toLineage.has(i.recipeOriginId)).map((i) => i.dailyMenuId))
 		const started = await startedItemIds(
 			tx,
 			targets.map((i) => i.id)
 		)
 		const duplicates = targets.filter((i) => menusWithNew.has(i.dailyMenuId))
 		const replaceable = targets.filter((i) => !started.has(i.id) && !menusWithNew.has(i.dailyMenuId))
-		if (replaceable.length === 0) return { replaced: 0, skippedDuplicate: duplicates.length, skippedStarted: started.size }
 
-		const [previous] = await runQuery("FETCH_FAILED", () =>
-			tx
-				.select({ recipe: menuItemsInKitchen.recipe })
-				.from(menuItemsInKitchen)
-				.where(eq(menuItemsInKitchen.id, replaceable[0]?.id as string))
-				.limit(1)
-		)
-		const previousName = (previous?.recipe as { name?: string } | null)?.name ?? null
-		await runQuery("UPDATE_FAILED", () =>
-			tx
-				.update(menuItemsInKitchen)
-				.set({
-					recipeOriginId: input.toRecipeId,
-					recipe: snapshot,
-					// Os substitutos de insumo se referiam à preparação que saiu (mesma regra da troca de um item).
-					substitutions: {
-						recipe_swap: {
-							type: "recipe_swap",
-							rationale: input.rationale,
-							updated_at: new Date().toISOString(),
-							from_recipe_id: input.fromRecipeId,
-							from_recipe_name: previousName,
+		// Por versão de origem: `recipe_swap.from_recipe_id` é o que o reaplicar do cardápio usa para
+		// não trazer a original de volta, então guarda a versão que cada item tinha de fato.
+		const byOrigin = new Map<string, string[]>()
+		for (const item of replaceable) byOrigin.set(item.recipeOriginId as string, [...(byOrigin.get(item.recipeOriginId as string) ?? []), item.id])
+		for (const [fromId, ids] of byOrigin) {
+			const [previous] = await runQuery("FETCH_FAILED", () =>
+				tx
+					.select({ recipe: menuItemsInKitchen.recipe })
+					.from(menuItemsInKitchen)
+					.where(eq(menuItemsInKitchen.id, ids[0] as string))
+					.limit(1)
+			)
+			const previousName = (previous?.recipe as { name?: string } | null)?.name ?? null
+			await runQuery("UPDATE_FAILED", () =>
+				tx
+					.update(menuItemsInKitchen)
+					.set({
+						recipeOriginId: input.toRecipeId,
+						recipe: snapshot,
+						// Os substitutos de insumo se referiam à preparação que saiu (mesma regra da troca de um item).
+						substitutions: {
+							recipe_swap: {
+								type: "recipe_swap",
+								rationale: input.rationale,
+								updated_at: new Date().toISOString(),
+								from_recipe_id: fromId,
+								from_recipe_name: previousName,
+							},
 						},
-					},
-				})
-				.where(
-					and(
-						inArray(
-							menuItemsInKitchen.id,
-							replaceable.map((i) => i.id)
-						),
-						isNull(menuItemsInKitchen.deletedAt)
-					)
-				)
-				.then(() => undefined)
-		)
+					})
+					.where(and(inArray(menuItemsInKitchen.id, ids), isNull(menuItemsInKitchen.deletedAt)))
+					.then(() => undefined)
+			)
+		}
 		return { replaced: replaceable.length, skippedDuplicate: duplicates.length, skippedStarted: started.size }
 	})
+}
+
+/** Ids de todas as versões (e forks) da linhagem da preparação. */
+async function lineageIds(db: PlanningDb, recipeId: string): Promise<Set<string>> {
+	const { rootId } = await loadRecipeLineageRoot(db, recipeId)
+	return new Set((await loadLineageRows(db, rootId)).map((row) => row.id))
 }
 
 // ─── Atualizar versões ───────────────────────────────────────────────────────
@@ -422,13 +465,17 @@ export async function refreshRecipeVersionsInDays(
 		let updated = 0
 		const merged: string[] = []
 		const snapshotOf = new Map<string, Record<string, unknown>>()
+		// Vigente já presente em cada refeição, inclusive a que este laço acabou de pôr: dois itens
+		// superados da mesma linhagem (v1 e v2) na mesma refeição viram UM na vigente, não dois.
+		const present = new Set(items.map((i) => `${i.dailyMenuId}:${i.recipeOriginId}`))
 		for (const item of pending) {
 			const head = headOf.get(item.recipeOriginId as string) as string
-			const alreadyThere = items.some((other) => other.dailyMenuId === item.dailyMenuId && other.recipeOriginId === head)
-			if (alreadyThere) {
+			const key = `${item.dailyMenuId}:${head}`
+			if (present.has(key)) {
 				merged.push(item.id)
 				continue
 			}
+			present.add(key)
 			if (!snapshotOf.has(head)) snapshotOf.set(head, (await loadRecipeSnapshot(tx, head, input.kitchenId)).snapshot)
 			await runQuery("UPDATE_FAILED", () =>
 				tx
@@ -441,5 +488,52 @@ export async function refreshRecipeVersionsInDays(
 		}
 		await softDeleteItems(tx, merged)
 		return { updated, merged: merged.length, skippedStarted: started.size }
+	})
+}
+
+// ─── Quantitativo em vários dias ─────────────────────────────────────────────
+
+/**
+ * Grava o efetivo de várias refeições numa transação, com a regra do `updateHeadcount` (as
+ * porções que vieram do efetivo reescalam). Cada entrada diz o efetivo que a tela viu
+ * (`expected`): refeição que mudou nesse meio-tempo fica como está e é contada, em vez de o
+ * lote apagar o que outra pessoa acabou de digitar.
+ */
+export async function setHeadcountInDays(db: SisubDb, ctx: UserContext, input: SetHeadcountInDays): Promise<{ updated: number; changedMeanwhile: number }> {
+	requireKitchen(ctx, 2, input.kitchenId)
+	return db.transaction(async (tx) => {
+		const ids = input.entries.map((e) => e.dailyMenuId)
+		const rows = await runQuery("FETCH_FAILED", () =>
+			tx
+				.select({
+					id: dailyMenuInKitchen.id,
+					kitchenId: dailyMenuInKitchen.kitchenId,
+					serviceDate: dailyMenuInKitchen.serviceDate,
+					forecastedHeadcount: dailyMenuInKitchen.forecastedHeadcount,
+				})
+				.from(dailyMenuInKitchen)
+				.where(and(inArray(dailyMenuInKitchen.id, ids), isNull(dailyMenuInKitchen.deletedAt)))
+				.for("update")
+		)
+		const byId = new Map(rows.map((r) => [r.id, r]))
+		// Refeição de outra cozinha no lote é recusa, não pulo: o guard é por cozinha.
+		if (rows.some((r) => r.kitchenId !== input.kitchenId)) throw new DomainError("MENU_ACCESS_DENIED", "O lote tem refeição de outra cozinha.")
+		assertNotPast(
+			rows.map((r) => r.serviceDate).filter((d): d is string => d != null),
+			"O dia"
+		)
+		let updated = 0
+		let changedMeanwhile = 0
+		for (const entry of input.entries) {
+			const row = byId.get(entry.dailyMenuId)
+			if (!row || (row.forecastedHeadcount ?? null) !== (entry.expected ?? null)) {
+				changedMeanwhile++
+				continue
+			}
+			if (row.forecastedHeadcount === entry.forecastedHeadcount) continue
+			await applyHeadcount(tx, entry.dailyMenuId, entry.forecastedHeadcount)
+			updated++
+		}
+		return { updated, changedMeanwhile }
 	})
 }

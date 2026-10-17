@@ -3,7 +3,7 @@
  *
  * Os dias vêm da seleção do calendário (Ctrl/Shift+clique, ou "selecionar os dias" da busca).
  * Cada ação é uma operação de domínio numa transação só (`planning-bulk`), exceto o
- * quantitativo, que é o mesmo `updateHeadcount` do dia, refeição a refeição. O que já começou a
+ * quantitativo usa a mesma regra do `updateHeadcount` do dia, numa transação. O que já começou a
  * ser produzido não muda, e o aviso diz quantos ficaram de fora.
  */
 
@@ -28,9 +28,13 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { toast } from "@/components/ui/toast"
-import { useUpdateHeadcount } from "@/hooks/data/usePlanning"
-import { useClearPlannedDays, useRefreshRecipeVersionsInDays, useReplaceRecipeInDays, useShiftPlannedDays } from "@/hooks/data/usePlanningBulk"
+import {
+	useClearPlannedDays,
+	useRefreshRecipeVersionsInDays,
+	useReplaceRecipeInDays,
+	useSetHeadcountInDays,
+	useShiftPlannedDays,
+} from "@/hooks/data/usePlanningBulk"
 import { useRecipes } from "@/hooks/data/useRecipes"
 import { cn } from "@/lib/cn"
 import type { HeadcountPlanByDays } from "@/lib/menu-fill"
@@ -40,10 +44,11 @@ import { collectOutdatedById } from "./day-drawer"
 import { MenuHeadcountDialog } from "./MenuHeadcountDialog"
 import { RecipeSelector } from "./RecipeSelector"
 
-type ScheduledRecipe = { id: string; name: string; days: string[] }
+/** `id` é a chave da linhagem; `recipeId`, uma versão dela (a mais nova agendada). */
+type ScheduledRecipe = { id: string; recipeId: string; name: string; days: string[] }
 
-const NUM_DAYS = (n: number) => `${n} ${n === 1 ? "dia" : "dias"}`
-const shortDate = (iso: string) => format(parseISO(iso), "dd/MM")
+const formatDayCount = (n: number) => `${n} ${n === 1 ? "dia" : "dias"}`
+const formatShortDate = (iso: string) => format(parseISO(iso), "dd/MM")
 
 function normalize(value: string) {
 	return value
@@ -52,20 +57,32 @@ function normalize(value: string) {
 		.toLowerCase()
 }
 
-/** Preparações agendadas nos cardápios, com os dias em que cada uma aparece. */
+/**
+ * A preparação é a linhagem (raiz + versões), não a versão: o peixe na v2 em uns dias e na v3 em
+ * outros é UMA preparação na busca e na troca em lote.
+ */
+export function lineageKeyOf(recipe: { id: string; base_recipe_id?: string | null }): string {
+	return recipe.base_recipe_id ?? recipe.id
+}
+
+/** Preparações agendadas nos cardápios (por linhagem), com os dias em que cada uma aparece. */
 export function collectScheduledRecipes(menus: readonly DailyMenuWithItems[]): ScheduledRecipe[] {
-	const byId = new Map<string, ScheduledRecipe>()
+	const byKey = new Map<string, ScheduledRecipe & { version: number }>()
 	for (const menu of menus) {
 		if (!menu.service_date) continue
 		for (const item of menu.menu_items ?? []) {
 			const recipe = item.recipe_origin
 			if (!recipe) continue
-			const entry = byId.get(recipe.id) ?? { id: recipe.id, name: recipe.name ?? "Preparação", days: [] }
+			const key = lineageKeyOf(recipe)
+			const version = recipe.version ?? 1
+			const entry = byKey.get(key) ?? { id: key, recipeId: recipe.id, name: recipe.name ?? "Preparação", days: [], version }
+			// O nome mostrado é o da versão mais nova agendada.
+			if (version > entry.version) Object.assign(entry, { recipeId: recipe.id, name: recipe.name ?? entry.name, version })
 			if (!entry.days.includes(menu.service_date)) entry.days.push(menu.service_date)
-			byId.set(recipe.id, entry)
+			byKey.set(key, entry)
 		}
 	}
-	return [...byId.values()].map((r) => ({ ...r, days: r.days.toSorted() })).toSorted((a, b) => a.name.localeCompare(b.name, "pt-BR"))
+	return [...byKey.values()].map(({ version: _version, ...r }) => ({ ...r, days: r.days.toSorted() })).toSorted((a, b) => a.name.localeCompare(b.name, "pt-BR"))
 }
 
 /** Busca de preparação agendada (lista longa: combobox com busca, nunca `<select>`). */
@@ -111,7 +128,7 @@ function RecipeCombobox({
 						<ComboboxItem key={item.id} value={item}>
 							<span className="flex w-full items-center justify-between gap-3">
 								<span className="truncate">{item.name}</span>
-								<span className="text-caption text-muted-foreground shrink-0">{NUM_DAYS(item.days.length)}</span>
+								<span className="text-caption text-muted-foreground shrink-0">{formatDayCount(item.days.length)}</span>
 							</span>
 						</ComboboxItem>
 					)}
@@ -138,17 +155,24 @@ export function FindRecipeBar({
 }) {
 	const recipes = useMemo(() => collectScheduledRecipes(menus), [menus])
 	const current = recipes.find((r) => r.id === highlighted)
+	const today = format(new Date(), "yyyy-MM-dd")
+	const upcoming = (current?.days ?? []).filter((d) => d >= today)
 	return (
 		<div className="flex flex-wrap items-center gap-2">
 			<RecipeCombobox recipes={recipes} value={highlighted} onChange={onHighlight} placeholder="Localizar preparação" />
 			{current && (
 				<>
 					<span className="text-caption text-muted-foreground">
-						{NUM_DAYS(current.days.length)} no calendário: {current.days.map(shortDate).join(", ")}
+						{formatDayCount(current.days.length)} no calendário: {current.days.map(formatShortDate).join(", ")}
 					</span>
-					<Button type="button" size="sm" variant="outline" onClick={() => onSelectDays(current.days)}>
-						Selecionar {current.days.length === 1 ? "o dia" : "os dias"}
-					</Button>
+					{/* Só de hoje em diante: dia que passou não muda, e com ele no lote o servidor recusaria tudo. */}
+					{upcoming.length > 0 && (
+						<Button type="button" size="sm" variant="outline" onClick={() => onSelectDays(upcoming)}>
+							{upcoming.length === current.days.length
+								? `Selecionar ${upcoming.length === 1 ? "o dia" : "os dias"}`
+								: `Selecionar os ${formatDayCount(upcoming.length)} a partir de hoje`}
+						</Button>
+					)}
 					<Button type="button" size="icon-sm" variant="ghost" aria-label="Limpar busca" onClick={() => onHighlight(null)}>
 						<X />
 					</Button>
@@ -184,7 +208,7 @@ export function BulkDayToolbar({
 	const [dialog, setDialog] = useState<"headcount" | "replace" | "versions" | "clear" | null>(null)
 	const clearDays = useClearPlannedDays()
 	const refreshVersions = useRefreshRecipeVersionsInDays()
-	const { mutateAsync: updateHeadcount } = useUpdateHeadcount({ silent: true })
+	const setHeadcount = useSetHeadcountInDays()
 
 	const mealTypes = useMemo(() => {
 		const seen = new Map<string, string | null>()
@@ -197,11 +221,12 @@ export function BulkDayToolbar({
 		selectedMenus.flatMap((menu) => {
 			const isoDay = getISODay(parseISO(menu.service_date as string))
 			const value = plans.find((p) => p.days.includes(isoDay))?.plan.get(menu.meal_type_id ?? "")
-			if (value == null || (!overwrite && menu.forecasted_headcount) || menu.forecasted_headcount === value) return []
-			return [{ dailyMenuId: menu.id, forecastedHeadcount: value }]
+			// `!= null`: efetivo 0 informado é decisão, não campo vazio.
+			if (value == null || (!overwrite && menu.forecasted_headcount != null) || menu.forecasted_headcount === value) return []
+			return [{ dailyMenuId: menu.id, forecastedHeadcount: value, expected: menu.forecasted_headcount ?? null }]
 		})
 
-	const label = `${NUM_DAYS(dates.length)} selecionado${dates.length === 1 ? "" : "s"}`
+	const label = `${formatDayCount(dates.length)} selecionado${dates.length === 1 ? "" : "s"}`
 	const hasMenus = selectedMenus.length > 0
 
 	return (
@@ -211,7 +236,7 @@ export function BulkDayToolbar({
 			className="flex flex-wrap items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2"
 		>
 			<span className="text-subheading">{label}</span>
-			<span className="text-caption text-muted-foreground">{dates.map(shortDate).join(", ")}</span>
+			<span className="text-caption text-muted-foreground">{dates.map(formatShortDate).join(", ")}</span>
 			<div className="ml-auto flex flex-wrap gap-1.5">
 				<Button type="button" size="sm" variant="outline" disabled={!hasMenus} onClick={() => setDialog("headcount")}>
 					<Users />
@@ -246,12 +271,9 @@ export function BulkDayToolbar({
 				scope="day-menu"
 				dayGroups={WEEKDAY_GROUPS}
 				countTargets={(plans, overwrite) => headcountTargets(plans, overwrite).length}
-				onApply={async (plans, overwrite) => {
-					const targets = headcountTargets(plans, overwrite)
-					const results = await Promise.allSettled(targets.map((t) => updateHeadcount(t)))
-					const failed = results.filter((r) => r.status === "rejected").length
-					if (failed > 0) toast.error(`${targets.length - failed} refeições atualizadas, ${failed} falharam.`)
-					else toast.success(`${targets.length} ${targets.length === 1 ? "refeição atualizada" : "refeições atualizadas"} em ${NUM_DAYS(dates.length)}.`)
+				onApply={(plans, overwrite) => {
+					const entries = headcountTargets(plans, overwrite)
+					if (entries.length > 0) setHeadcount.mutate({ kitchenId, entries })
 				}}
 			/>
 
@@ -262,8 +284,8 @@ export function BulkDayToolbar({
 					<AlertDialogHeader>
 						<AlertDialogTitle>Atualizar para a versão vigente?</AlertDialogTitle>
 						<AlertDialogDescription>
-							{outdatedCount} {outdatedCount === 1 ? "preparação está" : "preparações estão"} numa versão superada da ficha em {NUM_DAYS(dates.length)}. A ficha
-							congelada do dia passa a ser a da versão vigente; porções, grupo e substitutos ficam. Não é troca de preparação: o turno não recebe aviso.
+							{outdatedCount} {outdatedCount === 1 ? "preparação está" : "preparações estão"} numa versão superada da ficha em {formatDayCount(dates.length)}. A
+							ficha congelada do dia passa a ser a da versão vigente; porções, grupo e substitutos ficam. Não é troca de preparação: o turno não recebe aviso.
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<ul className="max-h-48 space-y-1 overflow-y-auto text-sm">
@@ -288,10 +310,10 @@ export function BulkDayToolbar({
 			<AlertDialog open={dialog === "clear"} onOpenChange={(open) => !open && setDialog(null)}>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogTitle>Apagar o planejado de {NUM_DAYS(dates.length)}?</AlertDialogTitle>
+						<AlertDialogTitle>Apagar o planejado de {formatDayCount(dates.length)}?</AlertDialogTitle>
 						<AlertDialogDescription>
-							Todas as preparações de {dates.map(shortDate).join(", ")} vão para a lixeira do agendamento, de onde dá para restaurar. Produção de pedido de
-							lanche e o que já começou a ser produzido ficam.
+							Todas as preparações de {dates.map(formatShortDate).join(", ")} vão para a lixeira do agendamento, de onde dá para restaurar. Produção de pedido
+							de lanche e o que já começou a ser produzido ficam.
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
@@ -311,7 +333,7 @@ export function BulkDayToolbar({
 								)
 							}
 						>
-							Apagar {NUM_DAYS(dates.length)}
+							Apagar {formatDayCount(dates.length)}
 						</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>
@@ -361,14 +383,14 @@ function ReplaceRecipeDialog({
 			>
 				<DialogContent className="sm:max-w-lg">
 					<DialogHeader>
-						<DialogTitle>Substituir preparação em {NUM_DAYS(dates.length)}</DialogTitle>
+						<DialogTitle>Substituir preparação em {formatDayCount(dates.length)}</DialogTitle>
 						<DialogDescription>Cada item trocado guarda o motivo, que o turno vê na Produção Cozinha. Porções, grupo e origem ficam.</DialogDescription>
 					</DialogHeader>
 					<div className="space-y-4">
 						<Field>
 							<FieldLabel>Sai</FieldLabel>
 							<RecipeCombobox recipes={recipes} value={fromId} onChange={setFromId} placeholder="Preparação agendada" />
-							{from && <FieldDescription>Agendada em {from.days.map(shortDate).join(", ")}.</FieldDescription>}
+							{from && <FieldDescription>Agendada em {from.days.map(formatShortDate).join(", ")}.</FieldDescription>}
 						</Field>
 						<Field>
 							<FieldLabel>Entra</FieldLabel>
@@ -404,7 +426,7 @@ function ReplaceRecipeDialog({
 							onClick={() => {
 								if (!from || !to) return
 								replace.mutate(
-									{ kitchenId, dates: [...dates], fromRecipeId: from.id, toRecipeId: to.id, rationale: rationale.trim() },
+									{ kitchenId, dates: [...dates], fromRecipeId: from.recipeId, toRecipeId: to.id, rationale: rationale.trim() },
 									{
 										onSuccess: () => {
 											reset()
@@ -478,9 +500,9 @@ export function ShiftDaysDialog({
 		<Dialog open={request != null} onOpenChange={(open) => !open && close()}>
 			<DialogContent className="sm:max-w-lg">
 				<DialogHeader>
-					<DialogTitle>Mover ou copiar {NUM_DAYS(dates.length)}</DialogTitle>
+					<DialogTitle>Mover ou copiar {formatDayCount(dates.length)}</DialogTitle>
 					<DialogDescription>
-						{dates.map(shortDate).join(", ")} → {targets.map(shortDate).join(", ")}
+						{dates.map(formatShortDate).join(", ")} → {targets.map(formatShortDate).join(", ")}
 					</DialogDescription>
 				</DialogHeader>
 				<div className="space-y-4">
