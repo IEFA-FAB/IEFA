@@ -194,6 +194,14 @@ describe("parseWorkbook: fallback heurístico", () => {
 		expect(result.processed).toEqual([cobranca("120062", "FEV/2026", 5), cobranca("120062", "Março/2026", 8)])
 	})
 
+	it("aceita mês abreviado em inglês, além do português", () => {
+		const months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]
+		const result = parseWorkbook(toWorkbook([["UG", "Mês", "Conta", "Saldo"], ...months.map((mes, i) => [null, "120062", mes, "115110101", i + 1])]))
+		expect(result.processed).toEqual(months.map((mes, i) => cobranca("120062", mes, i + 1)))
+		const withYear = parseWorkbook(toWorkbook([["120062", "OCT/2026", "115110101", 5]]))
+		expect(withYear.processed).toEqual([cobranca("120062", "OCT/2026", 5)])
+	})
+
 	it("um segundo código de 6 dígitos vira saldo se o saldo ainda não apareceu", () => {
 		const result = parseWorkbook(
 			toWorkbook([
