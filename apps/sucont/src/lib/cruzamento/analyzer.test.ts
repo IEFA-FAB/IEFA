@@ -198,6 +198,26 @@ describe("readRecords (xlsx real)", () => {
 		])
 	})
 
+	it("acha o cabeçalho quando a dimensão (!ref) não começa em A1", () => {
+		const sheet = XLSX.utils.aoa_to_sheet(
+			[
+				["UG", "Conta Contábil", "Conta Corrente", "Saldo"],
+				["120052", CONTA_EXECUCAO_RESPONSABILIDADE, "CC1", 10],
+				["120062", CONTA_RESPONSABILIDADE, "CC2", "1.234,56"],
+			],
+			{ origin: "A3" }
+		)
+		sheet["!ref"] = "A3:D5"
+		const book = XLSX.utils.book_new()
+		XLSX.utils.book_append_sheet(book, sheet, "a")
+		const bytes = XLSX.write(book, { type: "array", bookType: "xlsx" })
+		expect(XLSX.read(bytes, { type: "array" }).Sheets.a["!ref"]).toBe("A3:D5")
+		expect(readRecords(bytes).map((r) => [r.UG, r.ContaCorrente, r.Saldo])).toEqual([
+			["120052", "CC1", 10],
+			["120062", "CC2", 1234.56],
+		])
+	})
+
 	it.each(CSV_ENCODINGS)('CSV %s: acha "Conta Contábil" e lê o saldo brasileiro', (_label, encode) => {
 		const csv = "UG;Conta Contábil;Conta Corrente;Saldo\n120052;897210300;CC1;1.234,56\n120052;897210300;CC2;1.234\n120052;897210300;CC3;12,345\n"
 		const records = readRecords(encode(csv))
