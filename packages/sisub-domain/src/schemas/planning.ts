@@ -161,3 +161,62 @@ export const RecordMenuSubstitutionSchema = z.object({
 	rationale: z.string().trim().min(1).max(300),
 })
 export type RecordMenuSubstitution = z.infer<typeof RecordMenuSubstitutionSchema>
+
+// ─── Edição em lote no calendário ─────────────────────────────────────────────
+
+/** Dias escolhidos no calendário (até dois meses: o que a grade mostra com folga). */
+const BulkDatesSchema = z.array(DateSchema).min(1).max(62)
+
+/** Apaga o planejado de vários dias (vai para a lixeira). O que já começou a ser produzido fica. */
+export const ClearPlannedDaysSchema = z.object({ kitchenId: KitchenIdSchema, dates: BulkDatesSchema })
+export type ClearPlannedDays = z.infer<typeof ClearPlannedDaysSchema>
+
+/**
+ * Leva (ou copia) vários dias para outras datas mantendo o espaçamento entre eles: arrastar a
+ * semana para a seguinte, repetir a semana passada. `replaceTarget` manda para a lixeira o que
+ * já estava planejado no destino; sem ele, destino com preparação é recusado.
+ */
+export const ShiftPlannedDaysSchema = z.object({
+	kitchenId: KitchenIdSchema,
+	dates: BulkDatesSchema,
+	offsetDays: z
+		.number()
+		.int()
+		.min(-366)
+		.max(366)
+		.refine((n) => n !== 0, "Escolha outro dia de destino"),
+	mode: z.enum(["move", "copy"]),
+	replaceTarget: z.boolean().default(false),
+})
+export type ShiftPlannedDays = z.infer<typeof ShiftPlannedDaysSchema>
+
+/** Troca uma preparação por outra em todos os itens dela nos dias escolhidos, com o motivo. */
+export const ReplaceRecipeInDaysSchema = z.object({
+	kitchenId: KitchenIdSchema,
+	dates: BulkDatesSchema,
+	fromRecipeId: UuidSchema,
+	toRecipeId: UuidSchema,
+	rationale: z.string().trim().min(1).max(300),
+})
+export type ReplaceRecipeInDays = z.infer<typeof ReplaceRecipeInDaysSchema>
+
+/** Leva à versão vigente as preparações dos dias escolhidos que ficaram numa versão superada. */
+export const RefreshRecipeVersionsInDaysSchema = z.object({ kitchenId: KitchenIdSchema, dates: BulkDatesSchema })
+export type RefreshRecipeVersionsInDays = z.infer<typeof RefreshRecipeVersionsInDaysSchema>
+
+/** Efetivo de várias refeições (dias selecionados), com o valor que a tela viu em cada uma. */
+export const SetHeadcountInDaysSchema = z.object({
+	kitchenId: KitchenIdSchema,
+	entries: z
+		.array(
+			z.object({
+				dailyMenuId: UuidSchema,
+				forecastedHeadcount: z.number().int().positive(),
+				/** Efetivo que a tela mostrava; `null` = vazio. Diferente do atual, a refeição fica. */
+				expected: z.number().int().nonnegative().nullish(),
+			})
+		)
+		.min(1)
+		.max(400),
+})
+export type SetHeadcountInDays = z.infer<typeof SetHeadcountInDaysSchema>

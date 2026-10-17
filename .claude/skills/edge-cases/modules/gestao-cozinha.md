@@ -135,6 +135,44 @@ Arquivos de teste citados:
 - **Cobertura:** `menu-fill.test.ts › applyHeadcountByDays / countHeadcountByDays` (unitário; sem E2E
   do diálogo).
 
+## Edição em lote no calendário
+
+Seleção: Ctrl+clique, Shift+clique (intervalo) ou "selecionar os dias" da busca de preparação.
+`BLK` = `apps/sisub/src/test/operations/planning-bulk.operations.test.ts`.
+
+### GC-AGD-18 — "A semana inteira mudou de data (o exercício adiou o rancho)"
+- **Realidade:** a semana planejada passa para a seguinte, ou um dia escorrega um dia para frente.
+- **O sistema precisa:** mover os dias mantendo o espaçamento, com porções, trocas, substitutos,
+  efetivo da refeição e tarefas pendentes; dias encadeados (seg→ter, ter→qua) abrem caminho;
+  dia com produção iniciada recusa o lote inteiro; destino ocupado só com "substituir" (lixeira).
+- **UX:** arrastar um dia (ou a seleção) sobre outro, ou "Mover ou copiar" na barra → Mover.
+- **Cobertura:** `BLK › arrastar a semana…`, `BLK › mover dia com produção iniciada…`, `BLK › mover leva o efetivo…`
+
+### GC-AGD-19 — "Repete a semana passada"
+- **Realidade:** a semana que deu certo vira a base da próxima.
+- **O sistema precisa:** copiar ficha congelada, porções, grupo e origem, sem os registros do dia
+  (substituto, troca, execução); copiar de dia passado vale; destino sobre um dos copiados recusa.
+- **UX:** barra → "Mover ou copiar" → Copiar → novo primeiro dia.
+- **Cobertura:** `BLK › repetir a semana…`, `BLK › copiar sobre um dos dias copiados…`
+
+### GC-AGD-20 — "O fornecedor parou de entregar: troca a preparação em todos os dias"
+- **Realidade:** a preparação sai do cardápio por semanas (item fracassado, fornecedor inadimplente).
+- **O sistema precisa:** trocar em todos os itens dela nos dias escolhidos com o motivo
+  (`recipe_swap`), sem duplicar onde a nova já está e sem mexer no que está em produção (contado).
+- **UX:** "Localizar preparação" → "Selecionar os dias" → "Substituir preparação" → sai/entra/motivo.
+- **Cobertura:** `BLK › trocar uma preparação em vários dias…`, `BLK › trocar em lote pega todas as versões…`
+
+### GC-AGD-21 — "A ficha ganhou versão nova e o calendário ficou na antiga"
+- **Realidade:** a nutricionista corrigiu a ficha; os dias já agendados seguem com a ficha velha.
+- **O sistema precisa:** levar os itens à versão vigente da cozinha sem marcar troca nem pedir
+  motivo, mantendo porções e substitutos; refeição que já tem a vigente perde o item antigo.
+- **UX:** com dias selecionados, "Atualizar versões (N)" mostra v-antiga → v-vigente e confirma.
+- **Cobertura:** `BLK › atualizar versões…` (inclui v1 e v2 na mesma refeição virando uma)
+- **Também em lote:** apagar dias (lixeira; produção iniciada fica, `BLK › apagar vários dias…`) e
+  quantitativo por faixa da semana nos dias selecionados, numa transação, com a regra do
+  `updateHeadcount` e conferindo o efetivo que a tela viu (`BLK › quantitativo em lote…`).
+  **LACUNA:** as ações em lote não existem no chat do módulo nem no MCP.
+
 ## Lacunas conhecidas (imprevisto sem caminho completo)
 
 ### GC-AGD-10 — "Só uma refeição do evento foi cancelada"
