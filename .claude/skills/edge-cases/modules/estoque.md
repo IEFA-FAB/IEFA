@@ -215,17 +215,32 @@ Hipóteses a verificar; a suíte `inventory-cycle.e2e.operations.test.ts` e as d
 
 ### EST-CNT-05 — "Lancei a contagem, a rede caiu e lancei de novo"
 - **Realidade:** dentro da câmara o sinal some; o operador vê erro (ou acha que o clique não pegou)
-  e lança o mesmo número outra vez. Os 15 fardos não podem virar 30.
-- **O sistema precisa:** o reenvio da mesma linha leva a mesma chave (`client_event_id`) até o
-  sucesso. Com o mesmo valor, o servidor não grava nada; com o valor corrigido antes da confirmação
-  (o operador viu o erro e recontou: 16), o lançamento daquela chave, se tiver entrado, passa a 16
-  em vez de somar 15 + 16. Chave de outro autor é recusada.
-- **UX:** na falha, o número digitado (e o alvo lido pelo scanner) fica no campo para reenviar; no
-  sucesso o campo limpa.
+  e lança o mesmo número outra vez. Os 15 fardos não podem virar 30. E o contrário: o 15 entrou,
+  a folha relida mostra a linha com 15, e o operador lança 10 de outra prateleira: tem de dar 25.
+- **O sistema precisa:** o reenvio da mesma linha leva a mesma chave (`client_event_id`) até a
+  confirmação. Com o mesmo valor (comparado nas 4 casas de `numeric(14,4)`), o servidor não grava
+  nada nem mexe em `counted_at`; com o valor corrigido antes da confirmação (o operador viu o erro
+  e recontou: 16), o lançamento daquela chave, se tiver entrado, passa a 16 em vez de somar
+  15 + 16. Confirmação é o sucesso OU a folha relida já trazer o lançamento da chave (a folha leva
+  as chaves dos lançamentos do próprio usuário, sem quantidade, então a contagem cega não muda):
+  aí a chave se libera e o próximo envio é lançamento novo. Na corrida (a tentativa original ainda
+  gravando quando o reenvio chega), o `upsert` que ignora o conflito devolve só as inseridas; a
+  descartada é relida e vira correção (mesmo autor) ou recusa (outro autor), e a correção confere
+  que pegou a linha. Chave de outro autor é recusada.
+- **UX:** na falha, o número digitado (e o alvo lido pelo scanner) fica no campo para reenviar, e
+  a folha é relida. Se ela mostra que a tentativa entrou, o aviso diz "O lançamento de 15 já estava
+  gravado (a resposta tinha se perdido)… Um novo lançamento da linha soma" e o campo que ainda
+  mostra 15 limpa. Se o reenvio corrigiu uma tentativa gravada, o aviso diz "O envio anterior desta
+  linha tinha sido gravado; o lançamento foi corrigido para 16", em vez de "registrado". No sucesso
+  o campo limpa. Campo vazio não lança (antes ia como zero).
 - **Cobertura:** `apps/sisub/src/components/features/storage/counts/counts-page.test.ts ›
-  claimEntryKey / releaseEntryKey`; `apps/sisub/src/lib/count-entry-writes.test.ts` (reenvio,
-  correção, chave de outro autor). **LACUNA:** teste de integração do `postCountEntriesFn`; a chave vive na memória da tela; recarregar a
-  página entre a falha e o reenvio gera chave nova (a fila offline é que vai persistir).
+  claimEntryKey / releaseEntryKey`, `› settleRecordedEntryKeys` (inclui o scanner: Cancelar e nova
+  leitura), `› clearSettledQuantities`; `apps/sisub/src/lib/count-entry-writes.test.ts` (reenvio,
+  correção, chave de outro autor, 4 casas, `listIgnoredInserts`). **LACUNA:** teste de integração
+  do `postCountEntriesFn`; a chave vive na memória da tela; recarregar a página entre a falha e o
+  reenvio gera chave nova (a fila offline é que vai persistir). Tentativa antiga que chega ao
+  servidor DEPOIS do reenvio corrigido (rede que segura a requisição) acha a chave do reenvio e a
+  corrige de volta para o valor antigo: ordenar as tentativas pede versão por chave (coluna nova).
 
 `ENB` = `apps/sisub/src/test/operations/execution-never-blocks.operations.test.ts` (banco real) ·
 `EXU` = `packages/sisub-domain/src/operations/execution.test.ts` (unitário).
