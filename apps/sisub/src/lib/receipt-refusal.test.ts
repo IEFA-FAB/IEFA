@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, test, vi } from "vitest"
 import {
-	canCompleteInvoiceRefusal,
-	formatInvoiceRevertFailedMessage,
+	formatInvoiceRecheckFailedMessage,
+	formatInvoiceRevertOutcome,
 	formatReceiptRefusalNotRecordedMessage,
+	INVOICE_TAKEN_BY_OTHER_RECEIPT_MESSAGE,
+	isInvoiceRefusalCompletable,
 	planReceiptRefusal,
 	resolveRefusalLostRace,
 } from "./receipt-refusal"
@@ -92,33 +94,28 @@ describe("planReceiptRefusal", () => {
 	})
 })
 
-describe("canCompleteInvoiceRefusal", () => {
+describe("isInvoiceRefusalCompletable", () => {
 	const base = { receiptStatus: "rejected", source: "nfe", invoice: { refused: false, cancelled: false }, isInvoiceInOtherReceipt: false }
 
 	test("recusado com a nota da recusa ainda aceita: a tela oferece concluir", () => {
-		expect(canCompleteInvoiceRefusal(base)).toBe(true)
+		expect(isInvoiceRefusalCompletable(base)).toBe(true)
 	})
 
 	test("nada a concluir: aberto, nota já recusada ou cancelada, nota semanal, nota em outro recebimento", () => {
-		expect(canCompleteInvoiceRefusal({ ...base, receiptStatus: "provisional" })).toBe(false)
-		expect(canCompleteInvoiceRefusal({ ...base, invoice: { refused: true, cancelled: false } })).toBe(false)
-		expect(canCompleteInvoiceRefusal({ ...base, invoice: { refused: false, cancelled: true } })).toBe(false)
-		expect(canCompleteInvoiceRefusal({ ...base, source: "delivery_note" })).toBe(false)
-		expect(canCompleteInvoiceRefusal({ ...base, invoice: null })).toBe(false)
-		expect(canCompleteInvoiceRefusal({ ...base, isInvoiceInOtherReceipt: true })).toBe(false)
+		expect(isInvoiceRefusalCompletable({ ...base, receiptStatus: "provisional" })).toBe(false)
+		expect(isInvoiceRefusalCompletable({ ...base, invoice: { refused: true, cancelled: false } })).toBe(false)
+		expect(isInvoiceRefusalCompletable({ ...base, invoice: { refused: false, cancelled: true } })).toBe(false)
+		expect(isInvoiceRefusalCompletable({ ...base, source: "delivery_note" })).toBe(false)
+		expect(isInvoiceRefusalCompletable({ ...base, invoice: null })).toBe(false)
+		expect(isInvoiceRefusalCompletable({ ...base, isInvoiceInOtherReceipt: true })).toBe(false)
 	})
 })
 
 describe("resolveRefusalLostRace", () => {
 	test("efetivado no meio: a nota marcada agora é desfeita, e a recusa responde que não vale mais", () => {
-		expect(resolveRefusalLostRace("definitive", true)).toEqual({
-			revertInvoice: true,
-			message: "O recebimento mudou de estado (foi efetivado) enquanto a recusa era gravada e não pode mais ser recusado. A NF-e voltou à situação anterior.",
-		})
-		expect(resolveRefusalLostRace("divergent", false)).toEqual({
-			revertInvoice: false,
-			message: "O recebimento mudou de estado (foi efetivado) enquanto a recusa era gravada e não pode mais ser recusado.",
-		})
+		const effective = "O recebimento foi efetivado enquanto a recusa era gravada e não pode mais ser recusado."
+		expect(resolveRefusalLostRace("definitive", true)).toEqual({ revertInvoice: true, message: effective })
+		expect(resolveRefusalLostRace("divergent", false)).toEqual({ revertInvoice: false, message: effective })
 	})
 
 	test("recusado por outra decisão: a nota recusada combina com ele e fica", () => {
@@ -126,6 +123,51 @@ describe("resolveRefusalLostRace", () => {
 			revertInvoice: false,
 			message: "O recebimento foi recusado por outra decisão enquanto esta era gravada. Vale a recusa já registrada.",
 		})
+	})
+
+	test("recebimento ausente não é 'foi efetivado': a recusa não foi registrada e a marca se desfaz", () => {
+		expect(resolveRefusalLostRace(null, true)).toEqual({
+			revertInvoice: true,
+			message: "O recebimento não foi encontrado (foi apagado enquanto a recusa era gravada): a recusa não foi registrada.",
+		})
+	})
+
+	test("outro estado: diz qual, sem afirmar efetivação", () => {
+		const race = resolveRefusalLostRace("provisional", true)
+		expect(race.revertInvoice).toBe(true)
+		expect(race.message).toBe(
+			"O recebimento mudou de estado (provisório) enquanto a recusa era gravada e ela não foi registrada. Recarregue e confira antes de recusar de novo."
+		)
+		expect(race.message).not.toContain("efetivado")
+	})
+})
+
+describe("formatInvoiceRevertOutcome", () => {
+	const consoleError = vi.spyOn(console, "error").mockImplementation(() => {})
+	afterEach(() => consoleError.mockClear())
+	const base = "O recebimento foi efetivado enquanto a recusa era gravada e não pode mais ser recusado."
+
+	test("diz o que de fato aconteceu com a nota", () => {
+		expect(formatInvoiceRevertOutcome(base, { kind: "none" })).toBe(base)
+		expect(formatInvoiceRevertOutcome(base, { kind: "reverted" })).toBe(`${base} A NF-e voltou à situação anterior.`)
+	})
+
+	test("revert sem linha: não afirma que a nota voltou", () => {
+		const message = formatInvoiceRevertOutcome(base, { kind: "already_changed" })
+		expect(message).toContain("A NF-e não voltou à situação anterior")
+		expect(message).not.toContain("A NF-e voltou")
+	})
+
+	test("revert que falhou: a nota ficou recusada, e a quem avisar", () => {
+		expect(formatInvoiceRevertOutcome(base, { kind: "failed", error: { code: "", message: "TypeError: fetch failed" } })).toContain(
+			"A NF-e ficou marcada como recusada (o banco não respondeu; tente de novo): avise a gestão do estoque"
+		)
+	})
+
+	test("entrega nova usando a nota durante a conclusão: a marca é desfeita e isso é dito", () => {
+		expect(formatInvoiceRevertOutcome(INVOICE_TAKEN_BY_OTHER_RECEIPT_MESSAGE, { kind: "reverted" })).toBe(
+			"Uma entrega nova passou a usar esta NF-e enquanto a recusa era concluída: a nota não fica recusada. A NF-e voltou à situação anterior."
+		)
 	})
 })
 
@@ -144,7 +186,9 @@ describe("mensagens das escritas que falham", () => {
 		expect(formatReceiptRefusalNotRecordedMessage(transport, false)).toBe("Erro ao recusar o recebimento: o banco não respondeu; tente de novo")
 	})
 
-	test("desfazer a marca falhou: diz que a nota ficou recusada e a quem avisar", () => {
-		expect(formatInvoiceRevertFailedMessage(transport)).toContain("a NF-e ficou marcada como recusada (o banco não respondeu; tente de novo)")
+	test("a conferência depois da marca falhou: a nota ficou recusada e é preciso conferir", () => {
+		expect(formatInvoiceRecheckFailedMessage(transport)).toBe(
+			"A NF-e foi marcada como recusada, mas não deu para conferir se outra entrega a usa (o banco não respondeu; tente de novo). Recarregue e confira os recebimentos da nota."
+		)
 	})
 })

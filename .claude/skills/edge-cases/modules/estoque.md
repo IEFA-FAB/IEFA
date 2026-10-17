@@ -127,12 +127,15 @@ Hipóteses a verificar; a suíte `inventory-cycle.e2e.operations.test.ts` e as d
   ("A NF-e deste recebimento foi recusada: conclua a recusa do recebimento"), sem adiamento
   possível; a tela mostra o aviso, desabilita "Efetivar definitivo" e oferece "Concluir a
   recusa". É coerência documental, não trava por falta de dado. A recusa do recebimento só pega
-  recebimento aberto: se a efetivação terminou no meio, a resposta diz que ele mudou de estado e
+  recebimento aberto: se a efetivação terminou no meio, a resposta diz que ele foi efetivado e
   não pode mais ser recusado, e a marca da nota feita agora é desfeita (entrega no estoque com nota
-  recusada não teria caminho de volta); se outra decisão o recusou antes, a nota fica recusada.
-  Recebimento recusado na ordem antiga (recebimento primeiro) com a nota ainda aceita mostra
-  "Concluir a recusa da NF-e", que só completa a marca da nota (não se a nota já sustenta outro
-  recebimento). Na página da NF-e recusada, cancelada ou recebida, "Rodar matching" não aparece.
+  recusada não teria caminho de volta); recebimento apagado ou em outro estado também desfaz a
+  marca, dizendo qual; se outra decisão o recusou antes, a nota fica recusada. O desfazer confere
+  as linhas: se a nota já não estava recusada, a resposta diz que ela não voltou, em vez de
+  afirmar que voltou. Recebimento recusado na ordem antiga (recebimento primeiro) com a nota
+  ainda aceita mostra "Concluir a recusa da NF-e", que só completa a marca da nota (não se a nota
+  já sustenta outro recebimento; a conferência se repete depois da marca, e uma entrega criada no
+  meio desfaz a marca). Na página da NF-e recusada, cancelada ou recebida, "Rodar matching" não aparece.
 - **Cobertura:** `invoice-gate.test.ts` (recusado não sustenta liquidação);
   `apps/sisub/src/lib/receipt-refusal.test.ts` (plano, recusa na ordem antiga, corrida com a
   efetivação, mensagens); `nfe-match-candidates.test.ts › o matching não rebaixa nota recusada…`;
@@ -143,7 +146,10 @@ Hipóteses a verificar; a suíte `inventory-cycle.e2e.operations.test.ts` e as d
   antes de `finalize_goods_receipt`, fora da trava do recebimento (fechar a corrida também pede
   a checagem dentro da função SQL). Se desfazer a marca da nota falhar depois da corrida com a
   efetivação, a nota fica recusada com o estoque lançado e não há reabertura de NF-e na tela (a
-  mensagem pede para avisar a gestão do estoque). Não existe "reabrir a NF-e recusada": recusa
+  mensagem pede para avisar a gestão do estoque). Entrega criada pela nota DEPOIS da segunda
+  conferência da "Concluir a recusa da NF-e" fica com a nota recusada: a criação não olha a
+  situação da nota, e só a efetivação a recusa (fechar pede a marca e a conferência numa
+  transação, função SQL). Não existe "reabrir a NF-e recusada": recusa
   por engano não tem caminho de volta pela tela.
 
 ### EST-REC-12 — "Vinculei a NF-e errada à entrega"

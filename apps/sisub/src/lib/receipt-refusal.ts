@@ -71,7 +71,7 @@ export function planReceiptRefusal(
  * escritas): a tela oferece "Concluir a recusa da NF-e". A nota que já sustenta outro recebimento
  * (entrega nova com a mesma nota) não se marca.
  */
-export function canCompleteInvoiceRefusal(input: {
+export function isInvoiceRefusalCompletable(input: {
 	receiptStatus: string
 	source: string | null
 	invoice: { refused: boolean; cancelled: boolean } | null
@@ -94,24 +94,75 @@ export function formatReceiptRefusalNotRecordedMessage(error: DbErrorLike, isInv
 	return `A NF-e ficou marcada como recusada, mas o recebimento não (${reason}). Ele continua aberto: use "Concluir a recusa".`
 }
 
+/** Rótulos dos estados do recebimento nas mensagens da corrida. */
+const RECEIPT_STATUS_LABELS: Record<string, string> = {
+	draft: "rascunho",
+	provisional: "provisório",
+	definitive: "definitivo",
+	divergent: "divergente",
+	rejected: "recusado",
+}
+
 /**
  * A recusa do recebimento não pegou linha nenhuma: ele saiu de rascunho/provisório entre a leitura
- * e a escrita. Recusado por outra decisão, a nota marcada combina com ele e fica. Efetivado, a
- * entrega está no estoque: a nota marcada agora é desfeita, porque nota recusada com estoque
- * lançado não tem caminho na tela para voltar.
+ * e a escrita. O que fazer com a nota marcada por esta chamada depende do estado relido:
  *
- * @param currentStatus situação relida do recebimento (nula se a releitura falhou)
+ * - recusado por outra decisão: a nota recusada combina com ele e fica;
+ * - efetivado (`definitive`/`divergent`): a entrega está no estoque, e a marca é desfeita, porque
+ *   nota recusada com estoque lançado não tem caminho na tela para voltar;
+ * - ausente (apagado no meio) ou outro estado: a recusa não foi registrada, e a marca também se
+ *   desfaz (não há recusa que a sustente).
+ *
+ * @param currentStatus situação relida do recebimento; nula = recebimento não encontrado
  * @param isInvoiceMarkedNow esta chamada marcou a nota (a que já estava recusada não se desfaz)
  */
 export function resolveRefusalLostRace(currentStatus: string | null, isInvoiceMarkedNow: boolean): { revertInvoice: boolean; message: string } {
 	if (currentStatus === "rejected") {
 		return { revertInvoice: false, message: "O recebimento foi recusado por outra decisão enquanto esta era gravada. Vale a recusa já registrada." }
 	}
-	const prefix = "O recebimento mudou de estado (foi efetivado) enquanto a recusa era gravada e não pode mais ser recusado."
-	return { revertInvoice: isInvoiceMarkedNow, message: isInvoiceMarkedNow ? `${prefix} A NF-e voltou à situação anterior.` : prefix }
+	if (currentStatus === "definitive" || currentStatus === "divergent") {
+		return { revertInvoice: isInvoiceMarkedNow, message: "O recebimento foi efetivado enquanto a recusa era gravada e não pode mais ser recusado." }
+	}
+	if (currentStatus == null) {
+		return {
+			revertInvoice: isInvoiceMarkedNow,
+			message: "O recebimento não foi encontrado (foi apagado enquanto a recusa era gravada): a recusa não foi registrada.",
+		}
+	}
+	return {
+		revertInvoice: isInvoiceMarkedNow,
+		message: `O recebimento mudou de estado (${RECEIPT_STATUS_LABELS[currentStatus] ?? currentStatus}) enquanto a recusa era gravada e ela não foi registrada. Recarregue e confira antes de recusar de novo.`,
+	}
 }
 
-/** Desfazer a marca da nota falhou: ela ficou recusada com a entrega efetivada. */
-export function formatInvoiceRevertFailedMessage(error: DbErrorLike): string {
-	return `O recebimento foi efetivado enquanto a recusa era gravada e não pode mais ser recusado, mas a NF-e ficou marcada como recusada (${publicDbMessage(error)}). Avise a gestão do estoque: a nota precisa voltar à situação anterior.`
+/**
+ * Resultado de desfazer a marca da nota: nada a desfazer, desfeita, não desfeita porque a nota já
+ * não estava recusada (outra mudança no meio; a escrita é condicional e confere as linhas), ou
+ * falha da escrita.
+ */
+export type InvoiceRevertOutcome = { kind: "none" } | { kind: "reverted" } | { kind: "already_changed" } | { kind: "failed"; error: DbErrorLike }
+
+/** A mensagem da corrida com o que de fato aconteceu com a nota. */
+export function formatInvoiceRevertOutcome(message: string, outcome: InvoiceRevertOutcome): string {
+	switch (outcome.kind) {
+		case "none":
+			return message
+		case "reverted":
+			return `${message} A NF-e voltou à situação anterior.`
+		case "already_changed":
+			return `${message} A NF-e não voltou à situação anterior: ela já não estava recusada quando a marca ia ser desfeita. Recarregue e confira a nota.`
+		case "failed":
+			return `${message} A NF-e ficou marcada como recusada (${publicDbMessage(outcome.error)}): avise a gestão do estoque, a nota precisa voltar à situação anterior.`
+	}
+}
+
+/**
+ * Concluir só a marca da nota: outra entrega passou a usá-la entre a primeira conferência e a
+ * marca. A nota não pode ficar recusada sob a entrega nova.
+ */
+export const INVOICE_TAKEN_BY_OTHER_RECEIPT_MESSAGE = "Uma entrega nova passou a usar esta NF-e enquanto a recusa era concluída: a nota não fica recusada."
+
+/** A conferência depois da marca falhou: a nota ficou recusada sem se saber se outra entrega a usa. */
+export function formatInvoiceRecheckFailedMessage(error: DbErrorLike): string {
+	return `A NF-e foi marcada como recusada, mas não deu para conferir se outra entrega a usa (${publicDbMessage(error)}). Recarregue e confira os recebimentos da nota.`
 }

@@ -24,7 +24,7 @@ export function ReceiptStageActions({
 	awaitingDefinitive,
 	canRefuse,
 	isInvoiceRefused,
-	canCompleteInvoiceRefusal,
+	isInvoiceRefusalCompletable,
 	busy,
 	onProvisional,
 	onDefinitive,
@@ -37,7 +37,7 @@ export function ReceiptStageActions({
 	/** NF-e já recusada: efetivar não vale, e concluir a recusa é o próximo passo. */
 	isInvoiceRefused: boolean
 	/** Recebimento recusado com a NF-e ainda aceita (ordem antiga das escritas). */
-	canCompleteInvoiceRefusal: boolean
+	isInvoiceRefusalCompletable: boolean
 	busy: boolean
 	onProvisional: () => void
 	onDefinitive: () => void
@@ -65,7 +65,7 @@ export function ReceiptStageActions({
 					{isInvoiceRefused ? "Concluir a recusa" : "Recusar entrega"}
 				</Button>
 			)}
-			{canCompleteInvoiceRefusal && (
+			{isInvoiceRefusalCompletable && (
 				<Button size="sm" variant="destructive" disabled={busy} onClick={onCompleteInvoiceRefusal}>
 					{busy ? <Spinner className="size-4" /> : <Ban data-icon="inline-start" aria-hidden="true" />}
 					Concluir a recusa da NF-e

@@ -162,7 +162,7 @@ function ReceiptDetailPage() {
 						awaitingDefinitive={awaitingDefinitive}
 						canRefuse={editable && canDecide}
 						isInvoiceRefused={context.invoice?.refused === true}
-						canCompleteInvoiceRefusal={context.canCompleteInvoiceRefusal && canDecide}
+						isInvoiceRefusalCompletable={context.isInvoiceRefusalCompletable && canDecide}
 						busy={busy}
 						onProvisional={toProvisional}
 						onDefinitive={toDefinitive}
