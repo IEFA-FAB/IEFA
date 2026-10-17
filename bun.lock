@@ -126,7 +126,7 @@
         "@supabase/supabase-js": "^2.117.3",
         "@tailwindcss/vite": "^4.3.3",
         "@tanstack/react-devtools": "^0.10.13",
-        "@tanstack/react-hotkeys": "^0.11.0",
+        "@tanstack/react-hotkeys": "^0.13.0",
         "@tanstack/react-query": "^5.104.1",
         "@tanstack/react-query-devtools": "^5.104.1",
         "@tanstack/react-router": "^1.170.42",
@@ -204,7 +204,7 @@
         "@supabase/supabase-js": "^2.117.3",
         "@tailwindcss/vite": "^4.3.3",
         "@tanstack/react-devtools": "^0.10.13",
-        "@tanstack/react-hotkeys": "^0.11.0",
+        "@tanstack/react-hotkeys": "^0.13.0",
         "@tanstack/react-query": "^5.104.1",
         "@tanstack/react-query-devtools": "^5.104.1",
         "@tanstack/react-router": "^1.170.42",
@@ -258,7 +258,7 @@
         "@tanstack/ai-react": "^0.29.3",
         "@tanstack/react-devtools": "^0.10.13",
         "@tanstack/react-form": "^1.33.5",
-        "@tanstack/react-hotkeys": "^0.11.0",
+        "@tanstack/react-hotkeys": "^0.13.0",
         "@tanstack/react-query": "^5.104.1",
         "@tanstack/react-query-devtools": "^5.104.1",
         "@tanstack/react-router": "^1.170.42",
@@ -313,7 +313,7 @@
         "@supabase/supabase-js": "^2.117.3",
         "@tailwindcss/vite": "^4.3.3",
         "@tanstack/react-devtools": "^0.10.13",
-        "@tanstack/react-hotkeys": "^0.11.0",
+        "@tanstack/react-hotkeys": "^0.13.0",
         "@tanstack/react-query": "^5.104.1",
         "@tanstack/react-query-devtools": "^5.104.1",
         "@tanstack/react-router": "^1.170.42",
@@ -378,7 +378,7 @@
         "@tanstack/ai": "^0.63.0",
         "@tanstack/ai-client": "^0.36.0",
         "@tanstack/ai-react": "^0.29.3",
-        "@tanstack/hotkeys": "^0.9.0",
+        "@tanstack/hotkeys": "^0.11.0",
         "@tanstack/react-form": "^1.33.5",
         "@tanstack/react-query": "^5.104.1",
         "@tanstack/react-router": "^1.170.42",
@@ -1614,7 +1614,7 @@
 
     "@tanstack/history": ["@tanstack/history@1.162.5", "", {}, "sha512-w1+YvwmTkwt5n8yUqEH3IWZ9DsmorCZW/EQ3KYHnqEgIkOZpH54NvW6/Epq3Dzb8H0ifIeYX8PExvrNLIH5FIA=="],
 
-    "@tanstack/hotkeys": ["@tanstack/hotkeys@0.9.0", "", { "dependencies": { "@tanstack/store": "^0.11.0" } }, "sha512-y6zHjzDPTQZZ0OEtUujmGpq3TAFafgs6dCMlnTVoKJXZm3Eda0EhLuMdtb1lDdGc6/cSdEi1eptfh27mZkFzMQ=="],
+    "@tanstack/hotkeys": ["@tanstack/hotkeys@0.11.0", "", { "dependencies": { "@tanstack/store": "^0.11.2" } }, "sha512-uFKTuknj3sNp5ERoxsI0ISMMOVw3KmSkgy2iIcp19QR/zheYm7bkwzNndMv5NDAqhXpavOn6h4A6HPVJFCBXPg=="],
 
     "@tanstack/markdown": ["@tanstack/markdown@0.0.13", "", { "peerDependencies": { "octane": ">=0.1.12", "react": ">=18" }, "optionalPeers": ["octane", "react"] }, "sha512-ZSQP2ulBvlPzdpZeRheBJnaELo7e4ET/D/XrfgweHyqhhLMN5vUJJAUl7ufSRd7GlfO/vwdzjKPh0E0JwqJkDA=="],
 
@@ -1632,7 +1632,7 @@
 
     "@tanstack/react-form": ["@tanstack/react-form@1.33.5", "", { "dependencies": { "@tanstack/form-core": "1.33.5", "@tanstack/react-store": "^0.11.0" }, "peerDependencies": { "@tanstack/react-start": "*", "react": "^17.0.0 || ^18.0.0 || ^19.0.0" }, "optionalPeers": ["@tanstack/react-start"] }, "sha512-LlRB28qJwO/QCGaHvWnbdh4haBgTFiZVmzA2uzxSBS3YA7/IqrQ6HOBK70CkFQ+DbflZ7NawsmSln13h5iIdTA=="],
 
-    "@tanstack/react-hotkeys": ["@tanstack/react-hotkeys@0.11.0", "", { "dependencies": { "@tanstack/hotkeys": "0.9.0", "@tanstack/react-store": "^0.11.0" }, "peerDependencies": { "react": ">=16.8", "react-dom": ">=16.8" } }, "sha512-VAtY6AW6SEAxwBT5PZ415Qg+ozi9BHjiYGVTUmHuwK/0QLE9Giyj/f4iu8bm+sX7gwjtn9LlbV1A2YfxLYiNrg=="],
+    "@tanstack/react-hotkeys": ["@tanstack/react-hotkeys@0.13.0", "", { "dependencies": { "@tanstack/hotkeys": "0.11.0", "@tanstack/react-store": "^0.11.2" }, "peerDependencies": { "react": ">=16.8", "react-dom": ">=16.8" } }, "sha512-+iF7bQe1YegbMa/mL7Zl490OXjSuGLlu2IPYd2YcvdeI8OcTHfdENPrRNk7PklWQ2WAIJjCVxMXiQ/Uiq8fzIQ=="],
 
     "@tanstack/react-query": ["@tanstack/react-query@5.104.1", "", { "dependencies": { "@tanstack/query-core": "5.104.1" }, "peerDependencies": { "react": "^18 || ^19" } }, "sha512-Zz70EgjahNI7aCz8BZxM3vUGU44ycxEAzMuCUjLeA7SVhhOkg3ZgPjPJPvHjs6Rmky/dtmnu1WzjGHNHmhCoZQ=="],
 
