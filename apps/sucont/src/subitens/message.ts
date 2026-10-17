@@ -3,6 +3,7 @@
 // entram nele.
 import { addDays, todayInBrasilia } from "#/lib/brasilia"
 import { blocoFundamentacao, FUNDAMENTO_CONTA_GENERICA } from "#/lib/normas"
+import { GENERIC_CODE_LABELS } from "#/subitens/generic-code"
 import type { MessageConfig, ProcessedData } from "#/subitens/types"
 import { formatUgFull } from "#/subitens/ug"
 
@@ -23,9 +24,9 @@ export const RAC_QUESTIONS: Record<string, { title: string; description: string 
 }
 
 /**
- * Aviso de relatório sem nenhum código genérico na conta corrente. A regex marca o subitem
+ * Aviso de relatório sem nenhum código genérico na conta corrente. O relatório traz o subitem
  * 99 e também o 999, que NÃO é subitem: é o favorecido genérico do c/c 002 (ver
- * `GENERIC_SUBITEM_REGEX`). O texto antigo, "Nenhum subitem genérico (99/999)", chamava os
+ * `classifyGenericCode`). O texto antigo, "Nenhum subitem genérico (99/999)", chamava os
  * dois de subitem.
  */
 export const NO_GENERIC_CODE_MESSAGE = "Nenhum código genérico identificado na conta corrente: nem subitem 99 (“Outros…”) nem favorecido genérico 999."
@@ -75,11 +76,14 @@ export const formatDeadlineText = (config: MessageConfig | undefined, fallbackDe
 }
 
 // ── Message Templates ────────────────────────────────────────
+/** Tipo do código na linha da mensagem: a UG precisa saber se corrige o subitem ou o favorecido. */
+const formatGenericKinds = (occ: ProcessedData) => occ.genericKinds.map((kind) => GENERIC_CODE_LABELS[kind]).join(" e ")
+
 const formatOccurrenceLines = (occurrences: ProcessedData[]) =>
 	occurrences
 		.map(
 			(occ) =>
-				`   • Conta Contábil ${occ.contaContabil} — Conta Corrente ${occ.contaCorrente} — Saldo: ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(occ.saldo)}`
+				`   • Conta Contábil ${occ.contaContabil} — Conta Corrente ${occ.contaCorrente} — ${formatGenericKinds(occ)} — Saldo: ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(occ.saldo)}`
 		)
 		.join("\n")
 

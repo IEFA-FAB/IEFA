@@ -21,6 +21,9 @@ export function AIAssistant({ dataContext }: AIAssistantProps) {
 			JSON.stringify({
 				totalInconsistencias: dataContext.totalInconsistencias,
 				totalVolume: dataContext.totalVolume,
+				// Subitem 99 × favorecido 999 (c/c 002), que não é subitem; ocorrência com os dois
+				// códigos conta nos dois tipos.
+				porTipoDeCodigo: dataContext.kindSummary,
 				odsList: dataContext.odsList,
 				orgaoSuperiorList: dataContext.orgaoSuperiorList,
 				// biome-ignore lint/suspicious/noExplicitAny: dynamic data shape from parent

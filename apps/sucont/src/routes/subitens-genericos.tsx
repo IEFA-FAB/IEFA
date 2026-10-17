@@ -9,6 +9,7 @@ import { HubLayout } from "#/components/hub-layout"
 import { RacReference } from "#/components/rac-reference"
 import { TesouroGerencialPath } from "#/components/tesouro-gerencial-path"
 import { Button } from "#/components/ui/button"
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "#/components/ui/empty"
 import { EXCEL_ACCEPT, FileDropzone } from "#/components/ui/file-dropzone"
 import { SectionHeader } from "#/components/ui/section-header"
 import { SegmentedControl } from "#/components/ui/segmented-control"
@@ -19,6 +20,7 @@ import { formatCurrency } from "#/lib/analista/types"
 import { todayInBrasilia } from "#/lib/brasilia"
 import { AIAssistant } from "#/subitens/components/AIAssistant"
 import { ConferenteFilter } from "#/subitens/components/ConferenteFilter"
+import { GenericCodeFilter } from "#/subitens/components/GenericCodeFilter"
 import { OperationalDashboard } from "#/subitens/components/OperationalDashboard"
 import { RacMessageCard } from "#/subitens/components/RacMessageCard"
 import { ReportMetadataCard } from "#/subitens/components/ReportMetadataCard"
@@ -30,12 +32,15 @@ import { UgMessageCard } from "#/subitens/components/UgMessageCard"
 import { CONFERENTES_MAPPING } from "#/subitens/constants"
 import {
 	countOccurrencesByConta,
+	filterByGenericKind,
 	findCriticalLevels,
 	groupOccurrencesByRac,
 	summarizeByConferente,
+	summarizeByGenericKind,
 	summarizeByOdsOrgaoAndRac,
 	summarizePareto,
 } from "#/subitens/dashboard"
+import { GENERIC_CODE_LABELS } from "#/subitens/generic-code"
 import {
 	buildRacMessageKey,
 	buildUgMessageKey,
@@ -48,7 +53,7 @@ import {
 	NO_GENERIC_CODE_MESSAGE,
 } from "#/subitens/message"
 import { parseWorkbook } from "#/subitens/parser"
-import type { MessageConfig, UgGroup } from "#/subitens/types"
+import type { GenericCodeFilter as GenericCodeFilterValue, MessageConfig, UgGroup } from "#/subitens/types"
 import { formatUgName, getConferente } from "#/subitens/ug"
 
 /**
@@ -59,7 +64,7 @@ const ANALYSIS_NOTES = [
 	{
 		icon: Search,
 		title: "O que é analisado",
-		text: "O relatório do Tesouro Gerencial é varrido em busca do subitem genérico 99 (“Outros…”, também como P99 ou /99) e do favorecido genérico 999, que não é subitem, e de outras falhas de classificação previstas no RAC.",
+		text: "O relatório do Tesouro Gerencial é varrido em busca do subitem genérico 99 (“Outros…”, também como P99 ou /99) e do favorecido genérico 999, que não é subitem. Cada um tem marca, contagem e filtro próprios no resultado.",
 	},
 	{
 		icon: CheckCircle2,
@@ -103,6 +108,7 @@ function SubitensGenericos() {
 	const [racConfigs, setRacConfigs] = useState<Record<string, MessageConfig>>({})
 	const [messageMode, setMessageMode] = useState<"individual" | "consolidated">("individual")
 	const [selectedConferente, setSelectedConferente] = useState<string>("all")
+	const [genericCodeFilter, setGenericCodeFilter] = useState<GenericCodeFilterValue>("all")
 	const [dashboardTab, setDashboardTab] = useState<"operacional" | "tatico" | "estrategico">("operacional")
 
 	const formattedReportDate = formatReportDate(reportDate)
@@ -115,6 +121,7 @@ function SubitensGenericos() {
 		setRacConfigs({})
 		setMessageMode("individual")
 		setSelectedConferente("all")
+		setGenericCodeFilter("all")
 		setDashboardTab("operacional")
 		drafts.resetAll()
 	}
@@ -187,10 +194,19 @@ function SubitensGenericos() {
 	// ── Filtering ─────────────────────────────────────────────
 	const allConferentes = Array.from(new Set(Object.values(CONFERENTES_MAPPING))).sort()
 
-	const filteredData = data.filter((group) => {
+	const conferenteData = data.filter((group) => {
 		const matchesConferente = selectedConferente === "all" || getConferente(group.ug) === selectedConferente
 		return matchesConferente && group.occurrences.length > 0
 	})
+
+	// Contagem do filtro de tipo: sobre o recorte do conferente, antes do próprio filtro de tipo,
+	// para cada botão dizer quantas ocorrências mostraria.
+	const conferenteOccurrences = conferenteData.flatMap((group) => group.occurrences)
+	const conferenteKindSummary = summarizeByGenericKind(conferenteOccurrences)
+
+	// O filtro de tipo vale para a tela inteira, como o de conferente: tabela, mensagens e painel.
+	const filteredData = filterByGenericKind(conferenteData, genericCodeFilter)
+	const kindSummary = summarizeByGenericKind(filteredData.flatMap((group) => group.occurrences))
 
 	// ── Dashboard data ────────────────────────────────────────
 	const topUgsBySaldo = [...filteredData]
@@ -303,191 +319,216 @@ function SubitensGenericos() {
 								<StatTile label="Unidades Gestoras" value={filteredData.length} hint="afetadas" />
 								<StatTile
 									label="Total de ocorrências"
-									value={filteredData.reduce((acc, curr) => acc + curr.occurrences.length, 0)}
-									hint="registros"
+									value={totalInconsistencias}
+									hint={`${kindSummary["subitem-99"].count} subitem 99 · ${kindSummary["favorecido-999"].count} favorecido 999`}
 									status="action"
 								/>
-								<StatTile label="Volume financeiro" value={formatCurrency(totalVolume)} hint="em subitens genéricos" status="warning" />
+								<StatTile label="Volume financeiro" value={formatCurrency(totalVolume)} hint="em códigos genéricos" status="warning" />
 							</div>
 
 							{/* Filtro no corpo, com rótulo. Era um card de `p-8` com disco de ícone,
 							    pílula "Filtro Ativo" em `animate-pulse` e um botão "Modo Geral" pintado
 							    de `tech-blue`. */}
-							<ConferenteFilter allConferentes={allConferentes} selectedConferente={selectedConferente} onSelectedConferenteChange={setSelectedConferente} />
+							<div className="mb-8 flex flex-wrap items-end gap-6">
+								<ConferenteFilter allConferentes={allConferentes} selectedConferente={selectedConferente} onSelectedConferenteChange={setSelectedConferente} />
+								<GenericCodeFilter
+									value={genericCodeFilter}
+									onValueChange={setGenericCodeFilter}
+									totalCount={conferenteOccurrences.length}
+									summary={conferenteKindSummary}
+								/>
+							</div>
 
-							<SegmentedControl
-								label="Seção"
-								size="lg"
-								className="mb-8"
-								value={activeTab}
-								onValueChange={setActiveTab}
-								options={[
-									{
-										value: "messages",
-										label: (
-											<>
-												<FileText /> Mensagens institucionais
-											</>
-										),
-									},
-									{
-										value: "dashboard",
-										label: (
-											<>
-												<LayoutDashboard /> Painel gerencial
-											</>
-										),
-									},
-								]}
-							/>
-
-							{activeTab === "messages" ? (
-								<>
-									{/* Tabela Situacional */}
-									<SituationalTable filteredData={filteredData} />
-
-									{/* Mensagens */}
-									<section>
-										<SectionHeader
-											icon={<FileText />}
-											title="Expedição de cobranças"
-											description="Comunicações oficiais geradas"
-											className="mb-6"
-											actions={
-												<SegmentedControl
-													label="Modo de mensagem"
-													value={messageMode}
-													onValueChange={setMessageMode}
-													options={[
-														{ value: "individual", label: "Por Unidade Gestora" },
-														{ value: "consolidated", label: "Consolidada por questão" },
-													]}
-												/>
-											}
-										/>
-
-										{messageMode === "individual" ? (
-											<div className="grid grid-cols-1 gap-8">
-												{filteredData.map((group, idx) => {
-													const ugConfig: MessageConfig = ugConfigs[group.ug] || { messageType: "sem_prazo", deadlineDate: "", msgNumber, msgDate }
-													const currentMsgNumber = ugConfig.msgNumber || msgNumber
-													const currentMsgDate = ugConfig.msgDate || msgDate
-													const message = INSTITUTIONAL_TEMPLATE(
-														group.ug,
-														group.occurrences,
-														formattedReportDate,
-														formatMsgDate(currentMsgDate),
-														ugConfig.messageType,
-														getDeadlineText(group.ug),
-														currentMsgNumber,
-														"all"
-													)
-													const messageKey = buildUgMessageKey(group.ug)
-													const draft = drafts.of(messageKey, message)
-
-													return (
-														<UgMessageCard
-															key={group.ug}
-															group={group}
-															idx={idx}
-															ugConfig={ugConfig}
-															draft={draft}
-															isCopied={copiedKey === messageKey}
-															onCopy={(text) => copyToClipboard(text, messageKey)}
-															onConfigChange={(field, value) => updateUgConfig(group.ug, field, value)}
-														/>
-													)
-												})}
-											</div>
-										) : (
-											<div className="grid grid-cols-1 gap-8">
-												{Object.keys(occurrencesByRac).map((racId, idx) => {
-													const occurrences = occurrencesByRac[racId]
-													const racConfig: MessageConfig = racConfigs[racId] || { messageType: "sem_prazo", deadlineDate: "", msgNumber, msgDate }
-													const currentMsgNumber = racConfig.msgNumber || msgNumber
-													const currentMsgDate = racConfig.msgDate || msgDate
-													const message = CONSOLIDATED_TEMPLATE(
-														racId,
-														occurrences,
-														formattedReportDate,
-														formatMsgDate(currentMsgDate),
-														racConfig.messageType,
-														getRacDeadlineText(racId),
-														currentMsgNumber
-													)
-													const messageKey = buildRacMessageKey(racId)
-													const draft = drafts.of(messageKey, message)
-													const totalSaldo = occurrences.reduce((sum, occ) => sum + occ.saldo, 0)
-													const uniqueUgs = new Set(occurrences.map((o) => o.ug)).size
-
-													return (
-														<RacMessageCard
-															key={racId}
-															racId={racId}
-															idx={idx}
-															racConfig={racConfig}
-															draft={draft}
-															occurrencesCount={occurrences.length}
-															totalSaldo={totalSaldo}
-															uniqueUgs={uniqueUgs}
-															isCopied={copiedKey === messageKey}
-															onCopy={(text) => copyToClipboard(text, messageKey)}
-															onConfigChange={(field, value) => updateRacConfig(racId, field, value)}
-														/>
-													)
-												})}
-											</div>
-										)}
-									</section>
-								</>
+							{filteredData.length === 0 ? (
+								// O filtro de tipo pode zerar o recorte (relatório sem nenhum 999, por exemplo):
+								// a tela diz isso em vez de mostrar tabela e mensagens vazias.
+								<Empty>
+									<EmptyHeader>
+										<EmptyTitle>Nenhuma ocorrência neste recorte</EmptyTitle>
+										<EmptyDescription>
+											{genericCodeFilter === "all"
+												? "Nenhuma UG deste conferente tem código genérico na conta corrente."
+												: `Nenhuma ocorrência de ${GENERIC_CODE_LABELS[genericCodeFilter].toLowerCase()} neste recorte. Troque o tipo de código ou o conferente.`}
+										</EmptyDescription>
+									</EmptyHeader>
+								</Empty>
 							) : (
-								/* Dashboard */
-								<section className="mb-16 space-y-8">
-									<SectionHeader
-										icon={<TrendingUp />}
-										title="Painel estratégico de acompanhamento"
-										description="Visão operacional, tática e estratégica"
-										actions={
-											<SegmentedControl
-												label="Nível do painel"
-												value={dashboardTab}
-												onValueChange={setDashboardTab}
-												options={[
-													{ value: "operacional", label: "Operacional" },
-													{ value: "tatico", label: "Tático" },
-													{ value: "estrategico", label: "Estratégico" },
-												]}
-											/>
-										}
+								<>
+									<SegmentedControl
+										label="Seção"
+										size="lg"
+										className="mb-8"
+										value={activeTab}
+										onValueChange={setActiveTab}
+										options={[
+											{
+												value: "messages",
+												label: (
+													<>
+														<FileText /> Mensagens institucionais
+													</>
+												),
+											},
+											{
+												value: "dashboard",
+												label: (
+													<>
+														<LayoutDashboard /> Painel gerencial
+													</>
+												),
+											},
+										]}
 									/>
 
-									{dashboardTab === "operacional" && (
-										<OperationalDashboard
-											filteredData={filteredData}
-											totalVolume={totalVolume}
-											contasCount={contasCount}
-											topUgsBySaldo={topUgsBySaldo}
-											topContas={topContas}
-											conferentesList={conferentesList}
-										/>
-									)}
+									{activeTab === "messages" ? (
+										<>
+											{/* Tabela Situacional */}
+											<SituationalTable filteredData={filteredData} />
 
-									{dashboardTab === "tatico" && (
-										<TacticalDashboard odsList={odsList} orgaoSuperiorList={orgaoSuperiorList} topUgsByInconsistencias={topUgsByInconsistencias} />
-									)}
+											{/* Mensagens */}
+											<section>
+												<SectionHeader
+													icon={<FileText />}
+													title="Expedição de cobranças"
+													description="Comunicações oficiais geradas"
+													className="mb-6"
+													actions={
+														<SegmentedControl
+															label="Modo de mensagem"
+															value={messageMode}
+															onValueChange={setMessageMode}
+															options={[
+																{ value: "individual", label: "Por Unidade Gestora" },
+																{ value: "consolidated", label: "Consolidada por questão" },
+															]}
+														/>
+													}
+												/>
 
-									{dashboardTab === "estrategico" && (
-										<StrategicDashboard
-											filteredData={filteredData}
-											totalInconsistencias={totalInconsistencias}
-											totalVolume={totalVolume}
-											odsList={odsList}
-											orgaoSuperiorList={orgaoSuperiorList}
-											paretoSummary={paretoSummary}
-											topUgsByInconsistencias={topUgsByInconsistencias}
-										/>
+												{messageMode === "individual" ? (
+													<div className="grid grid-cols-1 gap-8">
+														{filteredData.map((group, idx) => {
+															const ugConfig: MessageConfig = ugConfigs[group.ug] || { messageType: "sem_prazo", deadlineDate: "", msgNumber, msgDate }
+															const currentMsgNumber = ugConfig.msgNumber || msgNumber
+															const currentMsgDate = ugConfig.msgDate || msgDate
+															const message = INSTITUTIONAL_TEMPLATE(
+																group.ug,
+																group.occurrences,
+																formattedReportDate,
+																formatMsgDate(currentMsgDate),
+																ugConfig.messageType,
+																getDeadlineText(group.ug),
+																currentMsgNumber,
+																"all"
+															)
+															const messageKey = buildUgMessageKey(group.ug)
+															const draft = drafts.of(messageKey, message)
+
+															return (
+																<UgMessageCard
+																	key={group.ug}
+																	group={group}
+																	idx={idx}
+																	ugConfig={ugConfig}
+																	draft={draft}
+																	isCopied={copiedKey === messageKey}
+																	onCopy={(text) => copyToClipboard(text, messageKey)}
+																	onConfigChange={(field, value) => updateUgConfig(group.ug, field, value)}
+																/>
+															)
+														})}
+													</div>
+												) : (
+													<div className="grid grid-cols-1 gap-8">
+														{Object.keys(occurrencesByRac).map((racId, idx) => {
+															const occurrences = occurrencesByRac[racId]
+															const racConfig: MessageConfig = racConfigs[racId] || { messageType: "sem_prazo", deadlineDate: "", msgNumber, msgDate }
+															const currentMsgNumber = racConfig.msgNumber || msgNumber
+															const currentMsgDate = racConfig.msgDate || msgDate
+															const message = CONSOLIDATED_TEMPLATE(
+																racId,
+																occurrences,
+																formattedReportDate,
+																formatMsgDate(currentMsgDate),
+																racConfig.messageType,
+																getRacDeadlineText(racId),
+																currentMsgNumber
+															)
+															const messageKey = buildRacMessageKey(racId)
+															const draft = drafts.of(messageKey, message)
+															const totalSaldo = occurrences.reduce((sum, occ) => sum + occ.saldo, 0)
+															const uniqueUgs = new Set(occurrences.map((o) => o.ug)).size
+
+															return (
+																<RacMessageCard
+																	key={racId}
+																	racId={racId}
+																	idx={idx}
+																	racConfig={racConfig}
+																	draft={draft}
+																	occurrences={occurrences}
+																	totalSaldo={totalSaldo}
+																	uniqueUgs={uniqueUgs}
+																	isCopied={copiedKey === messageKey}
+																	onCopy={(text) => copyToClipboard(text, messageKey)}
+																	onConfigChange={(field, value) => updateRacConfig(racId, field, value)}
+																/>
+															)
+														})}
+													</div>
+												)}
+											</section>
+										</>
+									) : (
+										/* Dashboard */
+										<section className="mb-16 space-y-8">
+											<SectionHeader
+												icon={<TrendingUp />}
+												title="Painel estratégico de acompanhamento"
+												description="Visão operacional, tática e estratégica"
+												actions={
+													<SegmentedControl
+														label="Nível do painel"
+														value={dashboardTab}
+														onValueChange={setDashboardTab}
+														options={[
+															{ value: "operacional", label: "Operacional" },
+															{ value: "tatico", label: "Tático" },
+															{ value: "estrategico", label: "Estratégico" },
+														]}
+													/>
+												}
+											/>
+
+											{dashboardTab === "operacional" && (
+												<OperationalDashboard
+													filteredData={filteredData}
+													totalVolume={totalVolume}
+													contasCount={contasCount}
+													topUgsBySaldo={topUgsBySaldo}
+													topContas={topContas}
+													conferentesList={conferentesList}
+												/>
+											)}
+
+											{dashboardTab === "tatico" && (
+												<TacticalDashboard odsList={odsList} orgaoSuperiorList={orgaoSuperiorList} topUgsByInconsistencias={topUgsByInconsistencias} />
+											)}
+
+											{dashboardTab === "estrategico" && (
+												<StrategicDashboard
+													filteredData={filteredData}
+													totalInconsistencias={totalInconsistencias}
+													totalVolume={totalVolume}
+													odsList={odsList}
+													orgaoSuperiorList={orgaoSuperiorList}
+													paretoSummary={paretoSummary}
+													topUgsByInconsistencias={topUgsByInconsistencias}
+												/>
+											)}
+										</section>
 									)}
-								</section>
+								</>
 							)}
 
 							<ResultsFooter />
@@ -501,6 +542,7 @@ function SubitensGenericos() {
 					dataContext={{
 						totalInconsistencias,
 						totalVolume,
+						kindSummary,
 						odsList,
 						orgaoSuperiorList,
 						topUgsByInconsistencias,

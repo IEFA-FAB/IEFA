@@ -88,18 +88,22 @@ Corrigido em 2026-08: sete códigos da `"Questão 8"` estavam com um dígito a m
 
 **Entrada.** XLSX lido a partir da **linha 12** (`range: 11`): o export do Tesouro Gerencial traz onze linhas de cabeçalho. Colunas identificadas por nome, com correspondência exata e depois por substring.
 
-**Regra.** Uma expressão regular sobre a **conta corrente**:
+**Regra.** Duas expressões regulares sobre a **conta corrente** (`src/subitens/generic-code.ts`), uma por tipo de código genérico:
 
 ```js
-const GENERIC_SUBITEM_REGEX = /(^|\D)(99|999)($|\D)/
+const SUBITEM_99_REGEX = /(^|\D)99($|\D)/      // subitem 99 ("Outros…"): "P 99", "P99", "12/99"
+const FAVORECIDO_999_REGEX = /(^|\D)999($|\D)/ // favorecido genérico do c/c 002, não é subitem: "999", "P999"
 ```
 
-Linhas que casam viram ocorrência; ocorrências com mesma conta contábil e mesma conta corrente têm os saldos somados dentro da UG.
+Linhas que casam com alguma viram ocorrência, com a marca do tipo (`subitem-99` ou `favorecido-999`); conta corrente com os dois códigos (ex.: `999 / 99`) recebe as duas marcas. Ocorrências com mesma conta contábil e mesma conta corrente têm os saldos somados dentro da UG. CPF e CNPJ com pontuação completa são descartados antes, para o DV `-99` não ser lido como subitem.
 
-**Saída.** Mensagem individual por UG ou consolidada por questão, em três modos — com prazo, sem prazo e alerta (alerta dispensa resposta pelo SAU) —, numeradas `nº XXX/SUCONT-3/DDMMMAAAA`. Dashboard operacional/tático/estratégico e filtro por conferente.
+Até 2026-10 uma regex única, `/(^|\D)(99|999)($|\D)/`, marcava os dois juntos. A união das duas de hoje reconhece exatamente o mesmo conjunto (o teste trava isso): a separação mudou a classificação, não o que entra no relatório.
+
+**Saída.** Mensagem individual por UG ou consolidada por questão, em três modos — com prazo, sem prazo e alerta (alerta dispensa resposta pelo SAU) —, numeradas `nº XXX/SUCONT-3/DDMMMAAAA`; cada linha da mensagem diz o tipo do código. Na tela, cada ocorrência leva a marca "Subitem genérico (99)" ou "Favorecido genérico (999)", e há filtro e contagem por tipo ao lado do filtro por conferente (ocorrência com os dois códigos conta nos dois tipos). Dashboard operacional/tático/estratégico.
 
 **Limites.**
 
+- **Pendente:** validar o formato da conta corrente (subitem e favorecido) contra uma planilha real do relatório SUCONT-3.1. Até lá, o que é reconhecido não muda.
 - A regex exige que o `99` esteja delimitado por não-dígito ou pela borda da string: `339039.99` casa, `33903999` não. Se o formato da conta corrente mudar, a detecção muda junto.
 - Qualquer outro `99` delimitado dentro da conta corrente (vinculação, gestão, ano) também casa.
 - Não há cálculo de proporção — nenhuma comparação com o total do elemento de despesa. Ver [Conformidade](/docs/sucont/conformidade), onde isso é o principal desencontro com a regra federal.

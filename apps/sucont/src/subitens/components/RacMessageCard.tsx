@@ -5,16 +5,17 @@ import { EditableMessage } from "#/components/editable-message"
 import { Badge } from "#/components/ui/badge"
 import type { MessageDraft } from "#/hooks/use-editable-message"
 import { CopyMessageButton } from "#/subitens/components/CopyMessageButton"
+import { GenericKindCounts } from "#/subitens/components/GenericKindCounts"
 import { MessageCardControls } from "#/subitens/components/MessageCardControls"
 import { RAC_QUESTIONS } from "#/subitens/message"
-import type { MessageConfig } from "#/subitens/types"
+import type { MessageConfig, ProcessedData } from "#/subitens/types"
 
 interface RacMessageCardProps {
 	racId: string
 	idx: number
 	racConfig: MessageConfig
 	draft: MessageDraft
-	occurrencesCount: number
+	occurrences: ProcessedData[]
 	totalSaldo: number
 	uniqueUgs: number
 	isCopied: boolean
@@ -23,18 +24,7 @@ interface RacMessageCardProps {
 	onConfigChange: (field: string, value: string) => void
 }
 
-export function RacMessageCard({
-	racId,
-	idx,
-	racConfig,
-	draft,
-	occurrencesCount,
-	totalSaldo,
-	uniqueUgs,
-	isCopied,
-	onCopy,
-	onConfigChange,
-}: RacMessageCardProps) {
+export function RacMessageCard({ racId, idx, racConfig, draft, occurrences, totalSaldo, uniqueUgs, isCopied, onCopy, onConfigChange }: RacMessageCardProps) {
 	return (
 		<motion.div
 			initial={{ opacity: 0, y: 20 }}
@@ -64,10 +54,11 @@ export function RacMessageCard({
 						</div>
 						<div className="flex justify-between items-center text-body">
 							<span className="text-muted-foreground">Ocorrências</span>
-							<span className="font-mono font-bold text-foreground">{occurrencesCount}</span>
+							<span className="font-mono font-bold text-foreground">{occurrences.length}</span>
 						</div>
+						<GenericKindCounts occurrences={occurrences} />
 						<div className="flex justify-between items-center text-body">
-							<span className="text-muted-foreground">Total em 99/999</span>
+							<span className="text-muted-foreground">Saldo total</span>
 							<span className="font-mono font-bold text-action">
 								{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(totalSaldo)}
 							</span>
