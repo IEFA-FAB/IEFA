@@ -53,7 +53,7 @@ const RESET_EXCLUSIONS: Record<string, string> = {
 	// apagar não "limpa" nada, só descalibra.
 	"inventory.stock_policy": "parâmetro de reposição, não dado operacional de treino",
 	"inventory.kitchen_stock_settings":
-		"configuração da cozinha (tolerância, alçada, segregação), como stock_policy — sem linha valem os defaults, então apagar não 'limpa' nada e sim descalibra a cozinha sentinela",
+		"configuração da cozinha (tolerância, alçada, segregação, prazo de entrega padrão), como stock_policy — sem linha valem os defaults, então apagar não 'limpa' nada e sim descalibra a cozinha sentinela",
 	"inventory.scanner_profile":
 		"calibração do leitor por usuário × cozinha — é preferência de dispositivo de quem opera, não dado gerado pelo treinamento; apagar tiraria a calibração do próprio instrutor, como em access_control.user_permissions",
 	// ── Declaradas ANTES das migrations que as criam, de propósito ──────────────

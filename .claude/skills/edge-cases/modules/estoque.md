@@ -284,3 +284,31 @@ Hipóteses a verificar; a suíte `inventory-cycle.e2e.operations.test.ts` e as d
   aprovar com ressalva), e a aprovação com ressalva grava o dia e o motivo
   (`pending_production_waiver`), separada da exceção de segregação.
 - **Cobertura:** `ENB › contagem: …sem baixa, aprova com ressalva registrada`.
+
+### EST-REP-01 — "A cozinha nunca configurou o prazo de entrega e o fornecedor é novo"
+- **Realidade:** fornecedor sem duas entregas registradas (ARP nova, carona, dispensa) e cozinha
+  que nunca disse quanto costuma esperar entre a OF e a entrega. A sugestão usava `coverage_days ?? 7`
+  (cobertura no lugar de prazo, e um 7 sem origem) para decidir a urgência e, com ela, entre
+  Supermercado Virtual e Contrata+Brasil.
+- **O sistema precisa:** prazo de entrega na ordem histórico do fornecedor (mediana, ≥ 2 amostras)
+  → prazo da ARP → prazo de entrega padrão da cozinha (`kitchen_stock_settings.default_lead_time_days`,
+  nulo = não configurado). Sem nenhum, nada de número presumido: a sugestão sai com
+  `leadTime.source = "not_configured"`, urgência `undetermined` e, quando o canal depende da
+  urgência (valor na dispensa e item com CATMAT), `channel: null` com o motivo. A necessidade
+  líquida continua calculada e a lista não trava; o limiar de urgência do item, se houver, ainda
+  decide.
+- **UX:** Sugestões de Reposição mostra um aviso só ("Prazo de entrega não configurado", com quantas
+  sugestões estão sem prazo e o atalho para as Configurações do estoque); na linha, "Pendente · não
+  configurado · urgência indeterminada" e o badge "Canal indeterminado" com o motivo no tooltip. Em
+  Configurações do estoque (nível 3), o campo "Prazo de entrega padrão (dias)", vazio por padrão;
+  a edição fica em rascunho local por conta até salvar; salvar confere a versão no servidor e, se
+  outra pessoa salvou, oferece abrir a atual levando as alterações (o prazo vai como o texto
+  digitado: inválido continua inválido, nunca vira "não configurado"). Rascunho reaberto depois que
+  outra pessoa salvou passa pelo mesmo merge: só o que o usuário mudou volta, e campo mudado pelos
+  dois aparece num aviso fixo com os dois valores.
+- **Cobertura:** `apps/sisub/src/lib/replenishment-plan.test.ts › prazo de entrega: histórico →
+  prazo da cozinha → pendência` (os três casos e o limiar do item) · `apps/sisub/src/test/unit/replenishment.test.ts
+  › estimateLeadTime`, `› urgência indeterminada…` · `apps/sisub/src/lib/kitchen-stock-settings.test.ts`
+  (campo, rascunho, merge com prazo inválido, rascunho restaurado sobre outra versão e recusa por
+  versão). **LACUNA:** integração da gravação com versão
+  (`writeKitchenStockSettings`) contra o banco real, depois de aplicada a 20261014120000; e2e do aviso.

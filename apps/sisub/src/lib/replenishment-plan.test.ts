@@ -243,6 +243,7 @@ describe("buildReplenishmentSuggestion", () => {
 		stockById: new Map(),
 		transitById: new Map(),
 		policyById: new Map(),
+		defaultLeadTimeDays: null,
 		expectedSupplierByIngredient: new Map(),
 		observedByPurchaseItem: new Map(),
 		arpBalanceById: new Map(),
@@ -279,7 +280,7 @@ describe("buildReplenishmentSuggestion", () => {
 			baseContext({
 				stockById: new Map([["a", { available: 20, expiring: 2.123456 }]]),
 				transitById: new Map([["a", 10.123456]]),
-				policyById: new Map([["a", { min_stock: 5, coverage_days: 7, urgency_threshold_days: null }]]),
+				policyById: new Map([["a", { min_stock: 5, urgency_threshold_days: null }]]),
 				arpBalanceById: new Map([["a", 1000]]),
 			})
 		)
@@ -311,6 +312,78 @@ describe("buildReplenishmentSuggestion", () => {
 		// (140 ÷ 2) × 2 = 140 de 1000
 		expect(dispensaRoom.get("89")).toBe(860)
 		expect(result.leadTime.days).toBe(4)
+	})
+
+	describe("prazo de entrega: histórico → prazo da cozinha → pendência", () => {
+		// cobertura de 2 dias (20 em estoque, 140 em 14 dias), valor pequeno e com CATMAT: o canal
+		// é Supermercado Virtual se urgente e Contrata+Brasil se não — depende do prazo.
+		const urgencySensitive = (overrides: Partial<ReplenishmentContext>) =>
+			baseContext({
+				stockById: new Map([["a", { available: 20, expiring: 0 }]]),
+				defaultPurchaseByIngredient: new Map([["a", "p1"]]),
+				priceByIngredient: new Map([["a", { unitPrice: 1, conversionFactor: 1 }]]),
+				catmatByIngredient: new Map([["a", true]]),
+				catmatCodeByIngredient: new Map([["a", 1]]),
+				classByCatmat: new Map([[1, "89"]]),
+				dispensaRoom: new Map([["89", 100_000]]),
+				...overrides,
+			})
+
+		it("com histórico do fornecedor, usa o histórico mesmo com prazo da cozinha configurado", () => {
+			const result = buildOne(need, urgencySensitive({ observedByPurchaseItem: new Map([["p1", [5, 5]]]), defaultLeadTimeDays: 1 }))
+			expect(result.leadTime).toEqual({ days: 5, source: "observed" })
+			expect(result.urgency).toBe("urgent")
+			expect(result.channel).toBe("supermercado_virtual")
+		})
+
+		it("sem histórico, usa o prazo de entrega padrão da cozinha", () => {
+			const result = buildOne(need, urgencySensitive({ defaultLeadTimeDays: 1 }))
+			expect(result.leadTime).toEqual({ days: 1, source: "kitchen_default" })
+			expect(result.urgency).toBe("not_urgent")
+			expect(result.channel).toBe("contrata_mais")
+		})
+
+		it("sem histórico e sem prazo configurado: pendência, urgência e canal indeterminados, sugestão de pé", () => {
+			const result = buildOne(need, urgencySensitive({ defaultLeadTimeDays: null }))
+			expect(result.leadTime).toEqual({ days: null, source: "not_configured" })
+			expect(result.urgency).toBe("undetermined")
+			expect(result.channel).toBeNull()
+			expect(result.reason).toContain("prazo de entrega não configurado")
+			// a necessidade continua calculada: a pendência não esconde a compra
+			expect(result.netNeed).toBe(120)
+		})
+
+		it("limiar de urgência do item decide mesmo sem prazo de entrega", () => {
+			const result = buildOne(need, urgencySensitive({ policyById: new Map([["a", { min_stock: 0, urgency_threshold_days: 3 }]]), defaultLeadTimeDays: null }))
+			expect(result.leadTime.source).toBe("not_configured")
+			expect(result.urgency).toBe("urgent")
+			expect(result.channel).toBe("supermercado_virtual")
+		})
+	})
+
+	it("urgência indeterminada não passa à frente da conhecida na disputa pela folga da dispensa", () => {
+		// "a" sem prazo nenhum (indeterminada); "b" com limiar 5 e zerada (urgente). Os dois sem
+		// CATMAT, valor 140 cada, folga para um só: vai para "b".
+		const dispensaRoom = new Map<string, number | null>([["89", 150]])
+		const shared = { unitPrice: 1, conversionFactor: 1 }
+		const ctx = baseContext({
+			policyById: new Map([["b", { min_stock: 0, urgency_threshold_days: 5 }]]),
+			priceByIngredient: new Map([
+				["a", shared],
+				["b", shared],
+			]),
+			catmatCodeByIngredient: new Map([
+				["a", 1],
+				["b", 1],
+			]),
+			classByCatmat: new Map([[1, "89"]]),
+			dispensaRoom,
+		})
+		const [a, b] = buildReplenishmentSuggestions([need, { ...need, ingredient_id: "b", ingredient_name: "Feijão" }], ctx)
+		expect(a?.urgency).toBe("undetermined")
+		expect(a?.channel).toBe("licitacao")
+		expect(b?.channel).toBe("contrata_mais")
+		expect(dispensaRoom.get("89")).toBe(10)
 	})
 
 	it("buildReplenishmentSuggestions dá a folga da dispensa ao mais urgente, não ao primeiro em ordem alfabética", () => {

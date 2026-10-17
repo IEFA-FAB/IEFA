@@ -40,17 +40,20 @@ export function calculateNetNeed(input: NetNeedInput): number {
 	return Number(Math.max(0, input.grossDemand - input.availableStock - input.inTransit).toFixed(4))
 }
 
-export type LeadTimeSource = "observed" | "arp_default" | "policy_default"
+export type LeadTimeSource = "observed" | "arp_default" | "kitchen_default"
 
 /**
- * Lead time estimado com fallback em cascata: mediana do observado (mínimo 2
- * amostras) → prazo contratual da ARP → cobertura default da política.
+ * Prazo de entrega estimado. `days: null` é pendência, não zero: nem histórico, nem prazo da ARP,
+ * nem prazo padrão configurado pela cozinha. Quem consome não presume valor.
  */
-export function estimateLeadTime(
-	observedDays: readonly number[],
-	arpDefaultDays: number | null,
-	policyDefaultDays: number
-): { days: number; source: LeadTimeSource } {
+export type LeadTimeEstimate = { days: number; source: LeadTimeSource } | { days: null; source: "not_configured" }
+
+/**
+ * Prazo de entrega com fallback em cascata: mediana do observado (mínimo 2 amostras) → prazo
+ * contratual da ARP → prazo padrão da cozinha (`kitchen_stock_settings.default_lead_time_days`).
+ * Sem nenhum dos três, `not_configured`: o 7 fixo de antes não tinha origem.
+ */
+export function estimateLeadTime(observedDays: readonly number[], arpDefaultDays: number | null, kitchenDefaultDays: number | null): LeadTimeEstimate {
 	const valid = observedDays.filter((d) => Number.isFinite(d) && d >= 0).sort((a, b) => a - b)
 	if (valid.length >= 2) {
 		const mid = Math.floor(valid.length / 2)
@@ -58,7 +61,10 @@ export function estimateLeadTime(
 		return { days: Math.ceil(median ?? 0), source: "observed" }
 	}
 	if (arpDefaultDays != null && arpDefaultDays > 0) return { days: arpDefaultDays, source: "arp_default" }
-	return { days: Math.max(policyDefaultDays, 1), source: "policy_default" }
+	if (kitchenDefaultDays != null && Number.isFinite(kitchenDefaultDays) && kitchenDefaultDays > 0) {
+		return { days: Math.ceil(kitchenDefaultDays), source: "kitchen_default" }
+	}
+	return { days: null, source: "not_configured" }
 }
 
 export type PurchaseChannel = "own_arp" | "carona" | "supermercado_virtual" | "contrata_mais" | "licitacao"
@@ -73,8 +79,11 @@ export interface ChannelDecisionInput {
 	hasCatmat: boolean
 	/** Cobertura atual em dias (estoque ÷ consumo diário). */
 	coverageDays: number
-	/** Limiar de urgência (default: lead time estimado; configurável na política). */
-	urgencyThresholdDays: number
+	/**
+	 * Limiar de urgência (default: prazo de entrega estimado; configurável na política do item).
+	 * `null` = indeterminado: sem limiar do item e sem prazo de entrega conhecido.
+	 */
+	urgencyThresholdDays: number | null
 	/**
 	 * O valor estimado CABE no que resta do limite da dispensa por valor no exercício (art. 75, II,
 	 * e § 1º: somatório da unidade gestora no ramo de atividade). Não é o valor do item sozinho.
@@ -84,10 +93,16 @@ export interface ChannelDecisionInput {
 	dispensaRemaining?: number | null
 }
 
+export type ReplenishmentUrgency = "urgent" | "not_urgent" | "undetermined"
+
 export interface ChannelDecision {
-	channel: PurchaseChannel
+	/** `null` quando o canal depende da urgência e ela é indeterminada. */
+	channel: PurchaseChannel | null
+	urgency: ReplenishmentUrgency
 	reason: string
 }
+
+const UNDETERMINED_URGENCY = "urgência indeterminada: prazo de entrega não configurado"
 
 const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
 
@@ -99,30 +114,46 @@ const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" 
  * emergência (art. 75, VIII) tem requisitos próprios e é decisão documentada, não sugestão.
  */
 export function decideChannel(input: ChannelDecisionInput): ChannelDecision {
+	const urgency: ReplenishmentUrgency =
+		input.urgencyThresholdDays == null ? "undetermined" : input.coverageDays < input.urgencyThresholdDays ? "urgent" : "not_urgent"
 	if (input.ownArpBalance >= input.netNeed && input.netNeed > 0) {
-		return { channel: "own_arp", reason: `ARP própria vigente com saldo (${input.ownArpBalance}) cobre a necessidade (${input.netNeed}) — emitir empenho/OF` }
+		return {
+			channel: "own_arp",
+			urgency,
+			reason: `ARP própria vigente com saldo (${input.ownArpBalance}) cobre a necessidade (${input.netNeed}) — emitir empenho/OF`,
+		}
 	}
 	if (input.caronaAvailable === true) {
-		return { channel: "carona", reason: "Sem saldo em ARP própria; há ARP de outra UASG localizável — solicitar adesão (carona)" }
+		return { channel: "carona", urgency, reason: "Sem saldo em ARP própria; há ARP de outra UASG localizável — solicitar adesão (carona)" }
 	}
-	const urgent = input.coverageDays < input.urgencyThresholdDays
 	const room = input.dispensaRemaining != null ? ` (resta ${BRL.format(Math.max(0, input.dispensaRemaining))} do limite no ramo)` : ""
-	if (input.smallValue && input.hasCatmat && urgent) {
+	if (input.smallValue && input.hasCatmat && urgency === "undetermined") {
+		// O Supermercado Virtual depende da urgência; o Contrata+Brasil não. Sem o prazo, não se escolhe.
+		return {
+			channel: null,
+			urgency,
+			reason: `Valor dentro do somatório da dispensa${room} e item com CATMAT, mas ${UNDETERMINED_URGENCY} — Supermercado Virtual se a cobertura (${input.coverageDays}d) estiver abaixo do prazo, Contrata+Brasil se não. Configure o prazo de entrega padrão da cozinha`,
+		}
+	}
+	if (input.smallValue && input.hasCatmat && urgency === "urgent") {
 		return {
 			channel: "supermercado_virtual",
+			urgency,
 			reason: `Cobertura (${input.coverageDays}d) abaixo do limiar de urgência (${input.urgencyThresholdDays}d), item com CATMAT e valor dentro do somatório da dispensa${room} — dispensa eletrônica via Supermercado Virtual`,
 		}
 	}
 	if (input.smallValue) {
-		return { channel: "contrata_mais", reason: `Valor dentro do somatório da dispensa (art. 75, II e § 1º, da Lei 14.133)${room} — Contrata+Brasil` }
+		return { channel: "contrata_mais", urgency, reason: `Valor dentro do somatório da dispensa (art. 75, II e § 1º, da Lei 14.133)${room} — Contrata+Brasil` }
 	}
-	if (urgent) {
+	if (urgency === "urgent") {
 		return {
 			channel: "licitacao",
+			urgency,
 			reason: `Cobertura (${input.coverageDays}d) abaixo do limiar, mas o valor não cabe no somatório da dispensa${room} — urgência sozinha não autoriza dispensa (a de emergência, art. 75, VIII, exige processo próprio); abrir planejamento de licitação`,
 		}
 	}
-	return { channel: "licitacao", reason: "Nenhum canal direto se aplica — abrir novo planejamento de licitação (quantity_estimate)" }
+	const suffix = urgency === "undetermined" ? ` (${UNDETERMINED_URGENCY})` : ""
+	return { channel: "licitacao", urgency, reason: `Nenhum canal direto se aplica — abrir novo planejamento de licitação (quantity_estimate)${suffix}` }
 }
 
 /** O valor estimado cabe no que resta do limite? Sem limite conhecido, não cabe (não se presume). */

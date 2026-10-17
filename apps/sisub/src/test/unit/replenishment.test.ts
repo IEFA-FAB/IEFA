@@ -35,18 +35,24 @@ describe("calculateNetNeed", () => {
 })
 
 describe("estimateLeadTime", () => {
-	test("mediana do observado com ≥2 amostras, arredondada pra cima", () => {
-		expect(estimateLeadTime([5, 11, 7], null, 7)).toEqual({ days: 7, source: "observed" })
-		expect(estimateLeadTime([4, 7], null, 7)).toEqual({ days: 6, source: "observed" })
+	test("mediana do observado com ≥2 amostras, arredondada pra cima — vence o prazo da cozinha", () => {
+		expect(estimateLeadTime([5, 11, 7], null, 3)).toEqual({ days: 7, source: "observed" })
+		expect(estimateLeadTime([4, 7], null, null)).toEqual({ days: 6, source: "observed" })
 	})
 
 	test("sem histórico suficiente → prazo da ARP, indicando a origem", () => {
 		expect(estimateLeadTime([9], 15, 7)).toEqual({ days: 15, source: "arp_default" })
 	})
 
-	test("sem ARP → default da política (mínimo 1)", () => {
-		expect(estimateLeadTime([], null, 7)).toEqual({ days: 7, source: "policy_default" })
-		expect(estimateLeadTime([], null, 0)).toEqual({ days: 1, source: "policy_default" })
+	test("sem histórico nem ARP → prazo de entrega padrão da cozinha", () => {
+		expect(estimateLeadTime([9], null, 5)).toEqual({ days: 5, source: "kitchen_default" })
+	})
+
+	test("sem nenhum dos três → pendência, nunca um número presumido", () => {
+		expect(estimateLeadTime([], null, null)).toEqual({ days: null, source: "not_configured" })
+		expect(estimateLeadTime([9], null, null)).toEqual({ days: null, source: "not_configured" })
+		// valor inválido (0, negativo) não é configuração
+		expect(estimateLeadTime([], null, 0)).toEqual({ days: null, source: "not_configured" })
 	})
 })
 
@@ -89,6 +95,26 @@ describe("decideChannel — ordem determinística", () => {
 
 	test("ARP própria tem precedência sobre todos", () => {
 		expect(decideChannel({ ...base, ownArpBalance: 200, caronaAvailable: true, coverageDays: 1, smallValue: true }).channel).toBe("own_arp")
+	})
+
+	test("urgência indeterminada: o canal que depende dela fica indeterminado", () => {
+		const decision = decideChannel({ ...base, urgencyThresholdDays: null, coverageDays: 1, smallValue: true })
+		expect(decision).toMatchObject({ channel: null, urgency: "undetermined" })
+		expect(decision.reason).toContain("prazo de entrega não configurado")
+	})
+
+	test("urgência indeterminada não atrapalha o canal que não depende dela", () => {
+		const undetermined = { ...base, urgencyThresholdDays: null }
+		expect(decideChannel({ ...undetermined, ownArpBalance: 200 })).toMatchObject({ channel: "own_arp", urgency: "undetermined" })
+		expect(decideChannel({ ...undetermined, smallValue: true, hasCatmat: false })).toMatchObject({ channel: "contrata_mais", urgency: "undetermined" })
+		const fallback = decideChannel(undetermined)
+		expect(fallback).toMatchObject({ channel: "licitacao", urgency: "undetermined" })
+		expect(fallback.reason).toContain("urgência indeterminada")
+	})
+
+	test("urgência determinada pelo limiar", () => {
+		expect(decideChannel({ ...base, coverageDays: 3 }).urgency).toBe("urgent")
+		expect(decideChannel(base).urgency).toBe("not_urgent")
 	})
 
 	test("toda decisão carrega a memória de cálculo (reason)", () => {
