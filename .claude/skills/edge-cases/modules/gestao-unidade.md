@@ -156,6 +156,31 @@ lote e pelo worker da API. Texto conferido na IN consolidada em gov.br/compras.
   estão não conformes (o usuário só descobre reabrindo a pesquisa de cada um). Menor caminho:
   selo "não conforme" por item na `AtaItemsTable`, lido do último `price_research_item`.
 
+### GU-PRC-09 — "O CATMAT tem mais registros do que o teto"
+- **Realidade:** gênero muito comprado (o 463770 tinha 8.402 registros em 2026-10-16); com um
+  teto de páginas, o corte caía justamente no que a janela precisava, sem ninguém notar.
+- **O sistema precisa:** a fonte ordena por data do resultado, decrescente, e a janela conta por
+  ela: a coleta para na primeira página que passa do início da janela e lê a janela inteira,
+  qualquer que seja o volume. Fonte fora de ordem ou linha sem data do resultado faz ler tudo.
+  Se ainda assim o teto (40 páginas) cortar antes de cobrir a janela, a coleta é parcial: o modal
+  desabilita "Usar", o lote conta o item como erro, o servidor recusa (`PARTIAL_COLLECTION`) e o
+  relatório bloqueia.
+- **UX:** a barra do modal diz o total na fonte, a hora da consulta e a cobertura ("janela
+  completa (4 de 17 páginas)").
+- **Cobertura:** `price-research-utils.test.ts › fetchAllPagesForCatmat`;
+  `price-research-source.test.ts › coleta parcial não grava`; `price-research-report.test.ts ›
+  coleta parcial bloqueia`.
+
+### GU-PRC-10 — "O auditor quer refazer a consulta"
+- **Realidade:** o TCU ou o controle interno pede para reproduzir a pesquisa meses depois.
+- **O sistema precisa:** a série em CSV (formato 2) traz a nota com a fonte, os filtros e a regra
+  de parada, e por item a URL da consulta, a hora (a API não informa a dela: vale a do servidor do
+  sisub na página 1), o total na fonte, as páginas lidas e a cobertura; cada amostra traz a URL
+  que a devolve da fonte pelo `idCompra`. Emissões anteriores continuam no formato 1, para o hash
+  delas continuar conferindo.
+- **Cobertura:** `price-research-report.test.ts › série no formato 2`; integração
+  `procurement-documents.operations.test.ts`.
+
 
 ## Execução da despesa (contratação de origem, NE, SIAFI)
 
