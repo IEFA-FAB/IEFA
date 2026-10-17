@@ -424,74 +424,80 @@ export async function updateHeadcount(db: SisubDb, ctx: UserContext, input: Upda
 	// 380 — e são as porções dos itens que a produção, a baixa do estoque e a compra datada
 	// usam. Reescala só o item cujas porções VIERAM da previsão (= previsão antiga × proporção);
 	// o que alguém ajustou à mão fica como está.
-	const updated = await db.transaction(async (tx) => {
-		const [before] = await runQuery("FETCH_FAILED", () =>
+	const updated = await db.transaction((tx) => applyHeadcount(tx, input.dailyMenuId, input.forecastedHeadcount))
+	return updated.map((row) => toWire<DailyMenu>(row))
+}
+
+/**
+ * Grava o efetivo da refeição e reescala as porções que vieram dele, DENTRO da transação do
+ * chamador (o `updateHeadcount` de uma refeição e o quantitativo em lote usam a mesma regra).
+ */
+export async function applyHeadcount(tx: Parameters<Parameters<SisubDb["transaction"]>[0]>[0], dailyMenuId: string, forecastedHeadcount: number) {
+	const [before] = await runQuery("FETCH_FAILED", () =>
+		tx
+			.select({ forecastedHeadcount: dailyMenuInKitchen.forecastedHeadcount })
+			.from(dailyMenuInKitchen)
+			.where(eq(dailyMenuInKitchen.id, dailyMenuId))
+			.for("update")
+	)
+	const rows = await runQuery("UPDATE_FAILED", () =>
+		tx.update(dailyMenuInKitchen).set({ forecastedHeadcount: forecastedHeadcount }).where(eq(dailyMenuInKitchen.id, dailyMenuId)).returning()
+	)
+	const oldHeadcount = before?.forecastedHeadcount ?? null
+	// Efetivo que chega depois (dia aplicado com "efetivo a definir", típico do modelo global):
+	// calcula a porção de quem ainda não tem, pela proporção. Porção já preenchida fica.
+	// Um UPDATE só, pela regra de `portionsForArrivingHeadcount` (round do "% do efetivo"; item
+	// de evento/apoio fica: ele mede pela refeição dele, não pela rotina).
+	if (oldHeadcount == null && forecastedHeadcount != null) {
+		await runQuery("UPDATE_FAILED", () =>
 			tx
-				.select({ forecastedHeadcount: dailyMenuInKitchen.forecastedHeadcount })
-				.from(dailyMenuInKitchen)
-				.where(eq(dailyMenuInKitchen.id, input.dailyMenuId))
-				.for("update")
+				.update(menuItemsInKitchen)
+				.set({
+					plannedPortionQuantity: sql`round(${forecastedHeadcount}::numeric * coalesce(${menuItemsInKitchen.recommendedProportion}, 100) / 100)`,
+				})
+				.where(
+					and(
+						eq(menuItemsInKitchen.dailyMenuId, dailyMenuId),
+						isNull(menuItemsInKitchen.deletedAt),
+						isNull(menuItemsInKitchen.plannedPortionQuantity),
+						sql`coalesce(${menuItemsInKitchen.originTemplateType}, '') not in ('event', 'apoio')`
+					)
+				)
+				.then(() => undefined)
 		)
-		const rows = await runQuery("UPDATE_FAILED", () =>
-			tx.update(dailyMenuInKitchen).set({ forecastedHeadcount: input.forecastedHeadcount }).where(eq(dailyMenuInKitchen.id, input.dailyMenuId)).returning()
+	}
+	if (oldHeadcount != null && oldHeadcount !== forecastedHeadcount) {
+		const items = await runQuery("FETCH_FAILED", () =>
+			tx
+				.select({
+					id: menuItemsInKitchen.id,
+					planned: menuItemsInKitchen.plannedPortionQuantity,
+					proportion: menuItemsInKitchen.recommendedProportion,
+					originTemplateType: menuItemsInKitchen.originTemplateType,
+				})
+				.from(menuItemsInKitchen)
+				.where(and(eq(menuItemsInKitchen.dailyMenuId, dailyMenuId), isNull(menuItemsInKitchen.deletedAt)))
 		)
-		const oldHeadcount = before?.forecastedHeadcount ?? null
-		// Efetivo que chega depois (dia aplicado com "efetivo a definir", típico do modelo global):
-		// calcula a porção de quem ainda não tem, pela proporção. Porção já preenchida fica.
-		// Um UPDATE só, pela regra de `portionsForArrivingHeadcount` (round do "% do efetivo"; item
-		// de evento/apoio fica: ele mede pela refeição dele, não pela rotina).
-		if (oldHeadcount == null && input.forecastedHeadcount != null) {
+		for (const item of items) {
+			// Item de evento ou apoio não segue o efetivo da rotina (ver `portionsForArrivingHeadcount`).
+			if (item.originTemplateType === "event" || item.originTemplateType === "apoio") continue
+			const next = rescaledPortions({
+				planned: item.planned == null ? null : Number(item.planned),
+				proportion: item.proportion == null ? null : Number(item.proportion),
+				oldHeadcount,
+				newHeadcount: forecastedHeadcount,
+			})
+			if (next == null) continue
 			await runQuery("UPDATE_FAILED", () =>
 				tx
 					.update(menuItemsInKitchen)
-					.set({
-						plannedPortionQuantity: sql`round(${input.forecastedHeadcount}::numeric * coalesce(${menuItemsInKitchen.recommendedProportion}, 100) / 100)`,
-					})
-					.where(
-						and(
-							eq(menuItemsInKitchen.dailyMenuId, input.dailyMenuId),
-							isNull(menuItemsInKitchen.deletedAt),
-							isNull(menuItemsInKitchen.plannedPortionQuantity),
-							sql`coalesce(${menuItemsInKitchen.originTemplateType}, '') not in ('event', 'apoio')`
-						)
-					)
+					.set({ plannedPortionQuantity: next })
+					.where(eq(menuItemsInKitchen.id, item.id))
 					.then(() => undefined)
 			)
 		}
-		if (oldHeadcount != null && oldHeadcount !== input.forecastedHeadcount) {
-			const items = await runQuery("FETCH_FAILED", () =>
-				tx
-					.select({
-						id: menuItemsInKitchen.id,
-						planned: menuItemsInKitchen.plannedPortionQuantity,
-						proportion: menuItemsInKitchen.recommendedProportion,
-						originTemplateType: menuItemsInKitchen.originTemplateType,
-					})
-					.from(menuItemsInKitchen)
-					.where(and(eq(menuItemsInKitchen.dailyMenuId, input.dailyMenuId), isNull(menuItemsInKitchen.deletedAt)))
-			)
-			for (const item of items) {
-				// Item de evento ou apoio não segue o efetivo da rotina (ver `portionsForArrivingHeadcount`).
-				if (item.originTemplateType === "event" || item.originTemplateType === "apoio") continue
-				const next = rescaledPortions({
-					planned: item.planned == null ? null : Number(item.planned),
-					proportion: item.proportion == null ? null : Number(item.proportion),
-					oldHeadcount,
-					newHeadcount: input.forecastedHeadcount,
-				})
-				if (next == null) continue
-				await runQuery("UPDATE_FAILED", () =>
-					tx
-						.update(menuItemsInKitchen)
-						.set({ plannedPortionQuantity: next })
-						.where(eq(menuItemsInKitchen.id, item.id))
-						.then(() => undefined)
-				)
-			}
-		}
-		return rows
-	})
-	return updated.map((row) => toWire<DailyMenu>(row))
+	}
+	return rows
 }
 
 /**

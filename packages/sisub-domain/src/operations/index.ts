@@ -602,7 +602,7 @@ export {
 	type SubstituteOption,
 	sizeOriginOnDay,
 } from "./planning-adjustments.ts"
-export { clearPlannedDays, refreshRecipeVersionsInDays, replaceRecipeInDays, shiftPlannedDays } from "./planning-bulk.ts"
+export { clearPlannedDays, refreshRecipeVersionsInDays, replaceRecipeInDays, setHeadcountInDays, shiftPlannedDays } from "./planning-bulk.ts"
 export {
 	addPolicyStatement,
 	attachPolicy,

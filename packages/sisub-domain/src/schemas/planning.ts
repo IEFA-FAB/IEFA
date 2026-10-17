@@ -203,3 +203,20 @@ export type ReplaceRecipeInDays = z.infer<typeof ReplaceRecipeInDaysSchema>
 /** Leva à versão vigente as preparações dos dias escolhidos que ficaram numa versão superada. */
 export const RefreshRecipeVersionsInDaysSchema = z.object({ kitchenId: KitchenIdSchema, dates: BulkDatesSchema })
 export type RefreshRecipeVersionsInDays = z.infer<typeof RefreshRecipeVersionsInDaysSchema>
+
+/** Efetivo de várias refeições (dias selecionados), com o valor que a tela viu em cada uma. */
+export const SetHeadcountInDaysSchema = z.object({
+	kitchenId: KitchenIdSchema,
+	entries: z
+		.array(
+			z.object({
+				dailyMenuId: UuidSchema,
+				forecastedHeadcount: z.number().int().positive(),
+				/** Efetivo que a tela mostrava; `null` = vazio. Diferente do atual, a refeição fica. */
+				expected: z.number().int().nonnegative().nullish(),
+			})
+		)
+		.min(1)
+		.max(400),
+})
+export type SetHeadcountInDays = z.infer<typeof SetHeadcountInDaysSchema>

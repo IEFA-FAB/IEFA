@@ -27,12 +27,15 @@ import { useMenuTemplates } from "@/hooks/data/useTemplates"
 import { cn } from "@/lib/cn"
 import { isHeadcountPending } from "@/lib/headcount-pending"
 import { ApplyTemplateDialog } from "./ApplyTemplateDialog"
-import { BulkDayToolbar, FindRecipeBar, ShiftDaysDialog, type ShiftRequest } from "./BulkDayActions"
+import { BulkDayToolbar, FindRecipeBar, lineageKeyOf, ShiftDaysDialog, type ShiftRequest } from "./BulkDayActions"
 import { ExpiringInPeriod } from "./ExpiringInPeriod"
 import { MealTypeManager } from "./MealTypeManager"
 import { AvailabilityStatusNote, DayAvailabilityList } from "./MenuAvailabilityAlert"
 import { TemplatePalette } from "./TemplatePalette"
 import { TrashDrawer } from "./TrashDrawer"
+
+/** Tipo próprio do arrastar de dia: o `text/plain` aceitaria qualquer texto arrastado da página. */
+const DAY_DRAG_TYPE = "application/x-sisub-day"
 
 // ─── Reducer ─────────────────────────────────────────────────────────────────
 
@@ -108,7 +111,7 @@ export function PlanningBoard({ month, onMonthChange }: { month?: string; onMont
 	const [shiftRequest, setShiftRequest] = useState<ShiftRequest | null>(null)
 	const foundDays = new Set(
 		(menus ?? [])
-			.filter((m) => foundRecipeId && m.service_date && (m.menu_items ?? []).some((i) => i.recipe_origin_id === foundRecipeId))
+			.filter((m) => foundRecipeId && m.service_date && (m.menu_items ?? []).some((i) => i.recipe_origin && lineageKeyOf(i.recipe_origin) === foundRecipeId))
 			.map((m) => m.service_date as string)
 	)
 	const { data: availability, error: availabilityError } = usePlanningAvailability(kitchenId, format(startDate, "yyyy-MM-dd"), format(endDate, "yyyy-MM-dd"))
@@ -368,10 +371,12 @@ export function PlanningBoard({ month, onMonthChange }: { month?: string; onMont
 								// Arrastar um dia (ou a seleção que o contém) sobre outro abre o mover/copiar.
 								draggable={hasMenus}
 								onDragStart={(e) => {
-									e.dataTransfer.setData("text/plain", dayKey)
+									e.dataTransfer.setData(DAY_DRAG_TYPE, dayKey)
 									e.dataTransfer.effectAllowed = "copyMove"
 								}}
 								onDragOver={(e) => {
+									// Só aceita dia do calendário: texto ou link arrastado da página não é data.
+									if (!e.dataTransfer.types.includes(DAY_DRAG_TYPE)) return
 									e.preventDefault()
 									if (dropTarget !== dayKey) setDropTarget(dayKey)
 								}}
@@ -379,8 +384,8 @@ export function PlanningBoard({ month, onMonthChange }: { month?: string; onMont
 								onDrop={(e) => {
 									e.preventDefault()
 									setDropTarget(null)
-									const source = e.dataTransfer.getData("text/plain")
-									if (!source || source === dayKey) return
+									const source = e.dataTransfer.getData(DAY_DRAG_TYPE)
+									if (!/^\d{4}-\d{2}-\d{2}$/.test(source) || source === dayKey) return
 									const dates = selectedDays.has(source) ? [...selectedDays].toSorted() : [source]
 									setShiftRequest({ dates, offsetDays: differenceInCalendarDays(parseISO(dayKey), parseISO(source)) })
 								}}

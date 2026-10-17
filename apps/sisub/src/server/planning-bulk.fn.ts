@@ -10,7 +10,9 @@ import {
 	ReplaceRecipeInDaysSchema,
 	refreshRecipeVersionsInDays,
 	replaceRecipeInDays,
+	SetHeadcountInDaysSchema,
 	ShiftPlannedDaysSchema,
+	setHeadcountInDays,
 	shiftPlannedDays,
 } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
@@ -25,3 +27,5 @@ export const replaceRecipeInDaysFn = createServerFn({ method: "POST" }).validato
 export const refreshRecipeVersionsInDaysFn = createServerFn({ method: "POST" })
 	.validator(RefreshRecipeVersionsInDaysSchema)
 	.handler(requireAuthThenRun(refreshRecipeVersionsInDays))
+
+export const setHeadcountInDaysFn = createServerFn({ method: "POST" }).validator(SetHeadcountInDaysSchema).handler(requireAuthThenRun(setHeadcountInDays))

@@ -8,7 +8,7 @@
  */
 
 import { dailyMenuInKitchen, menuItemsInKitchen, productionTaskInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
-import { clearPlannedDays, fetchDayDetails, refreshRecipeVersionsInDays, replaceRecipeInDays, shiftPlannedDays } from "@iefa/sisub-domain"
+import { clearPlannedDays, fetchDayDetails, refreshRecipeVersionsInDays, replaceRecipeInDays, setHeadcountInDays, shiftPlannedDays } from "@iefa/sisub-domain"
 import { eq } from "drizzle-orm"
 import { afterAll, afterEach, beforeAll, beforeEach, expect, test } from "vitest"
 import { type AnyClient, fullAccessCtx, makeSeeder, type Seeder, setupIntegration, uid } from "@/test/operations-fixtures"
@@ -20,7 +20,7 @@ type DayItem = {
 	id: string
 	recipe_origin_id: string | null
 	planned_portion_quantity: number | string | null
-	substitutions: Record<string, { rationale?: string }> | null
+	substitutions: Record<string, { rationale?: string; from_recipe_id?: string }> | null
 }
 type DayMenu = { id: string; meal_type_id: string | null; forecasted_headcount: number | null; menu_items: DayItem[] }
 
@@ -202,5 +202,80 @@ describeSupabaseIntegration("agendamento da produção — edição em lote", ()
 			.from(menuItemsInKitchen)
 			.where(eq(menuItemsInKitchen.id, lone.items[0] as string))
 		expect((row?.recipe as { id?: string } | null)?.id).toBe(v2)
+	})
+
+	test("mover leva o efetivo para o destino substituído e a refeição que só tinha efetivo", async () => {
+		if (!reachable || !db || !seeder) return
+		const { kitchenId, mealTypeId, arroz, peixe } = await scenario()
+		const dinner = await seeder.seedMealType({ kitchenId, sortOrder: 2 })
+		await seedDay(kitchenId, mealTypeId, "2099-10-05", [arroz], 300)
+		const { menuId: dinnerMenu } = await seedDay(kitchenId, dinner, "2099-10-05", [], 120)
+		await seedDay(kitchenId, mealTypeId, "2099-10-06", [peixe], 50)
+
+		await shiftPlannedDays(db, ctx, { kitchenId, dates: ["2099-10-05"], offsetDays: 1, mode: "move", replaceTarget: true })
+		const tuesday = await day(kitchenId, "2099-10-06")
+		expect(tuesday.find((m) => m.meal_type_id === mealTypeId)?.forecasted_headcount).toBe(300)
+		expect(tuesday.find((m) => m.meal_type_id === dinner)?.forecasted_headcount).toBe(120)
+		expect(await day(kitchenId, "2099-10-05")).toEqual([])
+		const [retired] = await db.select({ deletedAt: dailyMenuInKitchen.deletedAt }).from(dailyMenuInKitchen).where(eq(dailyMenuInKitchen.id, dinnerMenu))
+		expect(retired?.deletedAt).not.toBeNull()
+	})
+
+	test("trocar em lote pega todas as versões da preparação", async () => {
+		if (!reachable || !db || !seeder) return
+		const { kitchenId, mealTypeId, feijao } = await scenario()
+		const v1 = await seeder.seedRecipe({ kitchenId: null, name: uid("[TEST] Peixe assado ") })
+		const v2 = await seeder.seedRecipe({ kitchenId: null, baseRecipeId: v1, version: 2, name: uid("[TEST] Peixe assado v2 ") })
+		await seedDay(kitchenId, mealTypeId, "2099-10-12", [v1])
+		await seedDay(kitchenId, mealTypeId, "2099-10-13", [v2])
+
+		const result = await replaceRecipeInDays(db, ctx, {
+			kitchenId,
+			dates: ["2099-10-12", "2099-10-13"],
+			fromRecipeId: v2,
+			toRecipeId: feijao,
+			rationale: "sem peixe",
+		})
+		expect(result.replaced).toBe(2)
+		const [monday] = await day(kitchenId, "2099-10-12")
+		expect(monday?.menu_items[0]?.recipe_origin_id).toBe(feijao)
+		// o reaplicar do cardápio usa a versão que o item tinha de fato
+		expect((monday?.menu_items[0]?.substitutions?.recipe_swap as { from_recipe_id?: string } | undefined)?.from_recipe_id).toBe(v1)
+	})
+
+	test("atualizar versões: v1 e v2 da mesma linhagem na mesma refeição viram uma só vigente", async () => {
+		if (!reachable || !db || !seeder) return
+		const { kitchenId, mealTypeId } = await scenario()
+		const v1 = await seeder.seedRecipe({ kitchenId: null, name: uid("[TEST] Bolo ") })
+		const v2 = await seeder.seedRecipe({ kitchenId: null, baseRecipeId: v1, version: 2 })
+		const v3 = await seeder.seedRecipe({ kitchenId: null, baseRecipeId: v1, version: 3 })
+		await seedDay(kitchenId, mealTypeId, "2099-10-19", [v1, v2])
+
+		const result = await refreshRecipeVersionsInDays(db, ctx, { kitchenId, dates: ["2099-10-19"] })
+		expect(result).toEqual({ updated: 1, merged: 1, skippedStarted: 0 })
+		expect(await recipesOf(kitchenId, "2099-10-19")).toEqual([v3])
+	})
+
+	test("quantitativo em lote: reescala as porções e não sobrescreve o que mudou enquanto a tela estava aberta", async () => {
+		if (!reachable || !db) return
+		const { kitchenId, mealTypeId, arroz } = await scenario()
+		const monday = await seedDay(kitchenId, mealTypeId, "2099-10-26", [arroz], 300)
+		const tuesday = await seedDay(kitchenId, mealTypeId, "2099-10-27", [arroz], 300)
+		// outra pessoa mudou terça para 280 depois que a tela leu 300
+		await db.update(dailyMenuInKitchen).set({ forecastedHeadcount: 280 }).where(eq(dailyMenuInKitchen.id, tuesday.menuId))
+
+		const result = await setHeadcountInDays(db, ctx, {
+			kitchenId,
+			entries: [
+				{ dailyMenuId: monday.menuId, forecastedHeadcount: 400, expected: 300 },
+				{ dailyMenuId: tuesday.menuId, forecastedHeadcount: 400, expected: 300 },
+			],
+		})
+		expect(result).toEqual({ updated: 1, changedMeanwhile: 1 })
+		const [mon] = await day(kitchenId, "2099-10-26")
+		expect(mon?.forecasted_headcount).toBe(400)
+		expect(Number(mon?.menu_items[0]?.planned_portion_quantity)).toBe(400)
+		const [tue] = await day(kitchenId, "2099-10-27")
+		expect(tue?.forecasted_headcount).toBe(280)
 	})
 })

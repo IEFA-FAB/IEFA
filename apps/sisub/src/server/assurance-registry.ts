@@ -483,6 +483,7 @@ export const ASSURANCE_REGISTRY = {
 	shiftPlannedDaysFn: { require: "none" },
 	replaceRecipeInDaysFn: { require: "none" },
 	refreshRecipeVersionsInDaysFn: { require: "none" },
+	setHeadcountInDaysFn: { require: "none" },
 	// ── planning.fn.ts
 	upsertDailyMenuFn: { require: "none" },
 	addMenuItemFn: { require: "none" },
