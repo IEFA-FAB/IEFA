@@ -155,6 +155,32 @@ export function resolveNfeDocumentStatus(matched: number, total: number): "match
 	return matched === total ? "matched" : "imported"
 }
 
+/**
+ * Situações da NF-e que o matching pode reescrever (para `matched` ou `imported`). As outras são
+ * de outro ato e o matching não as toca: `announced` espera o XML (o completamento só aceita nota
+ * anunciada), `refused` é a recusa da entrega, `cancelled` é a SEFAZ, e `received`/`divergent`
+ * são do recebimento. Antes o "Rodar matching" (nível 2) devolvia a nota recusada a `matched`: a
+ * trava da efetivação sumia e a entrega recusada entrava no estoque.
+ */
+export const NFE_STATUSES_SET_BY_MATCHING = ["available", "imported", "matched"] as const
+
+export function isNfeStatusSetByMatching(status: string): boolean {
+	return (NFE_STATUSES_SET_BY_MATCHING as readonly string[]).includes(status)
+}
+
+/** Situações em que a nota já foi decidida: o matching não roda nelas. */
+const NFE_STATUS_LOCK_REASONS: Record<string, string> = {
+	refused: "A NF-e foi recusada na recusa da entrega: o matching não se aplica a ela",
+	cancelled: "A NF-e está cancelada: o matching não se aplica a ela",
+	received: "A NF-e já foi recebida: o matching não muda a situação dela",
+	divergent: "A NF-e já foi recebida com divergência: o matching não muda a situação dela",
+}
+
+/** Por que o matching não roda nesta nota, ou nulo. */
+export function describeNfeMatchingLock(status: string): string | null {
+	return NFE_STATUS_LOCK_REASONS[status] ?? null
+}
+
 // ─── Resolução manual ────────────────────────────────────────────────────────
 
 /** Campos do item resolvido à mão a partir do SKU escolhido (ou só do item de compra, sem SKU). */

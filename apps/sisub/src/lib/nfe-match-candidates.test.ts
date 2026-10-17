@@ -7,8 +7,10 @@ import {
 	collectSupplierMapItemIds,
 	computeManualMatchedQty,
 	countMatchStatuses,
+	describeNfeMatchingLock,
 	type GtinEntity,
 	type IngredientItemLinkRow,
+	isNfeStatusSetByMatching,
 	listUnseenGtins,
 	type MatchCandidateIndex,
 	pickSingleDefaultIngredient,
@@ -202,6 +204,26 @@ describe("resultado do matching", () => {
 	it("resolveNfeDocumentStatus só é matched com todos casados", () => {
 		expect(resolveNfeDocumentStatus(3, 3)).toBe("matched")
 		expect(resolveNfeDocumentStatus(2, 3)).toBe("imported")
+	})
+
+	it("o matching não rebaixa nota recusada, cancelada ou recebida", () => {
+		// "Rodar matching" devolvia a nota recusada a `matched`, e a entrega recusada entrava no estoque
+		for (const status of ["refused", "cancelled", "received", "divergent"]) {
+			expect(describeNfeMatchingLock(status)).not.toBeNull()
+			expect(isNfeStatusSetByMatching(status)).toBe(false)
+		}
+		expect(describeNfeMatchingLock("refused")).toBe("A NF-e foi recusada na recusa da entrega: o matching não se aplica a ela")
+	})
+
+	it("o matching reescreve só as próprias situações; a anunciada espera o XML", () => {
+		for (const status of ["available", "imported", "matched"]) {
+			expect(describeNfeMatchingLock(status)).toBeNull()
+			expect(isNfeStatusSetByMatching(status)).toBe(true)
+		}
+		// anunciada roda (sem itens, nada a casar), mas a situação fica: o completamento pelo XML
+		// só aceita nota `announced`
+		expect(describeNfeMatchingLock("announced")).toBeNull()
+		expect(isNfeStatusSetByMatching("announced")).toBe(false)
 	})
 })
 

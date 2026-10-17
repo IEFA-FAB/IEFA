@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Spinner } from "@/components/ui/spinner"
 import { toast } from "@/components/ui/toast"
+import { describeNfeMatchingLock } from "@/lib/nfe-match-candidates"
 import { fetchNfeDocumentFn, fetchNfeItemSuggestionsFn, type NfeItemRow, registerNfeSituationFn, resolveNfeItemFn, runNfeMatchingFn } from "@/server/nfe.fn"
 
 export const Route = createFileRoute("/_protected/_modules/storage/$kitchenId/nfe/$nfeId")({
@@ -209,10 +210,13 @@ function NfeDetailPage() {
 					<ArrowLeft className="size-4" />
 					Voltar
 				</Button>
-				<Button variant="outline" size="sm" onClick={rematch} disabled={rematching}>
-					{rematching ? <Spinner className="size-4" /> : <RefreshCw className="size-4" />}
-					Rodar matching
-				</Button>
+				{/* Nota recusada, cancelada ou recebida não volta ao matching (o servidor também recusa) */}
+				{describeNfeMatchingLock(doc.status) == null && (
+					<Button variant="outline" size="sm" onClick={rematch} disabled={rematching}>
+						{rematching ? <Spinner className="size-4" /> : <RefreshCw className="size-4" />}
+						Rodar matching
+					</Button>
+				)}
 			</PageHeader>
 
 			<NfeSituationCard doc={doc} onSaved={() => router.invalidate()} />
