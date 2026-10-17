@@ -12,6 +12,7 @@ import {
 	explainQuantityEstimateNeeds,
 	fetchPriceResearchReport,
 	fetchQuantityEstimateDetails,
+	priceResearchQueryUrl,
 	savePriceResearchAudit,
 	saveQuantityEstimateDraftItems,
 	updateQuantityEstimateDocumentSettings,
@@ -145,7 +146,10 @@ describeSupabaseIntegration("documentos do anexo quantitativo", () => {
 			conversion: "KG = 1 KG",
 			nomeFornecedor: "Fornecedor de teste",
 		})
-		expect(report?.csv.split("\n").filter(Boolean)).toHaveLength(4)
+		// Série 2: o item aparece no resumo e nas 3 amostras, com a consulta que a repete.
+		expect(report?.seriesFormat).toBe(2)
+		expect(report?.csv.split("\n").filter((line) => line.startsWith("1,447599,"))).toHaveLength(4)
+		expect(report?.csv).toContain(priceResearchQueryUrl(447599))
 
 		// Editar o anexo depois da emissão não a invalida: ela congelou o que usou.
 		await updateQuantityEstimateItemDescription(db, ctx, { quantityEstimateItemId: item.id, description: "descrição editada depois" })

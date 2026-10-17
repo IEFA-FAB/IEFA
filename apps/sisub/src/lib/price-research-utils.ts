@@ -1,4 +1,12 @@
-import { convertSamplePrice, type PriceResearchMethod, resolveResearchUnit, splitOutliersByIqr } from "@iefa/sisub-domain"
+import {
+	convertSamplePrice,
+	PRICE_RESEARCH_MAX_PAGES,
+	PRICE_RESEARCH_PAGE_SIZE,
+	type PriceResearchMethod,
+	type PriceResearchSourceConsultation,
+	resolveResearchUnit,
+	splitOutliersByIqr,
+} from "@iefa/sisub-domain"
 import { addCivilMonths, getBrasiliaToday } from "@iefa/sisub-domain/civil-date"
 import { searchMaterialPricesFn } from "@/server/price-research.fn"
 import type { ComprasMaterialPriceResult } from "@/types/domain/price-research"
@@ -48,9 +56,10 @@ export const DEFAULT_PERIOD_MONTHS = 12
  * Teto de páginas por CATMAT (20 × 500 = 10.000 registros). Amostra mais que
  * suficiente para a estatística e evita rajada contra a API pública — que passa
  * pelo nosso próprio server, então uma consulta sem teto castiga os dois lados.
+ * Os números moram no domínio: o relatório e a série descrevem esta mesma consulta.
  */
-export const MAX_PAGES = 20
-const PAGE_SIZE = 500
+export const MAX_PAGES = PRICE_RESEARCH_MAX_PAGES
+const PAGE_SIZE = PRICE_RESEARCH_PAGE_SIZE
 const PAGE_CONCURRENCY = 4
 
 export function sampleReferenceDate(r: ComprasMaterialPriceResult): string | null {
@@ -116,10 +125,12 @@ export function filterByPeriod(
 
 export interface CatmatPriceFetch {
 	results: ComprasMaterialPriceResult[]
-	/** Total informado pela API, mesmo quando o teto de páginas corta a coleta. */
+	/** Total informado pela API, mesmo quando a coleta para antes. */
 	totalRegistros: number
-	/** true quando a API tem mais páginas do que MAX_PAGES — a amostra é parcial. */
+	/** true quando a coleta parou no teto sem cobrir a janela — a amostra é parcial e não grava. */
 	truncated: boolean
+	/** A consulta como a pesquisa a grava: hora da página 1, totais, páginas lidas e cobertura. */
+	source: PriceResearchSourceConsultation
 }
 
 function calcMediana(values: number[]): number {
@@ -213,26 +224,78 @@ export function analyzeSamples(samples: ComprasMaterialPriceResult[], unit: stri
 	}
 }
 
-/**
- * Coleta todas as páginas de um CATMAT, em lotes de PAGE_CONCURRENCY e até
- * MAX_PAGES. O corte é reportado em `truncated` — nunca silencioso.
- */
-export async function fetchAllPagesForCatmat(code: number): Promise<CatmatPriceFetch> {
-	const first = await searchMaterialPricesFn({ data: { codigoItemCatalogo: code, pagina: 1, tamanhoPagina: PAGE_SIZE } })
-	const results = [...first.resultado]
-	const totalPages = Math.min(first.totalPaginas, MAX_PAGES)
+/** Data pela qual a fonte ordena a resposta (decrescente) e pela qual a janela conta. */
+const resultDate = (r: ComprasMaterialPriceResult) => r.dataResultado?.slice(0, 10) ?? null
 
-	for (let start = 2; start <= totalPages; start += PAGE_CONCURRENCY) {
-		const end = Math.min(start + PAGE_CONCURRENCY - 1, totalPages)
-		const pages = await Promise.all(
-			Array.from({ length: end - start + 1 }, (_, i) =>
-				searchMaterialPricesFn({ data: { codigoItemCatalogo: code, pagina: start + i, tamanhoPagina: PAGE_SIZE } })
-			)
-		)
-		for (const page of pages) results.push(...page.resultado)
+/**
+ * true quando as páginas, em sequência, estão em ordem decrescente de data do resultado e toda
+ * linha tem essa data. É a premissa que deixa a coleta parar no início da janela; sem ela, lê tudo.
+ */
+export function isOrderedByResultDate(pages: readonly ComprasMaterialPriceResult[][]): boolean {
+	let previous: string | null = null
+	for (const page of pages) {
+		for (const r of page) {
+			const date = resultDate(r)
+			if (!date || (previous && date > previous)) return false
+			previous = date
+		}
+	}
+	return true
+}
+
+/** true quando a última linha lida já é anterior ao início da janela: o resto da fonte é mais antigo. */
+export function hasPassedWindowStart(pages: readonly ComprasMaterialPriceResult[][], cutoff: string): boolean {
+	const last = pages.at(-1)?.at(-1)
+	const date = last ? resultDate(last) : null
+	return date != null && date < cutoff
+}
+
+/**
+ * Coleta as páginas de um CATMAT, em lotes de PAGE_CONCURRENCY. Com janela, para na primeira
+ * página que passa do início dela: a fonte ordena por data do resultado, decrescente, e o que
+ * vem depois só é mais antigo. Antes de confiar, confere a ordem nas páginas lidas e a última
+ * página (onde cairiam linhas sem data do resultado); qualquer quebra faz ler tudo. O teto de
+ * MAX_PAGES só sobra para a consulta sem janela ou a fonte fora de ordem, e o corte vira
+ * `coverage: "truncated"`, que não grava.
+ */
+export async function fetchAllPagesForCatmat(code: number, options: { periodMonths?: number | null; now?: Date } = {}): Promise<CatmatPriceFetch> {
+	const fetchPage = (pagina: number) => searchMaterialPricesFn({ data: { codigoItemCatalogo: code, pagina, tamanhoPagina: PAGE_SIZE } })
+	const cutoff = options.periodMonths ? periodCutoff(options.periodMonths, options.now) : null
+	const first = await fetchPage(1)
+	const totalPages = first.totalPaginas
+	const limit = Math.min(totalPages, MAX_PAGES)
+	const pages: ComprasMaterialPriceResult[][] = [first.resultado]
+	const canStop = () => cutoff != null && isOrderedByResultDate(pages) && hasPassedWindowStart(pages, cutoff)
+	let stopEarly = true
+
+	const fetchUpTo = async (until: number) => {
+		while (pages.length < until && !(stopEarly && canStop())) {
+			const start = pages.length + 1
+			const end = Math.min(start + PAGE_CONCURRENCY - 1, until)
+			const batch = await Promise.all(Array.from({ length: end - start + 1 }, (_, i) => fetchPage(start + i)))
+			for (const page of batch) pages.push(page.resultado)
+		}
 	}
 
-	return { results, totalRegistros: first.totalRegistros, truncated: first.totalPaginas > MAX_PAGES }
+	await fetchUpTo(limit)
+	let stoppedAtWindow = pages.length < totalPages && canStop()
+	if (stoppedAtWindow) {
+		// Linha sem data do resultado cairia no fim da ordenação: a última página confirma que não há.
+		const last = await fetchPage(totalPages)
+		if (last.resultado.some((r) => !resultDate(r))) {
+			stopEarly = false
+			stoppedAtWindow = false
+			await fetchUpTo(limit)
+		}
+	}
+
+	const coverage = pages.length >= totalPages ? "complete" : stoppedAtWindow ? "window" : "truncated"
+	return {
+		results: pages.flat(),
+		totalRegistros: first.totalRegistros,
+		truncated: coverage === "truncated",
+		source: { consultedAt: first.fetchedAt, totalRecords: first.totalRegistros, totalPages, pagesFetched: Math.min(pages.length, totalPages), coverage },
+	}
 }
 
 /**

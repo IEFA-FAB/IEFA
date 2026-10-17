@@ -686,8 +686,24 @@ export {
 	type ReportResearch,
 	type ReportSample,
 	reportExceptionsOf,
+	researchWindowOf,
 	SAMPLE_MAX_AGE_DAYS,
+	SERIES_FORMAT,
+	seriesFormatOf,
 } from "./price-research-report.ts"
+export {
+	formatConsultedAt,
+	PRICE_RESEARCH_MAX_PAGES,
+	PRICE_RESEARCH_PAGE_SIZE,
+	PRICE_RESEARCH_SOURCE_DOCS_URL,
+	PRICE_RESEARCH_SOURCE_URL,
+	type PriceResearchSourceConsultation,
+	priceResearchQueryUrl,
+	priceResearchSampleUrl,
+	SOURCE_COVERAGE_LABELS,
+	SOURCE_COVERAGES,
+	type SourceCoverage,
+} from "./price-research-source.ts"
 export {
 	convertSamplePrice,
 	isSamePrice,

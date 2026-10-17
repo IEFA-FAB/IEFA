@@ -1,7 +1,7 @@
 import type { OpenResearchFinding } from "@iefa/sisub-domain"
 import { useCallback, useMemo, useRef, useState } from "react"
 import type { PriceResearchAuditIds } from "@/components/features/local/price-research/PriceResearchModal"
-import { autoSelectPrice, fetchAllPagesForCatmat } from "@/lib/price-research-utils"
+import { autoSelectPrice, DEFAULT_PERIOD_MONTHS, fetchAllPagesForCatmat } from "@/lib/price-research-utils"
 import { annexItemUnit } from "@/lib/quantity-estimate-annex"
 import { savePriceResearchFn } from "@/server/price-research.fn"
 
@@ -82,10 +82,11 @@ export function useBulkPriceResearch(
 
 		const processItem = async (item: BulkResearchItem) => {
 			try {
-				const { results: samples } = await fetchAllPagesForCatmat(item.catmat_item_codigo as number)
-				const selected = autoSelectPrice(samples, { targetUnit: annexItemUnit(item) })
+				const { results: samples, source, truncated } = await fetchAllPagesForCatmat(item.catmat_item_codigo as number, { periodMonths: DEFAULT_PERIOD_MONTHS })
+				const selected = autoSelectPrice(samples, { periodMonths: DEFAULT_PERIOD_MONTHS, targetUnit: annexItemUnit(item) })
 
-				if (!selected) {
+				// Coleta parcial não sustenta preço (o servidor também recusa): conta como erro do item.
+				if (!selected || truncated) {
 					setProgress((prev) => ({ ...prev, done: prev.done + 1, errors: prev.errors + 1 }))
 					return
 				}
@@ -111,6 +112,7 @@ export function useBulkPriceResearch(
 						unitInferred: selected.unitInferred,
 						// O lote não escolhe amostra à mão; o servidor confere pela classificação recebida.
 						manualSelection: false,
+						source,
 						quantityEstimateId,
 						quantityEstimateItemId: item.quantity_estimate_item_id ?? undefined,
 					},

@@ -36,4 +36,6 @@ export interface ComprasMaterialPricePage {
 	paginasRestantes: number
 	dataHoraConsulta: string | null
 	timeZoneAtual: string | null
+	/** Hora em que o servidor do sisub recebeu a página (a API não informa a hora da consulta). */
+	fetchedAt: string
 }

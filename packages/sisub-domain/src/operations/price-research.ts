@@ -51,6 +51,7 @@ import {
 	researchNonComplianceReasons,
 	splitOutliersByIqr,
 } from "./price-research-compliance.ts"
+import type { PriceResearchSourceConsultation } from "./price-research-source.ts"
 import { convertSamplePrice, SAMPLE_CONVERSION_REASON_LABELS } from "./price-units.ts"
 
 type PriceResearchTx = Parameters<Parameters<SisubDb["transaction"]>[0]>[0]
@@ -127,6 +128,11 @@ export type SavePriceResearchAudit = {
 	manualSelection?: boolean
 	/** Justificativas da pesquisa; só as que respondem a uma não conformidade dela são gravadas. */
 	justifications?: ResearchJustifications
+	/**
+	 * A consulta à fonte (hora, totais, páginas lidas, cobertura), como o app a coletou. Ausente só
+	 * em chamador antigo; coleta parcial (`truncated`) é recusada: amostra cortada não sustenta preço.
+	 */
+	source?: PriceResearchSourceConsultation
 	/** Se fornecidos, linka imediatamente (caso anexo já existente). */
 	quantityEstimateId?: string
 	quantityEstimateItemId?: string
@@ -400,6 +406,30 @@ async function persistSamples(tx: PriceResearchTx, researchItemId: string, input
 	// próprio inciso no `values` acima.
 }
 
+/** Folga para relógio de cliente adiantado: a hora vem do servidor, mas passa pelo navegador. */
+const CONSULTED_AT_SKEW_MS = 5 * 60 * 1000
+
+/**
+ * A consulta declarada precisa ser plausível e completa: coleta parcial não grava (a série seria
+ * um corte do que a fonte tinha na janela), e hora no futuro não é hora de consulta.
+ */
+export function assertSourceConsultation(source: PriceResearchSourceConsultation | undefined, now: Date = new Date()): void {
+	if (!source) return
+	if (source.coverage === "truncated") {
+		throw new DomainError(
+			"PARTIAL_COLLECTION",
+			`Coleta parcial: ${source.pagesFetched} de ${source.totalPages} páginas lidas sem cobrir a janela. Refaça a pesquisa com a janela de 12 meses.`
+		)
+	}
+	const consultedAt = Date.parse(source.consultedAt)
+	if (Number.isNaN(consultedAt) || consultedAt > now.getTime() + CONSULTED_AT_SKEW_MS) {
+		throw new DomainError("VALIDATION_FAILED", "Hora da consulta inválida.")
+	}
+	if (source.pagesFetched > source.totalPages || (source.coverage === "complete" && source.pagesFetched !== source.totalPages)) {
+		throw new DomainError("VALIDATION_FAILED", "Páginas lidas não batem com o total da consulta.")
+	}
+}
+
 /**
  * Persiste a memória de cálculo de UM item pesquisado e devolve os ids (cabeçalho + item).
  *
@@ -415,6 +445,7 @@ export async function savePriceResearchAudit(db: SisubDb, ctx: UserContext, inpu
 	// forjar memória de cálculo; guard sem escopo ainda deixava membro de qualquer unidade
 	// gravar/ligar auditoria em anexo alheio.
 	requirePermission(ctx, "unit", 1)
+	assertSourceConsultation(input.source)
 	if (input.quantityEstimateId || input.quantityEstimateItemId) {
 		await authorizeQuantityEstimateTarget(db, ctx, input.quantityEstimateId, input.quantityEstimateItemId)
 	}
@@ -501,6 +532,12 @@ export async function savePriceResearchAudit(db: SisubDb, ctx: UserContext, inpu
 							justificationMethod: justifications.method,
 							justificationOutlierCriteria: justifications.outlierCriteria,
 							justificationOutOfPeriod: justifications.outOfPeriod,
+							// A consulta à fonte: hora, totais e quanto foi lido (migration 20261016150000).
+							sourceConsultedAt: input.source?.consultedAt ?? null,
+							sourceTotalRecords: input.source?.totalRecords ?? null,
+							sourceTotalPages: input.source?.totalPages ?? null,
+							sourcePagesFetched: input.source?.pagesFetched ?? null,
+							sourceCoverage: input.source?.coverage ?? null,
 						})
 						.returning({ id: priceResearchItemInProcurement.id }),
 				{ prefix: "Erro ao salvar item da pesquisa" }

@@ -11,8 +11,12 @@ import {
 	type ReportResearch,
 	type ReportSample,
 	reportExceptionsOf,
+	researchWindowOf,
+	SERIES_FORMAT,
+	seriesFormatOf,
 	sha256Hex,
 } from "./price-research-report.ts"
+import { priceResearchQueryUrl, priceResearchSampleUrl } from "./price-research-source.ts"
 
 const sample = (over: Partial<ReportSample> = {}): ReportSample => ({
 	sampleType: "valid",
@@ -60,6 +64,7 @@ const research = (over: Partial<ReportResearch> = {}): ReportResearch => ({
 	uniqueSources: 4,
 	referencePrice: 5.5,
 	nonComplianceReasons: [],
+	source: { consultedAt: "2026-09-01T11:58:30.000Z", totalRecords: 8402, totalPages: 17, pagesFetched: 5, coverage: "window" },
 	samples: [sample(), sample({ idCompra: "2", sampleType: "outlier", precoUnitario: "40" })],
 	...over,
 })
@@ -104,6 +109,97 @@ describe("buildResearchSeriesCsv", () => {
 	})
 })
 
+describe("série no formato 2 (nota, resumo e amostras)", () => {
+	const v2 = (order: number, over: Partial<ReportItem> = {}) => item(order, { seriesFormat: SERIES_FORMAT, ...over })
+	const blocks = (csv: string) =>
+		csv
+			.replace(/^\uFEFF/, "")
+			.trimEnd()
+			.split("\n\n")
+	// Uma linha da série em campos: os textos com vírgula saem entre aspas.
+	const cells = (line: string) => [...line.matchAll(/("(?:[^"]|"")*"|[^,]*)(?:,|$)/g)].map((m) => m[1].replace(/^"|"$/g, "").replaceAll('""', '"')).slice(0, -1)
+	const record = (header: string, line: string) => Object.fromEntries(cells(header).map((h, i) => [h, cells(line)[i]]))
+
+	test("emissão sem formato gravado continua no formato 1: o hash dela não muda", () => {
+		expect(seriesFormatOf([item(1)])).toBe(1)
+		expect(seriesFormatOf([v2(1)])).toBe(2)
+		expect(buildResearchSeriesCsv([item(1)]).startsWith("\uFEFFitem,catmat")).toBe(true)
+	})
+
+	test("a nota diz a fonte, os filtros da consulta, a janela e como repetir", () => {
+		const [note] = blocks(buildResearchSeriesCsv([v2(1)]))
+		expect(note).toContain("dadosabertos.compras.gov.br/modulo-pesquisa-preco/1_consultarMaterial")
+		expect(note).toContain("tipo=codigoItemCatalogo e codigo=<CATMAT do item>")
+		expect(note).toContain("Nenhum outro filtro")
+		expect(note).toContain("Janela de 1 ano")
+		expect(note).toContain("Como repetir")
+		expect(note).toContain("ordem decrescente de data do resultado")
+		expect(note).toContain("SHA-256")
+	})
+
+	test("o resumo leva a consulta, a janela, o funil, o método e o preço de cada item", () => {
+		const [, summary] = blocks(buildResearchSeriesCsv([v2(1), v2(2, { research: null })]))
+		const [title, header, first, second] = summary.split("\n")
+		expect(title).toBe("Resumo por item")
+		const row = record(header, first)
+		expect(row).toMatchObject({
+			item: "1",
+			catmat: "217092",
+			pesquisa_data: "2026-09-01",
+			janela_meses: "12",
+			janela_inicio: "2025-09-01",
+			janela_fim: "2026-09-01",
+			consulta_data_hora_brasilia: "2026-09-01 08:58:30",
+			consulta_url: priceResearchQueryUrl(217092),
+			fonte_total_registros: "8402",
+			fonte_total_paginas: "17",
+			paginas_lidas: "5",
+			cobertura: "janela_completa",
+			total_coletado: "10",
+			total_na_janela: "8",
+			total_valido: "6",
+			metodo: "mediana",
+			preco_estimado: "5.5",
+			preco_no_anexo: "5.5",
+			selecao_manual: "nao",
+		})
+		// item sem pesquisa aparece no resumo, para o anexo inteiro estar na série
+		expect(second).toBe("2,217092,Vinagre,LT,sem pesquisa")
+	})
+
+	test("cada amostra leva a descrição na compra e a URL que a devolve da fonte", () => {
+		const csv = buildResearchSeriesCsv([v2(1, { research: research({ samples: [sample({ descricaoItem: "VINAGRE DE ÁLCOOL 750 ML" })] }) })])
+		const [, , samples] = blocks(csv)
+		const [title, header, first] = samples.split("\n")
+		expect(title).toBe("Amostras")
+		const row = record(header, first)
+		expect(row).toMatchObject({
+			classificacao: "valida",
+			id_compra: "1",
+			descricao_na_compra: "VINAGRE DE ÁLCOOL 750 ML",
+			conversao_refeita: "nao",
+			conferir_na_fonte: priceResearchSampleUrl(217092, "1"),
+		})
+	})
+
+	test("a consulta repetida é a do CATMAT pesquisado, não o do item editado depois", () => {
+		const csv = buildResearchSeriesCsv([v2(1, { catmat: 111, research: research({ catmatCodigo: 217092 }) })])
+		expect(csv).toContain(priceResearchQueryUrl(217092))
+		expect(csv).not.toContain(priceResearchQueryUrl(111))
+	})
+
+	test("é determinística", () => {
+		const a = buildResearchSeriesCsv([v2(1)])
+		const b = buildResearchSeriesCsv([v2(1, { research: research({ samples: [...research().samples].reverse() }) })])
+		expect(sha256Hex(a)).toBe(sha256Hex(b))
+	})
+
+	test("janela de pesquisa feita à noite em Brasília usa o dia de Brasília", () => {
+		expect(researchWindowOf({ createdAt: "2026-09-02T01:30:00.000Z", periodMonths: 12 })).toEqual({ researchDate: "2026-09-01", windowStart: "2025-09-01" })
+		expect(researchWindowOf({ createdAt: "2026-09-02T01:30:00.000Z", periodMonths: null }).windowStart).toBeNull()
+	})
+})
+
 describe("auditReportItem", () => {
 	const at = "2026-09-26T12:00:00.000Z"
 
@@ -117,6 +213,20 @@ describe("auditReportItem", () => {
 
 	test("preço do anexo diferente da pesquisa bloqueia", () => {
 		expect(auditReportItem(item(1, { unitPrice: 7 }), at).map((c) => c.severity)).toEqual(["blocking"])
+	})
+
+	test("pesquisa de outro CATMAT bloqueia", () => {
+		const checks = auditReportItem(item(1, { catmat: 111, research: research({ catmatCodigo: 217092 }) }), at)
+		expect(checks.some((c) => c.severity === "blocking" && c.message.includes("CATMAT 217092"))).toBe(true)
+		expect(auditReportItem(item(1, { research: research({ catmatCodigo: 217092 }) }), at)).toEqual([])
+	})
+
+	test("coleta parcial bloqueia; pesquisa sem a consulta registrada não", () => {
+		const partial = research({
+			source: { consultedAt: "2026-09-01T11:58:30.000Z", totalRecords: 30000, totalPages: 60, pagesFetched: 40, coverage: "truncated" },
+		})
+		expect(auditReportItem(item(1, { research: partial }), at).some((c) => c.severity === "blocking" && c.message.startsWith("Coleta parcial"))).toBe(true)
+		expect(auditReportItem(item(1, { research: research({ source: null }) }), at)).toEqual([])
 	})
 
 	test("preço acima da mediana bloqueia (art. 6º, § 6º)", () => {
