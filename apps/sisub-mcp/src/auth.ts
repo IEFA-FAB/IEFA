@@ -19,6 +19,7 @@
 
 import { resolveUserPermissions } from "@iefa/pbac"
 import { ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js"
+import { type AuthError, isAuthApiError, isAuthSessionMissingError, type User } from "@supabase/supabase-js"
 import { getAuthClient, getDataClient } from "./supabase.ts"
 import type { UserContext } from "./types.ts"
 
@@ -34,24 +35,77 @@ async function sha256hex(input: string): Promise<string> {
 }
 
 // ---------------------------------------------------------------------------
+// Credencial recusada × serviço fora do ar
+// ---------------------------------------------------------------------------
+
+/**
+ * Mensagem de quando o GoTrue ou o PostgREST não responderam (deadline do kit, rede, 5xx).
+ *
+ * Não pode sair como "credencial inválida": o cliente MCP (ou quem o configurou) descartaria
+ * uma credencial boa durante uma queda, e no log a queda ficaria igual a token ruim.
+ */
+const AUTH_UNAVAILABLE_MESSAGE = "Autenticação indisponível no momento. Tente novamente."
+
+function authUnavailable(): McpError {
+	return new McpError(ErrorCode.InternalError, AUTH_UNAVAILABLE_MESSAGE)
+}
+
+/**
+ * `true` quando o erro diz que a CREDENCIAL não vale, e não que o serviço não respondeu.
+ *
+ * O transporte HTTP responde 401 só para isto; o resto (`InternalError`, ou qualquer exceção
+ * inesperada) é 503, porque nada ali prova que a credencial é ruim.
+ */
+export function isCredentialRejected(err: unknown): boolean {
+	return err instanceof McpError && err.code === ErrorCode.InvalidRequest
+}
+
+/**
+ * Mesma régua de `resolveCookieSessionUser` no kit: só a recusa do próprio GoTrue invalida o
+ * token — 4xx (vencido, adulterado) ou sessão inexistente (logout, usuário removido). Falha de
+ * transporte (`AuthRetryableFetchError`: deadline, rede, 5xx) e resposta ilegível
+ * (`AuthUnknownError`) não dizem nada sobre o token.
+ */
+function isTokenRejected(error: AuthError): boolean {
+	return isAuthSessionMissingError(error) || (isAuthApiError(error) && error.status < 500)
+}
+
+/**
+ * Código do PostgREST para `.single()` sem linha: a chave não existe ou está inativa. Qualquer
+ * outro erro da consulta (deadline, rede, 5xx, chave de serviço errada) é indisponibilidade.
+ */
+const POSTGREST_NO_ROWS = "PGRST116"
+
+// ---------------------------------------------------------------------------
 // resolveUserContext — JWT Supabase
 // ---------------------------------------------------------------------------
 
 /**
  * Valida o JWT do usuário e carrega permissões PBAC.
- * Lança McpError se o token for inválido ou expirado.
+ * Lança McpError `InvalidRequest` se o token for inválido ou expirado, e `InternalError` se o
+ * GoTrue não responder (o token pode estar bom).
  */
 export async function resolveUserContext(jwt: string): Promise<UserContext> {
 	if (!jwt) {
 		throw new McpError(ErrorCode.InvalidRequest, "JWT não fornecido. Passe Authorization: Bearer <token>")
 	}
 
-	const {
-		data: { user },
-		error: authError,
-	} = await getAuthClient().auth.getUser(jwt)
+	let user: User | null
+	try {
+		const { data, error: authError } = await getAuthClient().auth.getUser(jwt)
+		if (authError) {
+			if (isTokenRejected(authError)) throw new McpError(ErrorCode.InvalidRequest, "Token JWT inválido ou expirado")
+			process.stderr.write(`[sisub-mcp] GoTrue indisponível ao validar JWT: ${authError.name}: ${authError.message}\n`)
+			throw authUnavailable()
+		}
+		user = data.user
+	} catch (err) {
+		if (err instanceof McpError) throw err
+		process.stderr.write(`[sisub-mcp] Falha ao validar JWT: ${err}\n`)
+		throw authUnavailable()
+	}
 
-	if (authError || !user) {
+	if (!user) {
 		throw new McpError(ErrorCode.InvalidRequest, "Token JWT inválido ou expirado")
 	}
 
@@ -83,7 +137,8 @@ export async function resolveUserContext(jwt: string): Promise<UserContext> {
 /**
  * Autentica uma API key e carrega permissões PBAC do dono.
  * Atualiza last_used_at de forma assíncrona (fire-and-forget).
- * Lança McpError se a chave for inválida, revogada ou VENCIDA.
+ * Lança McpError `InvalidRequest` se a chave for inválida, revogada ou VENCIDA, e
+ * `InternalError` se a consulta falhar (a chave pode estar boa).
  */
 export async function resolveApiKey(rawKey: string): Promise<UserContext> {
 	if (!rawKey.startsWith("smcp_")) {
@@ -95,7 +150,11 @@ export async function resolveApiKey(rawKey: string): Promise<UserContext> {
 
 	const { data, error } = await db.from("mcp_api_keys").select("user_id, expires_at").eq("key_hash", hash).eq("is_active", true).single()
 
-	if (error || !data) {
+	if (error && error.code !== POSTGREST_NO_ROWS) {
+		process.stderr.write(`[sisub-mcp] Falha ao consultar mcp_api_keys: ${error.code} ${error.message}\n`)
+		throw authUnavailable()
+	}
+	if (!data) {
 		throw new McpError(ErrorCode.InvalidRequest, "API key inválida ou revogada")
 	}
 
@@ -118,8 +177,18 @@ export async function resolveApiKey(rawKey: string): Promise<UserContext> {
 		)
 	}
 
-	// Fire-and-forget: atualizar last_used_at sem bloquear
-	void db.from("mcp_api_keys").update({ last_used_at: new Date().toISOString() }).eq("key_hash", hash)
+	// Fire-and-forget: atualizar last_used_at sem segurar a resposta. O `.then` é o que DISPARA
+	// a escrita — o builder do PostgREST só faz o fetch quando alguém o consome; o `void` que
+	// estava aqui nunca gravou nada. Falha só vai para o log: a autenticação já está decidida.
+	db.from("mcp_api_keys")
+		.update({ last_used_at: new Date().toISOString() })
+		.eq("key_hash", hash)
+		.then(
+			({ error: updateError }) => {
+				if (updateError) process.stderr.write(`[sisub-mcp] Falha ao gravar last_used_at: ${updateError.message}\n`)
+			},
+			(err: unknown) => process.stderr.write(`[sisub-mcp] Falha ao gravar last_used_at: ${err}\n`)
+		)
 
 	try {
 		const permissions = await resolveUserPermissions(data.user_id, db)

@@ -438,6 +438,7 @@
         "@iefa/database": "workspace:*",
         "@iefa/pbac": "workspace:*",
         "@iefa/sisub-domain": "workspace:*",
+        "@iefa/supabase-kit": "workspace:*",
         "@modelcontextprotocol/sdk": "^1.32.1",
         "@supabase/supabase-js": "^2.117.3",
         "drizzle-orm": "^0.45.4",
