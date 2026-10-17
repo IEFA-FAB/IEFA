@@ -96,9 +96,20 @@ function HubHeader() {
 
 // ── Module card ──────────────────────────────────────────────────────────────
 
+/**
+ * O que o card diz do módulo: as seções da sidebar, na ordem do fluxo. Item sem seção (Painel,
+ * Fluxos, Assistente IA) é porta de entrada, não etapa, e fica de fora. Módulo sem seção
+ * nenhuma é curto o bastante para listar as páginas.
+ */
+function summarizeModule(module: ModuleDef): string[] {
+	const groups = [...new Set(module.items.flatMap((item) => (item.group ? [item.group] : [])))]
+	return groups.length > 0 ? groups : module.items.map((item) => item.title)
+}
+
 function ModuleCard({ module, color }: { module: ModuleDef; color: GroupColor }) {
 	const firstUrl = module.hubUrl ?? module.items[0]?.url ?? "/"
 	const Icon = module.icon
+	const summary = summarizeModule(module)
 
 	return (
 		<Card className={cn("relative overflow-visible cursor-pointer transition-colors hover:ring-2", CARD_HOVER_CLASSES[color])}>
@@ -113,7 +124,7 @@ function ModuleCard({ module, color }: { module: ModuleDef; color: GroupColor })
 				aria-label={`Entrar no módulo ${module.name}`}
 			/>
 
-			<CardContent className="flex flex-col gap-4">
+			<CardContent className="flex flex-col gap-3">
 				{/* Header: icon + name + arrow */}
 				<div className="flex items-start gap-3">
 					<div className={cn("flex size-9 items-center justify-center rounded-lg shrink-0 mt-0.5", ICON_CLASSES[color])}>
@@ -128,17 +139,23 @@ function ModuleCard({ module, color }: { module: ModuleDef; color: GroupColor })
 					/>
 				</div>
 
-				{/* Pages: two-column grid */}
-				{module.items.length > 0 && (
-					<div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
-						{module.items.map((item) => (
-							<div key={item.url} className="flex items-start gap-1.5 text-xs leading-snug text-muted-foreground min-w-0">
-								<item.icon className="size-3 shrink-0 mt-px" />
-								{/* Quebra em vez de truncar: o card não tem como revelar o nome cortado */}
-								<span className="min-w-0">{item.title}</span>
-							</div>
+				{/* As seções do módulo, não cada página: a lista inteira fazia o card crescer até
+				    a altura da tela, e quem quer uma página específica tem a busca (Ctrl+K). */}
+				{summary.length > 0 && (
+					<p className="text-xs leading-relaxed text-muted-foreground">
+						{/* O ponto fica colado ao item anterior (a linha quebra depois dele, nunca começa nele);
+						    o espaço fica fora do aria-hidden para o leitor de tela não fundir os nomes. */}
+						{summary.map((label, i) => (
+							<span key={label}>
+								{label}
+								{i < summary.length - 1 && (
+									<>
+										<span aria-hidden="true">{"\u00a0·"}</span>{" "}
+									</>
+								)}
+							</span>
 						))}
-					</div>
+					</p>
 				)}
 			</CardContent>
 		</Card>
@@ -200,7 +217,7 @@ function HubPage() {
 					{isLoading ? (
 						<div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
 							{Array.from({ length: 3 }).map((_, i) => (
-								<Skeleton key={i} className="h-36" />
+								<Skeleton key={i} className="h-28" />
 							))}
 						</div>
 					) : modules.length === 0 ? (

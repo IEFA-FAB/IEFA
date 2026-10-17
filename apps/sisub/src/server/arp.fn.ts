@@ -40,7 +40,7 @@ import {
 import { withSensitiveAudit } from "@/lib/audit.server"
 import { requireAuth, requireAuthWithPermission } from "@/lib/auth.server"
 import { comprasApi, unwrapCompras } from "@/lib/compras.server"
-import { publicDbMessage } from "@/lib/db-error-message"
+import { publicDbMessage, requireReadRow } from "@/lib/db-error-message"
 import { type EmpenhoItemAmounts, summarizeArpItemShare } from "@/lib/empenho-items"
 import {
 	type CreatedEmpenho,
@@ -510,9 +510,10 @@ export const syncArpBalanceFn = createServerFn({ method: "POST" })
 
 		// `unit_id` é obrigatório aqui: o guard logo abaixo resolve a unidade pela LINHA
 		// (#322). Sem ele, `Number(undefined)` vira NaN e o escopo é avaliado contra nada.
-		const { data: arp, error: arpError } = await supabase.from("arp").select("unit_id, numero_ata, uasg_gerenciadora").eq("id", data.arpId).single()
-
-		if (arpError || !arp) throw new Error("ARP não encontrada")
+		const arp = requireReadRow(await supabase.from("arp").select("unit_id, numero_ata, uasg_gerenciadora").eq("id", data.arpId).maybeSingle(), {
+			readFailure: "Erro ao carregar a ARP",
+			notFound: "ARP não encontrada",
+		})
 		// A unidade sai da LINHA, nunca do input: o payload só traz `arpId`, e aceitar
 		// unidade do cliente permitiria sincronizar ARP de outra unidade alegando a
 		// própria. Guard depois da leitura, antes de qualquer escrita.

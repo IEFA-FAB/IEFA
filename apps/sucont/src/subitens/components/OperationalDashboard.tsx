@@ -23,7 +23,7 @@ export function OperationalDashboard({ filteredData, totalVolume, contasCount, t
 				{[
 					{
 						title: "Risco Sistêmico",
-						text: `A utilização de subitens genéricos afeta ${filteredData.length} Unidades Gestoras, comprometendo a evidenciação contábil de ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(totalVolume)} no COMAER.`,
+						text: `A utilização de códigos genéricos (subitem 99 e favorecido 999) afeta ${filteredData.length} Unidades Gestoras, comprometendo a evidenciação contábil de ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(totalVolume)} no COMAER.`,
 					},
 					{
 						title: "Ação Recomendada",

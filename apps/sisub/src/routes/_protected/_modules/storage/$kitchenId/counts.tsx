@@ -1,6 +1,6 @@
 import type { InventoryCountType } from "@iefa/sisub-domain"
 import { createFileRoute, useRouter } from "@tanstack/react-router"
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { requirePermission } from "@/auth/pbac"
 import {
 	CountActions,
@@ -11,7 +11,14 @@ import {
 	OpenCountCard,
 	ScannedTargetPanel,
 } from "@/components/features/storage/counts/CountsSections"
-import { buildScopeParams, deriveCountState, type ScannedTarget } from "@/components/features/storage/counts/counts-page"
+import {
+	buildScopeParams,
+	claimEntryKey,
+	deriveCountState,
+	type EntryIntentKeys,
+	releaseEntryKey,
+	type ScannedTarget,
+} from "@/components/features/storage/counts/counts-page"
 import { ScanInput, scannerPropsFrom } from "@/components/features/storage/scan/ScanInput"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Card, CardContent } from "@/components/ui/card"
@@ -81,10 +88,16 @@ function CountsPage() {
 	const [scanned, setScanned] = useState<ScannedTarget | null>(null)
 	const [scannedQty, setScannedQty] = useState("")
 
-	async function run(action: () => Promise<unknown>, success: string) {
+	// Chave de idempotência por linha, viva enquanto o lançamento não for confirmado.
+	const entryKeys = useRef<EntryIntentKeys>(new Map())
+
+	/** Roda a ação com aviso; devolve se a AÇÃO deu certo (a releitura da tela não conta). */
+	async function run(action: () => Promise<unknown>, success: string): Promise<boolean> {
 		setBusy(true)
+		let succeeded = false
 		try {
 			await action()
+			succeeded = true
 			toast.success(success)
 			await router.invalidate()
 		} catch (error) {
@@ -92,25 +105,33 @@ function CountsPage() {
 		} finally {
 			setBusy(false)
 		}
+		return succeeded
 	}
 
 	/**
 	 * Lança a quantidade de uma linha.
 	 *
-	 * O identificador é gerado AQUI e carrega a linha e o valor: dois cliques
-	 * iguais seguidos são o mesmo lançamento, e o índice único no banco recusa o
-	 * segundo. É a mesma proteção que a fila offline vai usar quando existir.
+	 * O identificador é um por intenção (o lançamento da linha ainda não
+	 * confirmado), não por tentativa: dois cliques seguidos, ou o reenvio depois
+	 * de uma falha de rede, levam a mesma chave; o mesmo valor não soma de novo e
+	 * o valor corrigido substitui o da tentativa anterior, se ela tiver entrado.
+	 * A chave só se renova depois do sucesso. É a mesma proteção que a fila
+	 * offline vai usar quando existir. Na falha, o valor digitado fica no campo.
 	 */
-	async function postLine(line: { key: string; lotId: string | null; ingredientId: string | null; frozenPreparationId: string | null }, quantity: number) {
-		if (!sheet) return
-		await run(
+	async function postLine(
+		line: { key: string; lotId: string | null; ingredientId: string | null; frozenPreparationId: string | null },
+		quantity: number
+	): Promise<boolean> {
+		if (!sheet) return false
+		const clientEventId = claimEntryKey(entryKeys.current, line.key)
+		const posted = await run(
 			() =>
 				postCountEntriesFn({
 					data: {
 						countId: sheet.count.id,
 						entries: [
 							{
-								clientEventId: `${line.key}:${quantity}:${Date.now()}`,
+								clientEventId,
 								lotId: line.lotId ?? undefined,
 								ingredientId: line.lotId ? undefined : (line.ingredientId ?? undefined),
 								frozenPreparationId: line.lotId ? undefined : (line.frozenPreparationId ?? undefined),
@@ -122,7 +143,10 @@ function CountsPage() {
 				}),
 			"Lançamento registrado"
 		)
+		if (!posted) return false
+		releaseEntryKey(entryKeys.current, line.key, clientEventId)
 		setQuantities((current) => ({ ...current, [line.key]: "" }))
+		return true
 	}
 
 	const { open, scannedInScope, inReview, divergent } = deriveCountState(sheet, scanned)
@@ -198,7 +222,7 @@ function CountsPage() {
 										toast.error("Informe a quantidade")
 										return
 									}
-									await postLine(
+									const posted = await postLine(
 										{
 											key: `scan:${scanned.ingredientId}:${scanned.lotId ?? "item"}`,
 											lotId: scanned.lotId,
@@ -207,7 +231,8 @@ function CountsPage() {
 										},
 										quantity
 									)
-									setScanned(null)
+									// na falha o alvo lido e a quantidade ficam, para reenviar com a mesma chave
+									if (posted) setScanned(null)
 								}}
 								onAddFound={() =>
 									run(() => addFoundItemFn({ data: { countId: sheet.count.id, ingredientId: scanned.ingredientId } }), "Achado incluído no inventário")

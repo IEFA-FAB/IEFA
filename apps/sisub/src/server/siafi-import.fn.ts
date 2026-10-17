@@ -13,7 +13,7 @@
 
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
-import { publicDbMessage } from "@/lib/db-error-message"
+import { publicDbMessage, requireReadRow } from "@/lib/db-error-message"
 import { getServerClient } from "@/lib/supabase.server"
 import { requireUnitScope } from "@/lib/unit-auth.server"
 
@@ -125,8 +125,10 @@ export const fetchImportBatchFn = createServerFn({ method: "GET" })
 	.validator(z.object({ batchId: z.uuid() }))
 	.handler(async ({ data }) => {
 		const si = siafi()
-		const { data: batch, error } = await si.from("import_batch").select("*").eq("id", data.batchId).single()
-		if (error || !batch) throw new Error("Lote não encontrado")
+		const batch = requireReadRow(await si.from("import_batch").select("*").eq("id", data.batchId).maybeSingle(), {
+			readFailure: "Erro ao carregar o lote",
+			notFound: "Lote não encontrado",
+		})
 		await requireUnitScope(1, Number(batch.unit_id))
 
 		const { data: rows, error: rowsError } = await si

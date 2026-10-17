@@ -1,3 +1,4 @@
+import type { PriceResearchSourceConsultation } from "@iefa/sisub-domain"
 // ─── Resposta bruta da API 6.1 consultarMaterial ─────────────────────────────
 // Campos em português: nomes originais do sistema externo Compras.gov.br
 
@@ -145,6 +146,8 @@ export interface PriceAnalysis {
 	pollutionDiscards: PriceSample[]
 
 	consultedAt: string
+	/** Leitura da fonte (hora da página 1, totais, páginas lidas, cobertura), quando a consulta a registrou. */
+	source?: PriceResearchSourceConsultation
 }
 
 // ─── Item do anexo quantitativo com análise de preço (tudo interno) ───────────

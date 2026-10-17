@@ -18,3 +18,13 @@ autoscaling_max_count = 6
 # que jogaria toda a carga na outra.
 health_check_timeout_seconds     = 10
 health_check_unhealthy_threshold = 3
+
+# Os chats (routes/api/module-chat e routes/api/analytics, SSE) não têm teto de tempo, só de
+# iterações (AI_CHAT_MAX_ITERATIONS = 8). 90 s deixam terminar o turno típico quando a task sai
+# de rotação (deploy, scale-in do autoscaling); com os 30 s do default, a resposta era cortada
+# no meio. Não cobre troca de Spot (ver "Drenagem" no README de infra/).
+#
+# LACUNA: essas rotas não mandam heartbeat. Mais de 60 s sem byte (tool call, primeiro token
+# lento, várias das 8 iterações) cai no idle_timeout do ALB, com ou sem drenagem (ver
+# infra/foundation/alb.tf).
+deregistration_delay = 90

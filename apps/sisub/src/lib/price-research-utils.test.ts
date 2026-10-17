@@ -6,8 +6,19 @@ import type { ComprasMaterialPriceResult } from "@/types/domain/price-research"
 // o módulo para evitar carregar o runtime de server function no teste.
 vi.mock("@/server/price-research.fn", () => ({ searchMaterialPricesFn: vi.fn() }))
 
-const { autoSelectPrice, chooseReferencePrice, filterByPeriod, isMethodAllowed, isSampleSelectable, partitionByPeriod, periodCutoff, priceForMethod } =
-	await import("./price-research-utils")
+const {
+	autoSelectPrice,
+	chooseReferencePrice,
+	fetchAllPagesForCatmat,
+	filterByPeriod,
+	isMethodAllowed,
+	isSampleSelectable,
+	MAX_PAGES,
+	partitionByPeriod,
+	periodCutoff,
+	priceForMethod,
+} = await import("./price-research-utils")
+const { searchMaterialPricesFn } = await import("@/server/price-research.fn")
 
 /** Data dentro da janela padrão contada de hoje: amostra sem data fica fora do cálculo. */
 const RECENT = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
@@ -270,5 +281,128 @@ describe("janela de recência", () => {
 		expect(r?.dateFilteredCount).toBe(2)
 		expect(r?.periodMonths).toBeNull()
 		expect(r?.stats.max).toBe(20)
+	})
+})
+
+describe("fetchAllPagesForCatmat", () => {
+	const FETCHED_AT = "2026-10-16T14:59:58.000Z"
+
+	/** Fonte simulada: `dates` em ordem decrescente, `perPage` por página, como a API devolve. */
+	function mockSource(dates: Array<string | null>, perPage: number) {
+		const totalPaginas = Math.ceil(dates.length / perPage)
+		const requested: number[] = []
+		vi.mocked(searchMaterialPricesFn).mockImplementation((async ({ data }: { data: { pagina: number } }) => {
+			requested.push(data.pagina)
+			const slice = dates.slice((data.pagina - 1) * perPage, data.pagina * perPage)
+			return {
+				resultado: slice.map((d) => priceResult(10, "1", d)),
+				totalRegistros: dates.length,
+				totalPaginas,
+				paginasRestantes: Math.max(0, totalPaginas - data.pagina),
+				dataHoraConsulta: null,
+				timeZoneAtual: null,
+				fetchedAt: FETCHED_AT,
+			}
+		}) as never)
+		return requested
+	}
+
+	/** Uma data por dia, da mais nova para a mais antiga, a partir de `from`. */
+	const days = (from: string, count: number) =>
+		Array.from({ length: count }, (_, i) => new Date(Date.parse(`${from}T12:00:00Z`) - i * 86_400_000).toISOString().slice(0, 10))
+
+	test("com janela, para na primeira página que passa do início dela e confere a última", async () => {
+		// 3 anos de um preço por dia, 10 por página: a janela de 12 meses cabe nas ~37 primeiras páginas.
+		const all = days("2026-10-15", 1100)
+		const requested = mockSource(all, 10)
+		const fetched = await fetchAllPagesForCatmat(1, { periodMonths: 12, pauseMs: 0 })
+		expect(fetched.source).toMatchObject({
+			consultedAt: FETCHED_AT,
+			query: "tipo=codigoItemCatalogo&codigo=1&tamanhoPagina=500",
+			totalRecords: 1100,
+			totalPages: 110,
+			coverage: "window",
+		})
+		expect(fetched.source.pagesFetched).toBeLessThan(45)
+		// a janela inteira veio: nenhuma data da janela ficou de fora
+		const cutoff = periodCutoff(12, new Date(FETCHED_AT))
+		expect(fetched.results.filter((r) => (r.dataResultado as string) >= cutoff)).toHaveLength(all.filter((d) => d >= cutoff).length)
+		expect(requested).toContain(110)
+	})
+
+	test("linha sem data do resultado no fim da fonte faz ler tudo", async () => {
+		mockSource([...days("2026-10-15", 395), null, null, null, null, null], 10)
+		const fetched = await fetchAllPagesForCatmat(1, { periodMonths: 12, pauseMs: 0 })
+		expect(fetched.source.coverage).toBe("complete")
+		expect(fetched.results).toHaveLength(400)
+	})
+
+	test("linha da janela no fim da fonte (sem data do resultado, com data da compra) faz ler tudo", async () => {
+		mockSource([...days("2026-10-15", 395), null, null, null, null, null], 10)
+		vi.mocked(searchMaterialPricesFn).mockImplementation((async ({ data }: { data: { pagina: number } }) => {
+			const all = [
+				...days("2026-10-15", 395).map((d) => priceResult(10, "1", d)),
+				...Array.from({ length: 5 }, () => ({ ...priceResult(10, "1", null), dataCompra: "2026-10-01" })),
+			]
+			return {
+				resultado: all.slice((data.pagina - 1) * 10, data.pagina * 10),
+				totalRegistros: 400,
+				totalPaginas: 40,
+				paginasRestantes: 0,
+				dataHoraConsulta: null,
+				timeZoneAtual: null,
+				fetchedAt: FETCHED_AT,
+			}
+		}) as never)
+		const fetched = await fetchAllPagesForCatmat(1, { periodMonths: 12, pauseMs: 0 })
+		expect(fetched.source.coverage).toBe("complete")
+		expect(fetched.results).toHaveLength(400)
+	})
+
+	test("fonte fora de ordem faz ler tudo", async () => {
+		const dates = days("2026-10-15", 60)
+		dates.splice(5, 0, "2026-12-01")
+		mockSource(dates, 10)
+		expect((await fetchAllPagesForCatmat(1, { periodMonths: 1, pauseMs: 0 })).source.coverage).toBe("complete")
+	})
+
+	test("sem janela lê todas as páginas; acima do teto, a coleta é parcial", async () => {
+		mockSource(days("2026-10-15", 30), 10)
+		expect((await fetchAllPagesForCatmat(1, { periodMonths: null, pauseMs: 0 })).source.coverage).toBe("complete")
+		mockSource(days("2026-10-15", (MAX_PAGES + 2) * 10), 10)
+		const partial = await fetchAllPagesForCatmat(1, { periodMonths: null, pauseMs: 0 })
+		expect(partial.source).toMatchObject({ coverage: "truncated", pagesFetched: MAX_PAGES, totalPages: MAX_PAGES + 2 })
+		expect(partial.orderBroken).toBe(false)
+	})
+
+	test("janela maior que o teto curto ainda é lida inteira (o teto com janela é o largo)", async () => {
+		// 5 linhas por dia, 10 por página: a janela de 12 meses ocupa ~180 páginas
+		const dates = days("2026-10-15", 500).flatMap((d) => [d, d, d, d, d])
+		mockSource(dates, 10)
+		const fetched = await fetchAllPagesForCatmat(1, { periodMonths: 12, pauseMs: 0 })
+		expect(fetched.source.coverage).toBe("window")
+		expect(fetched.source.pagesFetched).toBeGreaterThan(MAX_PAGES)
+	})
+
+	test("fonte fora de ordem com janela lê tudo pelo teto largo, sem cortar a janela", async () => {
+		const dates: Array<string | null> = days("2026-10-15", 600)
+		dates[300] = null
+		mockSource(dates, 10)
+		const fetched = await fetchAllPagesForCatmat(1, { periodMonths: 12, pauseMs: 0 })
+		expect(fetched.source).toMatchObject({ coverage: "complete", pagesFetched: 60 })
+		expect(fetched.orderBroken).toBe(true)
+	})
+
+	test("a última página lida como conferência é reaproveitada na leitura completa", async () => {
+		const requested = mockSource([...days("2026-10-15", 395), null], 10)
+		await fetchAllPagesForCatmat(1, { periodMonths: 12, pauseMs: 0 })
+		expect(requested.filter((p) => p === 40)).toHaveLength(1)
+	})
+
+	test("última página com data mais nova que a última lida faz ler tudo", async () => {
+		const dates = days("2026-10-15", 400)
+		dates[399] = "2026-10-10"
+		mockSource(dates, 10)
+		expect((await fetchAllPagesForCatmat(1, { periodMonths: 12, pauseMs: 0 })).source.coverage).toBe("complete")
 	})
 })

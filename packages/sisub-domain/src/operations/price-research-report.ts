@@ -21,8 +21,10 @@ import { desc, eq, sql } from "drizzle-orm"
 import { requireUnit } from "../guards/require-permission.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
+import { addCivilMonths, toBrasiliaCivilDate } from "../utils/civil-date.ts"
 import { runQuery } from "../utils/index.ts"
 import { evaluateResearchCompliance, type ResearchFinding, type ResearchJustificationKey, type ResearchJustifications } from "./price-research-compliance.ts"
+import { type PriceResearchSourceConsultation, SOURCE_COVERAGES, type SourceCoverage } from "./price-research-source.ts"
 import { convertSamplePrice, isSamePrice, PRICE_MATCH_ABSOLUTE, PRICE_MATCH_RELATIVE } from "./price-units.ts"
 import { PRICE_RESEARCH_VALIDITY_DAYS, resolveQuantityEstimateMaxQuantities } from "./quantity-estimate.ts"
 
@@ -35,6 +37,23 @@ export const CURVE_A_SHARE = 0.8
 /** Amostra dos demais itens: 10%, com mínimo de 5. */
 export const SAMPLE_SHARE = 0.1
 export const SAMPLE_MIN = 5
+
+/**
+ * Dia da pesquisa (gravação, em Brasília) e a janela de recência aplicada nela: de `windowStart` a
+ * `windowEnd`, o dia da consulta à fonte.
+ */
+export function researchWindowOf(r: Pick<ReportResearch, "createdAt" | "periodMonths" | "source">): {
+	researchDate: string
+	windowStart: string | null
+	windowEnd: string
+} {
+	const civil = (instant: string) => toBrasiliaCivilDate(instant) ?? instant.slice(0, 10)
+	const researchDate = civil(r.createdAt)
+	// A janela conta do dia da consulta, que foi o corte da coleta e do cálculo; sem a consulta
+	// registrada (pesquisa anterior), do dia em que a pesquisa foi gravada.
+	const windowEnd = r.source ? civil(r.source.consultedAt) : researchDate
+	return { researchDate, windowStart: r.periodMonths ? addCivilMonths(windowEnd, -r.periodMonths) : null, windowEnd }
+}
 
 export type SampleClass = "valid" | "outlier" | "pollution"
 
@@ -58,6 +77,8 @@ export interface ReportSample {
 	contentInUnit: string | null
 	convertedPrice: string | null
 	conversion: string | null
+	/** Descrição do item na compra de origem. Ausente nas emissões anteriores à série 2. */
+	descricaoItem?: string | null
 	/** true quando a conversão foi refeita agora (pesquisa gravada antes de a conversão ser gravada). */
 	conversionRecomputed: boolean
 }
@@ -65,6 +86,8 @@ export interface ReportSample {
 export interface ReportResearch {
 	researchItemId: string
 	researchId: string
+	/** CATMAT consultado pela pesquisa. Ausente nas emissões anteriores à série 2. */
+	catmatCodigo?: number | null
 	createdAt: string
 	createdBy: string | null
 	createdByName: string | null
@@ -94,6 +117,17 @@ export interface ReportResearch {
 	 * emissões anteriores congelaram a pesquisa sem ele.
 	 */
 	manualSelection?: boolean
+	/**
+	 * A consulta à fonte: hora, total na fonte, páginas lidas e cobertura (colunas `source_*`,
+	 * migration 20261016150000). Null nas pesquisas anteriores, que não a registraram.
+	 */
+	source?: PriceResearchSourceConsultation | null
+	/**
+	 * Parâmetros da consulta das pesquisas anteriores ao registro dela, reconstruídos na emissão pelo
+	 * caminho que as gravou (sisub: só o CATMAT; rota da API: `dataResultado=true` e os filtros do
+	 * cabeçalho). Null quando a consulta está em `source`.
+	 */
+	legacyQuery?: string | null
 	samples: ReportSample[]
 }
 
@@ -128,6 +162,11 @@ export interface ReportItem {
 	research: ReportResearch | null
 	/** Presente nas emissões que congelaram o checklist (regra 2). */
 	audit?: FrozenItemAudit
+	/**
+	 * Formato da série em que a emissão foi feita (`SERIES_FORMAT`). Ausente = formato 1: o hash
+	 * de cada emissão é sobre os bytes do formato dela, então o formato antigo continua sendo gerado.
+	 */
+	seriesFormat?: number
 }
 
 export type CheckSeverity = "blocking" | "warning"
@@ -167,6 +206,8 @@ const CSV_HEADER = [
 	"conversao",
 ]
 
+// `CLASS_LABEL`, `CLASS_ORDER`, `csvField` e `sortedSamples` entram nos bytes das séries 1 e 2:
+// mudar qualquer um muda o hash de toda emissão já feita. Mudança de formato é série nova.
 const CLASS_LABEL: Record<SampleClass, string> = { valid: "valida", outlier: "descartada_iqr", pollution: "inconsistente" }
 const CLASS_ORDER: Record<SampleClass, number> = { valid: 0, outlier: 1, pollution: 2 }
 
@@ -178,22 +219,38 @@ function csvField(value: string | number | null | undefined): string {
 	return /[",\n;]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe
 }
 
+/** Formato da série das emissões novas. O 1 (sem nota nem resumo) só se regenera para emissões antigas. */
+export const SERIES_FORMAT = 2
+
+/** Formato da série de uma emissão: o gravado nos itens, ou 1 nas emissões anteriores. */
+export function seriesFormatOf(items: readonly ReportItem[]): number {
+	return items.find((i) => i.seriesFormat != null)?.seriesFormat ?? 1
+}
+
+const sortedSamples = (r: ReportResearch) =>
+	[...r.samples].sort(
+		(a, b) =>
+			CLASS_ORDER[a.sampleType] - CLASS_ORDER[b.sampleType] ||
+			a.idCompra.localeCompare(b.idCompra) ||
+			(a.idItemCompra ?? 0) - (b.idItemCompra ?? 0) ||
+			(a.precoUnitario ?? "").localeCompare(b.precoUnitario ?? "")
+	)
+
 /**
  * Série de preços coletados (art. 3º, IV), determinística: itens na ordem do anexo, amostras por
  * classificação e depois pelo identificador da compra. Começa com BOM, para a planilha ler os
- * acentos — e o hash é calculado sobre estes mesmos bytes.
+ * acentos — e o hash é calculado sobre estes mesmos bytes. Sai no formato em que a emissão foi
+ * feita: trocar o formato de uma emissão antiga quebraria a integridade dela.
  */
 export function buildResearchSeriesCsv(items: readonly ReportItem[]): string {
+	return seriesFormatOf(items) >= 2 ? buildSeriesCsvV2(items) : buildSeriesCsvV1(items)
+}
+
+function buildSeriesCsvV1(items: readonly ReportItem[]): string {
 	const lines = [CSV_HEADER.join(",")]
 	for (const item of items) {
 		if (!item.research) continue
-		const samples = [...item.research.samples].sort(
-			(a, b) =>
-				CLASS_ORDER[a.sampleType] - CLASS_ORDER[b.sampleType] ||
-				a.idCompra.localeCompare(b.idCompra) ||
-				(a.idItemCompra ?? 0) - (b.idItemCompra ?? 0) ||
-				(a.precoUnitario ?? "").localeCompare(b.precoUnitario ?? "")
-		)
+		const samples = sortedSamples(item.research)
 		for (const s of samples) {
 			lines.push(
 				[
@@ -225,6 +282,280 @@ export function buildResearchSeriesCsv(items: readonly ReportItem[]): string {
 				]
 					.map(csvField)
 					.join(",")
+			)
+		}
+	}
+	return `﻿${lines.join("\n")}\n`
+}
+
+// ─── Série 2 (congelada) ────────────────────────────────────────────────────────
+//
+// O SHA-256 de cada emissão é sobre estes bytes, refeitos a cada abertura. Tudo o que entra na
+// série 2 mora aqui, em literal: rótulo, texto da nota, URL, mapa de valores. Não importe
+// constante de outro módulo para cá (teto de páginas, rótulo de justificativa, URL da fonte):
+// mudar uma delas lá mudaria o hash de toda emissão já feita. Mudança de formato é série 3.
+// Guarda: `price-research-report.test.ts › série 2 tem bytes congelados`.
+
+const V2_SOURCE_URL = "https://dadosabertos.compras.gov.br/modulo-pesquisa-preco/1_consultarMaterial"
+
+const V2_SUMMARY_HEADER = [
+	"item",
+	"catmat",
+	"descricao_item",
+	"unidade_pesquisa",
+	"pesquisa_item_id",
+	"pesquisa_data",
+	"pesquisa_agente",
+	"janela_meses",
+	"janela_inicio",
+	"janela_fim",
+	"consulta_data_hora",
+	"consulta_url",
+	"fonte_total_registros",
+	"fonte_total_paginas",
+	"paginas_lidas",
+	"cobertura",
+	"total_coletado",
+	"total_na_janela",
+	"total_comparavel",
+	"total_valido",
+	"uasgs_distintas",
+	"preco_minimo",
+	"preco_maximo",
+	"preco_medio",
+	"preco_mediano",
+	"desvio_padrao",
+	"cv_pct",
+	"metodo",
+	"preco_estimado",
+	"preco_no_anexo",
+	"quantidade_maxima",
+	"selecao_manual",
+	"nao_conformidades",
+	"justificativas",
+] as const
+
+const V2_SAMPLE_HEADER = [
+	"item",
+	"catmat",
+	"descricao_item",
+	"unidade_pesquisa",
+	"classificacao",
+	"id_compra",
+	"id_item_compra",
+	"uasg",
+	"nome_uasg",
+	"municipio",
+	"uf",
+	"data_referencia",
+	"fornecedor_ni",
+	"fornecedor_nome",
+	"marca",
+	"descricao_na_compra",
+	"quantidade",
+	"unidade_fornecimento",
+	"capacidade",
+	"unidade_medida",
+	"preco_original",
+	"conteudo_na_unidade",
+	"preco_convertido",
+	"conversao",
+	"conversao_refeita",
+	"conferir_na_fonte",
+] as const
+
+const V2_COVERAGE: Record<SourceCoverage, string> = { window: "janela_completa", complete: "todas_as_paginas", truncated: "parcial" }
+const V2_METHOD: Record<string, string> = { median: "mediana", mean: "media", lowest: "menor_preco" }
+const V2_JUSTIFICATION: Record<ResearchJustificationKey, string> = {
+	lowSample: "amostra reduzida (art. 6º, § 5º)",
+	method: "método (art. 6º, § 1º)",
+	outlierCriteria: "critério de desconsideração (art. 6º, § 3º)",
+	outOfPeriod: "preço fora do período de 1 ano (art. 5º, § 3º)",
+}
+
+const V2_NOTE: ReadonlyArray<readonly [string, string]> = [
+	[
+		"Série de preços coletados",
+		"Pesquisa de preços do anexo quantitativo (IN SEGES/ME 65/2021, art. 3º, IV). Três blocos: esta nota, o resumo por item e as amostras.",
+	],
+	[
+		"Fonte",
+		`Sistema oficial de preços do Governo Federal (IN SEGES/ME 65/2021, art. 5º, I): API de Dados Abertos do Compras.gov.br, módulo Pesquisa de Preços, consulta de material (${V2_SOURCE_URL}). Documentação: https://dadosabertos.compras.gov.br/swagger-ui/index.html.`,
+	],
+	[
+		"Filtros da consulta",
+		"Os parâmetros exatos de cada consulta estão em consulta_url (a URL da página 1). Pesquisa feita no sisub: tipo=codigoItemCatalogo e codigo=<CATMAT do item>, páginas de 500 registros, e nenhum outro filtro (todo o país, sem recorte de UASG, órgão, estado, município, esfera, poder ou data). Pesquisa feita pela rota de lote da API: também dataResultado=true e, quando pedidos, estado, codigoUasg ou codigoMunicipio, que aparecem na URL.",
+	],
+	[
+		"Coleta e hora",
+		"A fonte devolve os registros em ordem decrescente de data do resultado. Com janela, a coleta lê as páginas até a primeira que passa do início da janela e confere a última página (cobertura = janela_completa: a janela inteira foi lida); sem janela, lê todas até o teto de páginas (todas_as_paginas). paginas_lidas e fonte_total_paginas dizem quanto foi lido. A API não informa a hora da consulta: consulta_data_hora é a hora em que o servidor do sisub recebeu a página 1, em UTC−3; fonte_total_registros e fonte_total_paginas são os totais que a fonte informou naquela hora. Pesquisa com essas colunas vazias é anterior ao registro da consulta: foi coletada pela regra da época, as primeiras 20 páginas, sem parada pela janela.",
+	],
+	[
+		"Janela",
+		"Com janela_meses preenchido, a janela é aplicada sobre o resultado da consulta, não nela: entram os preços com data do resultado (ou da compra, quando não há resultado) de janela_inicio a janela_fim, o dia da consulta (art. 5º, II). Preço sem data fica fora do cálculo, salvo quando o agente o incluiu (aparece em nao_conformidades). Com janela_meses vazio, a pesquisa usou todo o histórico, sem janela, e a não conformidade do art. 5º está em nao_conformidades.",
+	],
+	[
+		"Funil",
+		"total_coletado = preços lidos nas páginas coletadas; total_na_janela = dentro da janela; total_comparavel = na janela, menos as inconsistentes; total_valido = os que entraram no cálculo. Os preços fora da janela não foram gravados e não estão nas amostras. Com selecao_manual = sim, só as amostras escolhidas pelo agente foram gravadas, e o critério da escolha está em justificativas (art. 6º, § 3º).",
+	],
+	[
+		"Classificação",
+		"valida = entrou no cálculo; descartada_iqr = excessivamente elevada ou inexequível, fora do intervalo Q1 − 1,5 × IIQ a Q3 + 1,5 × IIQ, aplicado com 4 ou mais preços (art. 6º, § 3º); inconsistente = embalagem que não se mede na unidade do item.",
+	],
+	[
+		"Como repetir",
+		"Abra consulta_url no navegador (ou monte a mesma chamada na documentação), avance pagina=2, 3… até a primeira página com data do resultado anterior a janela_inicio e descarte esses preços mais antigos. Para conferir um preço, abra conferir_na_fonte da amostra: a fonte devolve só a compra dela. A fonte é viva: compras homologadas depois da pesquisa aparecem na consulta de hoje e não nesta série.",
+	],
+	["Integridade", "O SHA-256 deste arquivo, byte a byte, está impresso no relatório da emissão. Abrir e salvar na planilha muda o arquivo e o hash."],
+]
+
+const v2QueryUrl = (r: ReportResearch, catmat: number | null) => {
+	const query = r.source?.query ?? r.legacyQuery ?? (catmat != null ? `tipo=codigoItemCatalogo&codigo=${catmat}&tamanhoPagina=500` : null)
+	return query ? `${V2_SOURCE_URL}?${query}&pagina=1` : null
+}
+
+/** Dia civil em UTC−3 (Brasília, sem horário de verão desde 2019), sem tabela de fuso. */
+const v2CivilDate = (instant: string) => new Date(Date.parse(instant) - 3 * 3_600_000).toISOString().slice(0, 10)
+
+/** Dia civil somado de `months` meses, com a rolagem do `Date` (31/03 − 1 mês = 03/03). */
+function v2AddMonths(civil: string, months: number): string {
+	const date = new Date(`${civil}T12:00:00Z`)
+	date.setUTCMonth(date.getUTCMonth() + months)
+	return date.toISOString().slice(0, 10)
+}
+
+/**
+ * Datas da série 2, com regra própria: mudar `researchWindowOf` (tela) ou `civil-date` não pode
+ * mudar estes bytes. Mesmo resultado que a coleta usou enquanto Brasília for UTC−3.
+ */
+function v2Window(r: ReportResearch): { researchDate: string; windowStart: string | null; windowEnd: string } {
+	const researchDate = v2CivilDate(r.createdAt)
+	const windowEnd = r.source ? v2CivilDate(r.source.consultedAt) : researchDate
+	return { researchDate, windowStart: r.periodMonths ? v2AddMonths(windowEnd, -r.periodMonths) : null, windowEnd }
+}
+
+/**
+ * Campo da série 2: como `csvField`, e também neutraliza TAB/CR no começo e põe entre aspas o CR
+ * solto. A série 2 traz texto livre da fonte (descrição na compra); a 1 não, e o `csvField` dela
+ * fica como está para o hash das emissões antigas.
+ */
+function v2Field(value: string | number | null | undefined): string {
+	if (value == null) return ""
+	const text = String(value)
+	const safe = /^[=+\-@\t\r]/.test(text) && !/^[+-]?\d+(?:\.\d+)?$/.test(text) ? `'${text}` : text
+	return /[",\n\r;]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe
+}
+const v2SampleUrl = (catmat: number, idCompra: string) =>
+	`${V2_SOURCE_URL}?tipo=codigoItemCatalogo&codigo=${catmat}&idCompra=${encodeURIComponent(idCompra)}&pagina=1&tamanhoPagina=500`
+
+/** Instante em UTC−3, com o deslocamento explícito: o mesmo texto em qualquer máquina, sem tabela de fuso. */
+function v2Instant(iso: string): string {
+	return `${new Date(Date.parse(iso) - 3 * 3_600_000).toISOString().slice(0, 19)}-03:00`
+}
+
+function v2SummaryRow(item: ReportItem): Array<string | number | null> {
+	const r = item.research
+	if (!r) {
+		// A linha tem todas as colunas, pelo nome: "sem pesquisa" vai em nao_conformidades, não num id.
+		const known: Partial<Record<(typeof V2_SUMMARY_HEADER)[number], string | number | null>> = {
+			item: item.order,
+			catmat: item.catmat,
+			descricao_item: item.description,
+			unidade_pesquisa: item.unit,
+			preco_no_anexo: item.unitPrice,
+			quantidade_maxima: item.maxQuantity,
+			nao_conformidades: "sem pesquisa",
+		}
+		return V2_SUMMARY_HEADER.map((column) => known[column] ?? null)
+	}
+	const { researchDate, windowStart, windowEnd } = v2Window(r)
+	const catmat = r.catmatCodigo ?? item.catmat
+	// Ordem fixa: o jsonb da emissão reordena as chaves do objeto, e a ordem dele mudaria o hash.
+	const justifications = (Object.keys(V2_JUSTIFICATION) as ResearchJustificationKey[])
+		.filter((key) => r.justifications?.[key]?.trim())
+		.map((key) => `${V2_JUSTIFICATION[key]}: ${r.justifications?.[key]?.trim()}`)
+	return [
+		item.order,
+		catmat,
+		item.description,
+		r.measureUnit ?? item.unit,
+		r.researchItemId,
+		researchDate,
+		r.createdByName,
+		r.periodMonths,
+		windowStart,
+		windowStart ? windowEnd : null,
+		r.source ? v2Instant(r.source.consultedAt) : null,
+		v2QueryUrl(r, catmat),
+		r.source?.totalRecords ?? null,
+		r.source?.totalPages ?? null,
+		r.source?.pagesFetched ?? null,
+		r.source ? V2_COVERAGE[r.source.coverage] : null,
+		r.totalRaw,
+		r.afterDate,
+		r.afterPollution,
+		r.afterOutlier,
+		r.uniqueSources,
+		r.priceMin,
+		r.priceMax,
+		r.priceMean,
+		r.priceMedian,
+		r.stdDev,
+		r.cvPct,
+		r.method ? (V2_METHOD[r.method] ?? r.method) : null,
+		r.referencePrice,
+		item.unitPrice,
+		item.maxQuantity,
+		r.manualSelection ? "sim" : "nao",
+		r.nonComplianceReasons.join("; "),
+		justifications.join(" | "),
+	]
+}
+
+/**
+ * Série 2: nota (fonte, filtros, coleta, janela, como repetir), resumo por item (pesquisa, janela,
+ * hora e URL da consulta, leitura da fonte, funil, estatística, método, preço e justificativas) e
+ * as amostras, cada uma com a URL que a devolve da fonte. Três blocos separados por linha em branco.
+ */
+function buildSeriesCsvV2(items: readonly ReportItem[]): string {
+	const row = (values: ReadonlyArray<string | number | null | undefined>) => values.map(v2Field).join(",")
+	const lines = V2_NOTE.map(([label, text]) => row([label, text]))
+	lines.push("", row(["Resumo por item"]), row(V2_SUMMARY_HEADER), ...items.map((i) => row(v2SummaryRow(i))))
+	lines.push("", row(["Amostras"]), row(V2_SAMPLE_HEADER))
+	for (const item of items) {
+		const r = item.research
+		if (!r) continue
+		const catmat = r.catmatCodigo ?? item.catmat
+		for (const s of sortedSamples(r)) {
+			lines.push(
+				row([
+					item.order,
+					catmat,
+					item.description,
+					r.measureUnit ?? item.unit,
+					CLASS_LABEL[s.sampleType],
+					s.idCompra,
+					s.idItemCompra,
+					s.codigoUasg,
+					s.nomeUasg,
+					s.municipio,
+					s.estado,
+					s.referenceDate,
+					s.niFornecedor,
+					s.nomeFornecedor,
+					s.marca,
+					s.descricaoItem,
+					s.quantidade,
+					s.siglaUnidadeFornecimento,
+					s.capacidadeUnidadeFornecimento,
+					s.siglaUnidadeMedida,
+					s.precoUnitario,
+					s.contentInUnit,
+					s.convertedPrice,
+					s.conversion,
+					s.conversionRecomputed ? "sim" : "nao",
+					catmat != null ? v2SampleUrl(catmat, s.idCompra) : null,
+				])
 			)
 		}
 	}
@@ -279,6 +610,13 @@ function commonChecks(item: ReportItem, emittedAt: string, sampleChecks: (r: Rep
 			basis: "IN SEGES/ME 65/2021, art. 6º, § 6º",
 		})
 	}
+	if (r.catmatCodigo != null && item.catmat != null && r.catmatCodigo !== item.catmat) {
+		checks.push({
+			severity: "blocking",
+			message: `A pesquisa consultou o CATMAT ${r.catmatCodigo}, e o item é do CATMAT ${item.catmat}: refaça a pesquisa.`,
+			basis: "IN SEGES/ME 65/2021, art. 3º, IV",
+		})
+	}
 	checks.push(...sampleChecks(r))
 	if (r.nonComplianceReasons.some((reason) => reason.includes("sem unidade declarada"))) {
 		checks.push({
@@ -319,11 +657,21 @@ function commonChecks(item: ReportItem, emittedAt: string, sampleChecks: (r: Rep
  * justificáveis sem justificativa viram aviso; justificadas, saem daqui para a seção 7.
  */
 export function auditReportItem(item: ReportItem, emittedAt: string): ReportCheck[] {
-	return commonChecks(item, emittedAt, (r) =>
-		justifiableFindingsOf(r)
+	return commonChecks(item, emittedAt, (r) => [
+		...justifiableFindingsOf(r)
 			.filter((f) => !f.justified)
-			.map((f) => ({ severity: "warning" as const, message: `${f.message}. ${f.remedy}`, basis: f.basis }))
-	)
+			.map((f) => ({ severity: "warning" as const, message: `${f.message}. ${f.remedy}`, basis: f.basis })),
+		// Pesquisa gravada antes do registro da consulta: sem hora nem prova de que a janela foi lida inteira.
+		...(r.source
+			? []
+			: [
+					{
+						severity: "warning" as const,
+						message: "Pesquisa anterior ao registro da consulta à fonte (sem hora nem leitura da janela). Refaça para juntar a consulta completa.",
+						basis: "IN SEGES/ME 65/2021, art. 3º, III e IV",
+					},
+				]),
+	])
 }
 
 /**
@@ -502,6 +850,37 @@ async function loadItems(db: SisubDb, quantityEstimateId: string, status: string
 	}))
 }
 
+/** Consulta gravada na pesquisa (`ri.*` traz as colunas quando a migration 20261016150000 está aplicada). */
+function sourceConsultationOf(h: Row): PriceResearchSourceConsultation | null {
+	const coverage = str(h.source_coverage)
+	if (h.source_consulted_at == null || h.source_query == null || !(SOURCE_COVERAGES as readonly string[]).includes(coverage ?? "")) return null
+	return {
+		consultedAt: new Date(String(h.source_consulted_at)).toISOString(),
+		query: String(h.source_query),
+		totalRecords: num(h.source_total_records) ?? 0,
+		totalPages: num(h.source_total_pages) ?? 0,
+		pagesFetched: num(h.source_pages_fetched) ?? 0,
+		coverage: coverage as SourceCoverage,
+	}
+}
+
+/**
+ * Consulta de pesquisa anterior ao registro dela, pelo caminho que a gravou. A rota da API grava o
+ * limiar de similaridade no cabeçalho, e o sisub não: é o que distingue os dois.
+ */
+function legacyQueryOf(h: Row): string | null {
+	const catmat = num(h.catmat_codigo)
+	if (catmat == null) return null
+	const base = `tipo=codigoItemCatalogo&codigo=${catmat}&tamanhoPagina=500`
+	if (h.header_similarity_threshold == null) return base
+	const filters = [
+		h.header_filter_estado != null ? `&estado=${encodeURIComponent(String(h.header_filter_estado))}` : "",
+		h.header_filter_uasg_code != null ? `&codigoUasg=${encodeURIComponent(String(h.header_filter_uasg_code))}` : "",
+		h.header_filter_municipio_code != null ? `&codigoMunicipio=${String(h.header_filter_municipio_code)}` : "",
+	]
+	return `${base}&dataResultado=true${filters.join("")}`
+}
+
 /** Pesquisas por id, com amostras e o nome do agente. */
 async function loadResearch(db: SisubDb, researchItemIds: readonly string[]): Promise<Map<string, ReportResearch>> {
 	if (researchItemIds.length === 0) return new Map()
@@ -515,6 +894,8 @@ async function loadResearch(db: SisubDb, researchItemIds: readonly string[]): Pr
 			() =>
 				db.execute(sql`
 					select ri.*, rh.created_by, rh.period_months, rh.reference_method as header_method,
+						rh.similarity_threshold as header_similarity_threshold, rh.filter_estado as header_filter_estado,
+						rh.filter_uasg_code as header_filter_uasg_code, rh.filter_municipio_code as header_filter_municipio_code,
 						nullif(btrim(coalesce(m.posto, '') || ' ' || coalesce(m.nome_guerra, '')), '') as military_name,
 						coalesce(ud.email, au.email) as email
 					from procurement.price_research_item ri
@@ -546,6 +927,7 @@ async function loadResearch(db: SisubDb, researchItemIds: readonly string[]): Pr
 		result.set(String(h.id), {
 			researchItemId: String(h.id),
 			researchId: String(h.research_id),
+			catmatCodigo: num(h.catmat_codigo),
 			createdAt: new Date(String(h.created_at)).toISOString(),
 			createdBy: str(h.created_by),
 			createdByName: str(h.military_name) ?? str(h.email),
@@ -573,6 +955,8 @@ async function loadResearch(db: SisubDb, researchItemIds: readonly string[]): Pr
 				outOfPeriod: str(h.justification_out_of_period),
 			},
 			manualSelection: h.manual_selection === true,
+			source: sourceConsultationOf(h),
+			legacyQuery: h.source_query == null ? legacyQueryOf(h) : null,
 			samples: own.map((s) => {
 				const stored = s.converted_price != null
 				// Pesquisa anterior à gravação da conversão: refaz pela mesma regra pura, e o relatório diz.
@@ -600,6 +984,7 @@ async function loadResearch(db: SisubDb, researchItemIds: readonly string[]): Pr
 					niFornecedor: str(s.ni_fornecedor),
 					nomeFornecedor: str(s.nome_fornecedor),
 					marca: str(s.marca),
+					descricaoItem: str(s.descricao_item),
 					quantidade: str(s.quantidade),
 					siglaUnidadeFornecimento: str(s.sigla_unidade_fornecimento),
 					capacidadeUnidadeFornecimento: str(s.capacidade_unidade_fornecimento),
@@ -662,6 +1047,8 @@ export interface PriceResearchReport {
 	 * regra da época); 2 = checklist e excepcionalidades congelados. O texto do documento acompanha.
 	 */
 	ruleVersion: 1 | 2
+	/** Formato da série em CSV (`SERIES_FORMAT`): 1 nas emissões antigas, sem nota nem resumo. */
+	seriesFormat: number
 	auditSample: { curveA: number[]; sampled: number[] }
 	emissions: Array<{ id: string; sequence: number; emittedAt: string }>
 }
@@ -685,9 +1072,9 @@ export async function emitPriceResearchReport(db: SisubDb, ctx: UserContext, inp
 	const emittedAt = new Date().toISOString()
 	const frozen: ReportItem[] = items.map((i) => {
 		const withResearch = { ...i, research: research.get(latest.get(i.listItemId) ?? "") ?? null }
-		return { ...withResearch, audit: freezeItemAudit(withResearch, emittedAt) }
+		return { ...withResearch, audit: freezeItemAudit(withResearch, emittedAt), seriesFormat: SERIES_FORMAT }
 	})
-	// A série não leva `audit`: o CSV (e o hash) de emissões antigas e novas tem as mesmas colunas.
+	// O hash é sobre a série no formato gravado nos itens; reabrir a emissão a regenera no mesmo formato.
 	const sha256 = sha256Hex(buildResearchSeriesCsv(frozen))
 
 	return runQuery("TRANSACTION_FAILED", () =>
@@ -782,6 +1169,7 @@ export async function fetchPriceResearchReport(
 		checks: items.map((i) => ({ order: i.order, checks: emittedItemAudit(i, emittedAt).checks })),
 		exceptions: items.map((i) => ({ order: i.order, description: i.description, exceptions: emittedItemAudit(i, emittedAt).exceptions })),
 		ruleVersion: items.some((i) => i.audit) ? 2 : 1,
+		seriesFormat: seriesFormatOf(items),
 		auditSample: buildAuditSample(items, sha256),
 		emissions: emissions.map((e) => ({ id: e.id, sequence: e.sequence, emittedAt: e.emittedAt })),
 	}

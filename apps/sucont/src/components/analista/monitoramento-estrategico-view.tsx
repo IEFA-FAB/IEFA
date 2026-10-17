@@ -4,7 +4,7 @@ import { Bar, BarChart, CartesianGrid, Legend, Pie, PieChart, ResponsiveContaine
 import { ChatAssistant } from "#/components/analista/chat-assistant"
 import { SectionHeader } from "#/components/ui/section-header"
 import { StatTile } from "#/components/ui/stat-tile"
-import type { DecisaoData, EstrategicoData, ManagerialData } from "#/lib/analista/monitoramento-panels"
+import { type DecisaoData, describeTopOdsShare, type EstrategicoData, type ManagerialData } from "#/lib/analista/monitoramento-panels"
 import { formatCurrency } from "#/lib/analista/types"
 import { chartChrome } from "#/lib/chart-theme"
 
@@ -31,11 +31,7 @@ export function MonitoramentoEstrategicoView({ estrategicoData, managerialData, 
 					hint="soma absoluta dos saldos irregulares"
 					status="destructive"
 				/>
-				<StatTile
-					label="Maior risco por ODS"
-					value={estrategicoData.topOds[0]?.name || "-"}
-					hint={`${estrategicoData.topOds[0]?.percent.toFixed(1)}% das inconsistências`}
-				/>
+				<StatTile label="Maior risco por ODS" value={estrategicoData.topOds[0]?.name || "-"} hint={describeTopOdsShare(estrategicoData.topOds)} />
 			</div>
 
 			<div className="grid grid-cols-1 lg:grid-cols-2 gap-8">

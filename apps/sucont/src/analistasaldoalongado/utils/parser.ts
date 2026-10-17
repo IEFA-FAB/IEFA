@@ -1,5 +1,6 @@
 import Papa from "papaparse"
 import * as XLSX from "xlsx"
+import { parseBrazilianAmountOrZero } from "#/lib/analysis/saldo"
 import { isUgAcompanhada } from "#/lib/ug/registry"
 
 export interface ParsedRow {
@@ -77,6 +78,21 @@ const findSaldoKey = (keys: string[]): string | undefined => {
 	return saldoKeys[0]
 }
 
+/**
+ * Saldo da célula pela regra compartilhada (`parseBrazilianAmount`); o que não for número
+ * vira 0, como antes.
+ *
+ * Diferença mantida de propósito: o texto (CSV do Papa, ou célula de texto no Excel)
+ * perde antes tudo que não seja dígito, separador, sinal ou parêntese. A cópia antiga já
+ * tolerava assim um sufixo como "C"/"D" ou uma moeda escrita; só que tirava também os
+ * parênteses, e "(1.234,56)" virava positivo. Número do Excel (`raw: true`) passa direto:
+ * antes ia por `String()`, e o separador único ("1.234") era lido como decimal.
+ */
+export function parseSaldoCell(value: unknown): number {
+	if (typeof value !== "string") return parseBrazilianAmountOrZero(value)
+	return parseBrazilianAmountOrZero(value.replace(/[^\d.,()-]/g, ""))
+}
+
 export const parseFile = async (file: File): Promise<ParsedRow[]> => {
 	return new Promise((resolve, reject) => {
 		const reader = new FileReader()
@@ -140,26 +156,7 @@ export const parseFile = async (file: File): Promise<ParsedRow[]> => {
 						let contaCorrente = String(row[contaCorrenteKey]).trim()
 						if (contaCorrente.endsWith(".0")) contaCorrente = contaCorrente.slice(0, -2)
 
-						let saldoStr = String(row[saldoKey])
-						let saldo = 0
-
-						if (saldoStr && saldoStr.trim() !== "") {
-							saldoStr = saldoStr.replace(/[^\d.,-]/g, "")
-
-							if (saldoStr.includes(",") && saldoStr.includes(".")) {
-								const lastComma = saldoStr.lastIndexOf(",")
-								const lastDot = saldoStr.lastIndexOf(".")
-								if (lastComma > lastDot) {
-									saldoStr = saldoStr.replace(/\./g, "").replace(",", ".")
-								} else {
-									saldoStr = saldoStr.replace(/,/g, "")
-								}
-							} else if (saldoStr.includes(",")) {
-								saldoStr = saldoStr.replace(",", ".")
-							}
-
-							saldo = parseFloat(saldoStr)
-						}
+						const saldo = parseSaldoCell(row[saldoKey])
 
 						return {
 							ug,
@@ -167,7 +164,7 @@ export const parseFile = async (file: File): Promise<ParsedRow[]> => {
 							contaContabil,
 							nomeConta,
 							contaCorrente,
-							saldo: Number.isNaN(saldo) ? 0 : saldo,
+							saldo,
 						}
 					})
 					.filter((row) => row.ug && row.contaContabil && isUgAcompanhada(row.ug))

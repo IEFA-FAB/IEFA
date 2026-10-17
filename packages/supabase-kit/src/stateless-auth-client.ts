@@ -21,9 +21,13 @@
  * Sozinho, não decide QUEM é o usuário da request: ele não enxerga os cookies. Quem responde
  * isso é `createSsrAuthClient` (server fn do Start) ou `resolveCookieSessionUser` (rota Nitro),
  * que usa este client para validar, com `getUser(jwt)`, o token que ele mesmo tirou do cookie.
+ * O outro uso de identificação é o token que já chega explícito, sem cookie (`Authorization:
+ * Bearer` de um cliente MCP, no sisub-mcp): aí quem chama passa o JWT a `getUser(jwt)` e trata
+ * falha de transporte (`AuthRetryableFetchError`) como indisponibilidade, não como token ruim.
  */
 import { createClient } from "@supabase/supabase-js"
 
+import { SERVER_AUTH_OPTIONS } from "./server-options.ts"
 import { authTimeoutFetch } from "./timeout-fetch.ts"
 
 export type StatelessAuthClientOptions = {
@@ -47,7 +51,7 @@ export type StatelessAuthClientOptions = {
  */
 export function createStatelessAuthClient({ url, publishableKey, fetch }: StatelessAuthClientOptions) {
 	return createClient(url, publishableKey, {
-		auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+		auth: SERVER_AUTH_OPTIONS,
 		global: { fetch: fetch ?? authTimeoutFetch },
 	})
 }

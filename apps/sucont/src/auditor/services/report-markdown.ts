@@ -14,6 +14,7 @@
 
 import { blocoFundamentacao, FUNDAMENTO_CONCILIACAO_SISTEMAS } from "#/lib/normas"
 import { formatCurrency } from "./dataProcessor"
+import { NET_DIFFERENCE_LABEL } from "./net-difference"
 import type { ReportDataset, ReportTrendItem, ReportTrendScope } from "./report"
 import type { AnalyticNote } from "./report-schema"
 
@@ -115,7 +116,7 @@ function headerBlock(dataset: ReportDataset): string {
 				["Saldo total SIAFI", formatCurrency(totals.siafi)],
 				["Saldo total SILOMS", formatCurrency(totals.siloms)],
 				["Divergência total (soma dos módulos)", formatCurrency(totals.absoluteDifference)],
-				["Diferença líquida (SIAFI − SILOMS)", formatCurrency(totals.netDifference)],
+				[NET_DIFFERENCE_LABEL, formatCurrency(totals.netDifference)],
 				["Unidades Gestoras analisadas", String(dataset.ugCount)],
 				["Registros (UG × grupo de contas)", String(dataset.recordCount)],
 				["Competências carregadas na base", String(dataset.periodsLoaded)],

@@ -34,7 +34,7 @@ CRUD de templates de cardápio semanal (`menu_template`). Cada template define r
 Cadastro e edição de receitas. Rota usa layout outlet com sub-rotas para detalhes, ingredientes e modo de preparo.
 
 ### Agendamento da Produção (`/kitchen/$kitchenId/planning`)
-**PlanningBoard** — calendário mensal onde cardápios semanais, eventos e apoios viram o que a cozinha produz em cada dia, e onde entram os ajustes do dia a dia (troca de preparação, substituto de insumo, cardápio de contingência). Fica por último no grupo **Planejamento da Produção** do menu, depois de Cardápios Semanais, Eventos e Apoios.
+**PlanningBoard** — calendário mensal onde cardápios semanais, eventos e apoios viram o que a cozinha produz em cada dia, e onde entram os ajustes do dia a dia (troca de preparação, substituto de insumo, cardápio de contingência). Abre a seção **Execução** do menu: vem depois de **Cardápios** (preparações, semanais, eventos, apoios) e de **Planejamento da compra** (previsão de demanda), porque só se agenda a produção com a ata homologada; a previsão é anterior à licitação.
 
 ### Analytics
 Acompanhamento de consumo, custo e planejamento por cozinha. Dados agregados do schema `sisub` no Supabase.

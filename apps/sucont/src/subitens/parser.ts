@@ -1,10 +1,11 @@
 // Extraído de routes/subitens-genericos.tsx (port do sucontsubitem): leitura do
-// relatório do Tesouro Gerencial (cabeçalho na linha 12) e agrupamento dos
-// subitens genéricos por UG. Era o corpo do `reader.onload` de `processFile`.
+// relatório do Tesouro Gerencial (cabeçalho na linha 12) e agrupamento por UG das
+// linhas com código genérico na conta corrente. Era o corpo do `reader.onload` de
+// `processFile`. O que é código genérico, e de que tipo, mora em `generic-code.ts`.
 import * as XLSX from "xlsx"
+import { parseBrazilianAmountOrZero } from "#/lib/analysis/saldo"
+import { classifyGenericCode } from "#/subitens/generic-code"
 import type { ProcessedData, UgGroup } from "#/subitens/types"
-
-export const GENERIC_SUBITEM_REGEX = /(^|\D)(99|999)($|\D)/
 
 interface ReportColumns {
 	ugCol: string
@@ -46,27 +47,22 @@ function resolveColumns(firstRow: Record<string, unknown>): ReportColumns {
 	return { ugCol, contaCol, ccCol, saldoCol }
 }
 
-/** Saldo numérico da célula; texto no formato "R$ 1.234,56" é convertido, e o que não for número vira 0. */
-function parseSaldo(saldoRaw: unknown): number {
-	let saldo = 0
-	if (typeof saldoRaw === "number") {
-		saldo = saldoRaw
-	} else {
-		const cleaned = String(saldoRaw)
-			.replace(/[R$\s]/g, "")
-			.replace(/\./g, "")
-			.replace(",", ".")
-		saldo = parseFloat(cleaned)
-	}
-	return Number.isNaN(saldo) ? 0 : saldo
+/**
+ * Saldo da célula pela regra compartilhada (`parseBrazilianAmount`); o que não for número
+ * vira 0, como antes. A cópia antiga tirava todo ponto ("1500.25" virava 150025) e não
+ * lia parênteses.
+ */
+export function parseSaldo(saldoRaw: unknown): number {
+	return parseBrazilianAmountOrZero(saldoRaw)
 }
 
 const toProcessedRow = (row: Record<string, unknown>, { ugCol, contaCol, ccCol, saldoCol }: ReportColumns): ProcessedData => {
-	const cc = String(row[ccCol] ?? "")
+	const contaCorrente = String(row[ccCol] ?? "").trim()
 	return {
 		ug: String(row[ugCol]).trim(),
 		contaContabil: String(row[contaCol]).trim(),
-		contaCorrente: cc.trim(),
+		contaCorrente,
+		genericKinds: classifyGenericCode(contaCorrente),
 		saldo: parseSaldo(row[saldoCol]),
 		racId: "RAC 28",
 	}
@@ -90,9 +86,9 @@ function groupByUg(filtered: ProcessedData[]): UgGroup[] {
 }
 
 /**
- * Lê a planilha e devolve as UGs com subitens genéricos, em ordem de UG. Lança com a
+ * Lê a planilha e devolve as UGs com código genérico na conta corrente, em ordem de UG. Lança com a
  * mensagem que a tela mostra quando a planilha está vazia ou falta coluna; lista vazia
- * (nenhum subitem genérico) fica para quem chama decidir.
+ * (nenhum código genérico) fica para quem chama decidir.
  */
 export function parseWorkbook(bstr: string | ArrayBuffer | null | undefined): UgGroup[] {
 	const workbook = XLSX.read(bstr, { type: "array" })
@@ -107,7 +103,7 @@ export function parseWorkbook(bstr: string | ArrayBuffer | null | undefined): Ug
 
 	const filtered: ProcessedData[] = jsonData
 		.map((row: Record<string, unknown>) => toProcessedRow(row, columns))
-		.filter((row: ProcessedData) => GENERIC_SUBITEM_REGEX.test(row.contaCorrente))
+		.filter((row: ProcessedData) => row.genericKinds.length > 0)
 
 	return groupByUg(filtered)
 }

@@ -7,7 +7,7 @@
  */
 
 import { beforeAll, describe, expect, it } from "bun:test"
-import { AccountGroup, ImpactLevel, ProbabilityLevel, type RawInputRow, RiskLevel, type StoredBalanceRow } from "../types"
+import { AccountGroup, type FinancialRecord, ImpactLevel, ProbabilityLevel, type RawInputRow, RiskLevel, type StoredBalanceRow } from "../types"
 import { buildFixtureFile, installFileReaderPolyfill } from "./__fixtures__/report"
 import {
 	applyDeadlineChange,
@@ -225,6 +225,91 @@ describe("applyRiskClassification — risco por (UG, grupo), não por UG", () =>
 		)
 		expect(intangivel?.monthsWithDivergence).toBe(0)
 		expect(bmp?.monthsWithDivergence).toBe(6)
+	})
+})
+
+describe("applyRiskClassification — posição pela última ocorrência, só entre divergentes (decisões do mantenedor)", () => {
+	const record = (ug: string, difference: number): FinancialRecord =>
+		({
+			id: ug,
+			date: "01/2025",
+			monthIndex: 0,
+			year: 2025,
+			sortableDate: "2025-01",
+			cod: ug,
+			ug,
+			orgaoSuperior: "O",
+			ods: "S",
+			group: AccountGroup.BMP,
+			siafiValue: difference,
+			silomsValue: 0,
+			difference,
+			preponderance: "SIAFI",
+		}) as FinancialRecord
+	const classify = (diffs: number[]) => applyRiskClassification(diffs.map((d, i) => record(`UG-${i}`, d)))
+
+	it("com 4 chaves distintas a maior chega a CRÍTICO", () => {
+		expect(classify([100, 200, 300, 400]).map((r) => r.riskLevel)).toEqual([RiskLevel.BAIXO, RiskLevel.MEDIO, RiskLevel.ALTO, RiskLevel.CRITICO])
+	})
+
+	it("com 5 chaves distintas a maior chega a CATASTRÓFICO no impacto", () => {
+		expect(classify([100, 200, 300, 400, 500]).map((x) => x.impactLevel)).toEqual([
+			ImpactLevel.INSIGNIFICANTE,
+			ImpactLevel.MENOR,
+			ImpactLevel.MODERADO,
+			ImpactLevel.MAIOR,
+			ImpactLevel.CATASTROFICO,
+		])
+	})
+
+	it("empate fica no nível da última ocorrência, sem rebaixar ninguém", () => {
+		const r = classify([100, 500, 500, 500])
+		expect(r.map((x) => x.riskLevel)).toEqual([RiskLevel.BAIXO, RiskLevel.CRITICO, RiskLevel.CRITICO, RiskLevel.CRITICO])
+		expect(r.map((x) => x.impactLevel)).toEqual([ImpactLevel.MENOR, ImpactLevel.CATASTROFICO, ImpactLevel.CATASTROFICO, ImpactLevel.CATASTROFICO])
+	})
+
+	it("conciliadas saem do ranking: as divergentes se espalham entre si", () => {
+		// Com as 6 conciliadas no denominador, as duas divergentes ficavam em 87,5 e 100 (ambas CRÍTICO).
+		const r = classify([0, 0, 0, 0, 0, 0, 100, 400])
+		expect(r.map((x) => x.riskLevel)).toEqual([...Array(6).fill(RiskLevel.BAIXO), RiskLevel.MEDIO, RiskLevel.CRITICO])
+		expect(r.map((x) => x.impactLevel)).toEqual([...Array(6).fill(ImpactLevel.INSIGNIFICANTE), ImpactLevel.MODERADO, ImpactLevel.CATASTROFICO])
+	})
+
+	it("quatro divergentes entre conciliadas ocupam os quatro níveis", () => {
+		const r = classify([0, 100, 0, 200, 300, 0, 400])
+		expect(r.map((x) => x.riskLevel)).toEqual([
+			RiskLevel.BAIXO,
+			RiskLevel.BAIXO,
+			RiskLevel.BAIXO,
+			RiskLevel.MEDIO,
+			RiskLevel.ALTO,
+			RiskLevel.BAIXO,
+			RiskLevel.CRITICO,
+		])
+		expect(r.map((x) => x.impactLevel)).toEqual([
+			ImpactLevel.INSIGNIFICANTE,
+			ImpactLevel.MENOR,
+			ImpactLevel.INSIGNIFICANTE,
+			ImpactLevel.MODERADO,
+			ImpactLevel.MAIOR,
+			ImpactLevel.INSIGNIFICANTE,
+			ImpactLevel.CATASTROFICO,
+		])
+	})
+
+	it("uma só divergente no recorte é CRÍTICO por construção", () => {
+		const r = classify([0, 0, 50])
+		expect(r.map((x) => x.riskLevel)).toEqual([RiskLevel.BAIXO, RiskLevel.BAIXO, RiskLevel.CRITICO])
+		expect(r.map((x) => x.impactLevel)).toEqual([ImpactLevel.INSIGNIFICANTE, ImpactLevel.INSIGNIFICANTE, ImpactLevel.CATASTROFICO])
+	})
+
+	it("conta conciliada fica no piso mesmo empatada com outras conciliadas", () => {
+		const r = classify([0, 0, 300])
+		expect(r.map((x) => [x.riskLevel, x.impactLevel])).toEqual([
+			[RiskLevel.BAIXO, ImpactLevel.INSIGNIFICANTE],
+			[RiskLevel.BAIXO, ImpactLevel.INSIGNIFICANTE],
+			[RiskLevel.CRITICO, ImpactLevel.CATASTROFICO],
+		])
 	})
 })
 

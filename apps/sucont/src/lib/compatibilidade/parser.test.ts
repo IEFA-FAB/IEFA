@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test"
 import * as XLSX from "xlsx"
 import { PARES } from "./pares"
-import { PAIR_COLORS, processData, type SheetRow } from "./parser"
+import { PAIR_COLORS, parseSaldo, processData, type SheetRow } from "./parser"
 
 const [PAR_CAUCAO, PAR_CONSUMO, PAR_BMP] = PARES
 
@@ -195,5 +195,14 @@ describe("processData: relatório", () => {
 	it("ordena pela diferença total decrescente; empate segue a ordem das chaves (código numérico em ordem crescente)", () => {
 		const reports = parseSheet([HEADER, ["120075", PAR_BMP.a, 100], ["120062", PAR_BMP.a, 100], ["120001", PAR_BMP.a, 5], ["120002", PAR_BMP.a, 900]])
 		expect(reports.map((r) => r.ug)).toEqual(["120002", "120062", "120075", "120001"])
+	})
+})
+
+describe("parseSaldo", () => {
+	it("segue a regra compartilhada e conta 0 o que não for número", () => {
+		// A cópia antiga tirava todo ponto ("1500.25" → 150025) e devolvia 0 para parênteses.
+		expect([1234.5, "1.234,56", "1500.25", "(1.234,56)", "1.234", "abc", null, true].map(parseSaldo)).toEqual([
+			1234.5, 1234.56, 1500.25, -1234.56, 1234, 0, 0, 0,
+		])
 	})
 })

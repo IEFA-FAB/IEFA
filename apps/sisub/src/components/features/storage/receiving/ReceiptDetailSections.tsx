@@ -23,6 +23,7 @@ export function ReceiptStageActions({
 	status,
 	awaitingDefinitive,
 	canRefuse,
+	isInvoiceRefused,
 	busy,
 	onProvisional,
 	onDefinitive,
@@ -31,6 +32,8 @@ export function ReceiptStageActions({
 	status: string
 	awaitingDefinitive: boolean
 	canRefuse: boolean
+	/** NF-e já recusada: efetivar não vale, e concluir a recusa é o próximo passo. */
+	isInvoiceRefused: boolean
 	busy: boolean
 	onProvisional: () => void
 	onDefinitive: () => void
@@ -46,7 +49,7 @@ export function ReceiptStageActions({
 			)}
 			{/* Efetivação é única: recebimento `divergent` JÁ efetivado mostrava o botão, que sempre falhava */}
 			{awaitingDefinitive && (
-				<Button size="sm" disabled={busy} onClick={onDefinitive}>
+				<Button size="sm" variant={isInvoiceRefused ? "outline" : "default"} disabled={busy || isInvoiceRefused} onClick={onDefinitive}>
 					{busy ? <Spinner className="size-4" /> : <CheckCheck className="size-4" />}
 					Efetivar definitivo
 				</Button>
@@ -54,7 +57,7 @@ export function ReceiptStageActions({
 			{canRefuse && (
 				<Button size="sm" variant="destructive" disabled={busy} onClick={onRefuse}>
 					<Ban data-icon="inline-start" aria-hidden="true" />
-					Recusar entrega
+					{isInvoiceRefused ? "Concluir a recusa" : "Recusar entrega"}
 				</Button>
 			)}
 		</>
@@ -62,8 +65,21 @@ export function ReceiptStageActions({
 }
 
 /** Consulta da NF-e com problema enquanto o definitivo não entrou. */
-export function InvoiceProblemAlert({ invoice }: { invoice: ReceiptContext["invoice"] }) {
+export function InvoiceProblemAlert({ invoice, canRefuse }: { invoice: ReceiptContext["invoice"]; canRefuse: boolean }) {
 	if (!invoice?.problem) return null
+	if (invoice.refused) {
+		return (
+			<Alert variant="destructive" className="print:hidden">
+				<Ban aria-hidden="true" />
+				<AlertTitle>NF-e recusada, recebimento ainda aberto</AlertTitle>
+				<AlertDescription>
+					{canRefuse
+						? `${invoice.problem}: use "Concluir a recusa". Nada entra no estoque enquanto a nota estiver recusada.`
+						: `${invoice.problem}. Quem recebe em definitivo (nível 3) conclui a recusa. Nada entra no estoque enquanto a nota estiver recusada.`}
+				</AlertDescription>
+			</Alert>
+		)
+	}
 	return (
 		<Alert variant={invoice.cancelled ? "destructive" : "default"} className="print:hidden">
 			<TriangleAlert aria-hidden="true" />

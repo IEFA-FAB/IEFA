@@ -182,7 +182,15 @@ describe("buildOracleContext", () => {
 				{ ods: "GABAER", count: 3, volume: 160, percentage: 30 },
 			],
 			criticalSummary: { ods: "SEFA", os: "DIRAD", ugCount: "120006", ugVolume: "888888" },
-			paretoData: { ugPercentage: 60, inconsistencyPercentage: 80, topUgs: [] },
+			paretoData: {
+				ugPercentage: 60,
+				inconsistencyPercentage: 80,
+				topUgs: [
+					{ ug: "120006", count: 4, volume: 20, ods: "SEFA", os: "DIRAD" },
+					{ ug: "120001", count: 3, volume: 160, ods: "GABAER", os: "GABAER" },
+					{ ug: "120004", count: 1, volume: 1000, ods: "COMPREP", os: "VI COMAR" },
+				],
+			},
 			priorityList: [
 				{ ug: "120004", count: 1, volume: 1000, ods: "COMPREP", os: "VI COMAR", priorityScore: 63 },
 				{ ug: "120006", count: 4, volume: 20, ods: "SEFA", os: "DIRAD", priorityScore: 51 },
@@ -197,7 +205,7 @@ describe("buildOracleContext", () => {
 				"- Órgão Superior mais crítico: DIRAD",
 				"- UG com mais inconsistências: 120006 (GAP-BR)",
 				"- UG com maior volume irregular: 888888 (NÃO IDENTIFICADA)",
-				"- Análise de Pareto: 60% das UGs concentram 80% das inconsistências.",
+				"- Análise de Pareto: 60% das UGs (3 UGs) concentram 80% das inconsistências.",
 				"",
 				"Mapa de Risco por ODS:",
 				`- SEFA: 5 inconsistências (50%), Volume: ${brl("21,00")}`,
@@ -210,7 +218,7 @@ describe("buildOracleContext", () => {
 		)
 	})
 
-	it("antes da análise avançada: campos saem como undefined e listas vazias", () => {
+	it("antes da análise avançada: campos saem como undefined, Pareto sem dados e listas vazias", () => {
 		const context = buildOracleContext({ totalFinancialImpact: 0, odsRiskMap: [], criticalSummary: null, paretoData: null, priorityList: [] })
 		expect(context).toBe(
 			[
@@ -221,7 +229,7 @@ describe("buildOracleContext", () => {
 				"- Órgão Superior mais crítico: undefined",
 				"- UG com mais inconsistências: undefined (NÃO IDENTIFICADA)",
 				"- UG com maior volume irregular: undefined (NÃO IDENTIFICADA)",
-				"- Análise de Pareto: undefined% das UGs concentram undefined% das inconsistências.",
+				"- Análise de Pareto: sem dados.",
 				"",
 				"Mapa de Risco por ODS:",
 				"",

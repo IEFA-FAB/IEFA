@@ -115,7 +115,13 @@ async function listTargetFactors(userId: string): Promise<AdminFactor[]> {
 /** E-mail do titular, lido do GoTrue — nunca do payload do administrador. */
 async function fetchTargetEmail(userId: string): Promise<string | null> {
 	const { data, error } = await getAccessControlClient().auth.admin.getUserById(userId)
-	if (error || !data?.user) fail("Usuário não encontrado.", 404)
+	// Só o 404 do GoTrue é "não encontrado": queda do serviço de autenticação é 502, como a
+	// leitura dos fatores, e não um titular que não existe.
+	if (error && error.status !== 404) {
+		setResponseStatus(502)
+		throw new Error(getAuthErrorMessage(error))
+	}
+	if (!data?.user) fail("Usuário não encontrado.", 404)
 	return data.user.email ?? null
 }
 

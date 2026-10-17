@@ -26,6 +26,7 @@ import { hasPermission } from "@iefa/pbac"
 import { evaluateCountLine, INVENTORY_COUNT_TYPES } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
+import { planCountEntryWrites } from "@/lib/count-entry-writes"
 import { PENDING_PRODUCTION_SQLSTATE, parsePendingProductionDays } from "@/lib/count-waiver"
 import { publicDbMessage } from "@/lib/db-error-message"
 import { itemDescription } from "@/lib/item-description"
@@ -296,9 +297,10 @@ async function countToleranceFor(kitchenId: number) {
  * Lançamentos, em lote.
  *
  * Em lote porque é assim que a fila offline reenvia: 15 leituras de uma vez ao
- * sair da câmara. `client_event_id` é o que impede as 15 de virarem 30, e o
- * conflito é IGNORADO em vez de virar erro — o reenvio é o caminho normal, não
- * uma exceção.
+ * sair da câmara. `client_event_id` é o que impede as 15 de virarem 30: o
+ * reenvio com o mesmo valor não grava nada, em vez de virar erro — o reenvio é
+ * o caminho normal, não uma exceção. Com valor diferente, é a correção da mesma
+ * intenção, e o lançamento gravado passa a ter o valor novo.
  */
 export const postCountEntriesFn = createServerFn({ method: "POST" })
 	.validator(
@@ -365,27 +367,58 @@ export const postCountEntriesFn = createServerFn({ method: "POST" })
 			return new Date(Math.min(receivedAt.getTime(), Math.max(floor.getTime(), at.getTime())))
 		}
 
-		const { error } = await inv.from("inventory_count_entry").upsert(
-			data.entries.map((entry) => {
-				const countedAt = clamp(entry.deviceAt)
-				return {
+		// Chave que já existe: reenvio (fica como está) ou correção do valor (`count-entry-writes.ts`).
+		const existing = await readAllPagesIn(
+			"os lançamentos já gravados",
+			data.entries.map((entry) => entry.clientEventId),
+			(chunk, from, to) =>
+				inv
+					.from("inventory_count_entry")
+					.select("client_event_id, counted_by, quantity")
+					.eq("count_id", data.countId)
+					.in("client_event_id", chunk)
+					.order("client_event_id")
+					.range(from, to)
+		)
+		const { inserts, corrections } = planCountEntryWrites(data.entries, existing, userId)
+		const timing = (entry: (typeof data.entries)[number]) => {
+			const countedAt = clamp(entry.deviceAt)
+			return {
+				counted_at: countedAt.toISOString(),
+				device_at: entry.deviceAt ?? null,
+				clock_skew_ms: entry.deviceAt ? countedAt.getTime() - new Date(entry.deviceAt).getTime() || 0 : null,
+			}
+		}
+
+		for (const entry of corrections) {
+			// O valor corrigido vale a partir de agora (é uma nova contagem da mesma intenção).
+			const { error } = await inv
+				.from("inventory_count_entry")
+				.update({ quantity: entry.quantity, overwrite: entry.overwrite, note: entry.note?.trim() || null, ...timing(entry) })
+				.eq("count_id", data.countId)
+				.eq("client_event_id", entry.clientEventId)
+				.eq("counted_by", userId)
+			if (error) throw new Error(`Erro ao corrigir o lançamento: ${publicDbMessage(error)}`)
+		}
+
+		if (inserts.length > 0) {
+			const { error } = await inv.from("inventory_count_entry").upsert(
+				inserts.map((entry) => ({
 					count_id: data.countId,
 					lot_id: entry.lotId ?? null,
 					ingredient_id: entry.ingredientId ?? null,
 					frozen_preparation_id: entry.frozenPreparationId ?? null,
 					quantity: entry.quantity,
 					client_event_id: entry.clientEventId,
-					counted_at: countedAt.toISOString(),
-					device_at: entry.deviceAt ?? null,
-					clock_skew_ms: entry.deviceAt ? countedAt.getTime() - new Date(entry.deviceAt).getTime() || 0 : null,
 					overwrite: entry.overwrite,
 					counted_by: userId,
 					note: entry.note?.trim() || null,
-				}
-			}),
-			{ onConflict: "count_id,client_event_id", ignoreDuplicates: true }
-		)
-		if (error) throw new Error(`Erro ao gravar os lançamentos: ${publicDbMessage(error)}`)
+					...timing(entry),
+				})),
+				{ onConflict: "count_id,client_event_id", ignoreDuplicates: true }
+			)
+			if (error) throw new Error(`Erro ao gravar os lançamentos: ${publicDbMessage(error)}`)
+		}
 		return { received: data.entries.length, receivedAt: receivedAt.toISOString() }
 	})
 

@@ -37,7 +37,7 @@ import type { UserContext } from "@iefa/sisub-domain/types"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAuthWithPermission } from "@/lib/auth.server"
-import { publicDbMessage } from "@/lib/db-error-message"
+import { publicDbMessage, requireReadRow } from "@/lib/db-error-message"
 import { withDeferralRollback } from "@/lib/deferral-mark"
 import { itemDescription } from "@/lib/item-description"
 import { purchaseUnitIdOfKitchen } from "@/lib/kitchen-purchase-unit.server"
@@ -86,6 +86,7 @@ import {
 	findInvoiceLotSource,
 	hasLotInfo,
 } from "@/lib/receipt-lot"
+import { formatReceiptRefusalNotRecordedMessage, planReceiptRefusal } from "@/lib/receipt-refusal"
 import { collectCatalogGtinsBySku, collectHierarchyGtinsBySku, indexInvoiceItems, type ScanInvoiceItem, toScanLine } from "@/lib/receipt-scan-lines"
 import {
 	buildReceiptItemDetails,
@@ -587,9 +588,12 @@ async function fillCostFromInvoiceLine(receiptId: string) {
 	// Só no recebimento criado DA nota. A entrega vinculada depois a uma nota semanal (o pão)
 	// divide o valor da semana pelo pão de um dia: o custo sairia cinco vezes maior. Essa já
 	// recebe o custo pela linha da nota, no vínculo (`linkReceiptDocumentsFn`).
-	const { data: receipt, error: receiptError } = await inv.from("goods_receipt").select("source").eq("id", receiptId).maybeSingle()
-	if (receiptError) throw new Error(`Erro ao ler a origem do recebimento: ${publicDbMessage(receiptError)}`)
-	if (receipt?.source !== "nfe") return
+	// Recebimento que sumiu não sai calado: a efetivação seguiria sem o custo da nota.
+	const receipt = requireReadRow(await inv.from("goods_receipt").select("source").eq("id", receiptId).maybeSingle(), {
+		readFailure: "Erro ao ler a origem do recebimento",
+		notFound: "Recebimento não encontrado",
+	})
+	if (receipt.source !== "nfe") return
 	const { data: lines, error } = await inv
 		.from("goods_receipt_item")
 		.select("id, nfe_item_id, received_qty_base, nfe_item:nfe_item_id (acquisition_cost, product_value, unit_price, commercial_qty)")
@@ -754,8 +758,10 @@ export const fetchReceiptFn = createServerFn({ method: "GET" })
 		const inv = getServerClient("inventory")
 		const kit = getServerClient("kitchen")
 
-		const { data: receipt, error } = await inv.from("goods_receipt").select("*").eq("id", data.receiptId).single()
-		if (error || !receipt) throw new Error("Recebimento não encontrado")
+		const receipt = requireReadRow(await inv.from("goods_receipt").select("*").eq("id", data.receiptId).maybeSingle(), {
+			readFailure: "Erro ao carregar o recebimento",
+			notFound: "Recebimento não encontrado",
+		})
 		await requireStorageForKitchen(1, Number(receipt.kitchen_id))
 		// Linhas e lotes lançam no erro: vazios, a conferência mostraria um
 		// recebimento sem nada a conferir — e o termo sairia sem as linhas.
@@ -1141,9 +1147,16 @@ export const refuseReceiptFn = createServerFn({ method: "POST" })
 		if (!receipt) throw new Error("Recebimento não encontrado")
 		const ctx = await requireStorageForKitchen(3, Number(receipt.kitchen_id))
 		const { userId } = ctx
-		if (!isReceiptEditable(receipt.status)) throw new Error("Recebimento já efetivado")
+		const { invoiceToRefuse } = planReceiptRefusal(receipt)
 		// Recusar o todo é decisão de quem recebe definitivamente (art. 140, II, b; § 1º).
 		await requireDesignation(data.receiptId, ctx, "definitive")
+
+		// A nota ANTES do recebimento (`receipt-refusal.ts`): se a segunda escrita falhar, o
+		// recebimento continua aberto e a tela oferece "Recusar" de novo, que conclui.
+		if (invoiceToRefuse) {
+			const { error: invoiceError } = await inv.from("nfe_document").update({ status: "refused" }).eq("id", invoiceToRefuse)
+			if (invoiceError) throw new Error(`Erro ao marcar a NF-e como recusada: ${publicDbMessage(invoiceError)}`)
+		}
 
 		const { error } = await inv
 			.from("goods_receipt")
@@ -1151,13 +1164,7 @@ export const refuseReceiptFn = createServerFn({ method: "POST" })
 			// banco recusa recusado com ele preenchido — goods_receipt_rejected_not_attested).
 			.update({ status: "rejected", notes: data.reason.trim(), rejected_by: userId, rejected_at: new Date().toISOString() })
 			.eq("id", data.receiptId)
-		if (error) throw new Error(`Erro ao recusar o recebimento: ${publicDbMessage(error)}`)
-
-		// Só a nota do recebimento criado DELA vira recusada: a NF-e semanal vinculada à entrega
-		// de um dia cobre as outras entregas da semana, que foram aceitas.
-		if (receipt.nfe_document_id && receipt.source === "nfe") {
-			await inv.from("nfe_document").update({ status: "refused" }).eq("id", receipt.nfe_document_id)
-		}
+		if (error) throw new Error(formatReceiptRefusalNotRecordedMessage(error, invoiceToRefuse != null))
 		return { refused: true }
 	})
 

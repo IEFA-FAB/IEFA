@@ -1,4 +1,5 @@
 import * as XLSX from "xlsx"
+import { parseBrazilianAmountOrZero } from "#/lib/analysis/saldo"
 import { arredondarCentavos, saldosDivergem, saldoZerado } from "#/lib/analysis/tolerancia"
 import { UG_DATA } from "#/lib/cruzamento/ugData"
 import { getConferente, isUgAcompanhada } from "#/lib/ug/registry"
@@ -70,6 +71,18 @@ export interface ReportData {
 	ranking: UGAnalysis[]
 }
 
+/**
+ * Saldo da célula pela regra compartilhada (`parseBrazilianAmount`); o que não for número
+ * vira 0, como antes.
+ *
+ * A leitura usa `raw: false`, então o valor chega como o SheetJS o FORMATA, em inglês
+ * ("1,234.56"). A cópia antiga já tratava os dois separadores; o que ela errava era o
+ * separador único: "1,234" (milhar formatado) virava 1,234. E parênteses viravam 0.
+ */
+export function parseSaldoCell(value: unknown): number {
+	return parseBrazilianAmountOrZero(value)
+}
+
 export function parseFile(file: File): Promise<RawRecord[]> {
 	return new Promise((resolve, reject) => {
 		const reader = new FileReader()
@@ -115,20 +128,7 @@ export function parseFile(file: File): Promise<RawRecord[]> {
 						const contaCorrente = getVal(["ContaCorrente"])
 						const saldoStr = getVal(["Saldo", "Valor"])
 
-						let saldo = 0
-						if (typeof saldoStr === "string") {
-							let cleaned = saldoStr.replace(/[R$\s]/g, "")
-							const lastDot = cleaned.lastIndexOf(".")
-							const lastComma = cleaned.lastIndexOf(",")
-							if (lastComma > lastDot) {
-								cleaned = cleaned.replace(/\./g, "").replace(",", ".")
-							} else if (lastDot > lastComma) {
-								cleaned = cleaned.replace(/,/g, "")
-							}
-							saldo = parseFloat(cleaned) || 0
-						} else if (typeof saldoStr === "number") {
-							saldo = saldoStr
-						}
+						const saldo = parseSaldoCell(saldoStr)
 
 						return {
 							UG: String(ug).trim(),
