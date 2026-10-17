@@ -99,7 +99,7 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
         run: |
           changed=$(git diff --name-only "$BASE_SHA"...HEAD)
-          if printf '%s\n' "$changed" | grep -qE '^(bun\.lock|package\.json|biome\.json|turbo\.json|bunfig\.toml|packages/tsconfig/|\.oxlintrc\.tailwind\.jsonc$|scripts/lint-tailwind\.ts$|apps\.manifest\.json$|scripts/release-build-env\.ts$|scripts/generate-deploy-artifacts\.ts$|\.github/workflows/pr-check\.yml$)'; then
+          if printf '%s\n' "$changed" | grep -qE '^(bun\.lock|package\.json|biome\.json|turbo\.json|bunfig\.toml|packages/tsconfig/|\.oxlintrc\.tailwind\.jsonc$|scripts/lint-tailwind\.ts$|scripts/lint-react-doctor\.ts$|apps\.manifest\.json$|scripts/release-build-env\.ts$|scripts/generate-deploy-artifacts\.ts$|\.github/workflows/pr-check\.yml$)'; then
             echo "args=" >> "$GITHUB_OUTPUT"
             echo "Arquivo global alterado: rodando o monorepo inteiro."
           else

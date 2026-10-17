@@ -64,12 +64,6 @@ export function MenuFindBar<T extends MenuDraftItem>({
 		return () => window.removeEventListener("keydown", onKeyDown)
 	}, [])
 
-	// Busca nova recomeça da primeira aparição.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: reiniciar é efeito da busca, não da lista
-	useEffect(() => {
-		setIndex(0)
-	}, [query])
-
 	// O índice só reinicia quando a BUSCA muda; digitar uma letra a mais encurta a lista e
 	// deixaria "5 de 2" na tela, com `current` indefinido.
 	const safeIndex = matches.length === 0 ? 0 : Math.min(index, matches.length - 1)
@@ -113,7 +107,11 @@ export function MenuFindBar<T extends MenuDraftItem>({
 						// Só existe depois de um pedido explícito de busca (botão ou Ctrl+F).
 						autoFocus
 						value={query}
-						onChange={(e) => setQuery(e.target.value)}
+						onChange={(e) => {
+							setQuery(e.target.value)
+							// Busca nova recomeça da primeira aparição.
+							setIndex(0)
+						}}
 						onKeyDown={handleKeyDown}
 						placeholder="Localizar preparação no cardápio (ex.: arr)"
 						className="pl-9"

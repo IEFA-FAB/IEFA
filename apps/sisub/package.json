@@ -7,7 +7,7 @@
     "build": "bunx --bun vite build",
     "serve": "bunx --bun vite preview",
     "format": "biome format",
-    "lint": "biome check && bun ../../scripts/lint-tailwind.ts sisub",
+    "lint": "biome check && bun ../../scripts/lint-tailwind.ts sisub && bun ../../scripts/lint-react-doctor.ts sisub",
     "typecheck": "bun check",
     "validate-env": "bun run src/lib/env.ts",
     "test": "bun run test:unit",

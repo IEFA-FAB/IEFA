@@ -2,6 +2,7 @@ import type { UIMessage } from "@tanstack/ai-client"
 import { fetchServerSentEvents, useChat } from "@tanstack/ai-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useCreateModuleChatSession, useModuleChatMessages, useSaveModuleChatMessage } from "@/hooks/data/useModuleChatHistory"
+import { useLatest } from "@/hooks/ui/useLatest"
 import { persistAssistantReply } from "@/lib/chat-persistence"
 import {
 	CLOSED_TURN,
@@ -68,6 +69,8 @@ export function useModuleChatSession({ sessionId, module, scopeId, onSessionCrea
 	const turnSessionRef = useRef<string | undefined>(undefined)
 	const turnRef = useRef<TurnState>(CLOSED_TURN)
 
+	// `sessionIdRef` fica à mão de propósito: o envio grava nele a sessão recém-criada antes de a
+	// prop chegar, e o `useLatest` o devolveria à prop antiga no próximo render.
 	useEffect(() => {
 		sessionIdRef.current = sessionId
 	}, [sessionId])
@@ -78,26 +81,13 @@ export function useModuleChatSession({ sessionId, module, scopeId, onSessionCrea
 	const createSession = useCreateModuleChatSession(module, scopeId)
 	const saveMessage = useSaveModuleChatMessage(module, scopeId)
 
-	const saveMessageRef = useRef(saveMessage)
-	const createSessionRef = useRef(createSession)
-	const onSessionCreatedRef = useRef(onSessionCreated)
-	useEffect(() => {
-		saveMessageRef.current = saveMessage
-	})
-	useEffect(() => {
-		createSessionRef.current = createSession
-	})
-	useEffect(() => {
-		onSessionCreatedRef.current = onSessionCreated
-	})
+	const saveMessageRef = useLatest(saveMessage)
+	const createSessionRef = useLatest(createSession)
+	const onSessionCreatedRef = useLatest(onSessionCreated)
 
 	// ── Tool calls map (display data from DB load) ──────────────────────────────
 
 	const [toolCallsMap, setToolCallsMap] = useState<Map<string, ToolCall[]>>(new Map())
-	const toolCallsMapRef = useRef(toolCallsMap)
-	useEffect(() => {
-		toolCallsMapRef.current = toolCallsMap
-	}, [toolCallsMap])
 
 	// ── useChat ───────────────────────────────────────────────────────────────
 
@@ -119,8 +109,7 @@ export function useModuleChatSession({ sessionId, module, scopeId, onSessionCrea
 		body,
 	})
 
-	const uiMessagesRef = useRef<UIMessage[]>([])
-	uiMessagesRef.current = uiMessages
+	const uiMessagesRef = useLatest<UIMessage[]>(uiMessages)
 
 	const hasUndecidedAction = hasAwaitingApproval(uiMessages)
 	const awaitingApproval = !isLoading && (pendingInterrupts.length > 0 || resuming || hasUndecidedAction)
@@ -135,18 +124,21 @@ export function useModuleChatSession({ sessionId, module, scopeId, onSessionCrea
 	// recarregar como se tivesse executado (ou ficaria pendente para sempre). A gravação vem
 	// depois da decisão, com a ação e a resposta do modelo juntas.
 
-	const persistTurn = useCallback((messages: readonly UIMessage[]) => {
-		const record = collectTurnRecord(messages)
-		if (!record) return
-		persistAssistantReply(sessionPromiseRef.current, (sessionId) =>
-			saveMessageRef.current.mutateAsync({
-				sessionId,
-				role: "assistant",
-				content: record.content,
-				toolCalls: record.toolCalls.length > 0 ? record.toolCalls : undefined,
-			})
-		)
-	}, [])
+	const persistTurn = useCallback(
+		(messages: readonly UIMessage[]) => {
+			const record = collectTurnRecord(messages)
+			if (!record) return
+			persistAssistantReply(sessionPromiseRef.current, (sessionId) =>
+				saveMessageRef.current.mutateAsync({
+					sessionId,
+					role: "assistant",
+					content: record.content,
+					toolCalls: record.toolCalls.length > 0 ? record.toolCalls : undefined,
+				})
+			)
+		},
+		[saveMessageRef]
+	)
 
 	useEffect(() => {
 		const { turn, persist } = stepTurn(turnRef.current, { isLoading, awaitingApproval })
@@ -200,7 +192,7 @@ export function useModuleChatSession({ sessionId, module, scopeId, onSessionCrea
 		if (prev.length > 0 && prev.length > loadedMessages.length) return
 
 		restoreFromHistory(loadedMessages)
-	}, [sessionId, loadedMessages, isLoading, setMessages, awaitingApproval, clear, restoreFromHistory])
+	}, [sessionId, loadedMessages, isLoading, setMessages, awaitingApproval, clear, restoreFromHistory, uiMessagesRef])
 
 	// ── Derived messages ──────────────────────────────────────────────────────
 
@@ -219,7 +211,7 @@ export function useModuleChatSession({ sessionId, module, scopeId, onSessionCrea
 		.filter((m) => m.role === "user" || m.role === "assistant")
 		.map((m, i) => {
 			const streamingToolCalls = extractToolCalls(m.parts)
-			const storedToolCalls = toolCallsMapRef.current.get(m.id)
+			const storedToolCalls = toolCallsMap.get(m.id)
 			return {
 				id: m.id,
 				role: m.role as "user" | "assistant",
@@ -268,7 +260,7 @@ export function useModuleChatSession({ sessionId, module, scopeId, onSessionCrea
 			turnRef.current = OPENED_TURN
 			void sendMessage(message)
 		},
-		[sendMessage, awaitingApproval]
+		[sendMessage, awaitingApproval, saveMessageRef, createSessionRef, onSessionCreatedRef]
 	)
 
 	const handleApprovalDecision = useCallback(

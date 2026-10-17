@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
+import { useLatest } from "@/hooks/ui/useLatest"
 
 /**
  * Estado de UI persistido em `sessionStorage` (sobrevive à navegação dentro da
@@ -52,12 +53,9 @@ export function usePersistentState<T>(
 	const [meta, setMeta] = useState<PersistMeta>({ hydrated: false, hadStored: false })
 
 	// Mantém key/serialize atuais sem recriar o setter.
-	const keyRef = useRef(key)
-	keyRef.current = key
-	const serializeRef = useRef(serialize)
-	serializeRef.current = serialize
-	const deserializeRef = useRef(deserialize)
-	deserializeRef.current = deserialize
+	const keyRef = useLatest(key)
+	const serializeRef = useLatest(serialize)
+	const deserializeRef = useLatest(deserialize)
 
 	// Hidrata do storage após o mount (não durante o render → sem mismatch de SSR).
 	useEffect(() => {
@@ -76,16 +74,19 @@ export function usePersistentState<T>(
 			}
 		}
 		setMeta({ hydrated: true, hadStored: false })
-	}, [key])
+	}, [key, deserializeRef])
 
-	const set = useCallback((value: T | ((prev: T) => T)) => {
-		setState((prev) => {
-			const next = typeof value === "function" ? (value as (p: T) => T)(prev) : value
-			const k = keyRef.current
-			if (k != null) writeStore(k, serializeRef.current(next))
-			return next
-		})
-	}, [])
+	const set = useCallback(
+		(value: T | ((prev: T) => T)) => {
+			setState((prev) => {
+				const next = typeof value === "function" ? (value as (p: T) => T)(prev) : value
+				const k = keyRef.current
+				if (k != null) writeStore(k, serializeRef.current(next))
+				return next
+			})
+		},
+		[keyRef, serializeRef]
+	)
 
 	return [state, set, meta]
 }

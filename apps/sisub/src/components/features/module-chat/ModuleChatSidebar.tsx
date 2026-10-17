@@ -143,8 +143,9 @@ export function ModuleChatSidebar({ config, activeSessionId, onSelectSession, on
 	const deleteMutation = useDeleteModuleChatSession(config.module, config.scopeId)
 	const renameMutation = useRenameModuleChatSession(config.module, config.scopeId)
 
-	const nowRef = useRef<Date>(new Date())
-	const groups = useMemo(() => groupByDate(sessions, nowRef.current), [sessions])
+	// "Hoje"/"Ontem" contam a partir da abertura da barra, não de cada render.
+	const [now] = useState(() => new Date())
+	const groups = useMemo(() => groupByDate(sessions, now), [sessions, now])
 
 	const handleDelete = useCallback(
 		(id: string) => {

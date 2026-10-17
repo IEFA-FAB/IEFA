@@ -1,6 +1,7 @@
 import { Loader2, X } from "lucide-react"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useEffectEvent, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
+import { type CameraScanEnvironment, startCameraScan } from "@/lib/camera-scan-session"
 
 /**
  * Leitura por câmera — alternativa ao leitor USB (celular na câmara, notebook
@@ -33,82 +34,57 @@ interface CameraScanDialogProps {
 	onClose: () => void
 }
 
+/** O ambiente real da sessão: câmera traseira, detector do navegador ou zxing, quadros de animação. */
+function createBrowserCameraEnvironment(video: HTMLVideoElement): CameraScanEnvironment {
+	return {
+		openCamera: () => navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }),
+		playStream: (stream) => {
+			video.srcObject = stream as MediaStream
+			return video.play()
+		},
+		createNativeDetector: () => {
+			const DetectorCtor = (globalThis as { BarcodeDetector?: BarcodeDetectorConstructor }).BarcodeDetector
+			if (!DetectorCtor) return null
+			const detector = new DetectorCtor({ formats: FORMATS })
+			return { detect: () => detector.detect(video) }
+		},
+		loadZxingReader: async () => {
+			const { BrowserMultiFormatReader } = await import("@zxing/browser")
+			const reader = new BrowserMultiFormatReader()
+			return {
+				decode: (onText) =>
+					reader.decodeFromVideoElement(video, (result) => {
+						if (result) onText(result.getText())
+					}),
+			}
+		},
+		requestFrame: (callback) => requestAnimationFrame(callback),
+		cancelFrame: (id) => cancelAnimationFrame(id),
+	}
+}
+
 export function CameraScanDialog({ onScan, onClose }: CameraScanDialogProps) {
 	const videoRef = useRef<HTMLVideoElement>(null)
 	// `onScan` costuma ser uma arrow criada no render do pai: mantê-la na lista
 	// de dependências parava e repedia a câmera a cada tecla digitada na tela.
-	const onScanRef = useRef(onScan)
-	onScanRef.current = onScan
+	const emitScan = useEffectEvent((raw: string) => onScan(raw))
 	const [status, setStatus] = useState<"starting" | "scanning" | "error">("starting")
 	const [message, setMessage] = useState("Abrindo a câmera…")
 
 	useEffect(() => {
-		let stopped = false
-		let stream: MediaStream | null = null
-		let frame = 0
-		// biome-ignore lint/suspicious/noExplicitAny: controls do zxing, carregado sob demanda
-		let zxingControls: any = null
-
-		async function start() {
-			const video = videoRef.current
-			if (!video) return
-			try {
-				stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-				if (stopped) return
-				video.srcObject = stream
-				await video.play()
-			} catch {
-				setStatus("error")
-				setMessage("Não foi possível abrir a câmera — verifique a permissão do navegador ou use o leitor USB")
-				return
-			}
-
-			const DetectorCtor = (globalThis as { BarcodeDetector?: BarcodeDetectorConstructor }).BarcodeDetector
-			if (DetectorCtor) {
-				const detector = new DetectorCtor({ formats: FORMATS })
+		const video = videoRef.current
+		if (!video) return
+		return startCameraScan(createBrowserCameraEnvironment(video), {
+			onScan: (raw) => emitScan(raw),
+			onScanning: () => {
 				setStatus("scanning")
 				setMessage("Aponte o código para a câmera")
-				const tick = async () => {
-					if (stopped) return
-					try {
-						const found = await detector.detect(video)
-						const first = found[0]?.rawValue
-						if (first) {
-							onScanRef.current(first)
-							return
-						}
-					} catch {
-						// quadro ruim: tenta o próximo
-					}
-					frame = requestAnimationFrame(() => void tick())
-				}
-				void tick()
-				return
-			}
-
-			// sem detector nativo: só aqui o leitor alternativo entra no bundle
-			try {
-				const { BrowserMultiFormatReader } = await import("@zxing/browser")
-				if (stopped) return
-				const reader = new BrowserMultiFormatReader()
-				setStatus("scanning")
-				setMessage("Aponte o código para a câmera")
-				zxingControls = await reader.decodeFromVideoElement(video, (result) => {
-					if (result && !stopped) onScanRef.current(result.getText())
-				})
-			} catch {
+			},
+			onError: (text) => {
 				setStatus("error")
-				setMessage("Este navegador não consegue ler pela câmera — use o leitor USB")
-			}
-		}
-
-		void start()
-		return () => {
-			stopped = true
-			if (frame) cancelAnimationFrame(frame)
-			zxingControls?.stop?.()
-			for (const track of stream?.getTracks() ?? []) track.stop()
-		}
+				setMessage(text)
+			},
+		})
 	}, [])
 
 	return (

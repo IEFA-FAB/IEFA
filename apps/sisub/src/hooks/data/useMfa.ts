@@ -63,6 +63,7 @@ export function useActiveSessions() {
  * próximo.
  */
 export function useStartMfaEnrollment() {
+	// react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation -- o fator nasce não verificado e mfaOverview só lista os verificados
 	return useMutation({
 		mutationFn: (input: { friendlyName: string; password?: string }) => startMfaEnrollmentFn({ data: input }),
 	})
@@ -81,6 +82,7 @@ export function useVerifyMfaEnrollment() {
 }
 
 export function useCancelMfaEnrollment() {
+	// react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation -- só remove fator não verificado, que mfaOverview não lista
 	return useMutation({
 		mutationFn: (factorId: string) => cancelMfaEnrollmentFn({ data: { factorId } }),
 	})

@@ -2,6 +2,7 @@
 // Uses centralized types from @/types/domain as per design system guidelines.
 
 import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useHydrated } from "@tanstack/react-router"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useAuth } from "@/hooks/auth/useAuth"
 import type { DayMeals } from "@/lib/meal"
@@ -110,7 +111,7 @@ export const useArranchamento = (): ArranchamentoHook => {
 	const { user } = useAuth()
 	const queryClient = useQueryClient()
 
-	const [isClient, setIsClient] = useState(false)
+	const isClient = useHydrated()
 
 	const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null)
 	const successTimerRef = useRef<NodeJS.Timeout | null>(null)
@@ -388,9 +389,6 @@ export const useArranchamento = (): ArranchamentoHook => {
 			if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
 		}
 	}, [pendingChanges, savePendingChanges])
-
-	// Client-side hydration
-	useEffect(() => setIsClient(true), [])
 
 	// Cleanup
 	useEffect(() => {

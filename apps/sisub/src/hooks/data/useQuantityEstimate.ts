@@ -53,6 +53,7 @@ export function useQuantityEstimateDetails(quantityEstimateId: string | null) {
 // ─── Mutation Hooks ───────────────────────────────────────────────────────────
 
 export function useCalculateQuantityEstimateNeeds() {
+	// react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation -- só calcula; quem grava é useSaveQuantityEstimateDraftItems
 	return useMutation({
 		mutationFn: (state: QuantityEstimateWizardState) =>
 			calculateQuantityEstimateNeedsFn({
@@ -136,6 +137,7 @@ export function useCreateQuantityEstimateDraft() {
 }
 
 export function useUpdateQuantityEstimateDraft() {
+	const queryClient = useQueryClient()
 	return useMutation({
 		mutationFn: (params: {
 			draftId: string
@@ -146,6 +148,14 @@ export function useUpdateQuantityEstimateDraft() {
 			kitchenSelections?: QuantityEstimateWizardState["kitchenSelections"]
 			segmentId?: string | null
 		}) => updateQuantityEstimateDraftFn({ data: params }),
+		// Título, cozinhas e passo aparecem na listagem e no detalhe (5 min de staleTime) e no próprio
+		// rascunho, que o assistente restaura ao reabrir. Com o assistente aberto, o refetch do
+		// rascunho não muda a tela: a restauração já aconteceu e não se repete.
+		onSuccess: (_data, { draftId }) => {
+			queryClient.invalidateQueries({ queryKey: queryKeys.quantityEstimate.listAll() })
+			queryClient.invalidateQueries({ queryKey: queryKeys.quantityEstimate.details(draftId) })
+			queryClient.invalidateQueries({ queryKey: queryKeys.quantityEstimate.draft(draftId) })
+		},
 		onError: (error) => toast.error(`Erro ao salvar rascunho: ${error.message}`),
 	})
 }

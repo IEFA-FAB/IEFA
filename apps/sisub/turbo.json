@@ -2,6 +2,16 @@
   "$schema": "https://turbo.build/schema.json",
   "extends": ["//"],
   "tasks": {
+    "lint": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/biome.json",
+        "$TURBO_ROOT$/.oxlintrc.tailwind.jsonc",
+        "$TURBO_ROOT$/scripts/lint-tailwind.ts",
+        "$TURBO_ROOT$/scripts/lint-react-doctor.ts"
+      ],
+      "outputs": []
+    },
     "test": {
       "inputs": [
         "$TURBO_DEFAULT$",

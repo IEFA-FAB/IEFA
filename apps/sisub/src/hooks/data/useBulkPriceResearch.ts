@@ -1,6 +1,7 @@
 import type { OpenResearchFinding } from "@iefa/sisub-domain"
-import { useCallback, useMemo, useRef, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import type { PriceResearchAuditIds } from "@/components/features/local/price-research/PriceResearchModal"
+import { useLatest } from "@/hooks/ui/useLatest"
 import { autoSelectPrice, DEFAULT_PERIOD_MONTHS, fetchAllPagesForCatmat } from "@/lib/price-research-utils"
 import { annexItemUnit } from "@/lib/quantity-estimate-annex"
 import { savePriceResearchFn } from "@/server/price-research.fn"
@@ -70,8 +71,7 @@ export function useBulkPriceResearch(
 	const [progress, setProgress] = useState<BulkPriceProgress>({ done: 0, total: 0, errors: 0, partial: 0, isRunning: false })
 
 	// Ref keeps the callback current without forcing start() to rebuild on every render
-	const onItemResultRef = useRef(onItemResult)
-	onItemResultRef.current = onItemResult
+	const onItemResultRef = useLatest(onItemResult)
 
 	const eligibleItems = useMemo(() => items.filter((i) => i.catmat_item_codigo != null), [items])
 
@@ -161,7 +161,7 @@ export function useBulkPriceResearch(
 
 		setProgress((prev) => ({ ...prev, isRunning: false }))
 		return results
-	}, [eligibleItems, quantityEstimateId])
+	}, [eligibleItems, quantityEstimateId, onItemResultRef])
 
 	return { start, progress, eligibleCount: eligibleItems.length }
 }

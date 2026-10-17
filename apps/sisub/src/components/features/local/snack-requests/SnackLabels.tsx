@@ -1,6 +1,7 @@
 import type { SnackLabelData, SnackRequestSummary } from "@iefa/sisub-domain"
 import { DEFAULT_SHELF_LIFE_HOURS, labelExpiresAt } from "@iefa/sisub-domain/utils"
 import { useQuery } from "@tanstack/react-query"
+import { useHydrated } from "@tanstack/react-router"
 import { Printer } from "lucide-react"
 import { useEffect, useState } from "react"
 import { createPortal } from "react-dom"
@@ -139,8 +140,7 @@ export function SnackLabelsDialog({ open, onOpenChange, requests, title }: Snack
 	const withoutSample = requests.filter((r) => !r.sample_collected_at).length
 
 	// A cópia de impressão só existe no cliente — createPortal exige `document`.
-	const [mounted, setMounted] = useState(false)
-	useEffect(() => setMounted(true), [])
+	const mounted = useHydrated()
 
 	// Fabricação do pedido sem amostra: a hora desta impressão, congelada na abertura para não
 	// mudar de uma renderização para a outra (a etiqueta na tela é a que sai na folha).

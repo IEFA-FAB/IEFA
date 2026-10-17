@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
-import { Link, type LinkOptions } from "@tanstack/react-router"
+import { Link, type LinkOptions, useHydrated } from "@tanstack/react-router"
 import { ArrowLeft, FileText, Loader2, Printer } from "lucide-react"
 import { type Dispatch, type SetStateAction, useEffect, useMemo, useState } from "react"
 import { createPortal } from "react-dom"
@@ -120,8 +120,7 @@ export function OccasionMenuPrint({ templateId, templateType, scope, date, onDat
 	const printBlocked = isOccasionPrintBlocked({ ingredientsPending, mealTypesPending, isSupportMenu, snackMealTypePending, templateFetching })
 
 	// A cópia de impressão só existe no cliente — createPortal exige `document`.
-	const [mounted, setMounted] = useState(false)
-	useEffect(() => setMounted(true), [])
+	const mounted = useHydrated()
 
 	if (isLoading) {
 		return (

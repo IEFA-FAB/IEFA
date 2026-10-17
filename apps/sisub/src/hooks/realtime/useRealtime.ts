@@ -1,6 +1,6 @@
 import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js"
 import { useQueryClient } from "@tanstack/react-query"
-import { useEffect, useRef } from "react"
+import { useEffect, useEffectEvent, useRef } from "react"
 import { toast } from "@/components/ui/toast"
 import supabase from "@/lib/supabase"
 
@@ -33,38 +33,39 @@ export function useRealtimeSubscription(options: {
 	const queryClient = useQueryClient()
 	const { table, event = "*", filter, schema = "kitchen" } = options
 
-	// Opções voláteis em ref: `queryKeyPrefix` costuma vir como literal inline (novo array a
-	// cada render) e `onUpdate` como arrow. Na dependência do efeito, cada render derrubava e
-	// recriava o canal — e o `channel()` do supabase-js devolve o canal de mesmo tópico que
-	// ainda está fechando.
-	const latest = useRef(options)
-	latest.current = options
+	// Opções voláteis lidas na hora do aviso, fora das dependências: `queryKeyPrefix` costuma vir
+	// como literal inline (novo array a cada render) e `onUpdate` como arrow. Na dependência do
+	// efeito, cada render derrubava e recriava o canal — e o `channel()` do supabase-js devolve o
+	// canal de mesmo tópico que ainda está fechando.
+	const notifyUpdate = useEffectEvent(() => {
+		const { queryKeyPrefix, message = "Dados atualizados por outro usuário", onUpdate, silent = false } = options
+		// `cancelRefetch` fica no padrão (true) de propósito: reaproveitar uma busca em curso
+		// (`false`) devolveria dado de ANTES da mudança e o marcaria como fresco por 5 min. A
+		// busca antiga não é abortada no servidor, mas a janela acima limita isso a uma por
+		// janela, e a listagem de receitas deixou de ter 14,5 MB.
+		void queryClient.invalidateQueries({ queryKey: queryKeyPrefix })
+
+		if (!silent) {
+			toast.info(message, {
+				id: `realtime-${table}`,
+				description: "Clique para recarregar",
+				action: {
+					label: "Recarregar",
+					onClick: () => queryClient.refetchQueries({ queryKey: queryKeyPrefix }),
+				},
+				duration: 5000,
+			})
+		}
+
+		onUpdate?.()
+	})
 
 	const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
 	useEffect(() => {
 		const flush = () => {
 			timerRef.current = null
-			const { queryKeyPrefix, message = "Dados atualizados por outro usuário", onUpdate, silent = false } = latest.current
-			// `cancelRefetch` fica no padrão (true) de propósito: reaproveitar uma busca em curso
-			// (`false`) devolveria dado de ANTES da mudança e o marcaria como fresco por 5 min. A
-			// busca antiga não é abortada no servidor, mas a janela acima limita isso a uma por
-			// janela, e a listagem de receitas deixou de ter 14,5 MB.
-			void queryClient.invalidateQueries({ queryKey: queryKeyPrefix })
-
-			if (!silent) {
-				toast.info(message, {
-					id: `realtime-${table}`,
-					description: "Clique para recarregar",
-					action: {
-						label: "Recarregar",
-						onClick: () => queryClient.refetchQueries({ queryKey: queryKeyPrefix }),
-					},
-					duration: 5000,
-				})
-			}
-
-			onUpdate?.()
+			notifyUpdate()
 		}
 
 		const handleChange = (_payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
@@ -87,5 +88,5 @@ export function useRealtimeSubscription(options: {
 			timerRef.current = null
 			supabase.removeChannel(channel)
 		}
-	}, [queryClient, table, schema, event, filter])
+	}, [table, schema, event, filter])
 }

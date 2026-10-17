@@ -1009,6 +1009,7 @@ export function PriceResearchModal({
 
 	const [isSavingMethod, setIsSavingMethod] = useState<PriceResearchMethod | null>(null)
 
+	// react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation -- a memória de cálculo não é lida por consulta aberta; onApplyPrice grava o preço e invalida
 	const { mutateAsync: saveAudit } = useMutation({
 		mutationFn: savePriceResearchFn,
 	})

@@ -25,6 +25,7 @@ import { useTemplateRecipeVersions } from "@/hooks/business/useTemplateRecipeVer
 import { useMealTypeGroups } from "@/hooks/data/useMenuGroups"
 import { useRecipes } from "@/hooks/data/useRecipes"
 import { useSaveTemplateEdit, useTemplate } from "@/hooks/data/useTemplates"
+import { useLatest } from "@/hooks/ui/useLatest"
 import { usePersistentState } from "@/hooks/ui/usePersistentState"
 import { cn } from "@/lib/cn"
 import { copyMenuItems, type MenuClipboardEntry, menuItemKey, pasteMenuItems, removeMenuItems, replaceMenuRecipe, setItemHeadcount } from "@/lib/menu-fill"
@@ -197,8 +198,7 @@ function GlobalWeeklyMenuEditorPage() {
 
 	const contentSignature = JSON.stringify({ name: name.trim(), description: description.trim(), items })
 	// Lida pelo guarda de saída no momento da navegação, não na renderização.
-	const contentSignatureRef = useRef(contentSignature)
-	contentSignatureRef.current = contentSignature
+	const contentSignatureRef = useLatest(contentSignature)
 
 	// O conteúdo recém-carregado já está gravado; só o que o usuário mexer conta como pendente.
 	useEffect(() => {

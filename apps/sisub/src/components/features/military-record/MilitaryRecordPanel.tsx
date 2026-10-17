@@ -96,6 +96,7 @@ export function MilitaryRecordPanel({ status, api, now }: { status: SaramStatus;
 		setShowAlternatives(false)
 	}
 
+	// react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation -- as chamadas de `api` (useSaramLinkApi) já gravam o estado no cache e invalidam o resto
 	const action = useMutation({
 		mutationFn: ({ run }: { run: () => Promise<SaramLinkOutcome>; source: FeedbackSource; from: SaramStatus["status"] }) => run(),
 		onSuccess: (result, { source, from }) => {

@@ -2,6 +2,7 @@ import type { UIMessage } from "@tanstack/ai-client"
 import { fetchServerSentEvents, useChat } from "@tanstack/ai-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useChatMessages, useCreateChatSession, useSaveChatMessage, useUpdateMessageChartType } from "@/hooks/data/useAnalyticsChatHistory"
+import { useLatest } from "@/hooks/ui/useLatest"
 import { persistAssistantReply } from "@/lib/chat-persistence"
 import type { ChartSpec, ChartType, ChatMessage } from "@/types/domain/analytics-chat"
 
@@ -61,6 +62,8 @@ export function useChatSession({ sessionId, onSessionCreated }: UseChatSessionOp
 	const sessionPromiseRef = useRef<Promise<string> | null>(null)
 	const pendingChartOverridesRef = useRef<Map<string, ChartType>>(new Map())
 
+	// `sessionIdRef` fica à mão de propósito: o envio grava nele a sessão recém-criada antes de a
+	// prop chegar, e o `useLatest` o devolveria à prop antiga no próximo render.
 	useEffect(() => {
 		sessionIdRef.current = sessionId
 	}, [sessionId])
@@ -73,60 +76,47 @@ export function useChatSession({ sessionId, onSessionCreated }: UseChatSessionOp
 	const updateChartType = useUpdateMessageChartType()
 
 	// Stable refs so callbacks never capture stale mutations
-	const saveMessageRef = useRef(saveMessage)
-	const createSessionRef = useRef(createSession)
-	const updateChartTypeRef = useRef(updateChartType)
-	const onSessionCreatedRef = useRef(onSessionCreated)
-	useEffect(() => {
-		saveMessageRef.current = saveMessage
-	})
-	useEffect(() => {
-		createSessionRef.current = createSession
-	})
-	useEffect(() => {
-		updateChartTypeRef.current = updateChartType
-	})
-	useEffect(() => {
-		onSessionCreatedRef.current = onSessionCreated
-	})
+	const saveMessageRef = useLatest(saveMessage)
+	const createSessionRef = useLatest(createSession)
+	const updateChartTypeRef = useLatest(updateChartType)
+	const onSessionCreatedRef = useLatest(onSessionCreated)
 
 	// ── Chart state ───────────────────────────────────────────────────────────
 
 	// Charts loaded from DB (message ID → ChartSpec).
 	// Merged with in-flight ToolCallPart.output when mapping UIMessage → ChatMessage.
 	const [chartDataMap, setChartDataMap] = useState<Map<string, ChartSpec>>(new Map())
-	const chartDataMapRef = useRef(chartDataMap)
-	useEffect(() => {
-		chartDataMapRef.current = chartDataMap
-	}, [chartDataMap])
 
 	// User-selected chart type overrides (message ID → ChartType)
 	const [chartTypeOverrides, setChartTypeOverrides] = useState<Map<string, ChartType>>(new Map())
 
 	// ── useChat ───────────────────────────────────────────────────────────────
 
-	const onFinish = useCallback((msg: UIMessage) => {
-		if (msg.role !== "assistant") return
-		const content = extractText(msg.parts)
-		const chart = extractChart(msg.parts)
-		if (!hasMessagePayload(content, chart)) return
+	const onFinish = useCallback(
+		(msg: UIMessage) => {
+			if (msg.role !== "assistant") return
+			const content = extractText(msg.parts)
+			const chart = extractChart(msg.parts)
+			if (!hasMessagePayload(content, chart)) return
 
-		// Store chart so the DB sync effect can retrieve it by message ID
-		if (chart) {
-			setChartDataMap((prev) => new Map(prev).set(msg.id, chart))
-		}
+			// Store chart so the DB sync effect can retrieve it by message ID
+			if (chart) {
+				setChartDataMap((prev) => new Map(prev).set(msg.id, chart))
+			}
 
-		// Persist assistant message. Await the session promise in case it is still
-		// pending (first message of a new session creates the session concurrently).
-		persistAssistantReply(sessionPromiseRef.current, (sessionId) =>
-			saveMessageRef.current.mutateAsync({
-				sessionId,
-				role: "assistant",
-				content,
-				chart,
-			})
-		)
-	}, [])
+			// Persist assistant message. Await the session promise in case it is still
+			// pending (first message of a new session creates the session concurrently).
+			persistAssistantReply(sessionPromiseRef.current, (sessionId) =>
+				saveMessageRef.current.mutateAsync({
+					sessionId,
+					role: "assistant",
+					content,
+					chart,
+				})
+			)
+		},
+		[saveMessageRef]
+	)
 
 	const {
 		messages: uiMessages,
@@ -141,8 +131,7 @@ export function useChatSession({ sessionId, onSessionCreated }: UseChatSessionOp
 
 	// Keep a ref to uiMessages so effects can read the current value without
 	// adding uiMessages to their dependency arrays (which would cause loops).
-	const uiMessagesRef = useRef<UIMessage[]>([])
-	uiMessagesRef.current = uiMessages
+	const uiMessagesRef = useLatest<UIMessage[]>(uiMessages)
 
 	// ── DB sync effect ────────────────────────────────────────────────────────
 
@@ -209,7 +198,7 @@ export function useChatSession({ sessionId, onSessionCreated }: UseChatSessionOp
 			if (m.chart) dbCharts.set(m.id, m.chart as unknown as ChartSpec)
 		}
 		setChartDataMap(dbCharts)
-	}, [sessionId, loadedMessages, isLoading, setMessages])
+	}, [sessionId, loadedMessages, isLoading, setMessages, uiMessagesRef, updateChartTypeRef])
 
 	// ── Derived messages ──────────────────────────────────────────────────────
 
@@ -221,7 +210,7 @@ export function useChatSession({ sessionId, onSessionCreated }: UseChatSessionOp
 			id: m.id,
 			role: m.role as "user" | "assistant",
 			content: extractText(m.parts),
-			chart: extractChart(m.parts) ?? chartDataMapRef.current.get(m.id),
+			chart: extractChart(m.parts) ?? chartDataMap.get(m.id),
 			chartTypeOverride: chartTypeOverrides.get(m.id),
 			isStreaming: isLoading && i === lastAssistantIdx && m.role === "assistant",
 			createdAt: m.createdAt ?? new Date(),
@@ -251,22 +240,25 @@ export function useChatSession({ sessionId, onSessionCreated }: UseChatSessionOp
 			}
 			void sendMessage(message)
 		},
-		[sendMessage]
+		[sendMessage, saveMessageRef, createSessionRef, onSessionCreatedRef]
 	)
 
-	const handleChartTypeChange = useCallback((messageId: string, type: ChartType) => {
-		const sid = sessionIdRef.current
-		if (!sid) return
+	const handleChartTypeChange = useCallback(
+		(messageId: string, type: ChartType) => {
+			const sid = sessionIdRef.current
+			if (!sid) return
 
-		setChartTypeOverrides((prev) => new Map(prev).set(messageId, type))
+			setChartTypeOverrides((prev) => new Map(prev).set(messageId, type))
 
-		const isDbUuid = messageId.length === 36 && messageId[8] === "-"
-		if (isDbUuid) {
-			updateChartTypeRef.current.mutate({ messageId, sessionId: sid, chartTypeOverride: type })
-		} else {
-			pendingChartOverridesRef.current.set(messageId, type)
-		}
-	}, [])
+			const isDbUuid = messageId.length === 36 && messageId[8] === "-"
+			if (isDbUuid) {
+				updateChartTypeRef.current.mutate({ messageId, sessionId: sid, chartTypeOverride: type })
+			} else {
+				pendingChartOverridesRef.current.set(messageId, type)
+			}
+		},
+		[updateChartTypeRef]
+	)
 
 	return {
 		messages,

@@ -67,6 +67,7 @@ export function useArpLocalCommitments(arpId: string | null) {
 // ─── Mutation: Buscar ARPs no Compras.gov.br ──────────────────────────────────
 
 export function useSearchArp() {
+	// react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation -- busca na API do Compras, não grava nada
 	return useMutation({
 		mutationFn: (params: Parameters<typeof searchArpFn>[0]["data"]) => searchArpFn({ data: params }) as Promise<ComprasArpPage>,
 		onError: (error) => toast.error(`Erro ao buscar ARP: ${error.message}`),
